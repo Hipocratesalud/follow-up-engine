@@ -32,13 +32,14 @@ export {
   INGEST_BUNDLE_JOB,
   IngestionService,
   type BundleAcceptance,
+  type EntryResult,
   type HistoryStaging,
   type IngestMode,
   type StoredEntry,
 } from './ingestion.ts';
 export type { ExtractorInfo } from './llm.ts';
 export { createLogger, type Logger } from './logger.ts';
-export type { PatientRecord, ReadModel } from './read-model.ts';
+export type { JobView, PatientRecord, ReadModel } from './read-model.ts';
 export type { ClinicRegistration, DrainResult, Storage } from './storage.ts';
 export {
   jobRetryDelayMs,

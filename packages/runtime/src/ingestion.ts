@@ -14,6 +14,7 @@ import {
   type BundleMappingResult,
   mapBundleToBatches,
   type OperationOutcome,
+  type OperationOutcomeIssue,
 } from '@follow-up-engine/fhir';
 import type { Storage } from './storage.ts';
 
@@ -33,12 +34,24 @@ export interface StoredEntry {
   readonly changed: boolean;
 }
 
+/** What happened to one request entry of an accepted Bundle, by position. */
+export interface EntryResult {
+  /** The resource the entry carried, when it could be identified. */
+  readonly ref?: { readonly resourceType: string; readonly id: string };
+  /** Present when the resource was stored (new, changed or unchanged). */
+  readonly stored?: StoredEntry;
+  /** The issues that point at this entry (`Bundle.entry[i]...`). */
+  readonly issues: readonly OperationOutcomeIssue[];
+}
+
 export interface BundleAcceptance {
   /** False when the Bundle was rejected; nothing was stored. */
   readonly ok: boolean;
   /** Errors when rejected; warnings and notes otherwise. */
   readonly outcome?: OperationOutcome;
   readonly stored: readonly StoredEntry[];
+  /** One result per request entry, in request order (empty when rejected). */
+  readonly entries: readonly EntryResult[];
   readonly batches: number;
   /** Asynchronous mode: the job that will run the engine. */
   readonly jobId?: JobId;
@@ -60,6 +73,27 @@ export interface HistoryStaging {
 interface IngestJobPayload {
   readonly bundle: unknown;
   readonly receivedAt: string;
+}
+
+/** Position of the request entry an issue points at; `undefined` for Bundle-level issues. */
+function entryIndexOf(issue: OperationOutcomeIssue): number | undefined {
+  const position = /^Bundle\.entry\[(\d+)\]/.exec(issue.expression?.[0] ?? '')?.[1];
+  return position === undefined ? undefined : Number(position);
+}
+
+function entryResults(mapping: BundleMappingResult, stored: readonly StoredEntry[]): EntryResult[] {
+  const issues = mapping.issues?.issue ?? [];
+  return mapping.entryRefs.map((ref, position) => {
+    const saved =
+      ref === undefined
+        ? undefined
+        : stored.find((entry) => entry.resourceType === ref.resourceType && entry.id === ref.id);
+    return {
+      ...(ref === undefined ? {} : { ref: { resourceType: ref.resourceType, id: ref.id } }),
+      ...(saved === undefined ? {} : { stored: saved }),
+      issues: issues.filter((issue) => entryIndexOf(issue) === position),
+    };
+  });
 }
 
 function hasErrors(outcome: OperationOutcome | undefined): boolean {
@@ -93,7 +127,13 @@ export class IngestionService {
     const mapping = mapBundleToBatches(bundle, { clinicId, receivedAt, checkFutureDates: true });
     const outcome = mapping.issues;
     if (hasErrors(outcome) && mapping.batches.length === 0 && mapping.resources.length === 0) {
-      return { ok: false, ...(outcome === undefined ? {} : { outcome }), stored: [], batches: 0 };
+      return {
+        ok: false,
+        ...(outcome === undefined ? {} : { outcome }),
+        stored: [],
+        entries: [],
+        batches: 0,
+      };
     }
     const { stored, jobId } = await this.#deps.storage.unitOfWork.withTransaction(
       clinicId,
@@ -118,6 +158,7 @@ export class IngestionService {
       ok: true,
       ...(outcome === undefined ? {} : { outcome }),
       stored,
+      entries: entryResults(mapping, stored),
       batches: mapping.batches.length,
     };
     if (mode === 'async') {

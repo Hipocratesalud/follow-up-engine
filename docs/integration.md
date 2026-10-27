@@ -410,13 +410,18 @@ A diabetology consultation (synthetic). The note, base64 in `attachment.data`, r
 
 ### Responses
 
-| Status | When                                                                                   | Body                                                                                                                                                                      |
-| ------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `202`  | Default. Validated and stored; the engine runs in the worker. Header `X-FollowUp-Job`. | `transaction-response` Bundle: one entry per stored resource (`201 Created` / `200 OK`, `location` with version), then an `OperationOutcome` with warnings and a summary. |
-| `200`  | `?sync=true` or `Prefer: respond-sync`: the engine ran before answering.               | Same, and the summary says what the engine did (`3 expectation(s) created, ...`, or that a note was queued for a retry of the plan extraction).                           |
-| `400`  | The Bundle is invalid. A `transaction` is all or nothing: nothing was stored.          | `OperationOutcome`, one issue per problem with its FHIRPath-like `expression`.                                                                                            |
-| `401`  | Missing or unknown API key.                                                            | `OperationOutcome`                                                                                                                                                        |
-| `415`  | Not JSON.                                                                              | `OperationOutcome`                                                                                                                                                        |
+| Status | When                                                                                                                                                                                     | Body                                                                                                        |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `202`  | Default. Validated and stored; the engine runs in the worker. Headers `X-FollowUp-Job` (job id) and `Content-Location` (`/jobs/<id>`, poll it), `X-FollowUp-Summary` (what was queued).  | `transaction-response` (or `batch-response`) Bundle: exactly one entry per request entry, in request order. |
+| `200`  | `?sync=true` or `Prefer: respond-sync`: the engine ran before answering; `X-FollowUp-Summary` says what it did (`3 expectation(s) created, ...`, or that a note was queued for a retry). | Same Bundle.                                                                                                |
+| `400`  | The Bundle is invalid. A `transaction` is all or nothing: nothing was stored.                                                                                                            | `OperationOutcome`, one issue per problem with its FHIRPath-like `expression`.                              |
+| `401`  | Missing or unknown API key.                                                                                                                                                              | `OperationOutcome`                                                                                          |
+| `403`  | The key lacks the `fhir:write` scope (an inbox key).                                                                                                                                     | `OperationOutcome`                                                                                          |
+| `413`  | The body is larger than 5 MB.                                                                                                                                                            | `OperationOutcome` (`too-costly`)                                                                           |
+| `415`  | Not JSON.                                                                                                                                                                                | `OperationOutcome`                                                                                          |
+| `429`  | Too many requests for this key; wait `Retry-After` seconds.                                                                                                                              | `OperationOutcome` (`throttled`)                                                                            |
+
+Each response entry answers the request entry at the same position (FHIR R4 `transaction-response`): a stored resource gets `201 Created` (new) or `200 OK` (changed or unchanged) with its versioned `location` and `etag`; a failed entry of a `batch` gets `400 Bad Request` with its own `response.outcome`; an entry the engine does not consume (a `Basic`) gets `200 OK` with an informational `response.outcome`. Warnings (an uncoded order, control characters removed, a category inferred from LOINC, a date in the future) travel in the `response.outcome` of their entry.
 
 ```json
 {
@@ -426,27 +431,39 @@ A diabetology consultation (synthetic). The note, base64 in `attachment.data`, r
     {
       "response": {
         "status": "201 Created",
-        "location": "Patient/5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e01/_history/1"
+        "location": "Patient/5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e01/_history/1",
+        "etag": "W/\"1\""
       }
     },
     {
-      "response": { "status": "202 Accepted" },
-      "resource": {
-        "resourceType": "OperationOutcome",
-        "issue": [
-          {
-            "severity": "information",
-            "code": "informational",
-            "diagnostics": "Accepted: 1 consultation batch(es) queued for the engine"
-          }
-        ]
+      "response": {
+        "status": "201 Created",
+        "location": "Practitioner/5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e02/_history/1",
+        "etag": "W/\"1\""
       }
     }
   ]
 }
 ```
 
-Single resources can also be sent one by one with `POST /fhir/<type>` (for example an `Appointment` when it is booked); they go through the same pipeline.
+(one entry per request entry; the example shows the first two.)
+
+`GET /jobs/<id>` (same API key; another clinic's job is `404`) follows an asynchronous ingestion:
+
+```json
+{
+  "id": "0b3f6c1e-2f1a-4c55-9a7e-3d2b1c0a9e11",
+  "type": "fhir.ingest_bundle",
+  "status": "completed",
+  "attempts": 1,
+  "maxAttempts": 10,
+  "createdAt": "2026-01-05T18:31:00.000Z"
+}
+```
+
+`status` is `pending` (with `nextAttemptAt`), `running`, `completed` or `failed` (every attempt failed; `lastError` says why). A Bundle is retried up to 10 times with backoff before it is `failed`.
+
+Single resources can also be sent one by one with `POST /fhir/<type>` or `PUT /fhir/<type>/<id>` (for example an `Appointment` when it is booked); they go through the same pipeline. `GET /fhir/metadata` (the `CapabilityStatement`) is public and lists exactly these interactions.
 
 ### What happens asynchronously
 
@@ -457,14 +474,14 @@ Single resources can also be sent one by one with `POST /fhir/<type>` (for examp
 
 ### Reading back
 
-| Request                                       | Returns                                                                                               |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `GET /fhir/Task?patient=<id>[&status=&code=]` | searchset of the patient's expectations (`Task` `intent: plan`) and cases (`Task` `intent: proposal`) |
-| `GET /fhir/Task/<id>`                         | one expectation or case; the `task` link of every webhook points here                                 |
-| `GET /fhir/Condition?patient=<id>`            | conditions the engine believes the patient has, with verification status and confidence               |
-| `GET /fhir/DetectedIssue?patient=<id>`        | documentation findings (a note without a follow-up plan)                                              |
+| Request                                       | Returns                                                                                                                                      |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /fhir/Task?patient=<id>[&status=&code=]` | searchset of the patient's expectations (`Task` `intent: plan`) and cases (`Task` `intent: proposal`); without `patient`, the clinic's cases |
+| `GET /fhir/Task/<id>`                         | one expectation or case; the `task` link of every webhook points here                                                                        |
+| `GET /fhir/Condition?patient=<id>`            | conditions the engine believes the patient has, with verification status and confidence                                                      |
+| `GET /fhir/DetectedIssue?patient=<id>`        | documentation findings (a note without a follow-up plan)                                                                                     |
 
-`status` matches `Task.status` (`requested`, `ready`, ...) or the engine status (`open`, `expired`, `notified`, ...); `code` matches the rule id or `follow-up-case`. The inbox JSON API (`/api/inbox/*`) and the OpenAPI document (`/openapi.json`, browsable at `/docs`) cover the rest.
+`status` matches `Task.status` (`requested`, `ready`, ...) or the engine status (`open`, `expired`, `notified`, ...); `code` is a FHIR token: the rule id or `follow-up-case`, optionally with its system (`https://hipocratesalud.com/fhir/CodeSystem/follow-up-expectation|lab_order_result_pending`; a wrong system matches nothing). `subject` is an alias of `patient`. Pages hold `_count` Tasks (default 100, at most 500, `0` for just the `total`); follow the `next` link (it carries `_offset`) until there is none. A search parameter the engine does not support is reported, never silently dropped: by default the searchset carries an `OperationOutcome` entry (`search.mode = outcome`) with a warning and the filter is not applied; with `Prefer: handling=strict` the search is a `400`. The inbox JSON API (`/api/inbox/*`) and the OpenAPI document (`/openapi.json`, browsable at `/docs`) cover the rest.
 
 ## 3. Webhooks
 

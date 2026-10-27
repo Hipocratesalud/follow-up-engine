@@ -9,6 +9,7 @@ import { registerDemoRoutes } from './demo-routes.ts';
 import { errorResponse, HttpError, toHttpError } from './errors.ts';
 import { fhirErrorResponse, registerFhirRoutes } from './fhir-routes.ts';
 import { registerInboxRoutes } from './inbox-routes.ts';
+import { registerJobRoutes } from './job-routes.ts';
 import { docsPage, openApiDocument } from './openapi.ts';
 
 export interface AppOptions {
@@ -129,8 +130,15 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
     cors({
       origin: [...options.corsOrigins],
       allowHeaders: ['Authorization', 'Content-Type', 'Prefer', 'X-Request-Id', 'X-FollowUp-User'],
-      allowMethods: ['GET', 'POST', 'OPTIONS'],
-      exposeHeaders: ['X-Request-Id', 'X-FollowUp-Job', 'Location'],
+      allowMethods: ['GET', 'POST', 'PUT', 'OPTIONS'],
+      exposeHeaders: [
+        'X-Request-Id',
+        'X-FollowUp-Job',
+        'X-FollowUp-Summary',
+        'Location',
+        'Content-Location',
+        'ETag',
+      ],
       maxAge: 600,
     }),
   );
@@ -149,11 +157,17 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   );
   app.get('/docs', (c) => c.html(docsPage()));
 
-  app.use('/fhir/*', authenticate(runtime));
-  app.use('/fhir', authenticate(runtime));
-  app.use('/api/*', authenticate(runtime));
+  // `/fhir/*` also matches `/fhir`: one authentication per request. The
+  // CapabilityStatement is public (FHIR clients read it before they log in).
+  const auth = authenticate(runtime);
+  const fhirAuth: MiddlewareHandler<AppEnv> = (c, next) =>
+    c.req.path === '/fhir/metadata' ? next() : auth(c, next);
+  app.use('/fhir/*', fhirAuth);
+  app.use('/api/*', auth);
+  app.use('/jobs/*', auth);
 
   registerFhirRoutes(app, runtime);
+  registerJobRoutes(app, runtime);
   registerInboxRoutes(app, runtime);
   if (runtime.fakeClock !== undefined) {
     registerDemoRoutes(app, runtime, runtime.fakeClock, options.worker);

@@ -165,7 +165,7 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 
 ### Searchset
 
-`toSearchsetBundle(resources, { baseUrl, total, selfUrl, nextUrl, timestamp })` wraps any list: `type = searchset`, `search.mode = match`, absolute `fullUrl` when `baseUrl` is given, no `entry` when empty.
+`toSearchsetBundle(resources, { baseUrl, total, selfUrl, nextUrl, previousUrl, timestamp, outcome })` wraps any list: `type = searchset`, `search.mode = match`, absolute `fullUrl` when `baseUrl` is given, an `OperationOutcome` entry with `search.mode = outcome` when the search has issues (an ignored parameter), no `entry` when empty.
 
 ## Engine terminology
 

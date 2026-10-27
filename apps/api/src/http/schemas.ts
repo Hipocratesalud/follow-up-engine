@@ -140,12 +140,20 @@ export const CaseActionRequestSchema = z
   })
   .meta({ id: 'CaseActionRequest' });
 
+/** `reason` is required when the case was not useful (and optional when it was). */
 export const FeedbackRequestSchema = z
-  .object({
-    useful: z.boolean(),
-    reason: FeedbackReasonSchema.optional(),
-    comment: z.string().max(2_000).optional(),
-  })
+  .discriminatedUnion('useful', [
+    z.object({
+      useful: z.literal(true),
+      reason: FeedbackReasonSchema.optional(),
+      comment: z.string().max(2_000).optional(),
+    }),
+    z.object({
+      useful: z.literal(false),
+      reason: FeedbackReasonSchema,
+      comment: z.string().max(2_000).optional(),
+    }),
+  ])
   .meta({ id: 'FeedbackRequest' });
 
 export const ConditionViewSchema = z
@@ -323,3 +331,22 @@ export type InboxStats = z.infer<typeof InboxStatsSchema>;
 export type DemoConsultationResponse = z.infer<typeof DemoConsultationResponseSchema>;
 export type CreatedExpectation = z.infer<typeof CreatedExpectationSchema>;
 export type WebhookDelivery = z.infer<typeof WebhookDeliverySchema>;
+
+/** `GET /jobs/:id`: an asynchronous ingestion as the host can follow it. */
+export const JobStatusViewSchema = z
+  .object({
+    id: z.string(),
+    /** `fhir.ingest_bundle` for a Bundle. */
+    type: z.string(),
+    /** `failed`: every attempt failed; `lastError` says why. */
+    status: z.enum(['pending', 'running', 'completed', 'failed']),
+    attempts: z.number().int(),
+    maxAttempts: z.number().int(),
+    lastError: z.string().optional(),
+    createdAt: isoDate,
+    /** When a pending job runs (again). */
+    nextAttemptAt: isoDate.optional(),
+  })
+  .meta({ id: 'JobStatus' });
+
+export type JobStatusView = z.infer<typeof JobStatusViewSchema>;

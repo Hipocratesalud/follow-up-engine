@@ -5,6 +5,7 @@ import {
   type ClinicId,
   type FhirResourceJson,
   type PatientId,
+  type ResourceRef,
 } from '@follow-up-engine/core';
 import type { OperationOutcome } from '../fhir-types.ts';
 import { hasErrors, toOperationOutcome, type MappingIssue } from '../support/operation-outcome.ts';
@@ -57,6 +58,12 @@ export interface BundleMappingResult {
   readonly contextResources: readonly FhirResourceJson[];
   /** Errors, warnings and notes; `undefined` when the bundle mapped cleanly. */
   readonly issues: OperationOutcome | undefined;
+  /**
+   * Identity of each `Bundle.entry`, by position (`undefined` for an entry
+   * without a resource or an identity): pairs every request entry with what
+   * was stored, for a `transaction-response` in request order.
+   */
+  readonly entryRefs: readonly (ResourceRef | undefined)[];
   /**
    * The Bundle as mapped: the input with control characters removed from
    * every string (see `issues`). What to keep or re-map later (job payloads).
@@ -181,11 +188,17 @@ export function mapBundleToBatches(
       resources: [],
       contextResources: [],
       issues: toOperationOutcome([...sanitized.issues, ...indexed.issues]),
+      entryRefs: [],
       bundle: sanitized.value,
     };
   }
   const { index } = indexed;
   const issues: MappingIssue[] = [...sanitized.issues, ...indexed.issues];
+  const rawEntries = (sanitized.value as { entry?: unknown }).entry;
+  const entryRefs = Array.from(
+    { length: Array.isArray(rawEntries) ? rawEntries.length : 0 },
+    (_, position) => index.entries.find((entry) => entry.index === position)?.ref,
+  );
   const oversized = new Set(
     sanitized.issues
       .filter((issue) => issue.severity === 'error')
@@ -233,6 +246,7 @@ export function mapBundleToBatches(
       resources: [],
       contextResources: [],
       issues: toOperationOutcome(issues),
+      entryRefs,
       bundle: sanitized.value,
     };
   }
@@ -294,6 +308,7 @@ export function mapBundleToBatches(
     resources,
     contextResources,
     issues: toOperationOutcome(issues),
+    entryRefs,
     bundle: sanitized.value,
   };
 }

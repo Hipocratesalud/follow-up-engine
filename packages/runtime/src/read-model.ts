@@ -2,6 +2,35 @@ import type { MemoryDatabase } from '@follow-up-engine/adapter-memory';
 import { DEFAULT_SCHEMA, type Queryable } from '@follow-up-engine/adapter-postgres';
 import type { ClinicId, FhirResourceJson } from '@follow-up-engine/core';
 
+/** A background job as the clinic that enqueued it may see it (no payload). */
+export interface JobView {
+  readonly id: string;
+  readonly type: string;
+  /** `failed`: no attempts left (dead letter). */
+  readonly status: 'pending' | 'running' | 'completed' | 'failed';
+  /** Runs so far (1 during the first run). */
+  readonly attempts: number;
+  readonly maxAttempts: number;
+  /** Why the last attempt failed, when it did. */
+  readonly lastError?: string;
+  readonly createdAt: Date;
+  /** When a pending job runs next. */
+  readonly runAt: Date;
+}
+
+const JOB_STATUS = {
+  pending: 'pending',
+  running: 'running',
+  completed: 'completed',
+  dead: 'failed',
+} as const;
+
+/** Error text a host may see: first line, bounded. */
+function publicError(error: string | null | undefined): Partial<Pick<JobView, 'lastError'>> {
+  const line = error?.split('\n')[0]?.slice(0, 300);
+  return line === undefined || line === '' ? {} : { lastError: line };
+}
+
 /** A stored `Patient` resource. */
 export interface PatientRecord {
   readonly id: string;
@@ -22,6 +51,8 @@ export interface ReadModel {
     clinicId: ClinicId,
     options: { readonly query?: string; readonly limit: number },
   ): Promise<readonly PatientRecord[]>;
+  /** A job of this clinic (`X-FollowUp-Job`); `undefined` for an unknown id or another clinic's. */
+  getJob(clinicId: ClinicId, jobId: string): Promise<JobView | undefined>;
 }
 
 function normalize(text: string): string {
@@ -61,9 +92,30 @@ export class MemoryReadModel implements ReadModel {
       .slice(0, options.limit);
     return Promise.resolve(records);
   }
+
+  getJob(clinicId: ClinicId, jobId: string): Promise<JobView | undefined> {
+    const job = [...this.#db.state.jobs.values()].find(
+      (candidate) => candidate.id === jobId && candidate.clinicId === clinicId,
+    );
+    return Promise.resolve(
+      job === undefined
+        ? undefined
+        : {
+            id: job.id,
+            type: job.type,
+            status: JOB_STATUS[job.status],
+            attempts: job.attempt,
+            maxAttempts: job.maxAttempts,
+            ...publicError(job.status === 'completed' ? undefined : job.lastError),
+            createdAt: job.createdAt,
+            runAt: job.runAt,
+          },
+    );
+  }
 }
 
 const SCHEMA_NAME = /^[a-z_][a-z0-9_]{0,62}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** {@link ReadModel} over the Postgres adapter's tables (schema `follow_up` by default). */
 export class PostgresReadModel implements ReadModel {
@@ -93,5 +145,38 @@ export class PostgresReadModel implements ReadModel {
       [clinicId, query, options.limit],
     );
     return rows.map((row) => ({ id: row.resource_id, resource: row.resource }));
+  }
+
+  async getJob(clinicId: ClinicId, jobId: string): Promise<JobView | undefined> {
+    if (!UUID.test(jobId)) {
+      return undefined;
+    }
+    const { rows } = await this.#db().query<{
+      id: string;
+      type: string;
+      status: keyof typeof JOB_STATUS;
+      attempts: number;
+      max_attempts: number;
+      last_error: string | null;
+      created_at: Date;
+      run_at: Date;
+    }>(
+      `SELECT id, type, status, attempts, max_attempts, last_error, created_at, run_at
+       FROM ${this.#schema}.jobs WHERE clinic_id = $1 AND id = $2`,
+      [clinicId, jobId],
+    );
+    const [row] = rows;
+    return row === undefined
+      ? undefined
+      : {
+          id: row.id,
+          type: row.type,
+          status: JOB_STATUS[row.status],
+          attempts: row.attempts,
+          maxAttempts: row.max_attempts,
+          ...publicError(row.status === 'completed' ? undefined : row.last_error),
+          createdAt: row.created_at,
+          runAt: row.run_at,
+        };
   }
 }

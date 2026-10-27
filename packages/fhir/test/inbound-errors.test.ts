@@ -68,6 +68,7 @@ describe('envelope', () => {
       resources: [],
       contextResources: [],
       issues: undefined,
+      entryRefs: [],
       bundle: { resourceType: 'Bundle', type: 'transaction' },
     });
   });
