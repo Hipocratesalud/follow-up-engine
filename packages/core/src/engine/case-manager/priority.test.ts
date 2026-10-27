@@ -19,10 +19,12 @@ function reason(input: {
   readonly priority?: number;
   readonly overdueDays?: number;
   readonly protocolId?: string;
+  readonly severity?: 'critical';
 }): PriorityReason {
   return {
     expectation: {
       layer: input.layer,
+      ...(input.severity === undefined ? {} : { severity: input.severity }),
       matchKey: input.kind === 'lab' ? 'loinc:2160-0' : 'visit',
       dueAt: new Date(NOW.getTime() - (input.overdueDays ?? 1) * DAY),
       ...(input.protocolId === undefined ? {} : { protocolId: input.protocolId }),
@@ -54,6 +56,14 @@ const abnormal = (overdueDays?: number) =>
     trigger: { event: 'result.received', filter: { interpretation: 'abnormal' } },
     priority: 60,
     ...(overdueDays === undefined ? {} : { overdueDays }),
+  });
+const critical = () =>
+  reason({
+    layer: 'universal',
+    kind: 'follow_up_visit',
+    trigger: { event: 'result.received', filter: { interpretation: 'abnormal' } },
+    priority: 60,
+    severity: 'critical',
   });
 const pendingLab = (overdueDays?: number) =>
   reason({
@@ -130,6 +140,37 @@ describe('case priority model (HIP-124)', () => {
       priority([abnormal(60), pendingLab(60), plan(60), cadence()], { escalationBonus: 60 }),
     ).toBe(PRIORITY_MODEL.max);
     expect(priority([])).toBe(PRIORITY_MODEL.min);
+  });
+
+  it('ranks a fresh critical result urgent, above any other category (HIP-124)', () => {
+    expect(priority([critical()])).toBeGreaterThanOrEqual(90);
+    expect(priority([critical()])).toBeGreaterThan(priority([abnormal(1)]));
+    expect(priority([critical()])).toBeGreaterThan(
+      priority([pendingLab(30), plan(30), cadence()], {
+        confirmed: ['diabetes'],
+        escalationBonus: 20,
+      }),
+    );
+  });
+
+  it('escalation and extra reasons never lift a case above its category cap (HIP-124)', () => {
+    const cap = PRIORITY_MODEL.categoryCap;
+    expect(
+      priority([pendingLab(40), pendingLab(40), pendingLab(40)], {
+        confirmed: ['diabetes'],
+        escalationBonus: 20,
+      }),
+    ).toBe(cap.pending_result);
+    expect(
+      priority([plan(30), plan(30), plan(30)], { confirmed: ['diabetes'], escalationBonus: 20 }),
+    ).toBe(cap.doctor_plan);
+    expect(priority([protocol(30), protocol(30)], { escalationBonus: 40 })).toBeLessThanOrEqual(
+      cap.protocol,
+    );
+    // An abnormal result among the reasons lifts the cap.
+    expect(priority([pendingLab(40), abnormal(40)], { escalationBonus: 20 })).toBe(
+      PRIORITY_MODEL.max,
+    );
   });
 
   it('counts the raises of the escalation steps already run', () => {
