@@ -22,12 +22,16 @@ import {
   CLINIC,
   caseEvents,
   confirmedCondition,
+  confirmedPlanExpectation,
+  correctedPlanExpectation,
+  correctionExpectation,
   escalatedCase,
   expiredPlanExpectation,
   extractedCondition,
   noteWithoutPlan,
   openExpectation,
   rejectedCondition,
+  rejectedPlanExpectation,
   resolvedCase,
   resolvedCondition,
   snoozedCase,
@@ -101,12 +105,41 @@ describe('expectation → Task', () => {
     expect(task.businessStatus?.coding?.[0]?.code).toBe(status);
   });
 
-  it.each([openExpectation, expiredPlanExpectation])(
-    'round-trips losslessly (%#)',
-    (expectation) => {
-      expect(taskToExpectation(expectationToTask(expectation), CLINIC)).toEqual(expectation);
-    },
-  );
+  it('carries a clinician review of a plan item (HIP-141)', () => {
+    const confirmed = expectationToTask(confirmedPlanExpectation);
+    expect(confirmed.status).toBe('requested');
+    expect(confirmed.extension).toEqual(
+      expect.arrayContaining([
+        { url: ENGINE_EXTENSIONS.confirmedBy, valueString: 'dra-mora' },
+        { url: ENGINE_EXTENSIONS.confirmedAt, valueDateTime: '2026-01-06T10:00:00.000Z' },
+      ]),
+    );
+    const old = expectationToTask(correctedPlanExpectation);
+    expect(old.status).toBe('cancelled');
+    expect(old.statusReason?.coding?.[0]).toEqual({
+      system: ENGINE_CODE_SYSTEMS.closedReason,
+      code: 'corrected_by_clinician',
+    });
+    const correction = expectationToTask(correctionExpectation);
+    expect(correction.extension).toContainEqual({
+      url: ENGINE_EXTENSIONS.correctionOf,
+      valueReference: { reference: 'Task/exp-plan-0004', type: 'Task' },
+    });
+    const rejected = expectationToTask(rejectedPlanExpectation);
+    expect(rejected.status).toBe('cancelled');
+    expect(rejected.statusReason?.coding?.[0]?.code).toBe('rejected_by_clinician');
+  });
+
+  it.each([
+    openExpectation,
+    expiredPlanExpectation,
+    confirmedPlanExpectation,
+    correctedPlanExpectation,
+    correctionExpectation,
+    rejectedPlanExpectation,
+  ])('round-trips losslessly (%#)', (expectation) => {
+    expect(taskToExpectation(expectationToTask(expectation), CLINIC)).toEqual(expectation);
+  });
 });
 
 describe('case → Task', () => {

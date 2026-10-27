@@ -26,6 +26,7 @@ import {
 } from '../../api/queries.ts';
 import { LayerChip, ReasonProtocol } from '../../components/case-badges.tsx';
 import { InlineQuote } from '../../components/evidence.tsx';
+import { PlanItemReview } from '../plan-items/plan-item-review.tsx';
 import { ErrorState, InlineError, NotFoundState } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, Skeleton, type Tone } from '../../components/ui.tsx';
 import { PreVisitQuestions } from '../reviewer/pre-visit-questions.tsx';
@@ -193,6 +194,13 @@ function ExpectationItem({
         <p className="text-xs text-muted">{t.patient.closedReason(expectation.closedReason)}</p>
       ) : null}
       {expectation.evidence ? <InlineQuote quote={expectation.evidence.quote} /> : null}
+      {expectation.planItem ? (
+        <PlanItemReview
+          expectationId={expectation.id}
+          item={expectation.planItem}
+          dueAt={expectation.dueAt}
+        />
+      ) : null}
     </li>
   );
 }

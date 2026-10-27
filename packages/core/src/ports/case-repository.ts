@@ -27,6 +27,54 @@ export interface CasePage {
   readonly nextCursor?: string;
 }
 
+/**
+ * The filters of a {@link CaseListQuery}, for the patient queue: they select
+ * cases, which are then grouped by patient. `patientIds` narrows to a set of
+ * patients (a name search; empty selects nobody).
+ */
+export interface CaseFilter extends Omit<
+  CaseListQuery,
+  'patientId' | 'orderBy' | 'limit' | 'cursor'
+> {
+  readonly patientIds?: readonly PatientId[];
+}
+
+/**
+ * The patient queue (HIP-141): one item per patient with every matching
+ * case. The engine keeps one case per patient and reason group (escalation,
+ * deduplication and audit stay per reason); the clinic works one card per
+ * patient.
+ */
+export interface PatientQueueQuery extends CaseFilter {
+  /**
+   * `priority` (default): the patient whose most urgent case ranks highest
+   * first, then the patient whose oldest case is oldest, then the patient
+   * id. `created_at`: the patient whose oldest case is oldest first.
+   */
+  readonly orderBy?: 'priority' | 'created_at';
+  /** Patients per page. */
+  readonly limit: number;
+  /** Opaque cursor from a previous page of the same query; anything else throws `InvalidCursorError`. */
+  readonly cursor?: string;
+}
+
+/** One patient of the queue and their matching cases, most urgent first (priority, then oldest). */
+export interface PatientCases {
+  readonly patientId: PatientId;
+  readonly cases: readonly FollowUpCase[];
+}
+
+export interface PatientCasePage {
+  readonly items: readonly PatientCases[];
+  readonly nextCursor?: string;
+}
+
+/** How many cases match a filter, and how many patients they belong to. */
+export interface CaseCount {
+  readonly patients: number;
+  readonly cases: number;
+}
+
 export interface CaseReadOptions {
   /**
    * Read to write: the case is locked until the transaction ends (Postgres
@@ -63,6 +111,15 @@ export interface CaseRepository {
   setPriority(clinicId: ClinicId, id: CaseId, priority: number): Promise<boolean>;
 
   list(clinicId: ClinicId, query: CaseListQuery): Promise<CasePage>;
+
+  /**
+   * The matching cases grouped by patient, a page of patients at a time
+   * (keyset pagination in Postgres, so a page never splits a patient).
+   */
+  listPatients(clinicId: ClinicId, query: PatientQueueQuery): Promise<PatientCasePage>;
+
+  /** The number of matching cases and of distinct patients among them. */
+  count(clinicId: ClinicId, filter: CaseFilter): Promise<CaseCount>;
 
   /**
    * Active cases the worker must act on: `nextActionAt <= now`, or snoozed

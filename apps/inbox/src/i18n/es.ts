@@ -332,6 +332,8 @@ const stats: Messages['stats'] = {
   error: 'No pudimos cargar el resumen',
   region: 'Resumen',
   activeCases: 'Casos activos',
+  activePatients: 'Pacientes con casos activos',
+  cases: (n) => count(n, 'caso', 'casos'),
   escalated: (n) => count(n, 'escalado', 'escalados'),
   snoozed: (n) => count(n, 'pospuesto', 'pospuestos'),
   byLayer: 'Por capa',
@@ -437,7 +439,7 @@ const feedback: Messages['feedback'] = {
 const inbox: Messages['inbox'] = {
   title: 'Bandeja de seguimiento',
   intro:
-    'Pacientes con algo pendiente, ordenados por prioridad. Cada caso reúne los motivos de un paciente por un mismo tipo de seguimiento: si tiene pendientes de distinto tipo, aparece en más de un caso.',
+    'Pacientes con algo pendiente, ordenados por prioridad. Cada tarjeta reúne todos los motivos de un paciente; actúa sobre cada uno de sus casos desde ella.',
   views: { active: 'Activos', closed: 'Cerrados', all: 'Todos' },
   viewGroup: 'Estado de los casos',
   empty: {
@@ -455,22 +457,82 @@ const inbox: Messages['inbox'] = {
     },
   },
   noResults: 'Sin resultados',
-  noMatches: (search) => `No hay casos de pacientes que coincidan con «${search}» en esta vista.`,
-  noOwnerCases: (owner) => `No hay casos de ${owner} en esta vista.`,
+  noMatches: (search) => `No hay pacientes que coincidan con «${search}» en esta vista.`,
+  noOwnerCases: (owner) => `No hay pacientes con casos de ${owner} en esta vista.`,
   thisOwner: 'este responsable',
   cases: 'Casos',
+  patients: 'Pacientes',
   searchLabel: 'Buscar paciente',
   searchPlaceholder: 'Buscar paciente por nombre',
   clearSearch: 'Borrar búsqueda',
   ownerLabel: 'Responsable',
   allOwners: 'Todos los responsables',
-  loading: 'Cargando casos',
-  error: 'No pudimos cargar los casos',
+  loading: 'Cargando pacientes',
+  error: 'No pudimos cargar los pacientes',
   showing: (shown, total) => `Mostrando ${String(shown)} de ${count(total, 'caso', 'casos')}`,
-  loadMore: 'Cargar más casos',
-  selectTitle: 'Elige un caso de la lista',
+  showingPatients: (shown, total, cases) =>
+    `Mostrando ${String(shown)} de ${count(total, 'paciente', 'pacientes')} · ${count(cases, 'caso', 'casos')}`,
+  loadMore: 'Cargar más pacientes',
+  selectTitle: 'Elige un paciente de la lista',
   selectBody:
-    'Verás todos los motivos del paciente, la evidencia citada de la nota y el siguiente paso sugerido.',
+    'Verás todos los casos del paciente, la evidencia citada de la nota y el siguiente paso sugerido.',
+};
+
+const patientCard: Messages['patientCard'] = {
+  cases: (n) => count(n, 'caso', 'casos'),
+  activeCases: (n) => count(n, 'caso activo', 'casos activos'),
+  reasons: (n) => count(n, 'motivo', 'motivos'),
+  owners: (names) => `Responsable: ${names}`,
+  contactAllowed: 'Contacto permitido',
+  contactNotAllowed: 'Contacto no permitido',
+  optedOut: 'No acepta mensajes',
+  lastContact: (when) => `Último contacto ${when}`,
+  noContacts: 'Sin contactos registrados',
+  requestContact: 'Pedir contacto',
+  requestHint:
+    'Un solo pedido cubre todos los casos del paciente: como máximo un mensaje cada 14 días.',
+  requestTitle: 'Pedir contacto con el paciente',
+  requestBody: (name, cases) =>
+    `Le pediremos al sistema del consultorio que contacte a ${name} por su canal habitual, una sola vez por sus ${count(cases, 'caso', 'casos')}.`,
+  blocked: (name) =>
+    `${name} no acepta mensajes del consultorio. Contáctalo por otra vía y luego resuelve los casos.`,
+  done: 'Listo: el sistema del consultorio contactará al paciente, una sola vez por todos sus casos.',
+  casesTitle: 'Casos',
+  closedTitle: 'Casos cerrados',
+  loading: 'Cargando paciente',
+  error: 'No pudimos cargar el paciente',
+  caseError: 'No pudimos cargar este caso',
+};
+
+const planReview: Messages['planReview'] = {
+  reading: 'Lectura de la IA',
+  question: 'Leído por la IA de la nota. ¿Es lo que pidió el médico?',
+  pending: 'Sin revisar',
+  confirmedBy: (who) => `Confirmado por ${who}`,
+  confirmed: 'Confirmado',
+  correctedBy: (who) => `Corregido por ${who}`,
+  correctedShort: 'Corregido',
+  superseded: 'Corregido: lo reemplaza la corrección del equipo clínico',
+  rejected: 'Rechazado: la nota no lo pedía',
+  confirm: 'Confirmar',
+  correct: 'Corregir',
+  reject: 'Rechazar',
+  confirmedDone: 'Punto del plan confirmado.',
+  correctedDone: 'Punto del plan corregido.',
+  rejectedDone: 'Punto del plan rechazado.',
+  correctTitle: 'Corregir el punto del plan',
+  correctBody:
+    'Cambia lo que pidió la nota. La corrección conserva la cita como evidencia; la lectura original queda en el historial como corregida.',
+  kindLabel: 'Qué pide',
+  dueDateLabel: 'Fecha límite',
+  dueDateHint: 'Día del calendario del consultorio.',
+  save: 'Guardar corrección',
+  nothingChanged: 'Cambia la fecha o lo que pide para corregir el punto.',
+  invalidDate: 'Indica una fecha válida.',
+  rejectTitle: 'Rechazar el punto del plan',
+  rejectBody:
+    'El motor deja de esperarlo. Si era el único motivo pendiente de su caso, el caso se resuelve.',
+  rejectConfirm: 'Rechazar punto',
 };
 
 const caseRow: Messages['caseRow'] = {
@@ -1033,6 +1095,8 @@ export const es: Messages = {
   caseDetail,
   feedback,
   inbox,
+  patientCard,
+  planReview,
   caseRow,
   patient,
   recovery,

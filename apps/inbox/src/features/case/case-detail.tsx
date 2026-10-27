@@ -50,6 +50,7 @@ import {
 } from './contact-panel.tsx';
 import { FeedbackPanel } from './feedback-panel.tsx';
 import { ReasonRuleVersion } from '../metrics/rule-version.tsx';
+import { PlanItemReview } from '../plan-items/plan-item-review.tsx';
 
 /** "Result — HbA1c"; just the display when it already names the type ("Clinical note of ..."). */
 function sourceLabel(t: Messages, source: CaseReasonView['source']): string {
@@ -88,6 +89,13 @@ function ReasonCard({
         protocol={reason.protocol}
       />
       {reason.evidence ? <EvidenceExcerpt evidence={reason.evidence} /> : null}
+      {reason.planItem ? (
+        <PlanItemReview
+          expectationId={reason.expectationId}
+          item={reason.planItem}
+          dueAt={reason.dueAt}
+        />
+      ) : null}
     </li>
   );
 }
@@ -251,12 +259,18 @@ function ContactStatus({
   );
 }
 
-function CaseDetailView({
+export function CaseDetailView({
   detail,
   backTo,
+  embedded = false,
 }: {
   readonly detail: CaseDetail;
   readonly backTo?: string;
+  /**
+   * Inside the patient card (HIP-141): the patient's header, contact status
+   * and contact request are the card's; the case keeps its own actions.
+   */
+  readonly embedded?: boolean;
 }): ReactNode {
   const t = useT();
   const now = useNow();
@@ -277,15 +291,19 @@ function CaseDetailView({
   // without scrolling the page away from the list unless the title is hidden.
   useEffect(() => {
     const element = heading.current;
-    if (element === null) return;
+    if (element === null || embedded) return;
     element.focus({ preventScroll: true });
     const { top, bottom } = element.getBoundingClientRect();
     if (top < 0 || bottom > globalThis.innerHeight) element.scrollIntoView({ block: 'nearest' });
-  }, [detail.id]);
+  }, [detail.id, embedded]);
 
+  const Wrapper = embedded ? 'div' : 'article';
   return (
-    <article aria-labelledby="case-title" className="flex flex-col gap-4">
-      {backTo ? (
+    <Wrapper
+      {...(embedded ? {} : { 'aria-labelledby': CASE_TITLE_ID })}
+      className="flex flex-col gap-4"
+    >
+      {backTo && !embedded ? (
         <Link
           to={backTo}
           className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-fg lg:hidden"
@@ -295,49 +313,51 @@ function CaseDetailView({
         </Link>
       ) : null}
 
-      <Card className="flex flex-col gap-4 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2
-              id={CASE_TITLE_ID}
-              ref={heading}
-              tabIndex={-1}
-              className="text-lg font-semibold tracking-tight text-fg outline-none"
+      {embedded ? null : (
+        <Card className="flex flex-col gap-4 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2
+                id={CASE_TITLE_ID}
+                ref={heading}
+                tabIndex={-1}
+                className="text-lg font-semibold tracking-tight text-fg outline-none"
+              >
+                {detail.patient.name}
+              </h2>
+              <p className="mt-0.5 text-sm text-muted">
+                {[
+                  patientMeta(detail.patient, t),
+                  detail.assignee ? t.caseDetail.owner(detail.assignee) : '',
+                ]
+                  .filter(Boolean)
+                  .join(t.common.separator)}
+              </p>
+            </div>
+            <Link
+              to={`/patients/${detail.patient.id}`}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border-strong px-3 text-[13px] font-medium text-fg hover:bg-surface-2"
             >
-              {detail.patient.name}
-            </h2>
-            <p className="mt-0.5 text-sm text-muted">
-              {[
-                patientMeta(detail.patient, t),
-                detail.assignee ? t.caseDetail.owner(detail.assignee) : '',
-              ]
-                .filter(Boolean)
-                .join(t.common.separator)}
-            </p>
+              <UserRound className="size-3.5" aria-hidden="true" />
+              {t.common.viewPatient}
+            </Link>
           </div>
-          <Link
-            to={`/patients/${detail.patient.id}`}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border-strong px-3 text-[13px] font-medium text-fg hover:bg-surface-2"
-          >
-            <UserRound className="size-3.5" aria-hidden="true" />
-            {t.common.viewPatient}
-          </Link>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status={detail.status} />
-          <PriorityBadge label={detail.priorityLabel} priority={detail.priority} />
-          <span className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
-            <EscalationMeter escalation={detail.escalation} showLabel />
-          </span>
-          {detail.origin === 'backfill' ? (
-            <Badge tone="info">{t.caseDetail.recovered}</Badge>
-          ) : null}
-          <span className="text-xs text-muted">
-            {t.caseDetail.openedAgo(formatRelative(detail.openedAt, now))}
-          </span>
-        </div>
-        <ContactStatus detail={detail} now={now} />
-      </Card>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={detail.status} />
+            <PriorityBadge label={detail.priorityLabel} priority={detail.priority} />
+            <span className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
+              <EscalationMeter escalation={detail.escalation} showLabel />
+            </span>
+            {detail.origin === 'backfill' ? (
+              <Badge tone="info">{t.caseDetail.recovered}</Badge>
+            ) : null}
+            <span className="text-xs text-muted">
+              {t.caseDetail.openedAgo(formatRelative(detail.openedAt, now))}
+            </span>
+          </div>
+          <ContactStatus detail={detail} now={now} />
+        </Card>
+      )}
 
       {/* One primary action per view: a pending call comes first. */}
       {active && detail.callTask ? (
@@ -366,7 +386,7 @@ function CaseDetailView({
               ) : null}
             </div>
           </div>
-          <CaseActions detail={detail} />
+          <CaseActions detail={detail} withContactRequest={!embedded} />
         </Card>
       ) : (
         <Card className="p-0">
@@ -429,7 +449,7 @@ function CaseDetailView({
         <SectionTitle id="timeline-title">{t.caseDetail.history}</SectionTitle>
         <Timeline entries={detail.timeline} now={now} />
       </Card>
-    </article>
+    </Wrapper>
   );
 }
 

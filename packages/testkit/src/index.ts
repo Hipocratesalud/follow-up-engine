@@ -108,6 +108,10 @@ export {
   type MetricsReadModelSubject,
 } from './contracts/metrics-read-model.contract.ts';
 export {
+  aPlanItemReview,
+  describePlanItemReviewLogContract,
+} from './contracts/plan-item-review-log.contract.ts';
+export {
   aClinicalFinding,
   aReviewRun,
   describeClinicalFindingRepositoryContract,

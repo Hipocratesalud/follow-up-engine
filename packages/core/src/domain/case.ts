@@ -2,6 +2,7 @@ import type { Origin } from './common.ts';
 import type { DismissReason } from './contact.ts';
 import type { CaseId, ClinicId, ExpectationId, FeedbackId, PatientId } from './ids.ts';
 import type { JsonObject } from '../shared/json.ts';
+import type { PlanItemReviewType } from './plan-item-review.ts';
 
 export const CASE_STATUSES = [
   'open',
@@ -98,7 +99,8 @@ export type CaseEventType =
   /** An appointment was booked for the case: attributed to it, or fulfilling one of its reasons. */
   | 'appointment_booked'
   /** A booking recorded on the case was kept: the visit took place. */
-  | 'appointment_attended';
+  | 'appointment_attended'
+  | PlanItemReviewType;
 
 /** Who caused a case event. `id` is a rule id, host user id or patient id. */
 export interface CaseEventActor {

@@ -1,19 +1,19 @@
-import {
-  type CaseEvent,
-  type CaseFeedback,
-  type CaseId,
-  type ClinicId,
-  type Expectation,
-  type ExpectationId,
-  type FollowUpCase,
-  type LlmTaskUsage,
-  type MetricsPeriod,
-  type MetricsReadModel,
-  type NoteExtractionCost,
-  type PatientCondition,
-  PLAN_ITEM_REVIEW_EVENT_TYPES,
-  type PlanItemReview,
-  type ReviewRunTotals,
+import type {
+  CaseEvent,
+  CaseFeedback,
+  CaseId,
+  ClinicId,
+  Expectation,
+  ExpectationId,
+  FollowUpCase,
+  LlmTaskUsage,
+  MetricsPeriod,
+  MetricsReadModel,
+  NoteExtractionCost,
+  PatientCondition,
+  PlanItemReviewEntry,
+  PlanItemReviewType,
+  ReviewRunTotals,
 } from '@follow-up-engine/core';
 import {
   type CaseEventRow,
@@ -137,12 +137,14 @@ export class PostgresMetricsReadModel implements MetricsReadModel {
   async planItemReviews(
     clinicId: ClinicId,
     period: MetricsPeriod,
-  ): Promise<readonly PlanItemReview[]> {
-    const { rows } = await this.#ctx.db().query<{ type: string; at: Date }>(
-      `SELECT type, at FROM ${this.#ctx.tables.case_events}
-       WHERE clinic_id = $1 AND type = ANY($2::text[]) AND at >= $3 AND at < $4
+  ): Promise<readonly PlanItemReviewEntry[]> {
+    // The review log, not the case trail: it also holds items reviewed before
+    // they became a case.
+    const { rows } = await this.#ctx.db().query<{ type: PlanItemReviewType; at: Date }>(
+      `SELECT type, at FROM ${this.#ctx.tables.plan_item_reviews}
+       WHERE clinic_id = $1 AND at >= $2 AND at < $3
        ORDER BY at, seq`,
-      [clinicId, [...PLAN_ITEM_REVIEW_EVENT_TYPES], period.from, period.to],
+      [clinicId, period.from, period.to],
     );
     return rows.map((row) => ({ type: row.type, at: row.at }));
   }

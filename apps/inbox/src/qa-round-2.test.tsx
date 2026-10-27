@@ -85,7 +85,7 @@ describe('HIP-127 validation errors in the UI language, next to the input', () =
   it('shows a too long search under the box instead of replacing the list with an error', async () => {
     renderApp('/inbox?q=ana', {
       handlers: () => [
-        http.get('*/api/inbox/cases', () =>
+        http.get('*/api/inbox/patients-queue', () =>
           HttpResponse.json(
             {
               error: {

@@ -128,6 +128,13 @@ export const EN = {
     session: 'Session in the plan',
     other: 'Item of the plan',
   },
+  planItemKinds: {
+    follow_up_visit: 'Follow-up visit',
+    lab: 'Lab test',
+    imaging: 'Imaging study',
+    session: 'Session',
+    other: 'Other',
+  },
   planTest: 'Test in the plan',
   planTestNamed: (test) => `Test in the plan: ${test}`,
   rules: RULES,
@@ -221,6 +228,8 @@ export const EN = {
     // ended, never how (delivery or loss).
     protocol_closed: 'The protocol ended: the end of the pregnancy was recorded',
     rescheduled_by_protocol: 'Rescheduled: the protocol asks for the same check-up sooner',
+    corrected_by_clinician: 'Corrected by a clinician',
+    rejected_by_clinician: 'Rejected by a clinician: the note did not ask for it',
     // A treatment protocol whose patient has no active prescription left (HIP-139).
     // Neutral: never names the drug or the condition.
     treatment_ended: 'The treatment it followed ended',
@@ -303,6 +312,25 @@ export const EN = {
     appointmentBooked: (date, origin) => `Appointment for ${date} (${origin})`,
     appointmentBookedNoDate: (origin) => `Appointment booked (${origin})`,
     appointmentAttended: 'The patient attended the appointment',
+    contactRequestedForPatient:
+      'Contact requested for the patient (one request covers all their cases)',
+    planItemReviews: {
+      plan_item_confirmed: (kind) => `Plan item confirmed: ${kind}`,
+      plan_item_corrected: (kind) => `Plan item corrected: ${kind}`,
+      plan_item_rejected: (kind) => `Plan item rejected: ${kind}`,
+    },
+  },
+
+  patientQueue: {
+    noActiveCases: 'This patient has no cases in the inbox.',
+    planItemNotFound: 'We could not find that plan item.',
+    notAPlanItem:
+      'Only a plan item the AI read from a note can be confirmed, corrected or rejected.',
+    alreadyReviewed: 'A clinician already corrected or rejected this plan item.',
+    planItemClosed: 'This plan item is already closed: there is nothing left to correct or reject.',
+    nothingToCorrect: 'Change the due date or the kind to correct the plan item.',
+    invalidDueDate: 'Enter a valid due date.',
+    invalidKind: 'Choose what the plan item asks for.',
   },
 
   sources: {

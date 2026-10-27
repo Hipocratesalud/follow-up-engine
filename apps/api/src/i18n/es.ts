@@ -130,6 +130,13 @@ export const ES = {
     session: 'Sesión indicada en el plan',
     other: 'Indicación del plan',
   },
+  planItemKinds: {
+    follow_up_visit: 'Control',
+    lab: 'Examen de laboratorio',
+    imaging: 'Estudio de imagen',
+    session: 'Sesión',
+    other: 'Otro',
+  },
   planTest: 'Examen indicado en el plan',
   planTestNamed: (test) => `Examen indicado en el plan: ${test}`,
   rules: RULES,
@@ -224,6 +231,8 @@ export const ES = {
     // ended, never how (delivery or loss).
     protocol_closed: 'El protocolo terminó: se registró el fin del embarazo',
     rescheduled_by_protocol: 'Reprogramado: el protocolo pide el mismo control antes',
+    corrected_by_clinician: 'Corregido por el equipo clínico',
+    rejected_by_clinician: 'Rechazado por el equipo clínico: la nota no lo pedía',
     // A treatment protocol whose patient has no active prescription left (HIP-139).
     // Neutral: never names the drug or the condition.
     treatment_ended: 'Terminó el tratamiento que lo motivaba',
@@ -306,6 +315,25 @@ export const ES = {
     appointmentBooked: (date, origin) => `Cita para el ${date} (${origin})`,
     appointmentBookedNoDate: (origin) => `Cita agendada (${origin})`,
     appointmentAttended: 'El paciente asistió a la cita',
+    contactRequestedForPatient:
+      'Se pidió contactar al paciente (un solo pedido cubre todos sus casos)',
+    planItemReviews: {
+      plan_item_confirmed: (kind) => `Punto del plan confirmado: ${kind}`,
+      plan_item_corrected: (kind) => `Punto del plan corregido: ${kind}`,
+      plan_item_rejected: (kind) => `Punto del plan rechazado: ${kind}`,
+    },
+  },
+
+  patientQueue: {
+    noActiveCases: 'Este paciente no tiene casos en la bandeja.',
+    planItemNotFound: 'No encontramos ese punto del plan.',
+    notAPlanItem:
+      'Solo se puede confirmar, corregir o rechazar un punto del plan que la IA leyó de una nota.',
+    alreadyReviewed: 'Alguien del equipo clínico ya corrigió o rechazó este punto del plan.',
+    planItemClosed: 'Este punto del plan ya está cerrado: no queda nada que corregir ni rechazar.',
+    nothingToCorrect: 'Cambia la fecha o el tipo para corregir el punto del plan.',
+    invalidDueDate: 'Indica una fecha válida.',
+    invalidKind: 'Elige qué pide el punto del plan.',
   },
 
   sources: {

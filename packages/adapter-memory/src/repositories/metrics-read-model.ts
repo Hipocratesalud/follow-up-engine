@@ -13,13 +13,10 @@ import {
   type MetricsReadModel,
   type NoteExtractionCost,
   type PatientCondition,
-  PLAN_ITEM_REVIEW_EVENT_TYPES,
-  type PlanItemReview,
+  type PlanItemReviewEntry,
   type ReviewRunTotals,
 } from '@follow-up-engine/core';
 import { type MemoryDatabase, tenantKey } from '../memory-database.ts';
-
-const PLAN_ITEM_TYPES: ReadonlySet<string> = new Set(PLAN_ITEM_REVIEW_EVENT_TYPES);
 
 /** In-memory {@link MetricsReadModel}: the same answers as the Postgres one, over the memory state. */
 export class MemoryMetricsReadModel implements MetricsReadModel {
@@ -116,17 +113,17 @@ export class MemoryMetricsReadModel implements MetricsReadModel {
     );
   }
 
-  planItemReviews(clinicId: ClinicId, period: MetricsPeriod): Promise<readonly PlanItemReview[]> {
+  planItemReviews(
+    clinicId: ClinicId,
+    period: MetricsPeriod,
+  ): Promise<readonly PlanItemReviewEntry[]> {
+    // The review log, not the case trail: it also holds items reviewed before
+    // they became a case. The stable sort keeps append order on one instant.
     return Promise.resolve(
-      this.#db.state.audit
-        .filter(
-          (event) =>
-            event.clinicId === clinicId &&
-            PLAN_ITEM_TYPES.has(event.type) &&
-            inPeriod(event.at, period),
-        )
-        .map((event) => ({ type: event.type, at: event.at }))
-        .sort((left, right) => left.at.getTime() - right.at.getTime()),
+      this.#db.state.planItemReviews
+        .filter((review) => review.clinicId === clinicId && inPeriod(review.at, period))
+        .sort((left, right) => left.at.getTime() - right.at.getTime())
+        .map((review) => ({ type: review.type, at: review.at })),
     );
   }
 

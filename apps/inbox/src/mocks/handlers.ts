@@ -20,6 +20,7 @@ import {
   FEEDBACK_REASONS,
   type Origin,
 } from '../api/contract.ts';
+import { PLAN_ITEM_KINDS, type PlanItemCommand } from '../api/plan-item-contract.ts';
 import { MOCK_API_KEY } from '../config.ts';
 import { mockMetrics } from '../features/metrics/mock.ts';
 import { DEFAULT_LOCALE, isLocale, type Locale, messagesFor } from '../i18n/index.ts';
@@ -173,6 +174,7 @@ function parseConsultation(body: Record<string, unknown>, locale: Locale): DemoC
 }
 
 const VIEWS: readonly CaseListView[] = ['active', 'closed', 'all'];
+const PLAN_ITEM_COMMANDS: readonly PlanItemCommand[] = ['confirm', 'correct', 'reject'];
 const ORIGINS: readonly Origin[] = ['live', 'backfill'];
 
 function numberParam(value: string | null): number | undefined {
@@ -312,6 +314,61 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     http.post(
       '*/api/inbox/conditions/:id/reject',
       route(({ params }) => store.reviewCondition(param(params, 'id'), 'reject')),
+    ),
+    http.get(
+      '*/api/inbox/patients-queue',
+      route(({ request, locale }) => {
+        const url = new URL(request.url);
+        const view = VIEWS.find((candidate) => candidate === url.searchParams.get('view'));
+        const origin = ORIGINS.find((candidate) => candidate === url.searchParams.get('origin'));
+        const assignee = url.searchParams.get('assignee');
+        const q = url.searchParams.get('q');
+        const copy = mockApiCopy(locale);
+        checkLength(copy, locale, 'q', q, INPUT_LIMITS.search, copy.errors.fields.search);
+        const cursor = url.searchParams.get('cursor');
+        const limit = numberParam(url.searchParams.get('limit'));
+        return store.listPatientQueue({
+          ...(view ? { view } : {}),
+          ...(origin ? { origin } : {}),
+          ...(assignee ? { assignee } : {}),
+          ...(q ? { q } : {}),
+          ...(cursor ? { cursor } : {}),
+          ...(limit === undefined ? {} : { limit }),
+        });
+      }),
+    ),
+    http.get(
+      '*/api/inbox/patients-queue/:id',
+      route(({ params }) => store.getPatientCard(param(params, 'id'))),
+    ),
+    http.post(
+      '*/api/inbox/patients-queue/:id/request-contact',
+      route(async ({ request, params, locale }) => {
+        const copy = mockApiCopy(locale);
+        const body = await readJson(request);
+        const note = body['note'];
+        checkLength(copy, locale, 'note', note, INPUT_LIMITS.note, copy.errors.fields.note);
+        return store.requestPatientContact(
+          param(params, 'id'),
+          typeof note === 'string' ? note : undefined,
+        );
+      }),
+    ),
+    http.post(
+      '*/api/inbox/plan-items/:id/:command',
+      route(async ({ request, params, locale }) => {
+        const command = PLAN_ITEM_COMMANDS.find(
+          (candidate) => candidate === param(params, 'command'),
+        );
+        if (!command) throw new MockHttpError(404, 'not_found', messagesFor(locale).errors.generic);
+        const body = command === 'correct' ? await readJson(request) : {};
+        const kind = PLAN_ITEM_KINDS.find((candidate) => candidate === body['kind']);
+        const dueDate = body['dueDate'];
+        return store.reviewPlanItem(param(params, 'id'), command, {
+          ...(kind ? { kind } : {}),
+          ...(typeof dueDate === 'string' ? { dueDate } : {}),
+        });
+      }),
     ),
     http.get(
       '*/api/inbox/recovery',

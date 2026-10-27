@@ -58,7 +58,7 @@ Each key carries the least it needs:
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
 | `fhir:write`  | Everything under `/fhir` (ingest, read `Task`, `Condition`, `DetectedIssue`, `CommunicationRequest`, `Communication`, `Flag`) and `/jobs`. | The host integration (server)     |
 | `inbox:read`  | `GET /api/inbox/*` (and reading the demo clock).                                                                                           | The inbox                         |
-| `inbox:act`   | `POST /api/inbox/*`: case actions, feedback, condition review.                                                                             | The inbox                         |
+| `inbox:act`   | `POST /api/inbox/*`: case actions, feedback, condition and plan item review, the patient-level contact request.                            | The inbox                         |
 | `demo:clock`  | `POST /api/demo/clock/advance` (the fake clock is shared by every clinic of the process) and `GET /api/demo/webhooks`.                     | The demo operator; never a clinic |
 | `demo:ingest` | `POST /api/demo/consultations`: synthetic consultations, only into the demo clinic `clinic-demo`.                                          | The demo operator; never a clinic |
 

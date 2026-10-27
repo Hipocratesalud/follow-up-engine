@@ -2,6 +2,7 @@ import type { CaseEvent, CaseFeedback, FollowUpCase } from '../domain/case.ts';
 import type { PatientCondition } from '../domain/condition.ts';
 import type { Expectation } from '../domain/expectation.ts';
 import type { CaseId, ClinicId, ExpectationId } from '../domain/ids.ts';
+import type { PlanItemReview } from '../domain/plan-item-review.ts';
 
 /** A half-open interval of time, `[from, to)`. */
 export interface MetricsPeriod {
@@ -33,23 +34,13 @@ export interface ReviewRunTotals {
 }
 
 /**
- * A clinician's correction of something the engine read from a note, other
- * than a condition: confirming, correcting or rejecting a plan item. Read
- * from the case trail (`case_events`) by type, so the metrics count them as
- * soon as a feature records them ({@link PLAN_ITEM_REVIEW_EVENT_TYPES}).
+ * A clinician's verdict on a plan item the AI read from a note (confirmed,
+ * corrected, rejected), as the metrics count it. Read from the plan item
+ * review log (`PlanItemReviewLog`, table `plan_item_reviews`), the ground
+ * truth: it also covers items reviewed before they became a case, which the
+ * case trail never sees.
  */
-export interface PlanItemReview {
-  readonly type: string;
-  readonly at: Date;
-}
-
-/** Case event types that record a clinician's review of an extracted plan item. */
-export const PLAN_ITEM_REVIEW_EVENT_TYPES = [
-  'plan_item_confirmed',
-  'plan_item_corrected',
-  'plan_item_rejected',
-] as const;
-export type PlanItemReviewType = (typeof PLAN_ITEM_REVIEW_EVENT_TYPES)[number];
+export type PlanItemReviewEntry = Pick<PlanItemReview, 'type' | 'at'>;
 
 /**
  * Read side of the clinic metrics (HIP-141): the few queries the pure
@@ -88,7 +79,10 @@ export interface MetricsReadModel {
   engineConditions(clinicId: ClinicId): Promise<readonly PatientCondition[]>;
 
   /** Plan-item reviews recorded in the period, oldest first. */
-  planItemReviews(clinicId: ClinicId, period: MetricsPeriod): Promise<readonly PlanItemReview[]>;
+  planItemReviews(
+    clinicId: ClinicId,
+    period: MetricsPeriod,
+  ): Promise<readonly PlanItemReviewEntry[]>;
 
   /** LLM calls in the period by task, task ascending. */
   llmUsageByTask(clinicId: ClinicId, period: MetricsPeriod): Promise<readonly LlmTaskUsage[]>;

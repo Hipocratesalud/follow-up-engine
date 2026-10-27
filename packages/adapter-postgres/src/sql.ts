@@ -56,6 +56,7 @@ const TABLES = [
   'clinical_findings',
   'clinical_review_runs',
   'finding_flags',
+  'plan_item_reviews',
 ] as const;
 
 export type TableName = (typeof TABLES)[number];

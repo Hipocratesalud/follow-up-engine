@@ -115,6 +115,27 @@ const EN = {
     fibroid: 'Fibroid follow-up ultrasound (protocol)',
     fibroidProtocol: 'Uterine fibroid follow-up',
   },
+  /** The patient queue and the plan item review (HIP-141), as apps/api words them. */
+  patientQueue: {
+    contactRequestedForPatient:
+      'Contact requested for the patient (one request covers all their cases)',
+    contactWindow:
+      'The patient was already asked to be contacted a few days ago. Wait for an answer or reach them another way.',
+    planItemConfirmed: (kind: string) => `Plan item confirmed: ${kind}`,
+    planItemCorrected: (kind: string) => `Plan item corrected: ${kind}`,
+    planItemRejected: (kind: string) => `Plan item rejected: ${kind}`,
+    resolvedNotNeeded: 'Closed: no longer needed',
+    correctedByClinician: 'Corrected by a clinician',
+    rejectedByClinician: 'Rejected by a clinician: the note did not ask for it',
+    noActiveCases: 'This patient has no cases in the inbox.',
+    planItemNotFound: 'We could not find that plan item.',
+    notAPlanItem:
+      'Only a plan item the AI read from a note can be confirmed, corrected or rejected.',
+    alreadyReviewed: 'A clinician already corrected or rejected this plan item.',
+    planItemClosed: 'This plan item is already closed: there is nothing left to correct or reject.',
+    nothingToCorrect: 'Change the due date or the kind to correct the plan item.',
+    invalidDueDate: 'Enter a valid due date.',
+  },
   reviewer: {
     descriptions: {
       pre_visit_question: 'Something worth asking the patient given their condition.',
@@ -236,6 +257,26 @@ const ES: MockApiCopy = {
     diabetesProtocol: 'Protocolo de diabetes tipo 2',
     fibroid: 'Ecografía de control de mioma (protocolo)',
     fibroidProtocol: 'Seguimiento de miomatosis uterina',
+  },
+  patientQueue: {
+    contactRequestedForPatient:
+      'Se pidió contactar al paciente (un solo pedido cubre todos sus casos)',
+    contactWindow:
+      'Ya se pidió contactar a este paciente hace pocos días. Espera a que responda o contáctalo por otra vía.',
+    planItemConfirmed: (kind) => `Punto del plan confirmado: ${kind}`,
+    planItemCorrected: (kind) => `Punto del plan corregido: ${kind}`,
+    planItemRejected: (kind) => `Punto del plan rechazado: ${kind}`,
+    resolvedNotNeeded: 'Cerrado: ya no hace falta',
+    correctedByClinician: 'Corregido por el equipo clínico',
+    rejectedByClinician: 'Rechazado por el equipo clínico: la nota no lo pedía',
+    noActiveCases: 'Este paciente no tiene casos en la bandeja.',
+    planItemNotFound: 'No encontramos ese punto del plan.',
+    notAPlanItem:
+      'Solo se puede confirmar, corregir o rechazar un punto del plan que la IA leyó de una nota.',
+    alreadyReviewed: 'Alguien del equipo clínico ya corrigió o rechazó este punto del plan.',
+    planItemClosed: 'Este punto del plan ya está cerrado: no queda nada que corregir ni rechazar.',
+    nothingToCorrect: 'Cambia la fecha o el tipo para corregir el punto del plan.',
+    invalidDueDate: 'Indica una fecha válida.',
   },
   reviewer: {
     descriptions: {

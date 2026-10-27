@@ -14,6 +14,7 @@ import type { ContactRepository } from './contact-repository.ts';
 import type { ExpectationRepository } from './expectation-repository.ts';
 import type { FeedbackRepository } from './feedback-repository.ts';
 import type { JobQueue, Outbox } from './job-queue.ts';
+import type { PlanItemReviewLog } from './plan-item-review-log.ts';
 import type { SuppressionRepository } from './suppression-repository.ts';
 
 /** Every store, bound to one transaction. */
@@ -35,6 +36,7 @@ export interface TransactionalStores {
   readonly findingFlags: FindingFlagRepository;
   /** Read side of the clinic metrics (HIP-141). */
   readonly metrics: MetricsReadModel;
+  readonly planItemReviews: PlanItemReviewLog;
 }
 
 /**

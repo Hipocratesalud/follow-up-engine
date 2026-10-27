@@ -110,6 +110,8 @@ export interface ApiMessages {
   readonly planItems: Readonly<Record<PlanItemKind, string>>;
   readonly planTest: string;
   readonly planTestNamed: (test: string) => string;
+  /** What a plan item asks for, as the review of an AI reading names it (HIP-141). */
+  readonly planItemKinds: Readonly<Record<PlanItemKind, string>>;
   readonly rules: Readonly<Record<string, RuleText>>;
 
   readonly channels: Readonly<Record<ContactChannel, string>>;
@@ -174,6 +176,26 @@ export interface ApiMessages {
     readonly appointmentBooked: (date: string, origin: string) => string;
     readonly appointmentBookedNoDate: (origin: string) => string;
     readonly appointmentAttended: string;
+    /** A contact request made once for the patient from another of their cases (HIP-141). */
+    readonly contactRequestedForPatient: string;
+    /** A clinician's review of a plan item the AI read; the parameter names its kind. */
+    readonly planItemReviews: {
+      readonly plan_item_confirmed: (kind: string) => string;
+      readonly plan_item_corrected: (kind: string) => string;
+      readonly plan_item_rejected: (kind: string) => string;
+    };
+  };
+
+  /** The patient queue and the plan item review (HIP-141). */
+  readonly patientQueue: {
+    readonly noActiveCases: string;
+    readonly planItemNotFound: string;
+    readonly notAPlanItem: string;
+    readonly alreadyReviewed: string;
+    readonly planItemClosed: string;
+    readonly nothingToCorrect: string;
+    readonly invalidDueDate: string;
+    readonly invalidKind: string;
   };
 
   readonly sources: {

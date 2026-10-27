@@ -44,26 +44,27 @@ function rows(): HTMLElement[] {
 describe('HIP-114 inbox counts', () => {
   it('shows the total of the view, not the page size, and loads the rest on demand', async () => {
     const { user, store } = renderApp('/inbox', {
-      // Pages of 5, so a handful of cases already spans several pages.
+      // Pages of 5 patients, so a handful of cards already spans several pages.
       handlers: (mock) => [
-        http.get('*/api/inbox/cases', ({ request }) => {
+        http.get('*/api/inbox/patients-queue', ({ request }) => {
           const url = new URL(request.url);
           const cursor = url.searchParams.get('cursor');
           return HttpResponse.json(
-            mock.listCases({ view: 'active', limit: 5, ...(cursor ? { cursor } : {}) }),
+            mock.listPatientQueue({ view: 'active', limit: 5, ...(cursor ? { cursor } : {}) }),
           );
         }),
       ],
     });
-    const total = store.stats().activeCases;
+    // HIP-141: the inbox counts patients (one card each), cases second.
+    const { activePatients: total, activeCases: cases } = store.stats();
     const title = await screen.findByRole('heading', {
-      name: new RegExp(`${t.inbox.cases} ${String(total)}`),
+      name: new RegExp(`${t.inbox.patients} ${String(total)}`),
     });
     expect(title).toBeInTheDocument();
     await waitFor(() => {
       expect(rows()).toHaveLength(5);
     });
-    expect(screen.getByText(t.inbox.showing(5, total))).toBeInTheDocument();
+    expect(screen.getByText(t.inbox.showingPatients(5, total, cases))).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: t.inbox.loadMore }));
     await waitFor(() => {
       expect(rows()).toHaveLength(10);
@@ -81,8 +82,10 @@ describe('HIP-125 owner filter and escalation meter', () => {
       expect(within(select).getByRole('option', { name: owner?.name ?? '' })).toBeInTheDocument();
     });
     await user.selectOptions(select, owner?.id ?? '');
+    // One card per patient with a case of that owner.
+    const patients = store.listPatientQueue({ view: 'active', assignee: owner?.id ?? '' }).total;
     await waitFor(() => {
-      expect(rows()).toHaveLength(owner?.activeCases ?? -1);
+      expect(rows()).toHaveLength(patients);
     });
     for (const row of rows()) expect(row).toHaveTextContent(owner?.name ?? '');
   });

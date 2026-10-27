@@ -193,6 +193,95 @@ export function describeCaseRepositoryContract(
       expect(new Set(seen)).toEqual(new Set(cases.map((c) => c.id)));
     });
 
+    it('groups matching cases by patient: one item per patient, most urgent patient first (HIP-141)', async () => {
+      const { a, b } = freshClinics();
+      const ana = patientId('pat-q-ana');
+      const bruno = patientId('pat-q-bruno');
+      const carla = patientId('pat-q-carla');
+      const anaPlan = aCase(a, { patientId: ana, priority: 60, createdAt: at(2) });
+      const anaLabs = aCase(a, { patientId: ana, priority: 85, createdAt: at(3), assignee: 'u-1' });
+      const brunoOnly = aCase(a, { patientId: bruno, priority: 85, createdAt: at(1) });
+      const carlaOld = aCase(a, { patientId: carla, priority: 40, createdAt: at(0) });
+      const carlaClosed = aCase(a, {
+        patientId: carla,
+        priority: 99,
+        status: 'resolved',
+        resolution: { kind: 'fulfilled', resolvedAt: at(4) },
+      });
+      await createAll(a, [anaPlan, anaLabs, brunoOnly, carlaOld, carlaClosed]);
+      await repo().create(b, aCase(b, { patientId: ana, priority: 99 }));
+
+      const page = await repo().listPatients(a, { statuses: ['open'], limit: 10 });
+      // Ana and Bruno tie on their top priority (85): Ana's oldest case is older.
+      expect(page.items.map((item) => item.patientId)).toEqual([bruno, ana, carla]);
+      expect(page.items[1]?.cases.map((c) => c.id)).toEqual([anaLabs.id, anaPlan.id]);
+      expect(page.nextCursor).toBeUndefined();
+
+      // Filters select cases; a patient appears with the cases that match.
+      const owned = await repo().listPatients(a, {
+        statuses: ['open'],
+        assignee: 'u-1',
+        limit: 10,
+      });
+      expect(owned.items).toEqual([{ patientId: ana, cases: [anaLabs] }]);
+      const named = await repo().listPatients(a, { patientIds: [carla, bruno], limit: 10 });
+      expect(named.items.map((item) => item.patientId)).toEqual([carla, bruno]);
+      expect(named.items[0]?.cases.map((c) => c.id)).toEqual([carlaClosed.id, carlaOld.id]);
+      expect((await repo().listPatients(a, { patientIds: [], limit: 10 })).items).toEqual([]);
+
+      const byAge = await repo().listPatients(a, {
+        statuses: ['open'],
+        orderBy: 'created_at',
+        limit: 10,
+      });
+      expect(byAge.items.map((item) => item.patientId)).toEqual([carla, bruno, ana]);
+      expect(byAge.items[2]?.cases.map((c) => c.id)).toEqual([anaPlan.id, anaLabs.id]);
+
+      expect(await repo().count(a, { statuses: ['open'] })).toEqual({ patients: 3, cases: 4 });
+      expect(await repo().count(a, {})).toEqual({ patients: 3, cases: 5 });
+      expect(await repo().count(b, { statuses: ['open'] })).toEqual({ patients: 1, cases: 1 });
+      expect(await repo().count(a, { patientIds: [] })).toEqual({ patients: 0, cases: 0 });
+    });
+
+    it('pages the patient queue without splitting a patient, every patient exactly once', async () => {
+      const { a } = freshClinics();
+      const cases = Array.from({ length: 11 }, (_, index) =>
+        aCase(a, {
+          patientId: patientId(`pat-page-${String(index % 5)}`),
+          priority: (index * 7) % 4,
+          createdAt: at(index),
+        }),
+      );
+      await createAll(a, cases);
+      const seen: string[] = [];
+      let caseCount = 0;
+      let cursor: string | undefined;
+      for (let page = 0; page < 10; page++) {
+        const result = await repo().listPatients(a, { limit: 2, ...(cursor ? { cursor } : {}) });
+        seen.push(...result.items.map((item) => item.patientId));
+        caseCount += result.items.reduce((sum, item) => sum + item.cases.length, 0);
+        if (!result.nextCursor) break;
+        cursor = result.nextCursor;
+      }
+      expect(seen).toHaveLength(5);
+      expect(new Set(seen).size).toBe(5);
+      expect(caseCount).toBe(11);
+      await expectRejectsWithName(
+        repo().listPatients(a, { limit: 2, cursor: 'not-a-cursor' }),
+        'InvalidCursorError',
+      );
+    });
+
+    it('hides unreleased cases from the patient queue when releasedAsOf is set', async () => {
+      const { a } = freshClinics();
+      const held = aCase(a, { patientId: patientId('pat-held'), releaseAt: at(10) });
+      const shown = aCase(a, { patientId: patientId('pat-shown'), releaseAt: at(1) });
+      await createAll(a, [held, shown]);
+      const page = await repo().listPatients(a, { releasedAsOf: at(5), limit: 10 });
+      expect(page.items.map((item) => item.patientId)).toEqual([shown.patientId]);
+      expect(await repo().count(a, { unreleasedAsOf: at(5) })).toEqual({ patients: 1, cases: 1 });
+    });
+
     it('finds cases due for action by the relevant instant, active only, with a limit', async () => {
       const { a } = freshClinics();
       const action3 = aCase(a, { nextActionAt: at(3) });

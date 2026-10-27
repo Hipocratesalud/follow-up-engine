@@ -145,6 +145,17 @@ export function timelineLabel(
     });
   };
   switch (event.type) {
+    case 'plan_item_confirmed':
+    case 'plan_item_corrected':
+    case 'plan_item_rejected': {
+      // The kind the AI read, or the one the clinician corrected it to.
+      const kind = text(payload[event.type === 'plan_item_corrected' ? 'correctedKind' : 'kind']);
+      const label =
+        kind !== undefined && kind in t.planItemKinds
+          ? t.planItemKinds[kind as PlanItemKind].toLocaleLowerCase(t.intlLocale)
+          : reason();
+      return line.planItemReviews[event.type](label);
+    }
     case 'opened':
       return line.opened(reason());
     case 'reason_added':
@@ -166,6 +177,9 @@ export function timelineLabel(
         : line.escalated;
     }
     case 'patient_contact_requested': {
+      if (text(payload['sharedFromCaseId']) !== undefined) {
+        return line.contactRequestedForPatient;
+      }
       const channel = text(payload['channel']) as ContactChannel | undefined;
       if (channel === 'phone_call') {
         return text(payload['trigger']) === 'wrong_number' ? line.callAfterWrongNumber : line.call;

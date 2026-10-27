@@ -1,5 +1,6 @@
 import {
   type ClinicalEvent,
+  expectationId,
   type LlmUsageLog,
   type MetricsReadModel,
   type PlanExtractedEvent,
@@ -10,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { aReviewRun } from './clinical-finding.contract.ts';
 import { aCase, aCaseEvent, aCondition, aFeedback, anExpectation } from './builders.ts';
 import { at, freshClinics, type MakeSubject, uniqueId, useSubject } from './harness.ts';
+import { aPlanItemReview } from './plan-item-review-log.contract.ts';
 
 /** The stores the read model reads, sharing one database, plus the LLM accounting. */
 export interface MetricsReadModelSubject {
@@ -160,20 +162,35 @@ export function describeMetricsReadModelContract(
       expect(await metrics().engineConditions(a)).toEqual([extracted]);
     });
 
-    it('counts plan-item reviews recorded in the period', async () => {
-      const { a } = freshClinics();
+    it('counts the plan-item reviews of the review log in the period, a case or not', async () => {
+      const { a, b } = freshClinics();
       const followUpCase = aCase(a);
-      for (const [type, day] of [
-        ['plan_item_confirmed', 1],
-        ['plan_item_corrected', 2],
-        ['plan_item_rejected', 40],
-        ['assigned', 3],
+      for (const [type, day, caseId] of [
+        ['plan_item_confirmed', 1, undefined],
+        ['plan_item_corrected', 2, followUpCase.id],
+        ['plan_item_rejected', 40, followUpCase.id],
       ] as const) {
-        await stores().audit.append(
+        await stores().planItemReviews.append(
           a,
-          aCaseEvent(a, { caseId: followUpCase.id, type: type as 'assigned', at: at(day) }),
+          aPlanItemReview(a, {
+            type,
+            at: at(day),
+            ...(caseId === undefined ? {} : { caseId }),
+            ...(type === 'plan_item_corrected'
+              ? {
+                  after: { kind: 'lab', dueAt: at(60) },
+                  replacementId: expectationId(uniqueId('exp')),
+                }
+              : {}),
+          }),
         );
       }
+      await stores().planItemReviews.append(b, aPlanItemReview(b, { at: at(1) }));
+      // A plan-item type on the case trail alone is not counted: the log is the source.
+      await stores().audit.append(
+        a,
+        aCaseEvent(a, { caseId: followUpCase.id, type: 'plan_item_rejected', at: at(3) }),
+      );
       expect(await metrics().planItemReviews(a, PERIOD)).toEqual([
         { type: 'plan_item_confirmed', at: at(1) },
         { type: 'plan_item_corrected', at: at(2) },

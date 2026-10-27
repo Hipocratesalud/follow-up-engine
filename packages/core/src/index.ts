@@ -11,6 +11,7 @@ export * from './domain/attribution.ts';
 export type * from './domain/common.ts';
 export * from './domain/expectation.ts';
 export * from './domain/case.ts';
+export * from './domain/plan-item-review.ts';
 export * from './domain/contact.ts';
 export * from './domain/backfill.ts';
 export * from './domain/condition.ts';

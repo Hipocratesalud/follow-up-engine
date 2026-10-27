@@ -72,6 +72,17 @@ export interface Expectation {
   readonly reason: Reason;
   /** Present for `doctor_plan` expectations: the quote from the note. */
   readonly evidence?: Evidence;
+  /**
+   * A clinician confirmed what the AI read (`doctor_plan` only, HIP-141):
+   * their host user id. A correction is confirmed by whoever made it.
+   */
+  readonly confirmedBy?: string;
+  readonly confirmedAt?: Date;
+  /**
+   * A clinician's correction: the expectation this one replaced (superseded
+   * with `corrected_by_clinician`). It keeps that one's source and evidence.
+   */
+  readonly correctionOf?: ExpectationId;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }

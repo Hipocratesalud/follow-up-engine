@@ -53,6 +53,10 @@ function evidenceExtension(expectation: Expectation): Extension[] {
  * - `status`: {@link EXPECTATION_TASK_STATUS}; `businessStatus`: the exact engine status.
  * - `focus` (and `basedOn` for orders and prescriptions): the triggering resource.
  * - `partOf`: the case Task once the expectation was grouped into a case.
+ * - A plan item a clinician reviewed (HIP-141): `confirmedBy` / `confirmedAt`
+ *   extensions; a correction points at the Task it replaced (`correctionOf`),
+ *   which ends `cancelled` with `statusReason` `corrected_by_clinician`; a
+ *   rejected one ends `cancelled` with `rejected_by_clinician`.
  */
 /** `closedReason` of an expectation that expired without one recorded. */
 export const EXPIRED_UNMET_REASON = 'expired_unmet';
@@ -86,6 +90,12 @@ export function expectationToTask(expectation: Expectation): Task {
     ...ext.code(ENGINE_EXTENSIONS.origin, expectation.origin),
     ...ext.string(ENGINE_EXTENSIONS.matchKey, expectation.matchKey),
     ...evidenceExtension(expectation),
+    ...ext.string(ENGINE_EXTENSIONS.confirmedBy, expectation.confirmedBy),
+    ...ext.dateTime(ENGINE_EXTENSIONS.confirmedAt, expectation.confirmedAt),
+    ...ext.reference(
+      ENGINE_EXTENSIONS.correctionOf,
+      expectation.correctionOf === undefined ? undefined : taskReference(expectation.correctionOf),
+    ),
   ];
   return {
     resourceType: 'Task',

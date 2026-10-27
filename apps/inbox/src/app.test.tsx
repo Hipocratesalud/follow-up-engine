@@ -88,14 +88,17 @@ describe.each(LOCALES)('key flows in %s', (locale: Locale) => {
 
     it('never sends a diagnosis in the patient message preview', async () => {
       const { user } = renderApp(DIABETES_CASE, { locale });
-      await user.click(await screen.findByRole('button', { name: t.caseActions.notify }));
-      const dialog = await screen.findByRole('dialog', { name: t.caseActions.notifyTitle });
+      // HIP-141: contact is requested once for the patient, from the patient card.
+      await user.click(await screen.findByRole('button', { name: t.patientCard.requestContact }));
+      const dialog = await screen.findByRole('dialog', { name: t.patientCard.requestTitle });
       const preview = within(dialog).getByText(t.caseActions.patientMessage('María'));
       expect(preview.textContent).not.toMatch(/diabetes|DM2|HbA1c|lipid/i);
 
-      await user.click(within(dialog).getByRole('button', { name: t.caseActions.notifyConfirm }));
-      expect(await screen.findByText(t.caseActions.notifyDone)).toBeInTheDocument();
-      expect(screen.getAllByText(t.labels.statuses.notified).length).toBeGreaterThan(0);
+      // María was contacted 9 days ago: one message per patient every 14 days, across cases.
+      await user.click(within(dialog).getByRole('button', { name: t.patientCard.requestContact }));
+      expect(
+        await within(dialog).findByText(mockApiCopy(locale).patientQueue.contactWindow),
+      ).toBeInTheDocument();
     });
 
     it('explains instead of contacting a patient who opted out', async () => {
@@ -105,11 +108,11 @@ describe.each(LOCALES)('key flows in %s', (locale: Locale) => {
         .items.find((item) => item.patientContact.optedOut);
       const name = optedOut?.patient.name ?? '';
       await user.click(await screen.findByRole('link', { name: new RegExp(name) }));
-      await user.click(await screen.findByRole('button', { name: t.caseActions.notify }));
+      await user.click(await screen.findByRole('button', { name: t.patientCard.requestContact }));
       const dialog = await screen.findByRole('dialog');
-      expect(within(dialog).getByText(t.caseActions.noMessages(name))).toBeInTheDocument();
+      expect(within(dialog).getByText(t.patientCard.blocked(name))).toBeInTheDocument();
       expect(
-        within(dialog).queryByRole('button', { name: t.caseActions.notifyConfirm }),
+        within(dialog).queryByRole('button', { name: t.patientCard.requestContact }),
       ).not.toBeInTheDocument();
     });
   });

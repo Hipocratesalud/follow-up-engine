@@ -61,7 +61,8 @@ GRANT SELECT ON
   follow_up.contact_requests,
   follow_up.contact_communications,
   follow_up.patient_contact_flags,
-  follow_up.patient_rule_suppressions
+  follow_up.patient_rule_suppressions,
+  follow_up.plan_item_reviews
 TO authenticated;
 
 -- The clinic row without its API key hash.
@@ -135,6 +136,12 @@ CREATE POLICY clinic_reads_own_rows ON follow_up.patient_contact_flags
 
 DROP POLICY IF EXISTS clinic_reads_own_rows ON follow_up.patient_rule_suppressions;
 CREATE POLICY clinic_reads_own_rows ON follow_up.patient_rule_suppressions
+  FOR SELECT TO authenticated
+  USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id'));
+
+-- Plan item reviews (migration 0015): the clinicians' verdicts on AI-read plan items.
+DROP POLICY IF EXISTS clinic_reads_own_rows ON follow_up.plan_item_reviews;
+CREATE POLICY clinic_reads_own_rows ON follow_up.plan_item_reviews
   FOR SELECT TO authenticated
   USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id'));
 

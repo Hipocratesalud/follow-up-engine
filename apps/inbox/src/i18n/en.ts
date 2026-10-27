@@ -343,6 +343,9 @@ const stats = {
   error: 'We could not load the summary',
   region: 'Summary',
   activeCases: 'Active cases',
+  /** HIP-141: the inbox counts patients first (one card each), their cases second. */
+  activePatients: 'Patients with active cases',
+  cases: (n: number): string => count(n, 'case', 'cases'),
   escalated: (n: number): string => count(n, 'escalated', 'escalated'),
   snoozed: (n: number): string => count(n, 'snoozed', 'snoozed'),
   byLayer: 'By layer',
@@ -450,7 +453,7 @@ const feedback = {
 const inbox = {
   title: 'Follow-up inbox',
   intro:
-    'Patients with something pending, sorted by priority. Each case gathers a patient’s reasons for one kind of follow-up: a patient with pending items of different kinds shows up in more than one case.',
+    'Patients with something pending, sorted by priority. Each card gathers every reason of one patient; act on each of their cases inside it.',
   views: { active: 'Active', closed: 'Closed', all: 'All' },
   viewGroup: 'Case status',
   empty: {
@@ -462,23 +465,85 @@ const inbox = {
     all: { title: 'No cases yet', body: 'Cases show up when an expectation is overdue and unmet.' },
   },
   noResults: 'No results',
-  noMatches: (search: string): string => `No cases of patients matching “${search}” in this view.`,
-  noOwnerCases: (owner: string): string => `No cases of ${owner} in this view.`,
+  noMatches: (search: string): string => `No patients matching “${search}” in this view.`,
+  noOwnerCases: (owner: string): string => `No patients with cases of ${owner} in this view.`,
   thisOwner: 'this owner',
   cases: 'Cases',
+  patients: 'Patients',
   searchLabel: 'Search patient',
   searchPlaceholder: 'Search patient by name',
   clearSearch: 'Clear search',
   ownerLabel: 'Owner',
   allOwners: 'All owners',
-  loading: 'Loading cases',
-  error: 'We could not load the cases',
+  loading: 'Loading patients',
+  error: 'We could not load the patients',
   showing: (shown: number, total: number): string =>
     `Showing ${String(shown)} of ${count(total, 'case', 'cases')}`,
-  loadMore: 'Load more cases',
-  selectTitle: 'Choose a case from the list',
+  /** The patient queue (HIP-141): patients first, their cases second. */
+  showingPatients: (shown: number, total: number, cases: number): string =>
+    `Showing ${String(shown)} of ${count(total, 'patient', 'patients')} · ${count(cases, 'case', 'cases')}`,
+  loadMore: 'Load more patients',
+  selectTitle: 'Choose a patient from the list',
   selectBody:
-    'You will see all the patient’s reasons, the quoted evidence from the note and the suggested next step.',
+    'You will see every case of the patient, the quoted evidence from the note and the suggested next step.',
+};
+
+/** The patient card of the inbox (HIP-141): one patient, every case. */
+const patientCard = {
+  cases: (n: number): string => count(n, 'case', 'cases'),
+  activeCases: (n: number): string => count(n, 'active case', 'active cases'),
+  reasons: (n: number): string => count(n, 'reason', 'reasons'),
+  owners: (names: string): string => `Owner: ${names}`,
+  contactAllowed: 'Contact allowed',
+  contactNotAllowed: 'Contact not allowed',
+  optedOut: 'Does not accept messages',
+  lastContact: (when: string): string => `Last contact ${when}`,
+  noContacts: 'No contacts recorded',
+  requestContact: 'Request contact',
+  requestHint: 'One request covers every case of the patient: at most one message every 14 days.',
+  requestTitle: 'Request contact with the patient',
+  requestBody: (name: string, cases: number): string =>
+    `We will ask the clinic’s system to contact ${name} through their usual channel, once for their ${count(cases, 'case', 'cases')}.`,
+  blocked: (name: string): string =>
+    `${name} does not accept messages from the clinic. Reach them another way, then resolve the cases.`,
+  done: 'Done: the clinic’s system will contact the patient, once for all their cases.',
+  casesTitle: 'Cases',
+  closedTitle: 'Closed cases',
+  loading: 'Loading patient',
+  error: 'We could not load the patient',
+  caseError: 'We could not load this case',
+};
+
+/** One-click review of a plan item the AI read (HIP-141). */
+const planReview = {
+  reading: 'AI reading',
+  question: 'Read by the AI from the note. Is it what the doctor asked for?',
+  pending: 'Not reviewed yet',
+  confirmedBy: (who: string): string => `Confirmed by ${who}`,
+  confirmed: 'Confirmed',
+  correctedBy: (who: string): string => `Corrected by ${who}`,
+  correctedShort: 'Corrected',
+  superseded: 'Corrected: replaced by the clinician’s correction',
+  rejected: 'Rejected: the note did not ask for it',
+  confirm: 'Confirm',
+  correct: 'Correct',
+  reject: 'Reject',
+  confirmedDone: 'Plan item confirmed.',
+  correctedDone: 'Plan item corrected.',
+  rejectedDone: 'Plan item rejected.',
+  correctTitle: 'Correct the plan item',
+  correctBody:
+    'Change what the note asked for. The correction keeps the quote as evidence; the original reading stays in the record as corrected.',
+  kindLabel: 'What it asks for',
+  dueDateLabel: 'Due date',
+  dueDateHint: 'The clinic’s calendar day.',
+  save: 'Save correction',
+  nothingChanged: 'Change the due date or what it asks for to correct the item.',
+  invalidDate: 'Enter a valid date.',
+  rejectTitle: 'Reject the plan item',
+  rejectBody:
+    'The engine stops expecting it. If it was the only pending reason of its case, the case is resolved.',
+  rejectConfirm: 'Reject item',
 };
 
 const caseRow = {
@@ -1041,6 +1106,8 @@ export const en = {
   caseDetail,
   feedback,
   inbox,
+  patientCard,
+  planReview,
   caseRow,
   patient,
   recovery,

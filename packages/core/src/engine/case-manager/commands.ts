@@ -14,7 +14,14 @@ import {
 } from '../../domain/contact.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import { NotFoundError, ValidationError } from '../../domain/errors.ts';
-import { type CaseId, type ClinicId, type ContactRequestId, feedbackId } from '../../domain/ids.ts';
+import {
+  type CaseId,
+  type ClinicId,
+  type ContactRequestId,
+  feedbackId,
+  type PatientId,
+} from '../../domain/ids.ts';
+import { ACTIVE_CASE_STATUSES } from '../../domain/case.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { TransactionalStores, UnitOfWork } from '../../ports/unit-of-work.ts';
 import type { Clock } from '../../ports/clock.ts';
@@ -38,6 +45,7 @@ import { suppressRule } from '../suppression/suppressions.ts';
 import { CaseWriter, withoutKey } from './case-writer.ts';
 import { resolveCase } from './reconcile.ts';
 import { isActiveCaseStatus } from './state-machine.ts';
+import { listPatientCases } from '../patient-state.ts';
 
 /**
  * A clinic user's action on a case (the inbox "actions" endpoint). `note` is
@@ -97,6 +105,16 @@ export interface CaseCommandDeps {
   readonly clinics: ClinicDirectory;
   readonly settings: EngineSettings;
   readonly loadCatalog: (clinicId: ClinicId) => Promise<Catalog>;
+}
+
+/** What a patient-level contact request did (see `requestPatientContactForPatient`). */
+export interface PatientContactRequestResult {
+  /** The one attempt opened for the patient. */
+  readonly request: ContactRequest;
+  /** The case the attempt belongs to: the patient's most urgent active case. */
+  readonly primaryCaseId: CaseId;
+  /** Every active case of the patient in the inbox, after the request. */
+  readonly cases: readonly FollowUpCase[];
 }
 
 /** Commands a clinic user runs on a case. Every one is audited with the user as actor. */
@@ -182,6 +200,23 @@ export interface CaseCommands {
   ): Promise<CommunicationRecordResult>;
   /** The case's contact attempts, oldest first. */
   contactAttempts(clinicId: ClinicId, caseId: CaseId): Promise<readonly ContactRequest[]>;
+  /**
+   * "Request contact" for the patient of the inbox card (HIP-141): one
+   * attempt for the patient whatever the number of their cases, on the most
+   * urgent active case released to the inbox. Every other active case
+   * records the request in its history (`patient_contact_requested` with
+   * `sharedFromCaseId`), and every open or snoozed case is marked notified
+   * (the wait before its next escalation step restarts). The same checks as
+   * `requestPatientContact` (one message per patient per contact window,
+   * across cases); `NotFoundError` when the patient has no active case in
+   * the inbox.
+   */
+  requestPatientContactForPatient(
+    clinicId: ClinicId,
+    patientId: PatientId,
+    actor: CaseEventActor,
+    note?: string,
+  ): Promise<PatientContactRequestResult>;
 }
 
 async function requireCase(
@@ -252,6 +287,22 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
     return next;
   }
 
+  async function notifyInTransaction(
+    stores: TransactionalStores,
+    writer: CaseWriter,
+    current: FollowUpCase,
+    actor: CaseEventActor,
+    now: Date,
+  ): Promise<FollowUpCase> {
+    const notified = await writer.transition(current, {
+      to: 'notified',
+      type: 'notified',
+      actor,
+      at: now,
+    });
+    return restartWait(stores, current.clinicId, notified, now);
+  }
+
   async function apply(
     clinicId: ClinicId,
     caseId: CaseId,
@@ -263,15 +314,8 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
       const writer = new CaseWriter(stores, deps.ids, clinicId);
       const current = await requireCase(stores, clinicId, caseId);
       switch (action.type) {
-        case 'notify': {
-          const notified = await writer.transition(current, {
-            to: 'notified',
-            type: 'notified',
-            actor,
-            at: now,
-          });
-          return restartWait(stores, clinicId, notified, now);
-        }
+        case 'notify':
+          return notifyInTransaction(stores, writer, current, actor, now);
         case 'snooze': {
           if (action.until.getTime() <= now.getTime()) {
             throw new ValidationError('until', 'A case can only be snoozed until a future date');
@@ -440,9 +484,82 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
     });
   }
 
+  async function requestPatientContactForPatient(
+    clinicId: ClinicId,
+    patientId: PatientId,
+    actor: CaseEventActor,
+    note?: string,
+  ): Promise<PatientContactRequestResult> {
+    const clinic = await deps.clinics.get(clinicId);
+    const catalog = await deps.loadCatalog(clinicId);
+    return deps.unitOfWork.withTransaction(clinicId, async (stores) => {
+      const now = deps.clock.now();
+      // Most urgent first (the store's order); each one locked, in that order.
+      const listed = await listPatientCases(stores, clinicId, patientId, {
+        statuses: ACTIVE_CASE_STATUSES,
+        releasedAsOf: now,
+        orderBy: 'priority',
+      });
+      const locked: FollowUpCase[] = [];
+      for (const item of listed) {
+        const current = await stores.cases.get(clinicId, item.id, { forUpdate: true });
+        if (current !== undefined && isActiveCaseStatus(current.status)) {
+          locked.push(current);
+        }
+      }
+      const [primary] = locked;
+      if (primary === undefined) {
+        throw new NotFoundError('FollowUpCase', `patient:${patientId}`);
+      }
+      const lastContactAt = await lastPatientContactAt(stores, clinicId, patientId);
+      const decision = decidePatientContact({
+        clinicAllowsContact: clinic?.active === true && clinic.settings.allowPatientContact,
+        patientOptedOut: await hasOptedOut(stores, clinicId, patientId),
+        lowConfidence: false,
+        ...(lastContactAt === undefined ? {} : { lastContactAt }),
+        now,
+        windowDays: deps.settings.patientContactWindowDays,
+      });
+      if (!decision.allowed) {
+        throw new PatientContactNotAllowedError(decision.reason);
+      }
+      const writer = new CaseWriter(stores, deps.ids, clinicId);
+      const request = await openContactAttempt(
+        { stores, writer, ids: deps.ids },
+        {
+          followUpCase: primary,
+          purpose: contactPurpose(catalog, await caseExpectations(stores, clinicId, primary)),
+          trigger: 'user',
+          answerWindowDays: deps.settings.patientContactDueInDays,
+          actor,
+          now,
+          ...(note === undefined ? {} : { note }),
+        },
+      );
+      const cases: FollowUpCase[] = [];
+      for (const current of locked) {
+        if (current.id !== primary.id) {
+          await writer.audit(current, 'patient_contact_requested', actor, now, {
+            requestId: request.id,
+            sharedFromCaseId: primary.id,
+            trigger: 'user',
+            ...(note === undefined ? {} : { note }),
+          });
+        }
+        cases.push(
+          current.status === 'open' || current.status === 'snoozed'
+            ? await notifyInTransaction(stores, writer, current, actor, now)
+            : current,
+        );
+      }
+      return { request, primaryCaseId: primary.id, cases };
+    });
+  }
+
   return {
     apply,
     requestPatientContact,
+    requestPatientContactForPatient,
     notify: (clinicId, caseId, actor) => apply(clinicId, caseId, { type: 'notify' }, actor),
     snooze: (clinicId, caseId, until, actor) =>
       apply(clinicId, caseId, { type: 'snooze', until }, actor),

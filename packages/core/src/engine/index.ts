@@ -31,6 +31,15 @@ export {
   type ConditionCommands,
   type RejectConditionResult,
 } from './application/condition-commands.ts';
+export {
+  createPlanItemCommands,
+  isClosedByClinician,
+  planItemReading,
+  PlanItemReviewConflictError,
+  type PlanItemCommands,
+  type PlanItemCorrection,
+  type PlanItemReviewResult,
+} from './application/plan-item-commands.ts';
 export type { ClosedExpectation } from './annotator/annotate.ts';
 export {
   Catalog,
@@ -46,6 +55,7 @@ export {
   type DismissInput,
   type DismissResult,
   type FeedbackInput,
+  type PatientContactRequestResult,
 } from './case-manager/commands.ts';
 export {
   caseOpenedAt,
@@ -118,7 +128,12 @@ export {
   type PatientContactDenial,
 } from './patient-contact/policy.ts';
 export { caseDedupKey, type WatcherReport } from './watcher/watcher.ts';
-export { codeMatchKey, matchKeyFor, parseCodeMatchKey } from './matching/match-key.ts';
+export {
+  codeMatchKey,
+  kindOfMatchKey,
+  matchKeyFor,
+  parseCodeMatchKey,
+} from './matching/match-key.ts';
 export { matchesFilter } from './matching/filter.ts';
 export { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from './settings.ts';
 

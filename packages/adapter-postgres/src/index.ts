@@ -55,6 +55,7 @@ export {
 } from './clinic-directory.ts';
 export { PostgresLlmUsageLog } from './llm-usage-log.ts';
 export { PostgresMetricsReadModel } from './metrics-read-model.ts';
+export { PostgresPlanItemReviewLog } from './plan-item-review-log.ts';
 export {
   PostgresClinicalFindingRepository,
   PostgresClinicalReviewRunRepository,

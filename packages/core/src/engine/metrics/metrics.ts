@@ -11,14 +11,13 @@ import type { PatientCondition } from '../../domain/condition.ts';
 import { DISMISS_REASONS, type DismissReason } from '../../domain/contact.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import type { CaseId, ClinicId } from '../../domain/ids.ts';
-import {
-  PLAN_ITEM_REVIEW_EVENT_TYPES,
-  type LlmTaskUsage,
-  type MetricsPeriod,
-  type NoteExtractionCost,
-  type PlanItemReview,
-  type PlanItemReviewType,
-  type ReviewRunTotals,
+import { PLAN_ITEM_REVIEW_TYPES, type PlanItemReviewType } from '../../domain/plan-item-review.ts';
+import type {
+  LlmTaskUsage,
+  MetricsPeriod,
+  NoteExtractionCost,
+  PlanItemReviewEntry,
+  ReviewRunTotals,
 } from '../../ports/metrics-read-model.ts';
 import { isActiveCaseStatus } from '../case-manager/state-machine.ts';
 
@@ -176,7 +175,7 @@ export interface MetricsInput {
   readonly expectations: readonly Expectation[];
   readonly noteCosts: readonly NoteExtractionCost[];
   readonly conditions: readonly PatientCondition[];
-  readonly planItemReviews: readonly PlanItemReview[];
+  readonly planItemReviews: readonly PlanItemReviewEntry[];
   readonly llmUsage: readonly LlmTaskUsage[];
   readonly reviewRuns: ReviewRunTotals;
 }
@@ -438,12 +437,10 @@ function conditionReviews(
   });
 }
 
-function planItemReviews(reviews: readonly PlanItemReview[]): PlanItemReviewMetrics {
-  const counts = zeroed<PlanItemReviewType>(PLAN_ITEM_REVIEW_EVENT_TYPES);
+function planItemReviews(reviews: readonly PlanItemReviewEntry[]): PlanItemReviewMetrics {
+  const counts = zeroed<PlanItemReviewType>(PLAN_ITEM_REVIEW_TYPES);
   for (const review of reviews) {
-    if ((PLAN_ITEM_REVIEW_EVENT_TYPES as readonly string[]).includes(review.type)) {
-      counts[review.type as PlanItemReviewType] += 1;
-    }
+    counts[review.type] += 1;
   }
   const total = counts.plan_item_confirmed + counts.plan_item_corrected + counts.plan_item_rejected;
   return defined<PlanItemReviewMetrics>({
