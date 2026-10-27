@@ -1,0 +1,120 @@
+{
+  "id": "diabetes",
+  "version": "1.0.0",
+  "description": "Diabetes mellitus follow-up: a control visit at least every 6 months, HbA1c every 3 months, lipid panel and fundus exam yearly. Fills only what the doctor's plan did not cover.",
+  "reason": { "code": "protocol_diabetes", "label": "Control de diabetes" },
+  "caseGroup": "follow_up",
+  "enrollment": {
+    "conditionCodes": ["E10", "E11", "E13", "E14"],
+    "minimumStatus": "probable",
+    "medications": [
+      {
+        "match": [
+          "metformin",
+          "insulin",
+          "glibenclamid",
+          "glimepirid",
+          "gliclazid",
+          "sitagliptin",
+          "vildagliptin",
+          "linagliptin",
+          "empagliflozin",
+          "dapagliflozin",
+          "liraglutid",
+          "semaglutid",
+          "dulaglutid",
+          "pioglitazon"
+        ],
+        "conditionCode": "E14"
+      }
+    ],
+    "results": [
+      {
+        "code": { "system": "http://loinc.org", "code": "4548-4" },
+        "gte": 6.5,
+        "conditionCode": "E14"
+      }
+    ]
+  },
+  "items": [
+    {
+      "key": "visit",
+      "kind": "follow_up_visit",
+      "reason": {
+        "code": "protocol_diabetes_visit",
+        "label": "Sin control de diabetes en 6 meses"
+      },
+      "everyDays": 180,
+      "fulfilledBy": [
+        { "event": "encounter.finished", "match": "any" },
+        { "event": "appointment.booked", "match": "any" }
+      ],
+      "priority": 40,
+      "suggestedAction": {
+        "code": "schedule_follow_up",
+        "label": "Agendar control de diabetes",
+        "patientContactPurpose": "schedule_follow_up"
+      }
+    },
+    {
+      "key": "hba1c",
+      "kind": "lab",
+      "code": { "system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c" },
+      "reason": { "code": "protocol_diabetes_hba1c", "label": "Sin HbA1c reciente (cada 3 meses)" },
+      "everyDays": 90,
+      "fulfilledBy": [{ "event": "result.received", "match": "same_code" }],
+      "priority": 40,
+      "suggestedAction": {
+        "code": "order_lab",
+        "label": "Indicar HbA1c",
+        "patientContactPurpose": "complete_pending_test"
+      }
+    },
+    {
+      "key": "lipids",
+      "kind": "lab",
+      "code": { "system": "http://loinc.org", "code": "24331-1", "display": "Lipid panel" },
+      "reason": { "code": "protocol_diabetes_lipids", "label": "Perfil lipídico anual pendiente" },
+      "everyDays": 365,
+      "fulfilledBy": [
+        {
+          "event": "result.received",
+          "filter": { "code.code": ["24331-1", "57698-3", "2093-3", "13457-7", "2085-9"] },
+          "match": "any"
+        }
+      ],
+      "priority": 20,
+      "suggestedAction": {
+        "code": "order_lab",
+        "label": "Indicar perfil lipídico",
+        "patientContactPurpose": "complete_pending_test"
+      }
+    },
+    {
+      "key": "fundus",
+      "kind": "imaging",
+      "code": {
+        "system": "https://follow-up-engine.dev/fhir/CodeSystem/procedure",
+        "code": "fundus-exam",
+        "display": "Fundus exam"
+      },
+      "reason": { "code": "protocol_diabetes_fundus", "label": "Fondo de ojo anual pendiente" },
+      "everyDays": 365,
+      "fulfilledBy": [
+        { "event": "result.received", "match": "same_code" },
+        {
+          "event": "encounter.finished",
+          "filter": { "specialty": "ophthalmology" },
+          "match": "any"
+        }
+      ],
+      "priority": 20,
+      "suggestedAction": {
+        "code": "refer_ophthalmology",
+        "label": "Referir a oftalmología para fondo de ojo",
+        "patientContactPurpose": "complete_pending_test"
+      }
+    }
+  ],
+  "escalationPolicy": "default_v1"
+}

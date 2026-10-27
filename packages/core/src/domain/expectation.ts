@@ -6,7 +6,12 @@ import type { ResourceRef } from './resource.ts';
 export const EXPECTATION_LAYERS = ['universal', 'doctor_plan', 'cadence', 'protocol'] as const;
 export type ExpectationLayer = (typeof EXPECTATION_LAYERS)[number];
 
-/** Lifecycle of an expectation. Only `open` is non-terminal. */
+/**
+ * Lifecycle of an expectation. `open` is watched by the deadline sweep;
+ * `expired` means it is grouped into a case and can still close late
+ * (`fulfilled`, `superseded`, `cancelled`) while that case is active. The
+ * other statuses are terminal.
+ */
 export const EXPECTATION_STATUSES = [
   'open',
   'fulfilled',

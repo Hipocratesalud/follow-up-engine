@@ -19,9 +19,13 @@ export * from './domain/errors.ts';
 export * from './config/common.ts';
 export * from './config/rule.ts';
 export * from './config/protocol.ts';
+export * from './config/loader.ts';
 
 // Ports
 export * from './ports/index.ts';
+
+// Engine (application services over the domain)
+export * from './engine/index.ts';
 
 // Shared primitives and pure adapters
 export type * from './shared/brand.ts';

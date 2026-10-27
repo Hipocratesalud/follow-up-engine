@@ -1,0 +1,77 @@
+{
+  "id": "hypertension",
+  "version": "1.0.0",
+  "description": "Arterial hypertension follow-up: a control visit at least every 6 months and basic labs (creatinine, potassium) yearly. Fills only what the doctor's plan did not cover.",
+  "reason": { "code": "protocol_hypertension", "label": "Control de hipertensión" },
+  "caseGroup": "follow_up",
+  "enrollment": {
+    "conditionCodes": ["I10", "I11", "I12", "I13", "I15"],
+    "minimumStatus": "probable",
+    "medications": [
+      {
+        "match": [
+          "losartan",
+          "enalapril",
+          "amlodipin",
+          "valsartan",
+          "hydrochlorothiazide",
+          "hidroclorotiazida",
+          "captopril",
+          "lisinopril",
+          "irbesartan",
+          "telmisartan",
+          "candesartan",
+          "nifedipin",
+          "chlorthalidone",
+          "clortalidona"
+        ],
+        "conditionCode": "I10"
+      }
+    ]
+  },
+  "items": [
+    {
+      "key": "visit",
+      "kind": "follow_up_visit",
+      "reason": {
+        "code": "protocol_hypertension_visit",
+        "label": "Sin control de hipertensión en 6 meses"
+      },
+      "everyDays": 180,
+      "fulfilledBy": [
+        { "event": "encounter.finished", "match": "any" },
+        { "event": "appointment.booked", "match": "any" }
+      ],
+      "priority": 30,
+      "suggestedAction": {
+        "code": "schedule_follow_up",
+        "label": "Agendar control de hipertensión",
+        "patientContactPurpose": "schedule_follow_up"
+      }
+    },
+    {
+      "key": "labs",
+      "kind": "lab",
+      "code": { "system": "http://loinc.org", "code": "2160-0", "display": "Creatinine" },
+      "reason": {
+        "code": "protocol_hypertension_labs",
+        "label": "Laboratorio anual pendiente (creatinina, potasio)"
+      },
+      "everyDays": 365,
+      "fulfilledBy": [
+        {
+          "event": "result.received",
+          "filter": { "code.code": ["2160-0", "2823-3"] },
+          "match": "any"
+        }
+      ],
+      "priority": 20,
+      "suggestedAction": {
+        "code": "order_lab",
+        "label": "Indicar creatinina y potasio",
+        "patientContactPurpose": "complete_pending_test"
+      }
+    }
+  ],
+  "escalationPolicy": "default_v1"
+}

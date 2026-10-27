@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PLAN_ITEM_KINDS } from '../domain/clinical-event.ts';
 import {
+  CodingSchema,
   ConfigIdSchema,
   ConfigVersionSchema,
   EscalationPolicySchema,
@@ -25,7 +26,31 @@ export const ProtocolSchema = z.strictObject({
     conditionCodes: z.array(z.string().min(1)).min(1),
     /** `probable` also enrolls inferred conditions. */
     minimumStatus: z.enum(['confirmed', 'probable']),
+    /**
+     * Medications that make the condition probable when no diagnosis is
+     * coded: case-insensitive substrings of the medication text.
+     */
+    medications: z
+      .array(
+        z.strictObject({
+          match: z.array(z.string().min(1)).min(1),
+          conditionCode: z.string().min(1),
+        }),
+      )
+      .optional(),
+    /** Results that make the condition probable (`value >= gte`, or `abnormal` without a value). */
+    results: z
+      .array(
+        z.strictObject({
+          code: CodingSchema,
+          gte: z.number(),
+          conditionCode: z.string().min(1),
+        }),
+      )
+      .optional(),
   }),
+  /** Case group of every item (see `Rule.caseGroup`). Defaults to the protocol reason code. */
+  caseGroup: ConfigIdSchema.optional(),
   items: z
     .array(
       z.strictObject({
@@ -33,6 +58,8 @@ export const ProtocolSchema = z.strictObject({
         kind: z.enum(PLAN_ITEM_KINDS),
         reason: ReasonSchema,
         everyDays: z.number().int().positive(),
+        /** The test the item expects, for lab and imaging items (match key and coverage). */
+        code: CodingSchema.optional(),
         fulfilledBy: z.array(EventCorrelationSchema).min(1),
         priority: z.number().int().nonnegative(),
         suggestedAction: SuggestedActionSchema,

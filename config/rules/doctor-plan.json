@@ -1,0 +1,32 @@
+[
+  {
+    "id": "doctor_plan_followup",
+    "version": "1.0.0",
+    "layer": "doctor_plan",
+    "description": "Each item of the follow-up plan the doctor wrote in a note (control visit, lab, imaging, session) is expected by the date the note gives. The item's own due date wins over dueInDays.",
+    "reason": { "code": "doctor_plan_followup", "label": "Seguimiento indicado por el médico" },
+    "trigger": { "event": "plan.extracted" },
+    "dueInDays": 30,
+    "caseGroup": "follow_up",
+    "fulfilledBy": [
+      {
+        "event": "encounter.finished",
+        "match": "any",
+        "forKinds": ["follow_up_visit", "session", "other"]
+      },
+      {
+        "event": "appointment.booked",
+        "match": "any",
+        "forKinds": ["follow_up_visit", "session", "other"]
+      },
+      { "event": "result.received", "match": "same_code", "forKinds": ["lab", "imaging"] }
+    ],
+    "priority": 50,
+    "escalationPolicy": "default_v1",
+    "suggestedAction": {
+      "code": "schedule_follow_up",
+      "label": "Contactar al paciente para cumplir el plan indicado",
+      "patientContactPurpose": "schedule_follow_up"
+    }
+  }
+]

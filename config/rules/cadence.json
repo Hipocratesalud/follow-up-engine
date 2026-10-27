@@ -1,0 +1,25 @@
+[
+  {
+    "id": "cadence_break",
+    "version": "1.0.0",
+    "layer": "cadence",
+    "description": "A patient with an established visit pattern (2+ previous visits in the same specialty) should come back within 3 times their usual interval.",
+    "reason": { "code": "cadence_break", "label": "Dejó de venir a su control habitual" },
+    "trigger": { "event": "encounter.finished" },
+    "dueInDays": 90,
+    "cadence": { "multiplier": 3, "minPreviousVisits": 2, "minIntervalDays": 7 },
+    "expects": "follow_up_visit",
+    "caseGroup": "follow_up",
+    "fulfilledBy": [
+      { "event": "encounter.finished", "match": "same_specialty" },
+      { "event": "appointment.booked", "match": "same_specialty" }
+    ],
+    "priority": 30,
+    "escalationPolicy": "default_v1",
+    "suggestedAction": {
+      "code": "schedule_follow_up",
+      "label": "Contactar al paciente para retomar sus controles",
+      "patientContactPurpose": "schedule_follow_up"
+    }
+  }
+]

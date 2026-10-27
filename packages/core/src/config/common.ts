@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CLINICAL_EVENT_TYPES } from '../domain/clinical-event.ts';
+import { CLINICAL_EVENT_TYPES, PLAN_ITEM_KINDS } from '../domain/clinical-event.ts';
 import { PATIENT_CONTACT_PURPOSES } from '../domain/domain-event.ts';
 
 /** Lowercase dotted / dashed / underscored id, for example `imaging.result-pending`. */
@@ -12,6 +12,13 @@ export const ConfigVersionSchema = z.string().regex(/^\d+\.\d+\.\d+$/, {
   message: 'expected a semantic version such as "1.0.0"',
 });
 
+/** A terminology code, like a FHIR `Coding`. */
+export const CodingSchema = z.strictObject({
+  system: z.string().min(1),
+  code: z.string().min(1),
+  display: z.string().min(1).optional(),
+});
+
 /** Machine code plus Spanish UI label. */
 export const ReasonSchema = z.strictObject({
   code: z.string().min(1),
@@ -21,22 +28,43 @@ export const ReasonSchema = z.strictObject({
 const FilterValueSchema = z.union([z.string(), z.number(), z.boolean()]);
 
 /**
+ * Numeric comparison or presence check on an event field, for example
+ * `{ "lte": 30 }` (short treatments) or `{ "exists": true }`. Every given
+ * bound must hold.
+ */
+export const FilterConditionSchema = z
+  .strictObject({
+    lt: z.number().optional(),
+    lte: z.number().optional(),
+    gt: z.number().optional(),
+    gte: z.number().optional(),
+    exists: z.boolean().optional(),
+  })
+  .refine((condition) => Object.keys(condition).length > 0, {
+    message: 'expected at least one of lt, lte, gt, gte, exists',
+  });
+export type FilterCondition = z.infer<typeof FilterConditionSchema>;
+
+/**
  * Declarative filter on event fields. Keys are dot paths into the event
  * (`category`, `code.code`, `interpretation`); a value must equal the
- * literal, or be one of the listed literals.
+ * literal, be one of the listed literals, or satisfy a
+ * {@link FilterConditionSchema} (`{ "lte": 30 }`).
  *
  * @example { "category": "imaging", "code.system": "http://loinc.org" }
  */
 export const EventFilterSchema = z.record(
   z.string().min(1),
-  z.union([FilterValueSchema, z.array(FilterValueSchema).min(1)]),
+  z.union([FilterValueSchema, z.array(FilterValueSchema).min(1), FilterConditionSchema]),
 );
+export type EventFilter = z.infer<typeof EventFilterSchema>;
 
 /** Selects clinical events by type and optional filter. */
 export const EventMatcherSchema = z.strictObject({
   event: z.enum(CLINICAL_EVENT_TYPES),
   filter: EventFilterSchema.optional(),
 });
+export type EventMatcher = z.infer<typeof EventMatcherSchema>;
 
 /**
  * How a candidate event is correlated with the expectation it may close:
@@ -52,18 +80,31 @@ export const EventCorrelationSchema = z.strictObject({
   event: z.enum(CLINICAL_EVENT_TYPES),
   filter: EventFilterSchema.optional(),
   match: z.enum(MATCH_STRATEGIES),
+  /**
+   * Restricts the correlation to expectations of these kinds (doctor's plan
+   * rules, whose items can be visits, labs or imaging). All kinds when absent.
+   */
+  forKinds: z.array(z.enum(PLAN_ITEM_KINDS)).min(1).optional(),
 });
+export type EventCorrelation = z.infer<typeof EventCorrelationSchema>;
 
 export const ESCALATION_ACTIONS = [
   'notify_clinic',
   'request_patient_contact',
   'raise_priority',
+  'escalate_to_coordinator',
   'mark_lost_to_follow_up',
 ] as const;
 export type EscalationAction = (typeof ESCALATION_ACTIONS)[number];
 
-/** Steps applied after the expectation expires, in order; `afterDays` counts from `dueAt`. */
+/**
+ * Steps applied to a case, in order. `afterDays` counts from the moment the
+ * case opened; a user action on the case (notify, snooze) restarts the wait
+ * for the next step, so "14 days without action" means exactly that.
+ */
 export const EscalationPolicySchema = z.strictObject({
+  /** Named policies (for example `default_v1`) can be referenced from rules by id. */
+  id: ConfigIdSchema.optional(),
   steps: z
     .array(
       z.strictObject({
