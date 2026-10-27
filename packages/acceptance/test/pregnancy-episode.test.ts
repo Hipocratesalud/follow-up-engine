@@ -275,6 +275,45 @@ function pregnancyEpisode(makeHarness: (options: HarnessOptions) => Promise<Engi
       'fulfilled_by_encounter',
     ]);
   });
+
+  it('a visit never fulfills the plan its own note wrote, even when the note dates the delivery weeks earlier', async () => {
+    // pat-0126: the 50-day postpartum note asks for the annual control; the
+    // delivery it tells (dated 50 days earlier) must not make the earlier
+    // puerperal visit count as that control.
+    const extractor = new FakeNoteExtractor().setExtraction('late-postpartum-note', {
+      planItems: [planVisit(delivery + 50 + 365, 'Control ginecológico anual.')],
+      pregnancy: {
+        outcome: {
+          kind: 'vaginal_delivery',
+          date: dayToDate(delivery),
+          evidenceQuote: 'Puérpera de 50 días (parto vaginal)',
+        },
+      },
+    });
+    const harness = await harnessWith(extractor);
+    await day(harness, 0, [
+      visit('first-prenatal', 0, { specialty: 'gynecology', diagnoses: PREGNANCY }),
+      datedObservation('edd', 0, '11778-8', dayToDate(weekDay(40))),
+    ]);
+    await day(harness, delivery + 8, [
+      visit('early-puerperal', delivery + 8, {
+        specialty: 'gynecology',
+        diagnoses: [{ icd10: 'O80.9', display: 'parto vaginal' }],
+      }),
+    ]);
+    await day(harness, delivery + 50, [
+      visit('late-postpartum', delivery + 50, {
+        specialty: 'gynecology',
+        noteText: 'Puérpera de 50 días (parto vaginal). Control ginecológico anual.',
+        diagnoses: [{ icd10: 'Z39.2', display: 'puerperio' }],
+      }),
+    ]);
+    const snapshot = await snapshotPatient(harness, patient);
+    const annual = ofRule(snapshot, PLAN).find(
+      (expectation) => expectation.evidence?.quote === 'Control ginecológico anual.',
+    );
+    expect(annual?.status).toBe('open');
+  });
 }
 
 describe('pregnancy episode (memory)', () => {

@@ -89,6 +89,11 @@ export function withoutWithdrawnRecords(events: readonly ClinicalEvent[]): Clini
  * A patient's clinical history, chronological, with the lookups the engine
  * needs (the event behind a resource, encounters by specialty, opt-out).
  */
+/** A fact the engine derived from a resource (a note's plan or reading), not what the host sent. */
+function isDerivedEvent(event: ClinicalEvent): boolean {
+  return event.type === 'plan.extracted' || event.idempotencyKey.includes('::');
+}
+
 export class PatientTimeline {
   readonly events: readonly ClinicalEvent[];
   readonly #bySource = new Map<string, ClinicalEvent>();
@@ -103,7 +108,11 @@ export class PatientTimeline {
     this.#kept = new Set(this.events.map((event) => event.idempotencyKey));
     for (const event of this.events) {
       const key = refKey(event.source);
-      if (!this.#bySource.has(key)) {
+      const current = this.#bySource.get(key);
+      // What the host sent stands for its resource, not a fact the engine
+      // derived from it: a note's reading dates a delivery weeks before the
+      // note ("puérpera de 50 días"), which must not move the note's anchor.
+      if (current === undefined || (isDerivedEvent(current) && !isDerivedEvent(event))) {
         this.#bySource.set(key, event);
       }
       if (event.type === 'encounter.finished') {
@@ -124,7 +133,10 @@ export class PatientTimeline {
     return !this.#kept.has(event.idempotencyKey);
   }
 
-  /** The first event derived from a resource (an expectation's anchor). */
+  /**
+   * The first event of a resource (an expectation's anchor), preferring what
+   * the host sent over what the engine derived from it.
+   */
   bySource(ref: ResourceRef): ClinicalEvent | undefined {
     return this.#bySource.get(refKey(ref));
   }
