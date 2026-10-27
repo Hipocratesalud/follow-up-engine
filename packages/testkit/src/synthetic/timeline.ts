@@ -3,6 +3,8 @@ import type { ConditionDefinition, MedicationDefinition, OrderDefinition } from 
 import {
   appointmentResource,
   conditionResource,
+  type DateFact,
+  dateObservationResource,
   documentReferenceResource,
   encounterResource,
   type FhirResource,
@@ -22,6 +24,7 @@ export const TIMELINE_ENTRY_KINDS = [
   'result',
   'appointment_booked',
   'appointment_cancelled',
+  'diagnosis',
 ] as const;
 export type TimelineEntryKind = (typeof TIMELINE_ENTRY_KINDS)[number];
 
@@ -44,6 +47,16 @@ export interface ConsultationSpec {
   readonly conditions: readonly ConditionDefinition[];
   readonly medications: readonly MedicationDefinition[];
   readonly orders: readonly OrderDefinition[];
+  /** Seen by another clinician of the clinic (a referral): their id and specialty. */
+  readonly provider?: Provider;
+  /** Dates recorded at the visit (last menstrual period, estimated delivery date). */
+  readonly dateFacts?: readonly DateFact[];
+}
+
+/** A clinician of the clinic other than the patient's usual one. */
+export interface Provider {
+  readonly practitionerId: string;
+  readonly specialty: Specialty;
 }
 
 export interface ConsultationRecord {
@@ -91,7 +104,8 @@ export class PatientTimeline {
     const documentId = this.nextId('doc');
     const end = new Date(spec.start.getTime() + spec.minutes * MS_PER_MINUTE);
     const patientId = this.patient.id;
-    const practitionerId = this.practitionerId;
+    const practitionerId = spec.provider?.practitionerId ?? this.practitionerId;
+    const specialty = spec.provider?.specialty ?? this.specialty;
     const resources: FhirResource[] = [];
     if (!this.#patientSent) {
       resources.push(patientResource(this.patient));
@@ -102,7 +116,7 @@ export class PatientTimeline {
         id: encounterId,
         patientId,
         practitionerId,
-        specialty: this.specialty,
+        specialty,
         start: spec.start,
         end,
         visitType: spec.visitType,
@@ -115,7 +129,7 @@ export class PatientTimeline {
         patientId,
         practitionerId,
         encounterId,
-        specialty: this.specialty,
+        specialty,
         start: spec.start,
         authoredAt: end,
         text: spec.noteText,
@@ -160,6 +174,19 @@ export class PatientTimeline {
         }),
       );
     }
+    for (const fact of spec.dateFacts ?? []) {
+      resources.push(
+        dateObservationResource({
+          id: this.nextId('obs'),
+          patientId,
+          fact,
+          effectiveAt: end,
+          category: 'exam',
+          encounterId,
+          practitionerId,
+        }),
+      );
+    }
     this.#push('consultation', end, resources);
     return { encounterId, documentId, end, orderIds };
   }
@@ -173,12 +200,19 @@ export class PatientTimeline {
     order: OrderDefinition,
     orderId: string | undefined,
     orderedAt: Date,
-    values: { readonly abnormal: boolean; readonly analyteValues?: readonly number[] },
+    values: {
+      readonly abnormal: boolean;
+      readonly analyteValues?: readonly number[];
+      /** Exact sample and report instants (otherwise 1 to 6 days after the order, reported 1 to 4 days later). */
+      readonly timing?: { readonly collectedAt: Date; readonly issuedAt: Date };
+      readonly dateFacts?: readonly DateFact[];
+    },
   ): boolean {
-    const collectedAt = new Date(
-      orderedAt.getTime() + rng.int(1, 6) * 86_400_000 + rng.int(0, 120) * MS_PER_MINUTE,
-    );
-    const issuedAt = new Date(collectedAt.getTime() + rng.int(1, 4) * 86_400_000);
+    const collectedAt =
+      values.timing?.collectedAt ??
+      new Date(orderedAt.getTime() + rng.int(1, 6) * 86_400_000 + rng.int(0, 120) * MS_PER_MINUTE);
+    const issuedAt =
+      values.timing?.issuedAt ?? new Date(collectedAt.getTime() + rng.int(1, 4) * 86_400_000);
     if (issuedAt > BASE_DATE) return false;
     const reportId = this.nextId('dr');
     const analytes = order.analytes?.map((analyte, index) => ({
@@ -203,20 +237,44 @@ export class PatientTimeline {
         issuedAt,
         ...(analytes ? { analytes } : {}),
         ...(conclusion ? { conclusion } : {}),
+        ...(values.dateFacts ? { dateFacts: values.dateFacts } : {}),
       }),
     );
     return true;
   }
 
-  /** Books a future appointment; returns its id. */
-  book(createdAt: Date, start: Date, minutes: number, description: string): string {
+  /**
+   * A diagnosis entered outside a visit, on the patient's problem list (a
+   * delivery the hospital reported): a Condition with no Encounter.
+   */
+  diagnosis(condition: ConditionDefinition, recordedAt: Date, onsetAt?: Date): void {
+    this.#push('diagnosis', recordedAt, [
+      conditionResource({
+        id: this.nextId('cond'),
+        patientId: this.patient.id,
+        practitionerId: this.practitionerId,
+        condition,
+        recordedAt,
+        ...(onsetAt ? { onsetAt } : {}),
+      }),
+    ]);
+  }
+
+  /** Books a future appointment (with the patient's usual clinician unless `provider` says otherwise); returns its id. */
+  book(
+    createdAt: Date,
+    start: Date,
+    minutes: number,
+    description: string,
+    provider?: Provider,
+  ): string {
     const id = this.nextId('appt');
     this.#push('appointment_booked', createdAt, [
       appointmentResource({
         id,
         patientId: this.patient.id,
-        practitionerId: this.practitionerId,
-        specialty: this.specialty,
+        practitionerId: provider?.practitionerId ?? this.practitionerId,
+        specialty: provider?.specialty ?? this.specialty,
         start,
         minutes,
         createdAt,
@@ -234,13 +292,14 @@ export class PatientTimeline {
     start: Date,
     minutes: number,
     description: string,
+    provider?: Provider,
   ): void {
     this.#push('appointment_cancelled', at, [
       appointmentResource({
         id,
         patientId: this.patient.id,
-        practitionerId: this.practitionerId,
-        specialty: this.specialty,
+        practitionerId: provider?.practitionerId ?? this.practitionerId,
+        specialty: provider?.specialty ?? this.specialty,
         start,
         minutes,
         createdAt: bookedAt,

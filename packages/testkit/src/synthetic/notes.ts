@@ -24,14 +24,14 @@ export function followUpDays(followUp: FollowUp): number {
   }
 }
 
-function amountText(followUp: FollowUp): string {
+export function amountText(followUp: FollowUp): string {
   if (followUp.amount === 1) {
     return followUp.unit === 'meses' ? '1 mes' : followUp.unit === 'semanas' ? '1 semana' : '1 día';
   }
   return `${String(followUp.amount)} ${followUp.unit}`;
 }
 
-function visitPhrase(rng: Prng, followUp: FollowUp): string {
+export function visitPhrase(rng: Prng, followUp: FollowUp): string {
   const amount = amountText(followUp);
   const short = amount.replace('semanas', 'sem').replace('semana', 'sem');
   return rng.pick([
@@ -58,7 +58,7 @@ function sessionPhrase(rng: Prng, followUp: FollowUp): string {
 const ACCENTS: Record<string, string> = { á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u' };
 
 /** Applies typing mess some clinicians leave in their notes: no accents, lowercase, one block. */
-function roughen(rng: Prng, text: string): string {
+export function roughen(rng: Prng, text: string): string {
   let out = text;
   if (rng.chance(0.35)) out = out.replace(/[áéíóú]/g, (char) => ACCENTS[char] ?? char);
   if (rng.chance(0.3)) out = out.replace(/\n+/g, ' ').replace(/ {2,}/g, ' ');
@@ -67,7 +67,7 @@ function roughen(rng: Prng, text: string): string {
 }
 
 /** Picks the masculine or feminine form of an adjective. */
-function gendered(sex: 'female' | 'male', masculine: string, feminine: string): string {
+export function gendered(sex: 'female' | 'male', masculine: string, feminine: string): string {
   return sex === 'female' ? feminine : masculine;
 }
 
@@ -77,7 +77,7 @@ function sexWord(rng: Prng, sex: 'female' | 'male'): string {
     : rng.pick(['masc', 'masculino', 'M']);
 }
 
-function patientIntro(rng: Prng, sex: 'female' | 'male', age: number): string {
+export function patientIntro(rng: Prng, sex: 'female' | 'male', age: number): string {
   return rng.pick([
     `Pcte ${sexWord(rng, sex)} ${String(age)}a`,
     `Pcte de ${String(age)} años`,
@@ -86,7 +86,7 @@ function patientIntro(rng: Prng, sex: 'female' | 'male', age: number): string {
   ]);
 }
 
-function medLine(medication: MedicationDefinition): string {
+export function medLine(medication: MedicationDefinition): string {
   const dosage = medication.dosage.replace('1 tab ', '').replace('1 cáps ', '');
   const base = `${medication.text.toLowerCase()} ${dosage}`;
   return medication.durationDays === undefined
@@ -94,12 +94,12 @@ function medLine(medication: MedicationDefinition): string {
     : `${base} x ${String(medication.durationDays)} días`;
 }
 
-function list(items: readonly string[]): string {
+export function list(items: readonly string[]): string {
   if (items.length <= 1) return items.join('');
   return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1] ?? ''}`;
 }
 
-function bp(rng: Prng, controlled: boolean): string {
+export function bp(rng: Prng, controlled: boolean): string {
   const systolic = controlled ? rng.int(112, 134) : rng.int(142, 168);
   const diastolic = controlled ? rng.int(70, 84) : rng.int(88, 102);
   return `${String(systolic)}/${String(diastolic)}`;

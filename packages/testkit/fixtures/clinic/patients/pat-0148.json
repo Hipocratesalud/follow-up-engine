@@ -1,0 +1,2020 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0148",
+  "name": "Miguel Francisco Herrera Ramos",
+  "gender": "male",
+  "birthDate": "1957-01-08",
+  "specialty": "internal_medicine",
+  "pattern": "ckd_uncoded",
+  "entries": [
+    {
+      "at": "2024-04-13T20:42:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle02",
+        "type": "transaction",
+        "timestamp": "2024-04-13T20:42:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:4dcebdc1-4417-5d55-a494-e4483452b243",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0148-dr02",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "9318-7",
+                    "display": "Albumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Relación albúmina/creatinina en orina"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2024-04-12T20:38:00.000Z",
+              "issued": "2024-04-13T20:42:00.000Z",
+              "result": [{ "reference": "Observation/pat-0148-dr02-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0148-dr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:48976cc6-02de-5f59-bc5a-105c788a8bb4",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr02-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "9318-7",
+                    "display": "Albumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2024-04-12T20:38:00.000Z",
+              "issued": "2024-04-13T20:42:00.000Z",
+              "valueQuantity": {
+                "value": 28,
+                "unit": "mg/g",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/g"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 30,
+                    "unit": "mg/g",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/g"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr02-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-04-13T22:50:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle01",
+        "type": "transaction",
+        "timestamp": "2024-04-13T22:50:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:47d83d5a-70c5-5bc4-8907-d29e04ff2d35",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0148-dr01",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica con TFG estimada (CKD-EPI)"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2024-04-12T20:58:00.000Z",
+              "issued": "2024-04-13T22:50:00.000Z",
+              "result": [
+                { "reference": "Observation/pat-0148-dr01-obs1" },
+                { "reference": "Observation/pat-0148-dr01-obs2" }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0148-dr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:2b4b9278-49bb-5dcf-93f2-bc314dce1792",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr01-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2024-04-12T20:58:00.000Z",
+              "issued": "2024-04-13T22:50:00.000Z",
+              "valueQuantity": {
+                "value": 1,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.5,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  },
+                  "high": {
+                    "value": 1.2,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr01-obs1" }
+          },
+          {
+            "fullUrl": "urn:uuid:08360fb7-23dd-5038-b3f9-18574cf7dbe9",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr01-obs2",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "62238-1",
+                    "display": "Glomerular filtration rate/1.73 sq M.predicted [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI)"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2024-04-12T20:58:00.000Z",
+              "issued": "2024-04-13T22:50:00.000Z",
+              "valueQuantity": {
+                "value": 82,
+                "unit": "mL/min/1.73 m2",
+                "system": "http://unitsofmeasure.org",
+                "code": "mL/min/{1.73_m2}"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 60,
+                    "unit": "mL/min/1.73 m2",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mL/min/{1.73_m2}"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr01-obs2" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-04-16T20:00:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle03",
+        "type": "transaction",
+        "timestamp": "2024-04-16T20:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:1c82dda5-f6f8-5f84-b5e3-826d3084082b",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0148",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://hipocratesalud.com/fhir/NamingSystem/demo-patient",
+                  "value": "HC-15476"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Miguel Francisco Herrera Ramos",
+                  "family": "Herrera Ramos",
+                  "given": ["Miguel", "Francisco"]
+                }
+              ],
+              "gender": "male",
+              "birthDate": "1957-01-08",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0148" }
+          },
+          {
+            "fullUrl": "urn:uuid:fd26c624-6792-588f-8e05-f90fbb11f3a4",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0148-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Primera consulta" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "period": { "start": "2024-04-16T19:30:00.000Z", "end": "2024-04-16T20:00:00.000Z" },
+              "reasonCode": [{ "text": "Control de hipertensión arterial" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0148-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:2dbc6cc6-c987-5c71-a6fa-197e6dc4bd65",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0148-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "date": "2024-04-16T20:00:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBkZSA2NyBhw7FvcywgSFRBIGRlIDkgYcOxb3MgZW4gdHRvIGNvbiBsb3NhcnTDoW4gNTAgbWcgVk8gYy8xMmgsIHByaW1lcmEgY29uc3VsdGEgZW4gZWwgc2VydmljaW8uClRyYWUgbGFiczogY3JlYXRpbmluYSAxLjAwIG1nL2RMLCBURkcgODIgbUwvbWluLzEuNzNtMiwgUkFDIDI4IG1nL2cuCkVGOiBUQSAxNDUvOTYgbW1IZywgRkMgNzIgbHBtLCBwZXNvIGVzdGFibGUuIE1zSXMgc2luIGVkZW1hLgpEeDogSFRBIG5vIGNvbnRyb2xhZGEuClBsYW46IGNvbnRpbnVhciBsb3NhcnTDoW4gNTAgbWcgVk8gYy8xMmguIERpZXRhIGhpcG9zw7NkaWNhLiBDaXRhIGNvbnRyb2wgZW4gNiBtZXNlcyBjb24gY3JlYXRpbmluYSB5IFJBQy4=",
+                    "title": "Nota de evolución",
+                    "creation": "2024-04-16T20:00:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0148-enc01" }],
+                "period": {
+                  "start": "2024-04-16T19:30:00.000Z",
+                  "end": "2024-04-16T20:00:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0148-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:43f63069-c187-54d7-a140-fd08915fca63",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0148-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "C09CA01", "display": "losartan" }
+                ],
+                "text": "Losartán 50 mg"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "encounter": { "reference": "Encounter/pat-0148-enc01" },
+              "authoredOn": "2024-04-16T20:00:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0148-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:c236904e-42ea-5ccd-a580-98f7b678cf6a",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0148-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "I10",
+                    "display": "Essential (primary) hypertension"
+                  }
+                ],
+                "text": "HTA"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "encounter": { "reference": "Encounter/pat-0148-enc01" },
+              "recordedDate": "2024-04-16T20:00:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0148-cond01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-04-16T20:10:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle04",
+        "type": "transaction",
+        "timestamp": "2024-04-16T20:10:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:9cc1c062-40ac-5b3b-8a61-21b6f26ac405",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0148-appt01",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control renal",
+              "start": "2024-10-14T20:15:00.000Z",
+              "end": "2024-10-14T20:45:00.000Z",
+              "minutesDuration": 30,
+              "created": "2024-04-16T20:10:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0148" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-01" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0148-appt01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-10-09T22:54:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle05",
+        "type": "transaction",
+        "timestamp": "2024-10-09T22:54:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:6e53a689-4f44-548e-80c6-c9047c737f0e",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0148-dr03",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica con TFG estimada (CKD-EPI)"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2024-10-08T20:22:00.000Z",
+              "issued": "2024-10-09T22:54:00.000Z",
+              "result": [
+                { "reference": "Observation/pat-0148-dr03-obs1" },
+                { "reference": "Observation/pat-0148-dr03-obs2" }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0148-dr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:7eebd90d-967b-59ef-877d-00ff6523bf82",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr03-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2024-10-08T20:22:00.000Z",
+              "issued": "2024-10-09T22:54:00.000Z",
+              "valueQuantity": {
+                "value": 1,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.5,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  },
+                  "high": {
+                    "value": 1.2,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr03-obs1" }
+          },
+          {
+            "fullUrl": "urn:uuid:11293e9c-17a9-509d-bf16-7af5fd1e56d2",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr03-obs2",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "62238-1",
+                    "display": "Glomerular filtration rate/1.73 sq M.predicted [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI)"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2024-10-08T20:22:00.000Z",
+              "issued": "2024-10-09T22:54:00.000Z",
+              "valueQuantity": {
+                "value": 82,
+                "unit": "mL/min/1.73 m2",
+                "system": "http://unitsofmeasure.org",
+                "code": "mL/min/{1.73_m2}"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 60,
+                    "unit": "mL/min/1.73 m2",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mL/min/{1.73_m2}"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr03-obs2" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-10-10T00:17:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle06",
+        "type": "transaction",
+        "timestamp": "2024-10-10T00:17:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:4a1fb761-a489-5730-8ac9-2923926ec1ef",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0148-dr04",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "9318-7",
+                    "display": "Albumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Relación albúmina/creatinina en orina"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2024-10-08T21:20:00.000Z",
+              "issued": "2024-10-10T00:17:00.000Z",
+              "result": [{ "reference": "Observation/pat-0148-dr04-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0148-dr04" }
+          },
+          {
+            "fullUrl": "urn:uuid:570bf738-5c1a-5c63-b121-de7cbe3bf02f",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr04-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "9318-7",
+                    "display": "Albumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2024-10-08T21:20:00.000Z",
+              "issued": "2024-10-10T00:17:00.000Z",
+              "valueQuantity": {
+                "value": 41,
+                "unit": "mg/g",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/g"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "H",
+                      "display": "High"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 30,
+                    "unit": "mg/g",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/g"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr04-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-10-14T20:45:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle07",
+        "type": "transaction",
+        "timestamp": "2024-10-14T20:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:fbfec592-96e2-5edd-a8f9-f21885ad547f",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0148-enc02",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "appointment": [{ "reference": "Appointment/pat-0148-appt01" }],
+              "period": { "start": "2024-10-14T20:15:00.000Z", "end": "2024-10-14T20:45:00.000Z" },
+              "reasonCode": [{ "text": "Control de hipertensión arterial" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0148-enc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:5b73d80b-6c7e-59f7-a22a-ccbcd3833c7d",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0148-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "date": "2024-10-14T20:45:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGN0ZSBNIDY3YSwgSFRBIGRlIDkgYcOxb3MgZW4gdHRvIGNvbiBsb3NhcnRhbiA1MCBtZyBWTyBjLzEyaCwgYWN1ZGUgYSBjb250cm9sLgpUcmFlIGxhYnM6IGNyZWF0aW5pbmEgMS4wMCBtZy9kTCwgVEZHIDgyIG1ML21pbi8xLjczbTIsIFJBQyA0MSBtZy9nLgpFRjogVEEgMTE0LzcyIG1tSGcsIEZDIDYyIGxwbSwgcGVzbyBlc3RhYmxlLiBNc0lzIGVkZW1hIGdyYWRvIEkgbWFsZW9sYXIuCkR4OiBIVEEgY29udHJvbGFkYS4gQWxidW1pbnVyaWEgbW9kZXJhZGFtZW50ZSBhdW1lbnRhZGEuClBsYW46IGNvbnRpbnVhciBsb3NhcnRhbiA1MCBtZyBWTyBjLzEyaC4gRGlldGEgaGlwb3NvZGljYS4gQ3RybCBlbiA2IG1lc2VzIGNvbiBjcmVhdGluaW5hIHkgUkFDLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2024-10-14T20:45:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0148-enc02" }],
+                "period": {
+                  "start": "2024-10-14T20:15:00.000Z",
+                  "end": "2024-10-14T20:45:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0148-doc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:f29886f8-3275-5093-9f35-ef800189186c",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0148-mr02",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "C09CA01", "display": "losartan" }
+                ],
+                "text": "Losartán 50 mg"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "encounter": { "reference": "Encounter/pat-0148-enc02" },
+              "authoredOn": "2024-10-14T20:45:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0148-mr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:d484dbd5-9eae-54e9-b1f2-e0275e2f5aae",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0148-cond02",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "I10",
+                    "display": "Essential (primary) hypertension"
+                  }
+                ],
+                "text": "HTA"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "encounter": { "reference": "Encounter/pat-0148-enc02" },
+              "recordedDate": "2024-10-14T20:45:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0148-cond02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-10-14T20:55:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle08",
+        "type": "transaction",
+        "timestamp": "2024-10-14T20:55:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:23087af4-7dbb-56b9-b355-7c6315422270",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0148-appt02",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control renal",
+              "start": "2025-04-11T16:00:00.000Z",
+              "end": "2025-04-11T16:30:00.000Z",
+              "minutesDuration": 30,
+              "created": "2024-10-14T20:55:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0148" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-01" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0148-appt02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-06T18:10:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle10",
+        "type": "transaction",
+        "timestamp": "2025-04-06T18:10:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:ba95732a-9cfa-5e26-b882-839eae498577",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0148-dr06",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "9318-7",
+                    "display": "Albumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Relación albúmina/creatinina en orina"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2025-04-05T17:14:00.000Z",
+              "issued": "2025-04-06T18:10:00.000Z",
+              "result": [{ "reference": "Observation/pat-0148-dr06-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0148-dr06" }
+          },
+          {
+            "fullUrl": "urn:uuid:0dc0c437-e0b3-59a9-b97b-da5b327ead95",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr06-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "9318-7",
+                    "display": "Albumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2025-04-05T17:14:00.000Z",
+              "issued": "2025-04-06T18:10:00.000Z",
+              "valueQuantity": {
+                "value": 55,
+                "unit": "mg/g",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/g"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "H",
+                      "display": "High"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 30,
+                    "unit": "mg/g",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/g"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr06-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-06T19:34:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle09",
+        "type": "transaction",
+        "timestamp": "2025-04-06T19:34:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:44756129-3612-546f-bc36-92f1b66808c5",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0148-dr05",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica con TFG estimada (CKD-EPI)"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2025-04-05T16:50:00.000Z",
+              "issued": "2025-04-06T19:34:00.000Z",
+              "result": [
+                { "reference": "Observation/pat-0148-dr05-obs1" },
+                { "reference": "Observation/pat-0148-dr05-obs2" }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0148-dr05" }
+          },
+          {
+            "fullUrl": "urn:uuid:cf8344e2-58f7-5aa8-97df-bd159f117ae8",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr05-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2025-04-05T16:50:00.000Z",
+              "issued": "2025-04-06T19:34:00.000Z",
+              "valueQuantity": {
+                "value": 1.01,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.5,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  },
+                  "high": {
+                    "value": 1.2,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr05-obs1" }
+          },
+          {
+            "fullUrl": "urn:uuid:156a6db8-d05e-5243-96a1-c9fceee00277",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr05-obs2",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "62238-1",
+                    "display": "Glomerular filtration rate/1.73 sq M.predicted [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI)"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2025-04-05T16:50:00.000Z",
+              "issued": "2025-04-06T19:34:00.000Z",
+              "valueQuantity": {
+                "value": 81,
+                "unit": "mL/min/1.73 m2",
+                "system": "http://unitsofmeasure.org",
+                "code": "mL/min/{1.73_m2}"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 60,
+                    "unit": "mL/min/1.73 m2",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mL/min/{1.73_m2}"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr05-obs2" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-11T16:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle11",
+        "type": "transaction",
+        "timestamp": "2025-04-11T16:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:8939d8c7-b5bf-5b17-a708-6b82fa53ee4a",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0148-enc03",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "appointment": [{ "reference": "Appointment/pat-0148-appt02" }],
+              "period": { "start": "2025-04-11T16:00:00.000Z", "end": "2025-04-11T16:30:00.000Z" },
+              "reasonCode": [{ "text": "Control de hipertensión arterial" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0148-enc03" }
+          },
+          {
+            "fullUrl": "urn:uuid:81a6b92c-920d-55b7-8b1e-f095ce008ce2",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0148-doc03",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "date": "2025-04-11T16:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "bWFzYyA2OCBhw7FvcywgSFRBIGRlIDkgYcOxb3MgZW4gdHRvIGNvbiBsb3NhcnTDoW4gNTAgbWcgVk8gYy8xMmgsIGFjdWRlIGEgY29udHJvbC4KVHJhZSBsYWJzOiBjcmVhdGluaW5hIDEuMDEgbWcvZEwsIFRGRyA4MSBtTC9taW4vMS43M20yLCBSQUMgNTUgbWcvZy4KRUY6IFRBIDE2MS85OSBtbUhnLCBGQyA4MiBscG0sIHBlc28gZXN0YWJsZS4gTXNJcyBlZGVtYSBncmFkbyBJIG1hbGVvbGFyLgpEeDogSFRBIG5vIGNvbnRyb2xhZGEuIEFsYnVtaW51cmlhIG1vZGVyYWRhbWVudGUgYXVtZW50YWRhLgpQbGFuOiBjb250aW51YXIgbG9zYXJ0w6FuIDUwIG1nIFZPIGMvMTJoLiBEaWV0YSBoaXBvc8OzZGljYS4gQ3RybCBlbiA2IG1lc2VzIGNvbiBjcmVhdGluaW5hIHkgUkFDLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-04-11T16:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0148-enc03" }],
+                "period": {
+                  "start": "2025-04-11T16:00:00.000Z",
+                  "end": "2025-04-11T16:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0148-doc03" }
+          },
+          {
+            "fullUrl": "urn:uuid:971db016-ce57-596f-970d-2a840b0eda7e",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0148-mr03",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "C09CA01", "display": "losartan" }
+                ],
+                "text": "Losartán 50 mg"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "encounter": { "reference": "Encounter/pat-0148-enc03" },
+              "authoredOn": "2025-04-11T16:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0148-mr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:89103aee-94aa-51ca-a8e7-cfb78dc2d782",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0148-cond03",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "I10",
+                    "display": "Essential (primary) hypertension"
+                  }
+                ],
+                "text": "HTA"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "encounter": { "reference": "Encounter/pat-0148-enc03" },
+              "recordedDate": "2025-04-11T16:30:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0148-cond03" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-11T16:40:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle12",
+        "type": "transaction",
+        "timestamp": "2025-04-11T16:40:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:717a522b-156d-5aa9-b5bf-9f1492b944cf",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0148-appt03",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control renal",
+              "start": "2025-10-13T19:30:00.000Z",
+              "end": "2025-10-13T20:00:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-04-11T16:40:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0148" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-01" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0148-appt03" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-10T20:22:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle14",
+        "type": "transaction",
+        "timestamp": "2025-10-10T20:22:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:2794b885-1a7d-544f-bbc4-c33fda1003ed",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0148-dr08",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "9318-7",
+                    "display": "Albumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Relación albúmina/creatinina en orina"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2025-10-09T20:04:00.000Z",
+              "issued": "2025-10-10T20:22:00.000Z",
+              "result": [{ "reference": "Observation/pat-0148-dr08-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0148-dr08" }
+          },
+          {
+            "fullUrl": "urn:uuid:06bcd2a2-d507-52d8-ad3a-962f446bf6ca",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr08-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "9318-7",
+                    "display": "Albumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2025-10-09T20:04:00.000Z",
+              "issued": "2025-10-10T20:22:00.000Z",
+              "valueQuantity": {
+                "value": 65,
+                "unit": "mg/g",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/g"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "H",
+                      "display": "High"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 30,
+                    "unit": "mg/g",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/g"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr08-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-10T23:58:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle13",
+        "type": "transaction",
+        "timestamp": "2025-10-10T23:58:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:04c60fa0-f714-5fce-a33b-8580428e2fef",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0148-dr07",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica con TFG estimada (CKD-EPI)"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2025-10-09T20:20:00.000Z",
+              "issued": "2025-10-10T23:58:00.000Z",
+              "result": [
+                { "reference": "Observation/pat-0148-dr07-obs1" },
+                { "reference": "Observation/pat-0148-dr07-obs2" }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0148-dr07" }
+          },
+          {
+            "fullUrl": "urn:uuid:e6d0202d-1392-5f07-b0ba-b7ea9341ceaf",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr07-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2025-10-09T20:20:00.000Z",
+              "issued": "2025-10-10T23:58:00.000Z",
+              "valueQuantity": {
+                "value": 1.03,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.5,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  },
+                  "high": {
+                    "value": 1.2,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr07-obs1" }
+          },
+          {
+            "fullUrl": "urn:uuid:10968cb7-b65d-57d8-aa96-227a9a0c7778",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0148-dr07-obs2",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "62238-1",
+                    "display": "Glomerular filtration rate/1.73 sq M.predicted [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI)"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "effectiveDateTime": "2025-10-09T20:20:00.000Z",
+              "issued": "2025-10-10T23:58:00.000Z",
+              "valueQuantity": {
+                "value": 79,
+                "unit": "mL/min/1.73 m2",
+                "system": "http://unitsofmeasure.org",
+                "code": "mL/min/{1.73_m2}"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 60,
+                    "unit": "mL/min/1.73 m2",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mL/min/{1.73_m2}"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0148-dr07-obs2" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-13T20:00:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle15",
+        "type": "transaction",
+        "timestamp": "2025-10-13T20:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:cbee30eb-f709-57bb-a3ea-1173e5f9b621",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0148-enc04",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "appointment": [{ "reference": "Appointment/pat-0148-appt03" }],
+              "period": { "start": "2025-10-13T19:30:00.000Z", "end": "2025-10-13T20:00:00.000Z" },
+              "reasonCode": [{ "text": "Control de hipertensión arterial" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0148-enc04" }
+          },
+          {
+            "fullUrl": "urn:uuid:a2696548-3620-50dd-b573-57c4b13d2aa2",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0148-doc04",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "date": "2025-10-13T20:00:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBNIDY4YSwgSFRBIGRlIDkgYcOxb3MgZW4gdHRvIGNvbiBsb3NhcnTDoW4gNTAgbWcgVk8gYy8xMmgsIGFjdWRlIGEgY29udHJvbC4gVHJhZSBsYWJzOiBjcmVhdGluaW5hIDEuMDMgbWcvZEwsIFRGRyA3OSBtTC9taW4vMS43M20yLCBSQUMgNjUgbWcvZy4gRUY6IFRBIDE2NS84OCBtbUhnLCBGQyA3MiBscG0sIHBlc28gZXN0YWJsZS4gTXNJcyBlZGVtYSBncmFkbyBJIG1hbGVvbGFyLiBEeDogSFRBIG5vIGNvbnRyb2xhZGEuIEFsYnVtaW51cmlhIG1vZGVyYWRhbWVudGUgYXVtZW50YWRhLiBQbGFuOiBjb250aW51YXIgbG9zYXJ0w6FuIDUwIG1nIFZPIGMvMTJoLiBEaWV0YSBoaXBvc8OzZGljYS4gVm9sdmVyIGEgY29uc3VsdGEgZW4gNiBtZXNlcyBjb24gY3JlYXRpbmluYSB5IFJBQy4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-10-13T20:00:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0148-enc04" }],
+                "period": {
+                  "start": "2025-10-13T19:30:00.000Z",
+                  "end": "2025-10-13T20:00:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0148-doc04" }
+          },
+          {
+            "fullUrl": "urn:uuid:71f40da7-be37-57ee-bca4-96cf0e66d776",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0148-mr04",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "C09CA01", "display": "losartan" }
+                ],
+                "text": "Losartán 50 mg"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "encounter": { "reference": "Encounter/pat-0148-enc04" },
+              "authoredOn": "2025-10-13T20:00:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0148-mr04" }
+          },
+          {
+            "fullUrl": "urn:uuid:99d0fbbd-f600-5e68-afa1-acb7e3908468",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0148-cond04",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "I10",
+                    "display": "Essential (primary) hypertension"
+                  }
+                ],
+                "text": "HTA"
+              },
+              "subject": { "reference": "Patient/pat-0148" },
+              "encounter": { "reference": "Encounter/pat-0148-enc04" },
+              "recordedDate": "2025-10-13T20:00:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0148-cond04" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-13T20:10:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0148-bundle16",
+        "type": "transaction",
+        "timestamp": "2025-10-13T20:10:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:d90857aa-e99b-55e0-ba2f-0c4bafca96a1",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0148-appt04",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control renal",
+              "start": "2026-04-13T15:30:00.000Z",
+              "end": "2026-04-13T16:00:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-10-13T20:10:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0148" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-01" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0148-appt04" }
+          }
+        ]
+      }
+    }
+  ]
+}

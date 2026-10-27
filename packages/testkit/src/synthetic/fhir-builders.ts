@@ -356,9 +356,12 @@ export interface ConditionInput {
   readonly id: string;
   readonly patientId: string;
   readonly practitionerId: string;
-  readonly encounterId: string;
+  /** Absent for a diagnosis recorded outside a visit (a problem-list entry). */
+  readonly encounterId?: string;
   readonly condition: ConditionDefinition;
   readonly recordedAt: Date;
+  /** When it happened, if it is not when it was recorded (a delivery at a hospital). */
+  readonly onsetAt?: Date;
   readonly clinicalStatus?: 'active' | 'resolved';
 }
 
@@ -371,16 +374,72 @@ export function conditionResource(input: ConditionInput): FhirResource {
     },
     verificationStatus: { coding: [coding(SYSTEMS.conditionVerification, 'confirmed')] },
     category: [
-      { coding: [coding(SYSTEMS.conditionCategory, 'encounter-diagnosis', 'Encounter Diagnosis')] },
+      {
+        coding: [
+          input.encounterId === undefined
+            ? coding(SYSTEMS.conditionCategory, 'problem-list-item', 'Problem List Item')
+            : coding(SYSTEMS.conditionCategory, 'encounter-diagnosis', 'Encounter Diagnosis'),
+        ],
+      },
     ],
     code: {
       coding: [coding(SYSTEMS.icd10, input.condition.icd10, input.condition.display)],
       text: input.condition.noteName,
     },
     subject: ref('Patient', input.patientId),
-    encounter: ref('Encounter', input.encounterId),
+    ...(input.encounterId === undefined ? {} : { encounter: ref('Encounter', input.encounterId) }),
+    ...(input.onsetAt === undefined ? {} : { onsetDateTime: iso(input.onsetAt) }),
     recordedDate: iso(input.recordedAt),
     recorder: ref('Practitioner', input.practitionerId),
+  };
+}
+
+/** A date recorded about the patient: last menstrual period, estimated delivery date (LOINC). */
+export interface DateFact {
+  readonly loinc: string;
+  readonly display: string;
+  /** `YYYY-MM-DD`. */
+  readonly value: string;
+}
+
+export interface DateObservationInput {
+  readonly id: string;
+  readonly patientId: string;
+  readonly fact: DateFact;
+  readonly effectiveAt: Date;
+  readonly category: 'exam' | 'imaging';
+  readonly encounterId?: string;
+  readonly practitionerId?: string;
+  readonly orderId?: string;
+}
+
+const OBSERVATION_CATEGORY_DISPLAY = { exam: 'Exam', imaging: 'Imaging' } as const;
+
+/** An Observation whose value is a date (`valueDateTime`), such as the FUM or the FPP. */
+export function dateObservationResource(input: DateObservationInput): FhirResource {
+  return {
+    resourceType: 'Observation',
+    id: input.id,
+    ...(input.orderId ? { basedOn: [ref('ServiceRequest', input.orderId)] } : {}),
+    status: 'final',
+    category: [
+      {
+        coding: [
+          coding(
+            SYSTEMS.observationCategory,
+            input.category,
+            OBSERVATION_CATEGORY_DISPLAY[input.category],
+          ),
+        ],
+      },
+    ],
+    code: { coding: [coding(SYSTEMS.loinc, input.fact.loinc, input.fact.display)] },
+    subject: ref('Patient', input.patientId),
+    ...(input.encounterId ? { encounter: ref('Encounter', input.encounterId) } : {}),
+    effectiveDateTime: iso(input.effectiveAt),
+    issued: iso(input.effectiveAt),
+    ...(input.practitionerId ? { performer: [ref('Practitioner', input.practitionerId)] } : {}),
+    valueDateTime: input.fact.value,
   };
 }
 
@@ -411,6 +470,8 @@ export interface ResultInput {
   readonly analytes?: readonly AnalyteResult[];
   /** Imaging and cytology. */
   readonly conclusion?: { readonly text: string; readonly abnormal: boolean };
+  /** Dates the report states (the estimated delivery date of a dating ultrasound). */
+  readonly dateFacts?: readonly DateFact[];
 }
 
 const quantity = (value: number, analyte: Analyte) => ({
@@ -494,6 +555,19 @@ export function resultResources(input: ResultInput): FhirResource[] {
         },
       ],
     });
+  }
+
+  for (const fact of input.dateFacts ?? []) {
+    observations.push(
+      dateObservationResource({
+        id: `${input.reportId}-obs${String(observations.length + 1)}`,
+        patientId: input.patientId,
+        fact,
+        effectiveAt: input.collectedAt,
+        category: isLab ? 'exam' : 'imaging',
+        ...(input.orderId ? { orderId: input.orderId } : {}),
+      }),
+    );
   }
 
   const report: FhirResource = {
