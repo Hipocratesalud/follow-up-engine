@@ -81,8 +81,17 @@ module.exports = {
       severity: 'error',
       comment:
         'Apps are composition roots (leaves of the graph). Packages and other apps never import them.',
-      from: { path: '^(packages|apps)/([^/]+)/' },
+      from: { path: '^(packages|apps)/([^/]+)/', pathNot: '^apps/api/' },
       to: { path: '^apps/', pathNot: '^apps/$2/' },
+    },
+    {
+      name: 'api-runs-on-the-worker-runtime',
+      severity: 'error',
+      comment:
+        'The one sanctioned app-to-app edge (docs/adr/0005): apps/api runs on the engine runtime ' +
+        'that apps/worker exports from its entry point, and imports nothing else from another app.',
+      from: { path: '^apps/api/' },
+      to: { path: '^apps/', pathNot: ['^apps/api/', '^apps/worker/src/index\\.ts$'] },
     },
     {
       name: 'packages-import-by-name',

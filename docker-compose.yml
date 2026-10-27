@@ -1,6 +1,29 @@
 # Local Postgres for development and integration tests.
 # Port 54329 avoids clashing with a Postgres (or Supabase) already on 5432/54322.
+#
+#   docker compose up -d postgres            Postgres only (tests, `pnpm dev` style work)
+#   docker compose --profile demo up         one container: API + worker + seeded synthetic clinic,
+#                                            fake clock, in-process signed webhook sink
+#   docker compose --profile app up          production-like split: API, worker, webhook sink
 name: follow-up-engine
+
+x-engine: &engine
+  build:
+    context: .
+    dockerfile: apps/api/Dockerfile
+  image: follow-up-engine:local
+  depends_on:
+    postgres:
+      condition: service_healthy
+  environment: &engine-env
+    DATABASE_URL: postgres://postgres:postgres@postgres:5432/follow_up_engine
+    LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+    META_API_KEY: ${META_API_KEY:-}
+    BASETEN_API_KEY: ${BASETEN_API_KEY:-}
+    DEMO_API_KEY: ${DEMO_API_KEY:-demo-clinic-key}
+    WEBHOOK_SECRET: ${WEBHOOK_SECRET:-dev-only-webhook-secret}
+    CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+    LOG_LEVEL: ${LOG_LEVEL:-info}
 
 services:
   postgres:
@@ -18,6 +41,72 @@ services:
       retries: 30
     volumes:
       - postgres-data:/var/lib/postgresql/data
+
+  # Demo: the whole product in one container on a fake clock. Seeds the
+  # synthetic clinic at startup (idempotent) and serves the demo endpoints.
+  demo:
+    <<: *engine
+    profiles: [demo]
+    command:
+      [
+        'node',
+        '--experimental-strip-types',
+        '--no-warnings=ExperimentalWarning',
+        'apps/api/src/test/demo-server.ts',
+      ]
+    environment:
+      <<: *engine-env
+      CLOCK: fake
+      EMBEDDED_WORKER: 'true'
+    ports:
+      - '3000:3000'
+
+  # Production-like split: the API answers the host, the worker does the work,
+  # webhooks go over HTTP to the development sink (stands in for the host).
+  api:
+    <<: *engine
+    profiles: [app]
+    environment:
+      <<: *engine-env
+      CLOCK: system
+      WEBHOOK_URL: http://webhook-sink:4000/webhooks/follow-up-engine
+      WEBHOOK_SINK_URL: http://webhook-sink:4000
+    ports:
+      - '3000:3000'
+
+  worker:
+    <<: *engine
+    profiles: [app]
+    command:
+      [
+        'node',
+        '--experimental-strip-types',
+        '--no-warnings=ExperimentalWarning',
+        'apps/worker/src/main.ts',
+      ]
+    environment:
+      <<: *engine-env
+      CLOCK: system
+      WEBHOOK_URL: http://webhook-sink:4000/webhooks/follow-up-engine
+    healthcheck:
+      disable: true
+
+  webhook-sink:
+    <<: *engine
+    profiles: [app]
+    depends_on: []
+    command:
+      [
+        'node',
+        '--experimental-strip-types',
+        '--no-warnings=ExperimentalWarning',
+        'apps/worker/src/webhooks/sink-main.ts',
+      ]
+    environment:
+      PORT: '4000'
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-dev-only-webhook-secret}
+    ports:
+      - '4000:4000'
 
 volumes:
   postgres-data:
