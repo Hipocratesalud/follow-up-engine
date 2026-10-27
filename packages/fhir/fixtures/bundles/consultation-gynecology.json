@@ -1,0 +1,244 @@
+{
+  "resourceType": "Bundle",
+  "type": "batch",
+  "timestamp": "2026-01-09T11:00:00-05:00",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-gyn-0004",
+        "name": [
+          {
+            "family": "Ficticia",
+            "given": ["Rosa"]
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1984-11-02"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/pat-gyn-0004"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "gyn-enc-0109",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "serviceType": {
+          "coding": [
+            {
+              "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+              "code": "gynecology",
+              "display": "Gynecology"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/pat-gyn-0004"
+        },
+        "period": {
+          "start": "2026-01-09T10:30:00-05:00",
+          "end": "2026-01-09T11:00:00-05:00"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Encounter/gyn-enc-0109"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DocumentReference",
+        "id": "gyn-note-0109",
+        "status": "current",
+        "docStatus": "final",
+        "type": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "11506-3",
+              "display": "Progress note"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/pat-gyn-0004"
+        },
+        "date": "2026-01-09T11:00:00-05:00",
+        "content": [
+          {
+            "attachment": {
+              "contentType": "text/plain",
+              "data": "UGFjaWVudGUgZGUgNDEgYcOxb3MsIEcyUDIuIENvbnN1bHRhIHBvciBzYW5ncmFkbyBtZW5zdHJ1YWwgYWJ1bmRhbnRlIGRlIDQgbWVzZXMgZGUgZXZvbHVjacOzbi4KRXhhbWVuIHDDqWx2aWNvIHNpbiBoYWxsYXpnb3MgYWd1ZG9zLgpQbGFuOiBlY29ncmFmw61hIHRyYW5zdmFnaW5hbCwgY2l0b2xvZ8OtYSBjZXJ2aWNhbCAoUGFwYW5pY29sYW91KS4gw4FjaWRvIHRyYW5leMOhbWljbyA1MDAgbWcgYy84aCBkdXJhbnRlIGxhIG1lbnN0cnVhY2nDs24gcG9yIDUgZMOtYXMuIENvbnRyb2wgY29uIHJlc3VsdGFkb3MgZW4gNiBzZW1hbmFzLg=="
+            }
+          }
+        ],
+        "context": {
+          "encounter": [
+            {
+              "reference": "Encounter/gyn-enc-0109"
+            }
+          ]
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "DocumentReference/gyn-note-0109"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "ServiceRequest",
+        "id": "gyn-sr-us",
+        "status": "active",
+        "intent": "order",
+        "category": [
+          {
+            "text": "Imagenología"
+          }
+        ],
+        "code": {
+          "text": "Ecografía transvaginal"
+        },
+        "subject": {
+          "reference": "Patient/pat-gyn-0004"
+        },
+        "encounter": {
+          "reference": "Encounter/gyn-enc-0109"
+        },
+        "authoredOn": "2026-01-09T11:00:00-05:00"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "ServiceRequest/gyn-sr-us"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "ServiceRequest",
+        "id": "gyn-sr-pap",
+        "status": "active",
+        "intent": "order",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://snomed.info/sct",
+                "code": "108252007",
+                "display": "Laboratory procedure"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "10524-7",
+              "display": "Microscopic observation [Identifier] in Cervix by Cyto stain"
+            }
+          ],
+          "text": "Citología cervical"
+        },
+        "subject": {
+          "reference": "Patient/pat-gyn-0004"
+        },
+        "encounter": {
+          "reference": "Encounter/gyn-enc-0109"
+        },
+        "authoredOn": "2026-01-09T11:00:00-05:00"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "ServiceRequest/gyn-sr-pap"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "gyn-mr-txa",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "ácido tranexámico 500 mg c/8h"
+        },
+        "subject": {
+          "reference": "Patient/pat-gyn-0004"
+        },
+        "encounter": {
+          "reference": "Encounter/gyn-enc-0109"
+        },
+        "authoredOn": "2026-01-09T11:00:00-05:00",
+        "dosageInstruction": [
+          {
+            "text": "500 mg cada 8 horas durante la menstruación",
+            "timing": {
+              "repeat": {
+                "boundsPeriod": {
+                  "start": "2026-01-20",
+                  "end": "2026-01-25"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "PUT",
+        "url": "MedicationRequest/gyn-mr-txa"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "gyn-dx-0109",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "encounter-diagnosis"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10",
+              "code": "N92.0",
+              "display": "Excessive and frequent menstruation with regular cycle"
+            }
+          ],
+          "text": "Sangrado menstrual abundante"
+        },
+        "subject": {
+          "reference": "Patient/pat-gyn-0004"
+        },
+        "encounter": {
+          "reference": "Encounter/gyn-enc-0109"
+        },
+        "recordedDate": "2026-01-09T11:00:00-05:00"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Condition/gyn-dx-0109"
+      }
+    }
+  ]
+}
