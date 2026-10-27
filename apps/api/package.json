@@ -2,16 +2,31 @@
   "name": "@follow-up-engine/api",
   "version": "0.0.0",
   "private": true,
-  "description": "HTTP API: FHIR R4 in and out. Composition root.",
+  "description": "HTTP API: FHIR R4 in and out, the clinic inbox JSON API and the demo endpoints.",
   "type": "module",
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "start": "node --experimental-strip-types --no-warnings=ExperimentalWarning src/main.ts",
+    "seed": "node --env-file-if-exists=../../.env --experimental-strip-types --no-warnings=ExperimentalWarning src/test/seed-cli.ts",
+    "demo": "node --env-file-if-exists=../../.env --experimental-strip-types --no-warnings=ExperimentalWarning src/test/demo-server.ts",
+    "e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "dependencies": {
-    "@follow-up-engine/core": "workspace:*"
+    "@follow-up-engine/core": "workspace:*",
+    "@follow-up-engine/fhir": "workspace:*",
+    "@follow-up-engine/worker": "workspace:*",
+    "@hono/node-server": "^2.1.5",
+    "hono": "^4.13.14",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@follow-up-engine/adapter-postgres": "workspace:*",
+    "@follow-up-engine/llm": "workspace:*",
+    "@follow-up-engine/testkit": "workspace:*",
+    "vitest": "^5.0.5"
   }
 }
