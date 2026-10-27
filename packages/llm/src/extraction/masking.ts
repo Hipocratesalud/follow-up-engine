@@ -18,8 +18,8 @@ import { planVocabulary } from './signals.ts';
  *   address ("Sra. Alta", "Paciente Julio"), so "se da de alta" and "control
  *   el 15 de julio" reach the model intact.
  * - Identifiers (national ids, record numbers, phones) are matched as whole
- *   numbers however punctuated ("V-15.120.850", "15120850", "0412-555-1234"
- *   for "+58 412 555 1234"), never as loose digit groups: "TA 120/80" and
+ *   numbers however punctuated ("V-15.120.850", "15,120,850", "15120850",
+ *   "0412-555-1234" for "+58 412 555 1234"), never as loose digit groups: "TA 120/80" and
  *   "metformina 850 mg" stay. Identifiers with letters and few digits
  *   ("SECMARK-77") and emails are matched as their whole token sequence.
  *
@@ -283,6 +283,19 @@ function numberVariants(digits: string, phone: boolean): string[] {
 
 /** Separators allowed between the groups of one written number ("15.120.850", "(0412) 555-1234"). */
 const NUMBER_GAP = /^[\s.\-/()+]{1,3}$/;
+/**
+ * A comma joins two groups only as a thousands separator, before exactly
+ * three digits ("12,345,678"): "2,5 mg" and "12,5 mcg" are decimals.
+ */
+const THOUSANDS_COMMA = ',';
+const THOUSANDS_GROUP_DIGITS = 3;
+
+function joinsGroups(gap: string, nextDigits: string): boolean {
+  return (
+    NUMBER_GAP.test(gap) ||
+    (gap === THOUSANDS_COMMA && nextDigits.length === THOUSANDS_GROUP_DIGITS)
+  );
+}
 /** Separators allowed between the tokens of one name ("Pérez Gómez", "Pérez-Gómez"). */
 const NAME_GAP = /^\s?-?\s?$/;
 /** Separators allowed between the tokens of one identifier ("SECMARK-77", "a.b@c.com"). */
@@ -317,7 +330,11 @@ function numberSpans(normalized: string, terms: Terms): [number, number][] {
       const group = groups[last];
       const previous = groups[last - 1];
       if (group === undefined) break;
-      if (last > first && previous && !NUMBER_GAP.test(normalized.slice(previous.end, group.start)))
+      if (
+        last > first &&
+        previous &&
+        !joinsGroups(normalized.slice(previous.end, group.start), group.digits)
+      )
         break;
       value += group.digits;
       const start = groups[first]?.start;
