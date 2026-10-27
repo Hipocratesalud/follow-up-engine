@@ -1,16 +1,21 @@
 import { BellRing, CheckCircle2, Clock, Lock, ShieldAlert, XCircle } from 'lucide-react';
-import { type ChangeEvent, type MouseEvent, type ReactNode, useId, useState } from 'react';
+import { type ChangeEvent, type MouseEvent, type ReactNode, useId, useRef, useState } from 'react';
 import type { CaseAction, CaseActionRequest, CaseDetail } from '../../api/contract.ts';
 import { useCaseAction, useNow, useRefreshAfterConflict } from '../../api/queries.ts';
 import { Dialog } from '../../components/dialog.tsx';
-import { InlineError } from '../../components/states.tsx';
+import { fieldError, InlineError } from '../../components/states.tsx';
 import { Button, Field, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
+import { formatLimit, INPUT_LIMITS } from '../../lib/limits.ts';
 import { firstName, formatDate } from '../../lib/format.ts';
 
 const SNOOZE_PRESETS = [3, 7, 14, 30] as const;
 const MAX_SNOOZE_DAYS = 90;
 const DAY_MS = 86_400_000;
+
+export const CASE_TITLE_ID = 'case-title';
+/** Where the keyboard lands when the dialog closes and its button is gone (the case closed). */
+export const CASE_CLOSED_NOTICE_ID = 'case-closed-notice';
 
 const DIALOG_COPY: Record<CaseAction, { title: string; confirm: string; done: string }> = {
   notify: {
@@ -44,7 +49,9 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
   const [snoozeDays, setSnoozeDays] = useState<number>(7);
   const [customDays, setCustomDays] = useState('');
   const [validationError, setValidationError] = useState<string>();
+  const [noteError, setNoteError] = useState<string>();
   const [doneMessage, setDoneMessage] = useState<string>();
+  const trigger = useRef<HTMLButtonElement | null>(null);
 
   const contactBlocked = !detail.patientContact.allowed || detail.patientContact.optedOut;
   const effectiveSnoozeDays = customDays ? Number(customDays) : snoozeDays;
@@ -54,12 +61,20 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
     setCustomDays('');
     setSnoozeDays(7);
     setValidationError(undefined);
+    setNoteError(undefined);
     mutation.reset();
+  }
+
+  function returnFocus(): HTMLElement | null {
+    const button = trigger.current;
+    if (button?.isConnected) return button;
+    return document.getElementById(CASE_CLOSED_NOTICE_ID) ?? document.getElementById(CASE_TITLE_ID);
   }
 
   function handleOpen(event: MouseEvent<HTMLButtonElement>): void {
     const next = parseAction(event.currentTarget.value);
     if (!next) return;
+    trigger.current = event.currentTarget;
     reset();
     setDoneMessage(undefined);
     setAction(next);
@@ -81,6 +96,8 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
 
   function handleNoteChange(event: ChangeEvent<HTMLTextAreaElement>): void {
     setNote(event.target.value);
+    setNoteError(undefined);
+    if (fieldError(mutation.error, 'note')) mutation.reset();
   }
 
   function handlePresetClick(event: MouseEvent<HTMLButtonElement>): void {
@@ -96,6 +113,12 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
 
   function handleConfirm(): void {
     if (!action || mutation.isPending) return;
+    if (note.trim().length > INPUT_LIMITS.note) {
+      setNoteError(
+        `La nota puede tener hasta ${formatLimit(INPUT_LIMITS.note)} caracteres. Acórtala e intenta de nuevo.`,
+      );
+      return;
+    }
     const request: CaseActionRequest = { action, ...(note.trim() ? { note: note.trim() } : {}) };
     if (action === 'snooze') {
       if (
@@ -120,6 +143,8 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
   const copy = action ? DIALOG_COPY[action] : undefined;
   const showConfirm = !(action === 'notify' && contactBlocked);
   const snoozeUntil = new Date(now.getTime() + (effectiveSnoozeDays || 0) * DAY_MS).toISOString();
+  const noteMessage = noteError ?? fieldError(mutation.error, 'note');
+  const daysMessage = validationError ?? fieldError(mutation.error, 'snoozeDays');
 
   return (
     <div className="flex flex-col gap-3">
@@ -163,6 +188,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
       <Dialog
         open={action !== null}
         onOpenChange={handleOpenChange}
+        returnFocus={returnFocus}
         title={copy?.title ?? ''}
         footer={
           <>
@@ -234,7 +260,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
             <Field
               label="Otro plazo (días)"
               htmlFor={`${ids}-days`}
-              error={validationError}
+              error={daysMessage}
               hint={`Volverá a la bandeja el ${formatDate(snoozeUntil)}.`}
             >
               <input
@@ -245,7 +271,8 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
                 max={MAX_SNOOZE_DAYS}
                 value={customDays}
                 onChange={handleCustomDaysChange}
-                aria-invalid={validationError ? true : undefined}
+                aria-invalid={daysMessage ? true : undefined}
+                aria-describedby={daysMessage ? `${ids}-days-error` : `${ids}-days-hint`}
                 className={INPUT_CLASS}
                 placeholder="Por ejemplo, 10"
               />
@@ -264,13 +291,17 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
           <Field
             label="Nota interna (opcional)"
             htmlFor={`${ids}-note`}
-            hint="Solo la ve el equipo."
+            error={noteMessage}
+            hint={`Solo la ve el equipo. Hasta ${formatLimit(INPUT_LIMITS.note)} caracteres.`}
           >
             <textarea
               id={`${ids}-note`}
               rows={2}
               value={note}
+              maxLength={INPUT_LIMITS.note}
               onChange={handleNoteChange}
+              aria-invalid={noteMessage ? true : undefined}
+              aria-describedby={noteMessage ? `${ids}-note-error` : `${ids}-note-hint`}
               className={INPUT_CLASS}
               placeholder={
                 action === 'resolve'
@@ -281,7 +312,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
           </Field>
         ) : null}
 
-        <InlineError error={mutation.error} />
+        <InlineError error={mutation.error} inlineFields={['note', 'snoozeDays']} />
       </Dialog>
     </div>
   );

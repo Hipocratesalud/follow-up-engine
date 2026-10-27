@@ -31,6 +31,12 @@ const CONDITION_TONES: Record<ConditionView['status'], Tone> = {
   rejected: 'neutral',
 };
 
+/** Who ruled the condition out: the clinic's own system (its FHIR record) or the team here. */
+const REJECTED_BY_LABELS: Record<NonNullable<ConditionView['rejectedBy']>, string> = {
+  host: 'Descartada por el sistema del consultorio',
+  clinician: 'Descartada por el equipo',
+};
+
 function ConfidenceBar({ value }: { readonly value: number }): ReactNode {
   return (
     <span className="inline-flex items-center gap-2 text-xs text-muted">
@@ -99,6 +105,9 @@ function ConditionItem({
           </Badge>
         </div>
       </div>
+      {condition.status === 'rejected' && condition.rejectedBy ? (
+        <p className="text-xs text-muted">{REJECTED_BY_LABELS[condition.rejectedBy]}</p>
+      ) : null}
       {condition.evidence ? (
         <p className="text-sm">
           <span className="mr-1.5 text-xs font-medium text-muted">Evidencia:</span>

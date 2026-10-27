@@ -1,6 +1,7 @@
 import type { ApiConfig } from '../config.ts';
 import type {
   ApiErrorBody,
+  ApiFieldError,
   CaseActionRequest,
   CaseDetail,
   CaseListQuery,
@@ -24,12 +25,20 @@ import type {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** The invalid inputs of a 422, each with its Spanish message. */
+  readonly fields: readonly ApiFieldError[];
 
-  constructor(status: number, code: string, message: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    fields: readonly ApiFieldError[] = [],
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.fields = fields;
   }
 }
 
@@ -52,6 +61,22 @@ function isErrorBody(value: unknown): value is ApiErrorBody {
   );
 }
 
+/** `fields` of a 422 body, tolerating a path sent as segments (`['orders', 0]`). */
+function readFields(error: object): ApiFieldError[] {
+  if (!('fields' in error) || !Array.isArray(error.fields)) return [];
+  return (error.fields as unknown[]).flatMap((field): ApiFieldError[] => {
+    if (typeof field !== 'object' || field === null) return [];
+    const { path, message } = field as { path?: unknown; message?: unknown };
+    if (typeof message !== 'string') return [];
+    const joined = Array.isArray(path)
+      ? path.map((segment) => String(segment as string | number)).join('.')
+      : typeof path === 'string'
+        ? path
+        : '';
+    return [{ path: joined, message }];
+  });
+}
+
 async function readErrorBody(response: Response): Promise<ApiError> {
   let body: unknown = undefined;
   try {
@@ -60,7 +85,12 @@ async function readErrorBody(response: Response): Promise<ApiError> {
     // Not JSON (proxy error page, empty body): fall through to a generic error.
   }
   if (isErrorBody(body)) {
-    return new ApiError(response.status, body.error.code, body.error.message);
+    return new ApiError(
+      response.status,
+      body.error.code,
+      body.error.message,
+      readFields(body.error),
+    );
   }
   return new ApiError(
     response.status,

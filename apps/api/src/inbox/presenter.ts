@@ -8,6 +8,7 @@ import {
   type FhirResourceJson,
   type FollowUpCase,
   isActiveCaseStatus,
+  isUnscheduledRelease,
   type NoteReceivedEvent,
   type PatientCondition,
   type PatientContactStatus,
@@ -44,6 +45,48 @@ import {
 import { icd10Label, loincLabel } from './terminology.ts';
 
 const MS_PER_DAY = 86_400_000;
+
+const DAY_FORMATS = new Map<string, Intl.DateTimeFormat>();
+
+function dayFormat(timeZone: string): Intl.DateTimeFormat {
+  let format = DAY_FORMATS.get(timeZone);
+  if (format === undefined) {
+    try {
+      format = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+      });
+    } catch {
+      // An unknown zone in the clinic settings: count UTC days rather than fail the inbox.
+      format = dayFormat('UTC');
+    }
+    DAY_FORMATS.set(timeZone, format);
+  }
+  return format;
+}
+
+/** The calendar day of `date` in `timeZone`, as a day number (days since the epoch). */
+function calendarDay(date: Date, timeZone: string): number {
+  const parts = dayFormat(timeZone).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((item) => item.type === type)?.value);
+  return Date.UTC(part('year'), part('month') - 1, part('day')) / MS_PER_DAY;
+}
+
+/**
+ * Calendar days from `from` to `to` in the clinic's time zone: what the team
+ * counts on the dates the inbox prints ("antes del 19 ene" is one day late
+ * on the 20th, whatever the hour of either instant).
+ */
+export function calendarDaysBetween(from: Date, to: Date, timeZone: string): number {
+  return calendarDay(to, timeZone) - calendarDay(from, timeZone);
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * MS_PER_DAY);
+}
 
 const PRIORITY_LABELS = {
   stat: 'urgente',
@@ -162,6 +205,46 @@ export function byActionability(expectations: readonly Expectation[]): Expectati
 }
 
 /**
+ * When each pending escalation step of an active case runs if nobody acts,
+ * the way the engine counts (`nextActionAfter`): the next step at the case's
+ * `nextActionAt`, each later one the policy's gap after the previous. A
+ * snoozed case does not move until the snooze ends, so its wait counts from
+ * `snoozedUntil`; a held backfill case's, from its release day. Empty for
+ * closed cases and held cases with no release day.
+ */
+export function projectedSchedule(
+  policy: EscalationPolicy,
+  followUpCase: FollowUpCase,
+): Map<number, Date> {
+  const schedule = new Map<number, Date>();
+  const first = followUpCase.escalationStep;
+  const gap = (index: number) =>
+    (policy.steps[index]?.afterDays ?? 0) - (policy.steps[index - 1]?.afterDays ?? 0);
+  if (!isActiveCaseStatus(followUpCase.status) || policy.steps[first] === undefined) {
+    return schedule;
+  }
+  const { releaseAt, snoozedUntil, nextActionAt } = followUpCase;
+  let at: Date | undefined;
+  if (followUpCase.status === 'snoozed' && snoozedUntil !== undefined) {
+    at = addDays(snoozedUntil, gap(first));
+  } else if (releaseAt !== undefined && nextActionAt === undefined) {
+    // Held until its release day, when escalation starts.
+    at = isUnscheduledRelease(releaseAt) ? undefined : addDays(releaseAt, gap(first));
+  } else if (nextActionAt !== undefined) {
+    at = nextActionAt;
+  }
+  if (at === undefined) {
+    return schedule;
+  }
+  schedule.set(first, at);
+  for (let index = first + 1; index < policy.steps.length; index += 1) {
+    at = addDays(at, gap(index));
+    schedule.set(index, at);
+  }
+  return schedule;
+}
+
+/**
  * Turns engine objects into the inbox contract (Spanish labels, display
  * names, evidence with the surrounding note). One presenter per request:
  * it caches what several cases of the same patient share.
@@ -170,16 +253,23 @@ export class InboxPresenter {
   readonly #runtime: EngineRuntime;
   readonly #clinicId: ClinicId;
   readonly #catalog: Catalog;
+  readonly #timeZone: string;
   readonly now: Date;
   readonly #expectations = new Map<string, Expectation>();
   readonly resource: (key: string) => Promise<FhirResourceJson | undefined>;
   readonly #notes: (patientId: PatientId) => Promise<readonly NoteReceivedEvent[]>;
   readonly #contact: (patientId: PatientId) => Promise<PatientContactStatus>;
 
-  private constructor(runtime: EngineRuntime, clinicId: ClinicId, catalog: Catalog) {
+  private constructor(
+    runtime: EngineRuntime,
+    clinicId: ClinicId,
+    catalog: Catalog,
+    timeZone: string,
+  ) {
     this.#runtime = runtime;
     this.#clinicId = clinicId;
     this.#catalog = catalog;
+    this.#timeZone = timeZone;
     this.now = runtime.clock.now();
     const { stores } = runtime.storage;
     this.resource = memo(async (key: string) => {
@@ -200,7 +290,11 @@ export class InboxPresenter {
   }
 
   static async create(runtime: EngineRuntime, clinicId: ClinicId): Promise<InboxPresenter> {
-    return new InboxPresenter(runtime, clinicId, await runtime.engine.catalog(clinicId));
+    const [catalog, clinic] = await Promise.all([
+      runtime.engine.catalog(clinicId),
+      runtime.storage.clinics.get(clinicId),
+    ]);
+    return new InboxPresenter(runtime, clinicId, catalog, clinic?.settings.timezone ?? 'UTC');
   }
 
   /** Loads the expectations behind every reason of these cases in one query. */
@@ -292,7 +386,8 @@ export class InboxPresenter {
       ...(followUpCase.nextActionAt === undefined
         ? {}
         : { nextActionAt: followUpCase.nextActionAt.toISOString() }),
-      ...(followUpCase.releaseAt === undefined
+      // A held case too old to notify has no release day (the engine stores a sentinel).
+      ...(followUpCase.releaseAt === undefined || isUnscheduledRelease(followUpCase.releaseAt)
         ? {}
         : { releaseAt: followUpCase.releaseAt.toISOString() }),
       ...(followUpCase.snoozedUntil === undefined
@@ -338,11 +433,13 @@ export class InboxPresenter {
             at: followUpCase.nextActionAt.toISOString(),
           }
         : undefined;
+    const scheduled = projectedSchedule(policy, followUpCase);
     return {
       policyId: policy.id ?? 'policy',
       currentStep: passed,
       steps: policy.steps.map((step, index) => {
         const at = ran.get(index);
+        const scheduledAt = scheduled.get(index);
         return {
           action: step.action,
           label: ESCALATION_STEP_LABELS[step.action],
@@ -352,6 +449,7 @@ export class InboxPresenter {
             : at === undefined
               ? { outcome: 'skipped' as const }
               : { outcome: 'done' as const, at: at.toISOString() }),
+          ...(scheduledAt === undefined ? {} : { scheduledAt: scheduledAt.toISOString() }),
         };
       }),
       ...(next === undefined ? {} : { next }),
@@ -429,14 +527,13 @@ export class InboxPresenter {
       this.resource(`${expectation.source.resourceType}/${expectation.source.id}`),
       this.#evidence(expectation, withExcerpt),
     ]);
-    const overdueMs = this.now.getTime() - expectation.dueAt.getTime();
     return {
       expectationId: expectation.id,
       ruleId: expectation.ruleId,
       layer: expectation.layer,
       label: this.reasonLabel(expectation.ruleId, expectation),
       dueAt: expectation.dueAt.toISOString(),
-      overdueDays: Math.max(0, Math.floor(overdueMs / MS_PER_DAY)),
+      overdueDays: Math.max(0, calendarDaysBetween(expectation.dueAt, this.now, this.#timeZone)),
       source: {
         resourceType: expectation.source.resourceType,
         id: expectation.source.id,

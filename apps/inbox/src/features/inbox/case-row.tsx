@@ -11,7 +11,8 @@ import {
 } from '../../components/case-badges.tsx';
 import { Badge } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
-import { daysAgo, formatDate, formatOverdue, initials } from '../../lib/format.ts';
+import { useNow } from '../../api/queries.ts';
+import { daysAgo, formatOverdue, formatShortDate, initials } from '../../lib/format.ts';
 
 /** A live case opened this recently (API clock) is marked "Nuevo". */
 export const NEW_CASE_DAYS = 7;
@@ -39,6 +40,20 @@ export function patientMeta(patient: CaseView['patient']): string {
   return parts.join(' · ');
 }
 
+/**
+ * When a held case enters the inbox: "Entra a la bandeja mañana (6 ene)",
+ * "… el 9 ene". A held case with no release day is too old to notify: it
+ * waits here until the team picks it.
+ */
+export function releaseLabel(releaseAt: string | undefined, now: Date): string {
+  if (releaseAt === undefined) return 'No entra sola a la bandeja (pendiente muy antiguo)';
+  const days = daysAgo(now.toISOString(), new Date(releaseAt));
+  const date = formatShortDate(releaseAt);
+  if (days <= 0) return `Entra a la bandeja hoy (${date})`;
+  if (days === 1) return `Entra a la bandeja mañana (${date})`;
+  return `Entra a la bandeja el ${date}`;
+}
+
 function uniqueLayers(item: CaseView): Layer[] {
   return [...new Set(item.reasons.map((reason) => reason.layer))];
 }
@@ -56,6 +71,7 @@ export function CaseRow({
   readonly showRelease?: boolean;
   readonly isNew?: boolean;
 }): ReactNode {
+  const now = useNow();
   const top = item.reasons[0];
   const extra = item.reasons.length - 1;
   return (
@@ -111,17 +127,17 @@ export function CaseRow({
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
           {top ? (
             <span className={cx('font-medium', overdueTone(top.overdueDays))}>
-              {formatOverdue(top.overdueDays)}
+              {formatOverdue(top.overdueDays, top.dueAt, now)}
             </span>
           ) : null}
           <StatusBadge status={item.status} />
           {item.escalation.currentStep > 0 ? (
             <EscalationMeter escalation={item.escalation} />
           ) : null}
-          {showRelease && item.releaseAt ? (
-            <span className="inline-flex items-center gap-1 text-muted">
+          {showRelease ? (
+            <span className="inline-flex items-center gap-1 font-medium text-info">
               <History className="size-3" aria-hidden="true" />
-              Entra a la bandeja el {formatDate(item.releaseAt)}
+              {releaseLabel(item.releaseAt, now)}
             </span>
           ) : null}
           {item.assignee ? (

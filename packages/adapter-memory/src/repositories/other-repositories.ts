@@ -37,6 +37,8 @@ export class MemoryFeedbackRepository implements FeedbackRepository {
     return Promise.resolve();
   }
 
+  // `Array.prototype.sort` is stable, so feedback on the same instant keeps recording order,
+  // like the Postgres `seq` tiebreaker.
   listForCase(clinicId: ClinicId, caseId: CaseId): Promise<readonly CaseFeedback[]> {
     return Promise.resolve(
       this.#db.state.feedback

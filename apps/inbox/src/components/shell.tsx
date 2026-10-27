@@ -6,8 +6,8 @@ import {
   UserRoundSearch,
   UsersRound,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { NavLink, Outlet } from 'react-router';
+import { type ReactNode, useEffect, useRef } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router';
 import { useClinic, useDemoClock, useRecovery, useStats } from '../api/queries.ts';
 import { cx } from '../lib/cx.ts';
 import { formatDate } from '../lib/format.ts';
@@ -27,13 +27,24 @@ function navClass({ isActive }: { isActive: boolean }): string {
   );
 }
 
-function NavLinks({ items }: { readonly items: readonly NavItem[] }): ReactNode {
+/** The top bar of a phone: tighter, and the icons only from `sm` up, so the three items fit at 375 px. */
+function compactNavClass({ isActive }: { isActive: boolean }): string {
+  return cx(navClass({ isActive }), 'shrink-0 justify-center gap-1.5 px-2.5 max-sm:flex-1 sm:px-3');
+}
+
+function NavLinks({
+  items,
+  compact = false,
+}: {
+  readonly items: readonly NavItem[];
+  readonly compact?: boolean;
+}): ReactNode {
   return (
     <>
       {items.map(({ to, label, icon: Icon, count }) => (
-        <NavLink key={to} to={to} className={navClass}>
-          <Icon className="size-4 shrink-0" aria-hidden="true" />
-          <span className="flex-1">{label}</span>
+        <NavLink key={to} to={to} className={compact ? compactNavClass : navClass}>
+          <Icon className={cx('size-4 shrink-0', compact && 'max-sm:hidden')} aria-hidden="true" />
+          <span className={compact ? undefined : 'flex-1'}>{label}</span>
           {count === undefined ? null : (
             <span className="rounded-full bg-surface-2 px-1.5 text-xs tabular-nums text-muted group-aria-[current=page]:bg-surface">
               {count}
@@ -76,6 +87,28 @@ function SimulatedDate({ now }: { readonly now: string }): ReactNode {
       <span className="hidden sm:inline">Fecha simulada:</span>
       <time dateTime={now}>{formatDate(now)}</time>
     </span>
+  );
+}
+
+/**
+ * The phone's horizontal nav keeps the current page in view (a narrow
+ * screen may still scroll it).
+ */
+function MobileNav({ items }: { readonly items: readonly NavItem[] }): ReactNode {
+  const nav = useRef<HTMLElement>(null);
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const active = nav.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    active?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [pathname, items.length]);
+  return (
+    <nav
+      ref={nav}
+      aria-label="Principal"
+      className="flex gap-1 overflow-x-auto border-t border-border px-3 py-2 lg:hidden"
+    >
+      <NavLinks items={items} compact />
+    </nav>
   );
 }
 
@@ -144,12 +177,7 @@ export function Shell(): ReactNode {
               </div>
             </div>
           </div>
-          <nav
-            aria-label="Principal"
-            className="flex gap-1 overflow-x-auto border-t border-border px-3 py-2 lg:hidden"
-          >
-            <NavLinks items={items} />
-          </nav>
+          <MobileNav items={items} />
         </header>
         <main id="contenido" className="px-4 py-5 lg:px-8 lg:py-6">
           <Outlet />

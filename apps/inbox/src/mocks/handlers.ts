@@ -7,6 +7,7 @@ import {
   type JsonBodyType,
 } from 'msw';
 import {
+  type ApiFieldError,
   type CaseAction,
   type CaseActionRequest,
   type CaseListView,
@@ -17,6 +18,7 @@ import {
   type Origin,
 } from '../api/contract.ts';
 import { MOCK_API_KEY } from '../config.ts';
+import { INPUT_LIMITS } from '../lib/limits.ts';
 import { MockHttpError, type MockStore } from './store.ts';
 
 export interface HandlerOptions {
@@ -26,8 +28,23 @@ export interface HandlerOptions {
   readonly modelLatencyMs?: number;
 }
 
-function errorResponse(status: number, code: string, message: string): Response {
-  return HttpResponse.json({ error: { code, message } }, { status });
+function errorResponse(
+  status: number,
+  code: string,
+  message: string,
+  fields: readonly ApiFieldError[] = [],
+): Response {
+  return HttpResponse.json(
+    { error: { code, message, ...(fields.length > 0 ? { fields } : {}) } },
+    { status },
+  );
+}
+
+/** The API's 422 for a too long input: `invalid_request` with one Spanish message per field. */
+function checkLength(path: string, value: unknown, max: number, what: string): void {
+  if (typeof value !== 'string' || value.length <= max) return;
+  const message = `${what} puede tener hasta ${max.toLocaleString('es')} caracteres.`;
+  throw new MockHttpError(422, 'invalid_request', message, [{ path, message }]);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -51,6 +68,7 @@ function parseAction(body: Record<string, unknown>): CaseActionRequest {
   if (!action) throw new MockHttpError(422, 'invalid_action', 'Acción no válida.');
   const snoozeDays = body['snoozeDays'];
   const note = body['note'];
+  checkLength('note', note, INPUT_LIMITS.note, 'La nota');
   return {
     action,
     ...(typeof snoozeDays === 'number' ? { snoozeDays } : {}),
@@ -67,6 +85,7 @@ function parseFeedback(body: Record<string, unknown>): FeedbackRequest {
     (candidate) => candidate === body['reason'],
   );
   const comment = body['comment'];
+  checkLength('comment', comment, INPUT_LIMITS.comment, 'El comentario');
   return {
     useful,
     ...(reason ? { reason } : {}),
@@ -79,6 +98,8 @@ function parseConsultation(body: Record<string, unknown>): DemoConsultationReque
   if (typeof specialty !== 'string' || typeof noteText !== 'string') {
     throw new MockHttpError(422, 'invalid_consultation', 'Faltan la especialidad o la nota.');
   }
+  checkLength('patientName', patientName, INPUT_LIMITS.patientName, 'El nombre');
+  checkLength('noteText', noteText, INPUT_LIMITS.noteText, 'La nota');
   const parsedOrders = Array.isArray(orders)
     ? orders
         .filter(isRecord)
@@ -135,7 +156,7 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
         return HttpResponse.json(await resolver({ request, params }));
       } catch (error) {
         if (error instanceof MockHttpError) {
-          return errorResponse(error.status, error.code, error.message);
+          return errorResponse(error.status, error.code, error.message, error.fields);
         }
         throw error;
       }
@@ -155,6 +176,7 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
         const origin = ORIGINS.find((candidate) => candidate === url.searchParams.get('origin'));
         const assignee = url.searchParams.get('assignee');
         const q = url.searchParams.get('q');
+        checkLength('q', q, INPUT_LIMITS.search, 'La búsqueda');
         const patient = url.searchParams.get('patient');
         const cursor = url.searchParams.get('cursor');
         const limit = numberParam(url.searchParams.get('limit'));

@@ -2,7 +2,12 @@ import * as RadixDialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-/** Accessible modal built on Radix: focus trap, Escape to close, labelled by its title. */
+/**
+ * Accessible modal built on Radix: focus trap, Escape to close, labelled by
+ * its title. Opened from a plain button (no Radix trigger), so on close it
+ * gives the focus to `returnFocus()`: the button that opened it, or what
+ * replaced it. Without that Radix leaves the keyboard user on `<body>`.
+ */
 export function Dialog({
   open,
   onOpenChange,
@@ -10,6 +15,7 @@ export function Dialog({
   description,
   children,
   footer,
+  returnFocus,
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
@@ -17,12 +23,22 @@ export function Dialog({
   readonly description?: ReactNode;
   readonly children?: ReactNode;
   readonly footer?: ReactNode;
+  readonly returnFocus?: () => HTMLElement | null | undefined;
 }): ReactNode {
+  function handleCloseAutoFocus(event: Event): void {
+    const target = returnFocus?.();
+    if (!target) return;
+    event.preventDefault();
+    target.focus();
+  }
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
-        <RadixDialog.Content className="fixed inset-x-3 bottom-3 z-50 max-h-[calc(100dvh-24px)] overflow-y-auto rounded-2xl border border-border bg-surface shadow-pop sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:w-[min(520px,calc(100vw-32px))] sm:-translate-x-1/2 sm:-translate-y-1/2">
+        <RadixDialog.Content
+          onCloseAutoFocus={handleCloseAutoFocus}
+          className="fixed inset-x-3 bottom-3 z-50 max-h-[calc(100dvh-24px)] overflow-y-auto rounded-2xl border border-border bg-surface shadow-pop sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:w-[min(520px,calc(100vw-32px))] sm:-translate-x-1/2 sm:-translate-y-1/2"
+        >
           <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
             <div>
               <RadixDialog.Title className="text-base font-semibold text-fg">

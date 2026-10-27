@@ -43,6 +43,14 @@ import { createMemoryStorage, createPostgresStorage, type Storage } from './stor
 /** Id and name of the synthetic demo clinic (fictional). */
 export const DEMO_CLINIC = { id: 'clinic-demo', name: 'Clínica Demo Hipócrates' } as const;
 
+/**
+ * Backfill release cap of the demo clinic, per owner and day. Lower than the
+ * production default (20) so the synthetic clinic's day 0 shows a capped
+ * inbox, "Por recuperar" holds the rest and each simulated day releases the
+ * next batch. Demo seed only; real clinics keep their own setting.
+ */
+export const DEMO_DAILY_CASE_CAP_PER_OWNER = 5;
+
 /** Label of the demo clinic's inbox key (`DEMO_INBOX_API_KEY`). */
 export const DEMO_INBOX_KEY_LABEL = 'demo inbox';
 
@@ -310,7 +318,8 @@ export async function createRuntime(
  * and, when given, an inbox key with `DEMO_INBOX_API_KEY` (`inbox:read`,
  * `inbox:act`, plus the demo scopes only on a fake clock: never
  * `fhir:write`). Patient contact is enabled so the demo shows
- * `patient_contact.requested` webhooks.
+ * `patient_contact.requested` webhooks; the release cap is
+ * {@link DEMO_DAILY_CASE_CAP_PER_OWNER}.
  */
 export async function registerDemoClinic(
   runtime: EngineRuntime,
@@ -321,7 +330,11 @@ export async function registerDemoClinic(
     id: DEMO_CLINIC.id,
     name: DEMO_CLINIC.name,
     apiKey,
-    settings: { allowPatientContact: true, timezone: 'America/Caracas' },
+    settings: {
+      allowPatientContact: true,
+      timezone: 'America/Caracas',
+      dailyCaseCapPerOwner: DEMO_DAILY_CASE_CAP_PER_OWNER,
+    },
   });
   if (inboxApiKey !== undefined) {
     await runtime.issueApiKey({
