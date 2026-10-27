@@ -9,12 +9,12 @@ Contract test suites every adapter must pass, the synthetic demo clinic, the ext
 | Path                                     | What                                                                                                      | Count                       |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------- |
 | `fixtures/clinic/clinic.json`            | Clinic directory: `Organization` `clinic-demo`, 8 `Practitioner`s + `PractitionerRole`s, generation stats | 1                           |
-| `fixtures/clinic/patients/pat-NNNN.json` | One patient's history: chronological FHIR R4 transaction Bundles with timestamps                          | 120 patients, 1,647 bundles |
+| `fixtures/clinic/patients/pat-NNNN.json` | One patient's history: chronological FHIR R4 transaction Bundles with timestamps                          | 120 patients, 1,680 bundles |
 | `fixtures/gold-notes/gold-NNN.json`      | Hand-labeled Spanish notes for the extraction evals                                                       | 44 (11 per specialty)       |
 | `fixtures/scenarios/<name>.json`         | PRD acceptance cases, replayable with a fake clock and fake LLM                                           | 9                           |
 | `fhir/fhir.schema.json.gz`               | Official FHIR R4 4.0.1 JSON Schema, unmodified, gzipped                                                   | 1                           |
 
-Synthetic clinic: 35 diabetology, 30 internal medicine / hypertension, 30 psychology, 25 gynecology patients; two years of history ending at `BASE_DATE` (2026-01-05T12:00:00Z); 668 consultations (26% of notes without a plan), 487 result bundles, 480 bookings, 12 cancellations. Patterns: adherent chronic patients, dropouts (some cancel their booking), lab orders never resulted and re-ordered, abnormal results with or without a recall visit, short treatments with or without a control, weekly/biweekly/monthly psychotherapy that ends in discharge or stops, annual gynecology controls, pregnancies with or without the 6-week postpartum control.
+Synthetic clinic: 35 diabetology, 30 internal medicine / hypertension, 30 psychology, 25 gynecology patients; two years of history ending at `BASE_DATE` (2026-01-05T12:00:00Z); 671 consultations (25% of notes without a plan), 517 result bundles, 480 bookings, 12 cancellations. Patterns: adherent chronic patients (with the yearly ophthalmology referral for the fundus exam, coded `fundus-exam` in the engine's procedure CodeSystem), dropouts (some cancel their booking), lab orders never resulted and re-ordered, abnormal results with or without a recall visit, short treatments with or without a control, weekly/biweekly/monthly psychotherapy that ends in discharge or stops, annual gynecology controls, pregnancies with or without the 6-week postpartum control.
 
 ## API
 

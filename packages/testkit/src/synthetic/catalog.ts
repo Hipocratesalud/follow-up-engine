@@ -4,6 +4,8 @@
  * Spanish labels are what a Latin American clinic would print.
  */
 
+import { SYSTEMS } from '../constants.ts';
+
 export type OrderCategory = 'laboratory' | 'imaging';
 
 export interface Analyte {
@@ -18,7 +20,10 @@ export interface Analyte {
 
 export interface OrderDefinition {
   readonly key: string;
+  /** The order's code: LOINC unless `system` says otherwise. */
   readonly loinc: string;
+  /** Code system of `loinc` when it is not LOINC (a local procedure code). */
+  readonly system?: string;
   readonly display: string;
   /** Spanish name as written on the order. */
   readonly label: string;
@@ -280,6 +285,19 @@ export const ORDERS = {
     conclusions: [
       'Ritmo sinusal, FC 72 lpm. Sin alteraciones agudas de la repolarización.',
       'Ritmo sinusal. Criterios de hipertrofia ventricular izquierda.',
+    ],
+  },
+  fundusExam: {
+    key: 'fundusExam',
+    loinc: 'fundus-exam',
+    system: SYSTEMS.procedure,
+    display: 'Fundus exam',
+    label: 'Fondo de ojo (referencia a oftalmología)',
+    noteName: 'fondo de ojo',
+    category: 'imaging',
+    conclusions: [
+      'Fondo de ojo sin signos de retinopatía diabética.',
+      'Retinopatía diabética no proliferativa leve. Control oftalmológico en 6 meses.',
     ],
   },
   chestXray: {

@@ -50,6 +50,8 @@ export interface HarnessOptions {
   readonly extractor?: NoteExtractor;
   readonly settings?: Partial<ClinicSettings>;
   readonly engineSettings?: Partial<EngineSettings>;
+  /** Wraps the unit of work the engine uses (to inject a crash). */
+  readonly wrapUnitOfWork?: (unitOfWork: UnitOfWork) => UnitOfWork;
 }
 
 function clinicOf(options: HarnessOptions): Clinic {
@@ -66,7 +68,7 @@ function engineOver(
   ports: { unitOfWork: UnitOfWork; clinics: ClinicDirectory; clock: FakeClock },
 ): FollowUpEngine {
   return createFollowUpEngine({
-    unitOfWork: ports.unitOfWork,
+    unitOfWork: options.wrapUnitOfWork?.(ports.unitOfWork) ?? ports.unitOfWork,
     noteExtractor: options.extractor ?? new FakeNoteExtractor(),
     rules: new FileRuleSource(),
     protocols: new FileProtocolSource(),

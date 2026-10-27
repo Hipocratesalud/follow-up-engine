@@ -39,12 +39,17 @@ function draftFor(
  * Universal layer: deterministic rules over structured data, no LLM. An
  * order expects its result, a short treatment expects a control visit, an
  * abnormal result expects a consultation.
+ *
+ * Within one batch, a rule asking for the same thing by the same date is one
+ * expectation: an abnormal report and its abnormal observations expect one
+ * consultation, not one each. The first source in batch order anchors it.
  */
 export function universalDrafts(
   events: readonly ClinicalEvent[],
   catalog: Catalog,
 ): ExpectationDraft[] {
   const drafts: ExpectationDraft[] = [];
+  const seen = new Set<string>();
   for (const rule of catalog.rulesOfLayer('universal')) {
     const definition = catalog.definition(rule.id);
     if (definition === undefined) {
@@ -55,7 +60,9 @@ export function universalDrafts(
         continue;
       }
       const draft = draftFor(rule, definition, event);
-      if (draft !== undefined) {
+      const key = draft && `${rule.id}|${draft.matchKey}|${draft.dueAt.toISOString()}`;
+      if (draft !== undefined && key !== undefined && !seen.has(key)) {
+        seen.add(key);
         drafts.push(draft);
       }
     }

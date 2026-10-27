@@ -10,6 +10,11 @@ export interface CaseListQuery {
   readonly origin?: Origin;
   /** Only cases already released to the inbox (`releaseAt` absent or `<= releasedAsOf`). */
   readonly releasedAsOf?: Date;
+  /**
+   * Only cases not released yet (`releaseAt > unreleasedAsOf`): the backfill's
+   * "patients to recover".
+   */
+  readonly unreleasedAsOf?: Date;
   /** Default `priority` (descending, then `createdAt` ascending). */
   readonly orderBy?: 'priority' | 'created_at' | 'next_action_at';
   readonly limit: number;

@@ -13,6 +13,7 @@ import {
   type PatientId,
   patientId as toPatientId,
 } from '../../domain/ids.ts';
+import type { Origin } from '../../domain/common.ts';
 import type { QualityFinding } from '../../domain/quality-finding.ts';
 import type { Clock } from '../../ports/clock.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
@@ -90,7 +91,7 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? `${error.name}: ${error.message}` : 'unknown error';
 }
 
-interface ExtractionPass {
+export interface ExtractionPass {
   readonly outcomes: NoteExtractionOutcome[];
   readonly derived: DerivedFromNote[];
   readonly failed: NoteReceivedEvent[];
@@ -101,11 +102,17 @@ interface ExtractionPass {
  * transaction (an LLM call must not hold database locks). A failure never
  * fails the batch: the note is queued for retry instead.
  */
-async function extractNotes(
+export async function extractNotes(
   deps: IngestDeps,
   clinicId: ClinicId,
   notes: readonly NoteReceivedEvent[],
   alreadyExtracted: ReadonlySet<string>,
+  options: {
+    /** Errors that must stop the caller instead of queuing a retry (the backfill's budget). */
+    readonly propagate?: (error: unknown) => boolean;
+    /** When the derived facts happened (the note's time during a replay); default now. */
+    readonly at?: (note: NoteReceivedEvent) => Date;
+  } = {},
 ): Promise<ExtractionPass> {
   const pass: ExtractionPass = { outcomes: [], derived: [], failed: [] };
   for (const note of notes) {
@@ -121,7 +128,14 @@ async function extractNotes(
         authoredAt: note.authoredAt,
         ...(note.specialty === undefined ? {} : { specialty: note.specialty }),
       });
-      pass.derived.push(deriveFromExtraction(note, extraction, deps.settings, deps.clock.now()));
+      pass.derived.push(
+        deriveFromExtraction(
+          note,
+          extraction,
+          deps.settings,
+          options.at?.(note) ?? deps.clock.now(),
+        ),
+      );
       pass.outcomes.push({
         documentId: note.documentId,
         status: 'extracted',
@@ -129,6 +143,9 @@ async function extractNotes(
         latencyMs: deps.clock.now().getTime() - startedAt.getTime(),
       });
     } catch (error) {
+      if (options.propagate?.(error) === true) {
+        throw error;
+      }
       pass.failed.push(note);
       pass.outcomes.push({
         documentId: note.documentId,
@@ -140,17 +157,25 @@ async function extractNotes(
   return pass;
 }
 
+/** One batch to store and annotate inside an open transaction. */
+export interface ApplyBatchInput {
+  readonly clinicId: ClinicId;
+  readonly patientId: PatientId;
+  readonly catalog: Catalog;
+  readonly events: readonly ClinicalEvent[];
+  readonly derived: readonly DerivedFromNote[];
+  /** The annotation's "now": the clock in steady state, the batch's time in a replay. */
+  readonly now?: Date;
+  readonly origin?: Origin;
+  /** Replay mode: annotate against the patient's history up to this instant only. */
+  readonly asOf?: Date;
+}
+
 /** Stores derived facts and annotates, inside the caller's transaction. */
-async function applyInTransaction(
+export async function applyInTransaction(
   deps: IngestDeps,
   stores: TransactionalStores,
-  input: {
-    readonly clinicId: ClinicId;
-    readonly patientId: PatientId;
-    readonly catalog: Catalog;
-    readonly events: readonly ClinicalEvent[];
-    readonly derived: readonly DerivedFromNote[];
-  },
+  input: ApplyBatchInput,
 ): Promise<Omit<IngestReport, 'notes' | 'eventsReceived'>> {
   const derivedEvents = input.derived.flatMap((derived) => derived.events);
   const all = [...input.events, ...derivedEvents];
@@ -175,7 +200,9 @@ async function applyInTransaction(
       catalog: input.catalog,
       ids: deps.ids,
       settings: deps.settings,
-      now: deps.clock.now(),
+      now: input.now ?? deps.clock.now(),
+      ...(input.origin === undefined ? {} : { origin: input.origin }),
+      ...(input.asOf === undefined ? {} : { asOf: input.asOf }),
     },
     all,
     { extractedConfidence, extractedMedications },

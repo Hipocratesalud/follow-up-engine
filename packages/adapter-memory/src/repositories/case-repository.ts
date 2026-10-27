@@ -104,7 +104,10 @@ export class MemoryCaseRepository implements CaseRepository {
           (query.origin === undefined || followUpCase.origin === query.origin) &&
           (query.releasedAsOf === undefined ||
             followUpCase.releaseAt === undefined ||
-            followUpCase.releaseAt.getTime() <= query.releasedAsOf.getTime()),
+            followUpCase.releaseAt.getTime() <= query.releasedAsOf.getTime()) &&
+          (query.unreleasedAsOf === undefined ||
+            (followUpCase.releaseAt !== undefined &&
+              followUpCase.releaseAt.getTime() > query.unreleasedAsOf.getTime())),
       )
       .sort(comparator(query.orderBy));
     const offset = query.cursor === undefined ? 0 : Number(query.cursor);

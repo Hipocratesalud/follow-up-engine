@@ -51,7 +51,8 @@ export function usualIntervalDays(
  * has `minPreviousVisits` visits of the same specialty (2: one interval is
  * already a pattern, a single visit never is), the next visit is expected
  * within `multiplier` times the median interval. Only the latest visit of the
- * specialty anchors an expectation.
+ * specialty anchors an expectation, and never a visit whose note discharged
+ * the patient.
  */
 export function cadenceDrafts(
   events: readonly ClinicalEvent[],
@@ -75,7 +76,11 @@ export function cadenceDrafts(
           sameSpecialty(other.specialty, current.specialty) &&
           other.occurredAt.getTime() > current.occurredAt.getTime(),
       );
-      const interval = isLatest ? usualIntervalDays(encounters, current, rule.cadence) : undefined;
+      const discharged = timeline
+        .ofType('plan.extracted')
+        .some((plan) => plan.discharged === true && plan.encounterId === encounterOf(current));
+      const interval =
+        isLatest && !discharged ? usualIntervalDays(encounters, current, rule.cadence) : undefined;
       if (interval === undefined) {
         continue;
       }

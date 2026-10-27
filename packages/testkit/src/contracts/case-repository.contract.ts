@@ -150,6 +150,8 @@ export function describeCaseRepositoryContract(
       await createAll(a, [visible, pending, live]);
       const page = await repo().list(a, { releasedAsOf: at(5), limit: 10 });
       expect(new Set(page.items.map((c) => c.id))).toEqual(new Set([visible.id, live.id]));
+      const unreleased = await repo().list(a, { unreleasedAsOf: at(5), limit: 10 });
+      expect(unreleased.items.map((c) => c.id)).toEqual([pending.id]);
     });
 
     it('pages through every case exactly once with the cursor', async () => {

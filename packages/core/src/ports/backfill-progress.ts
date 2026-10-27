@@ -1,3 +1,4 @@
+import type { BackfillCounts } from '../domain/backfill.ts';
 import type { ClinicId, PatientId } from '../domain/ids.ts';
 
 /**
@@ -14,44 +15,6 @@ export const UNFINISHED_BACKFILL_STATUSES = [
   'running',
   'paused_budget',
 ] as const satisfies readonly BackfillStatus[];
-
-/** What a backfill run did so far. Every counter only grows, page by page. */
-export interface BackfillCounts {
-  readonly patientsScanned: number;
-  /** Clinical events replayed (notes included). */
-  readonly eventsProcessed: number;
-  /** Notes read through the `NoteExtractor`. */
-  readonly documentsProcessed: number;
-  readonly expectationsCreated: number;
-  /** Expectations the patient's own history already fulfilled during the replay. */
-  readonly expectationsFulfilled: number;
-  readonly casesOpened: number;
-  /** Sum of `NoteExtraction.costUsd` of the notes read. */
-  readonly llmCostUsd: number;
-}
-
-export const ZERO_BACKFILL_COUNTS: BackfillCounts = {
-  patientsScanned: 0,
-  eventsProcessed: 0,
-  documentsProcessed: 0,
-  expectationsCreated: 0,
-  expectationsFulfilled: 0,
-  casesOpened: 0,
-  llmCostUsd: 0,
-};
-
-/** Adds two sets of counters. */
-export function addBackfillCounts(left: BackfillCounts, right: BackfillCounts): BackfillCounts {
-  return {
-    patientsScanned: left.patientsScanned + right.patientsScanned,
-    eventsProcessed: left.eventsProcessed + right.eventsProcessed,
-    documentsProcessed: left.documentsProcessed + right.documentsProcessed,
-    expectationsCreated: left.expectationsCreated + right.expectationsCreated,
-    expectationsFulfilled: left.expectationsFulfilled + right.expectationsFulfilled,
-    casesOpened: left.casesOpened + right.casesOpened,
-    llmCostUsd: left.llmCostUsd + right.llmCostUsd,
-  };
-}
 
 /** The stored state of one backfill run. */
 export interface BackfillProgress extends BackfillCounts {

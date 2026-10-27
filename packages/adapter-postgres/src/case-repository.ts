@@ -235,6 +235,7 @@ export class PostgresCaseRepository implements CaseRepository {
       query.assignee ?? null,
       query.origin ?? null,
       query.releasedAsOf ?? null,
+      query.unreleasedAsOf ?? null,
     ];
     let keyset = '';
     if (query.cursor !== undefined) {
@@ -254,6 +255,7 @@ export class PostgresCaseRepository implements CaseRepository {
          AND ($4::text IS NULL OR assignee = $4)
          AND ($5::text IS NULL OR origin = $5)
          AND ($6::timestamptz IS NULL OR release_at IS NULL OR release_at <= $6)
+         AND ($7::timestamptz IS NULL OR release_at > $7)
          ${keyset}
        ORDER BY ${spec.keys.join(', ')}
        LIMIT $${String(params.length)}`,

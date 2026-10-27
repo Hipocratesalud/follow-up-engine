@@ -308,6 +308,7 @@ class CaseEscalator {
     const decision = decidePatientContact({
       clinicAllowsContact: this.#input.clinicAllowsContact,
       patientOptedOut: optedOut,
+      backfill: current.origin === 'backfill',
       lowConfidence: isLowConfidenceCase(reasons, conditions, catalog),
       ...(lastContactAt === undefined ? {} : { lastContactAt }),
       now,

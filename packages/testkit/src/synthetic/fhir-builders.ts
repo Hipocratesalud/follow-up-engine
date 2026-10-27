@@ -293,7 +293,7 @@ export function serviceRequestResource(input: OrderInput): FhirResource {
     intent: 'order',
     category: [{ coding: [ORDER_CATEGORY[input.order.category]] }],
     code: {
-      coding: [coding(SYSTEMS.loinc, input.order.loinc, input.order.display)],
+      coding: [coding(input.order.system ?? SYSTEMS.loinc, input.order.loinc, input.order.display)],
       text: input.order.label,
     },
     subject: ref('Patient', input.patientId),
@@ -473,7 +473,11 @@ export function resultResources(input: ResultInput): FhirResource[] {
       ...basedOn,
       status: 'final',
       category: [{ coding: [coding(SYSTEMS.observationCategory, 'laboratory', 'Laboratory')] }],
-      code: { coding: [coding(SYSTEMS.loinc, input.order.loinc, input.order.display)] },
+      code: {
+        coding: [
+          coding(input.order.system ?? SYSTEMS.loinc, input.order.loinc, input.order.display),
+        ],
+      },
       subject: ref('Patient', input.patientId),
       effectiveDateTime: iso(input.collectedAt),
       issued: iso(input.issuedAt),
@@ -509,7 +513,7 @@ export function resultResources(input: ResultInput): FhirResource[] {
       },
     ],
     code: {
-      coding: [coding(SYSTEMS.loinc, input.order.loinc, input.order.display)],
+      coding: [coding(input.order.system ?? SYSTEMS.loinc, input.order.loinc, input.order.display)],
       text: input.order.label,
     },
     subject: ref('Patient', input.patientId),

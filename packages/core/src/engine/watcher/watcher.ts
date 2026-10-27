@@ -1,4 +1,6 @@
 import type { CaseEventActor, FollowUpCase } from '../../domain/case.ts';
+import { BACKFILL_UNSCHEDULED_RELEASE_AT } from '../../domain/backfill.ts';
+import type { Origin } from '../../domain/common.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import { type CaseId, caseId, type ClinicId, type PatientId } from '../../domain/ids.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
@@ -8,8 +10,8 @@ import { CaseWriter } from '../case-manager/case-writer.ts';
 import { computeCasePriority } from '../case-manager/priority.ts';
 import type { Catalog } from '../catalog.ts';
 import type { EngineSettings } from '../settings.ts';
-import { addDays } from '../support/time.ts';
 import { PatientTimeline } from '../timeline.ts';
+import { firstActionAt, releaseCase, releaseDueBackfillCases } from '../backfill/release.ts';
 import { caseOwner } from './owner.ts';
 
 export interface WatcherDeps {
@@ -21,6 +23,8 @@ export interface WatcherDeps {
 
 export interface WatcherReport {
   readonly clinicId: ClinicId;
+  /** Backfill cases whose release day came: now visible and escalating. */
+  readonly casesReleased: readonly CaseId[];
   readonly expired: number;
   readonly casesOpened: readonly CaseId[];
   /** Cases that received a new reason instead of a new case being opened. */
@@ -50,13 +54,14 @@ export async function runWatcher(
   now: Date,
 ): Promise<WatcherReport> {
   const catalog = await deps.loadCatalog(clinicId);
+  const casesReleased = await releaseDueBackfillCases(deps, clinicId, now, catalog);
   const opened: CaseId[] = [];
   const merged = new Set<CaseId>();
   let expired = 0;
   for (;;) {
     const page = await deps.unitOfWork.withTransaction(clinicId, async (stores) => {
       const due = await stores.expectations.findDue(clinicId, now, deps.settings.sweepBatchSize);
-      const sweep = new Sweep(stores, deps, catalog, clinicId, now);
+      const sweep = new Sweep(stores, deps, catalog, clinicId, now, 'live');
       for (const expectation of due) {
         const outcome = await sweep.expire(expectation);
         if (outcome.opened) {
@@ -74,12 +79,45 @@ export async function runWatcher(
   }
   return {
     clinicId,
+    casesReleased,
     expired,
     casesOpened: opened,
     casesMerged: [...merged].filter((id) => !opened.includes(id)),
   };
 }
 
+/**
+ * Expires one patient's due expectations inside the caller's transaction:
+ * the end of a backfill replay, where what history left unmet becomes held
+ * `backfill` cases.
+ */
+export async function expirePatient(
+  input: {
+    readonly stores: TransactionalStores;
+    readonly deps: WatcherDeps;
+    readonly catalog: Catalog;
+    readonly clinicId: ClinicId;
+    readonly patientId: PatientId;
+    readonly now: Date;
+  },
+  origin: Origin,
+): Promise<{ readonly opened: readonly CaseId[]; readonly expired: number }> {
+  const { stores, clinicId, now } = input;
+  const due = (await stores.expectations.findOpenByPatient(clinicId, input.patientId)).filter(
+    (expectation) => expectation.dueAt.getTime() <= now.getTime(),
+  );
+  const sweep = new Sweep(stores, input.deps, input.catalog, clinicId, now, origin);
+  const opened: CaseId[] = [];
+  for (const expectation of due) {
+    const outcome = await sweep.expire(expectation);
+    if (outcome.opened) {
+      opened.push(outcome.caseId);
+    }
+  }
+  return { opened, expired: due.length };
+}
+
+/** A sweep opens `live` cases (the watcher) or held `backfill` cases (the backfill replay). */
 class Sweep {
   readonly #stores: TransactionalStores;
   readonly #deps: WatcherDeps;
@@ -87,6 +125,7 @@ class Sweep {
   readonly #clinicId: ClinicId;
   readonly #now: Date;
   readonly #writer: CaseWriter;
+  readonly #origin: Origin;
   readonly #patients = new Map<PatientId, PatientContext>();
 
   constructor(
@@ -95,7 +134,9 @@ class Sweep {
     catalog: Catalog,
     clinicId: ClinicId,
     now: Date,
+    origin: Origin,
   ) {
+    this.#origin = origin;
     this.#stores = stores;
     this.#deps = deps;
     this.#catalog = catalog;
@@ -134,6 +175,7 @@ class Sweep {
     patient: PatientContext,
     actor: CaseEventActor,
   ): Promise<FollowUpCase> {
+    const held = this.#origin === 'backfill';
     const followUpCase: FollowUpCase = {
       id: caseId(this.#deps.ids.next('case')),
       clinicId: this.#clinicId,
@@ -144,11 +186,11 @@ class Sweep {
       priority: this.#priority([expectation], patient),
       assignee: caseOwner(expectation, patient.timeline, this.#deps.settings.frontDeskOwner),
       escalationStep: 0,
-      nextActionAt: addDays(
-        this.#now,
-        this.#catalog.definition(expectation.ruleId)?.escalationPolicy.steps[0]?.afterDays ?? 0,
-      ),
-      origin: expectation.origin,
+      // A held backfill case neither escalates nor shows until its release day.
+      ...(held
+        ? { releaseAt: BACKFILL_UNSCHEDULED_RELEASE_AT }
+        : { nextActionAt: firstActionAt(this.#catalog, expectation, this.#now) }),
+      origin: this.#origin,
       createdAt: this.#now,
       updatedAt: this.#now,
     };
@@ -157,13 +199,15 @@ class Sweep {
       ruleId: expectation.ruleId,
       layer: expectation.layer,
     });
-    await this.#writer.emit('case.opened', this.#now, {
-      caseId: followUpCase.id,
-      patientId: followUpCase.patientId,
-      reasons: [expectation.reason],
-      priority: followUpCase.priority,
-      origin: followUpCase.origin,
-    });
+    if (!held) {
+      await this.#writer.emit('case.opened', this.#now, {
+        caseId: followUpCase.id,
+        patientId: followUpCase.patientId,
+        reasons: [expectation.reason],
+        priority: followUpCase.priority,
+        origin: followUpCase.origin,
+      });
+    }
     return followUpCase;
   }
 
@@ -185,7 +229,7 @@ class Sweep {
       ...grouped.filter((item): item is Expectation => item !== undefined),
       expectation,
     ];
-    return this.#writer.update(
+    const updated = await this.#writer.update(
       {
         ...active,
         reasons: [
@@ -205,6 +249,12 @@ class Sweep {
         },
       },
     );
+    // Something due today joins a held backfill case: it is actionable now.
+    const releaseAt = updated.releaseAt?.getTime();
+    if (this.#origin === 'live' && releaseAt !== undefined && releaseAt > this.#now.getTime()) {
+      return releaseCase(this.#writer, this.#catalog, updated, reasons, this.#now);
+    }
+    return updated;
   }
 
   #priority(reasons: readonly Expectation[], patient: PatientContext): number {

@@ -68,6 +68,8 @@ export const SYSTEMS = {
   ucum: 'http://unitsofmeasure.org',
   /** Local code system for the clinic's specialties (codes = {@link SPECIALTIES}). */
   specialty: `${ENGINE_FHIR_BASE}/CodeSystem/specialty`,
+  /** Engine CodeSystem of local procedure codes (the diabetes protocol's `fundus-exam`). */
+  procedure: `${ENGINE_FHIR_BASE}/CodeSystem/procedure`,
   /** Local identifier system for the demo clinic's patients. */
   patientIdentifier: `${ENGINE_FHIR_BASE}/NamingSystem/demo-patient`,
   actCode: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',

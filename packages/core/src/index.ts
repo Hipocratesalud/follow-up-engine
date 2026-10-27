@@ -10,6 +10,7 @@ export * from './domain/clinical-event.ts';
 export type * from './domain/common.ts';
 export * from './domain/expectation.ts';
 export * from './domain/case.ts';
+export * from './domain/backfill.ts';
 export type * from './domain/condition.ts';
 export type * from './domain/quality-finding.ts';
 export * from './domain/domain-event.ts';

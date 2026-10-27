@@ -58,6 +58,7 @@ export function deriveFromExtraction(
     idempotencyKey: derivedKey(note, 'plan.extracted'),
     sourceDocumentId: note.documentId,
     items: extraction.planItems,
+    ...(extraction.discharged === true ? { discharged: true } : {}),
     extractor: { model: extraction.model, promptVersion: extraction.promptVersion },
   };
   const confidence = new Map<string, number>();

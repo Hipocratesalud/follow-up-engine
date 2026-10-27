@@ -35,6 +35,11 @@ export interface NoteExtraction {
   readonly medications: readonly ExtractedMedication[];
   /** `dueAt` already resolved against `authoredAt`. */
   readonly planItems: readonly PlanItem[];
+  /**
+   * The note ends follow-up in this specialty ("se da de alta"): the visit
+   * pattern stops here. Optional; absent means no.
+   */
+  readonly discharged?: boolean;
   readonly model: string;
   readonly promptVersion: string;
   readonly costUsd: number;

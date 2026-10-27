@@ -132,6 +132,8 @@ export interface PlanExtractedEvent extends ClinicalEventBase {
   readonly type: 'plan.extracted';
   readonly sourceDocumentId: string;
   readonly items: readonly PlanItem[];
+  /** The note discharged the patient from this specialty ("alta"): no visit pattern after it. */
+  readonly discharged?: boolean;
   /** Which model and prompt produced the items, for provenance. */
   readonly extractor: { readonly model: string; readonly promptVersion: string };
 }

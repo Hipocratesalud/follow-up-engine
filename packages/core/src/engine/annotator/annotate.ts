@@ -14,7 +14,12 @@ import {
   supersedes,
   toCorrelationTarget,
 } from '../matching/correlation.ts';
-import { loadPatientState, type LiveExpectations, type PatientState } from '../patient-state.ts';
+import {
+  asOpen,
+  loadPatientState,
+  type LiveExpectations,
+  type PatientState,
+} from '../patient-state.ts';
 import type { EngineSettings } from '../settings.ts';
 import { type PatientTimeline, refKey } from '../timeline.ts';
 import { conditionCandidates, type ExtractedMedicationHint, mergeCondition } from './conditions.ts';
@@ -35,6 +40,8 @@ export interface AnnotationContext {
   readonly now: Date;
   /** Origin of what the run creates: `live` traffic (default) or the initial `backfill`. */
   readonly origin?: Origin;
+  /** Replay mode: the patient's timeline only holds events up to this instant. */
+  readonly asOf?: Date;
 }
 
 /** Side inputs that only exist when the batch came with a freshly read note. */
@@ -77,7 +84,12 @@ export async function annotate(
   events: readonly ClinicalEvent[],
   hints: AnnotationHints = {},
 ): Promise<AnnotationResult> {
-  const state = await loadPatientState(context.stores, context.clinicId, context.patientId);
+  const state = await loadPatientState(
+    context.stores,
+    context.clinicId,
+    context.patientId,
+    context.asOf,
+  );
   const writer = new CaseWriter(context.stores, context.ids, context.clinicId);
   const ordered = [...events].sort(
     (left, right) => left.occurredAt.getTime() - right.occurredAt.getTime(),
@@ -110,6 +122,7 @@ export async function annotate(
     now: context.now,
   });
   created.push(...(await createExpectations(context, state.live, protocols.drafts)));
+  closed.push(...(await fulfillFromRecord(context, state, created, ordered)));
 
   const casesResolved: CaseId[] = [];
   for (const { expectation } of closed) {
@@ -136,6 +149,15 @@ export async function annotate(
     conditionsUpserted: conditions.upserted,
     optedOut: state.timeline.optedOut,
   };
+}
+
+/** In a replay, whether `expectation` was created by the step at `asOf` and was still open after it. */
+function createdByThisReplayStep(expectation: Expectation, asOf: Date | undefined): boolean {
+  const at = asOf?.getTime();
+  if (at !== expectation.createdAt.getTime()) {
+    return false;
+  }
+  return expectation.closedAt === undefined || expectation.closedAt.getTime() >= at;
 }
 
 /** Whether a live doctor's-plan expectation already asks for the same thing. */
@@ -205,6 +227,10 @@ async function createExpectations(
     if (result.created) {
       created.push(result.expectation);
       live.put(result.expectation);
+    } else if (createdByThisReplayStep(result.expectation, context.asOf)) {
+      // Replaying again: this step created it the first time, so the rest of
+      // the step must see it in play, exactly as it did then.
+      live.put(asOpen(result.expectation));
     }
   }
   return created;
@@ -313,4 +339,44 @@ async function reopenCancelled(
     reopened.push(open);
   }
   return reopened;
+}
+
+/**
+ * A new expectation may already be met by something in the record that is
+ * not part of this batch: typically a follow-up appointment booked before an
+ * abnormal result arrived. Correlations still require the event to happen
+ * after the expectation's trigger, so past events never count.
+ */
+async function fulfillFromRecord(
+  context: AnnotationContext,
+  state: PatientState,
+  created: readonly Expectation[],
+  batch: readonly ClinicalEvent[],
+): Promise<ClosedExpectation[]> {
+  const inBatch = new Set(batch.map((event) => event.idempotencyKey));
+  const record = state.timeline.events.filter((event) => !inBatch.has(event.idempotencyKey));
+  const closed: ClosedExpectation[] = [];
+  for (const expectation of created) {
+    const definition = context.catalog.definition(expectation.ruleId);
+    if (definition === undefined) {
+      continue;
+    }
+    const target = toCorrelationTarget(expectation, definition, state.timeline);
+    const event = record.find(
+      (candidate) => findFulfillment(candidate, target, state.timeline) !== undefined,
+    );
+    if (event !== undefined) {
+      const next = await closeExpectation(
+        context.stores,
+        expectation,
+        'fulfilled',
+        fulfillmentReason(event),
+        context.now,
+        event.source,
+      );
+      state.live.put(next);
+      closed.push({ expectation: next, closedBy: event.type });
+    }
+  }
+  return closed;
 }

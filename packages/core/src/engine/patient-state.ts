@@ -64,31 +64,93 @@ export interface PatientState {
   readonly live: LiveExpectations;
 }
 
+/**
+ * Loads a patient's state at the start of an operation.
+ *
+ * With `asOf` (the backfill's replay), the state is the one the patient had
+ * just before that instant, so a replay takes the same decisions whether it
+ * runs for the first time or again over its own results: the timeline holds
+ * the events up to `asOf`; live expectations are those created before it
+ * and not closed before it (the replay stamps `createdAt` and `closedAt`
+ * with each batch's time); conditions are those known up to it, plus every
+ * clinician review (never overridden by automation).
+ */
 export async function loadPatientState(
   stores: TransactionalStores,
   clinicId: ClinicId,
   patientId: PatientId,
+  asOf?: Date,
 ): Promise<PatientState> {
-  const [events, conditions, activeCases, open] = await Promise.all([
-    stores.clinicalRecords.listEventsForPatient(clinicId, patientId),
-    stores.conditions.listByPatient(clinicId, patientId),
-    listPatientCases(stores, clinicId, patientId, { statuses: ACTIVE_CASE_STATUSES }),
-    stores.expectations.findOpenByPatient(clinicId, patientId),
-  ]);
+  const events = await stores.clinicalRecords.listEventsForPatient(
+    clinicId,
+    patientId,
+    asOf === undefined ? {} : { until: new Date(asOf.getTime() + 1) },
+  );
+  const conditions = await stores.conditions.listByPatient(clinicId, patientId);
+  const activeCases = await listPatientCases(stores, clinicId, patientId, {
+    statuses: ACTIVE_CASE_STATUSES,
+  });
+  if (asOf !== undefined) {
+    const all = await stores.expectations.listByPatient(clinicId, patientId);
+    return {
+      timeline: new PatientTimeline(events),
+      conditions: conditions.filter(
+        (condition) =>
+          // A step decides with the conditions it upserts itself, so those stay visible.
+          condition.confirmedBy !== undefined || condition.updatedAt.getTime() <= asOf.getTime(),
+      ),
+      activeCases,
+      live: new LiveExpectations(
+        all.filter((expectation) => wasLive(expectation, asOf)).map(asOpen),
+      ),
+    };
+  }
+  const open = await stores.expectations.findOpenByPatient(clinicId, patientId);
   const openIds = new Set(open.map((expectation) => expectation.id));
-  const grouped = await Promise.all(
-    activeCases
-      .flatMap((followUpCase) => followUpCase.reasons.map((reason) => reason.expectationId))
-      .filter((id) => !openIds.has(id))
-      .map((id) => stores.expectations.get(clinicId, id)),
-  );
-  const expired = grouped.filter(
-    (expectation): expectation is Expectation => expectation?.status === 'expired',
-  );
+  const expired: Expectation[] = [];
+  for (const followUpCase of activeCases) {
+    for (const reason of followUpCase.reasons) {
+      if (openIds.has(reason.expectationId)) {
+        continue;
+      }
+      const grouped = await stores.expectations.get(clinicId, reason.expectationId);
+      if (grouped?.status === 'expired') {
+        expired.push(grouped);
+      }
+    }
+  }
   return {
     timeline: new PatientTimeline(events),
     conditions,
     activeCases,
     live: new LiveExpectations([...open, ...expired]),
   };
+}
+
+/** Whether an expectation was in play just before `asOf`: created earlier, not closed earlier. */
+export function wasLive(expectation: Expectation, asOf: Date): boolean {
+  return (
+    expectation.createdAt.getTime() < asOf.getTime() &&
+    (expectation.closedAt === undefined || expectation.closedAt.getTime() >= asOf.getTime())
+  );
+}
+
+/**
+ * An expectation as it was while still open during a replay: a later closure
+ * or expiry undone (a replay groups expired expectations into cases only at
+ * the end of the patient, so back then it had no case either).
+ */
+export function asOpen(expectation: Expectation): Expectation {
+  if (expectation.status === 'open') {
+    return expectation;
+  }
+  const open: { -readonly [K in keyof Expectation]: Expectation[K] } = {
+    ...expectation,
+    status: 'open',
+  };
+  delete open.closedAt;
+  delete open.closedReason;
+  delete open.closedBy;
+  delete open.caseId;
+  return open;
 }

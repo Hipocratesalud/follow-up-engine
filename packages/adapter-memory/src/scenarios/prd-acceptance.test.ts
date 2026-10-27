@@ -341,6 +341,26 @@ describe('PRD acceptance scenarios', () => {
       .run();
   });
 
+  it('a note that discharges the patient ends the visit pattern (no cadence after it)', async () => {
+    await scenario()
+      .at(0)
+      .consult({ encounterId: 'psy-0', specialty: 'psychology' })
+      .at(14)
+      .consult({ encounterId: 'psy-14', specialty: 'psychology' })
+      .expectOpenExpectations([{ ruleId: 'cadence_break', dueDay: 56 }])
+      .at(28)
+      .consult({
+        encounterId: 'psy-28',
+        specialty: 'psychology',
+        note: { id: 'doc-28', text: 'Se revisan logros del proceso. Se da de alta.' },
+      })
+      .expectOpenExpectations([])
+      .at(120)
+      .runWatcher()
+      .expectNoCases()
+      .run();
+  });
+
   it('a visit in the doctor’s plan beats the cadence layer for the next visit', async () => {
     await scenario()
       .at(0)
