@@ -172,6 +172,7 @@ describe('gold notes', () => {
         ...note.expected.conditions.map((c) => c.evidenceQuote),
         ...note.expected.medications.map((m) => m.evidenceQuote),
         ...note.expected.planItems.map((p) => p.evidenceQuote),
+        ...(note.expected.discharge ? [note.expected.discharge.evidenceQuote] : []),
       ];
       for (const quote of quotes)
         if (!note.text.includes(quote)) missing.push(`${note.id}: "${quote}"`);
@@ -189,6 +190,17 @@ describe('gold notes', () => {
     expect(quotes.some((q) => /\d+\s*(semanas?|sem)\b/i.test(q))).toBe(true);
     expect(quotes.some((q) => /\d+\s*mes(es)?/i.test(q))).toBe(true);
     expect(quotes.filter((q) => /\d{2}\/\d{2}\/\d{4}/.test(q)).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('covers the round-1 QA cases: discharge, negation, conditional phrasing, emoji, injection', () => {
+    const texts = goldNotes.map((note) => note.text);
+    expect(goldNotes.filter((note) => note.expected.discharge).length).toBeGreaterThanOrEqual(3);
+    expect(texts.some((text) => /niega HTA y diabetes/i.test(text))).toBe(true);
+    expect(texts.some((text) => /solo si|en caso de/i.test(text))).toBe(true);
+    expect(texts.some((text) => /\p{Extended_Pictographic}/u.test(text))).toBe(true);
+    expect(texts.some((text) => /<\/clinical_note>|IGNORA LAS INSTRUCCIONES/i.test(text))).toBe(
+      true,
+    );
   });
 
   it('resolves absolute dates in plan items against authoredAt', () => {

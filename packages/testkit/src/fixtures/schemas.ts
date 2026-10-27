@@ -24,6 +24,8 @@ export const GoldNoteSchema = z.strictObject({
   text: z.string().min(1),
   expected: z.strictObject({
     hasPlan: z.boolean(),
+    /** Present when the note discharges the patient from follow-up ("se da de alta"). */
+    discharge: z.strictObject({ evidenceQuote: z.string().min(1) }).optional(),
     conditions: z.array(
       z.strictObject({
         icd10: z.string().regex(/^[A-Z]\d{2}(\.\d{1,2})?$/),

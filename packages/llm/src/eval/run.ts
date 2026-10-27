@@ -1,6 +1,7 @@
 import type { ClinicId } from '@follow-up-engine/core';
 import { describeError } from '../errors.ts';
 import type { DetailedNoteExtractor } from '../extraction/note-extractor.ts';
+import type { RejectionReason } from '../extraction/types.ts';
 import { goldAuthoredAt, type GoldNote } from './gold.ts';
 import {
   ZERO_COUNTS,
@@ -13,6 +14,16 @@ import {
   type Scores,
 } from './metrics.ts';
 
+/** Rejections where the quote exists but does not back the item. */
+const EVIDENCE_REASONS: ReadonlySet<RejectionReason> = new Set<RejectionReason>([
+  'quote_too_short',
+  'quote_unrelated',
+  'negated',
+  'conditional',
+  'timing_mismatch',
+  'not_a_medication',
+]);
+
 export interface NoteResult {
   readonly id: string;
   readonly specialty: string;
@@ -20,9 +31,17 @@ export interface NoteResult {
   readonly error?: string;
   readonly counts: FieldCounts;
   readonly hasPlanCorrect: boolean;
+  /** Whether the discharge ("se da de alta") was read as labeled. Optional in older summaries. */
+  readonly dischargeCorrect?: boolean;
   readonly modelItemCount: number;
   /** Items dropped because their evidence quote is not in the note. */
   readonly quoteRejected: number;
+  /**
+   * Items whose quote is in the note but does not back them (too short,
+   * unrelated, negated, conditional, contradicting timing, a measurement as
+   * a medication). Optional in older summaries.
+   */
+  readonly evidenceRejected?: number;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly costUsd: number;
@@ -41,9 +60,11 @@ export interface Aggregate {
   readonly counts: FieldCounts;
   readonly scores: FieldScores;
   readonly hasPlanAccuracy: number;
+  readonly dischargeAccuracy: number;
   readonly hallucinatedQuoteRate: number;
   readonly modelItems: number;
   readonly quoteRejected: number;
+  readonly evidenceRejected: number;
 }
 
 export interface EvalSummary {
@@ -86,6 +107,7 @@ export function aggregate(results: readonly NoteResult[]): Aggregate {
   const counts = sumFieldCounts(results);
   const modelItems = results.reduce((s, r) => s + r.modelItemCount, 0);
   const quoteRejected = results.reduce((s, r) => s + r.quoteRejected, 0);
+  const evidenceRejected = results.reduce((s, r) => s + (r.evidenceRejected ?? 0), 0);
   return {
     notes: results.length,
     errors: results.filter((r) => r.error !== undefined).length,
@@ -97,9 +119,14 @@ export function aggregate(results: readonly NoteResult[]): Aggregate {
     },
     hasPlanAccuracy:
       results.length === 0 ? 0 : results.filter((r) => r.hasPlanCorrect).length / results.length,
+    dischargeAccuracy:
+      results.length === 0
+        ? 0
+        : results.filter((r) => r.dischargeCorrect !== false).length / results.length,
     hallucinatedQuoteRate: modelItems === 0 ? 0 : quoteRejected / modelItems,
     modelItems,
     quoteRejected,
+    evidenceRejected,
   };
 }
 
@@ -189,8 +216,11 @@ export async function runExtractionEval(options: RunEvalOptions): Promise<EvalRu
           specialty: note.specialty,
           counts: compared,
           hasPlanCorrect: compared.hasPlanCorrect,
+          dischargeCorrect: compared.dischargeCorrect,
           modelItemCount: extraction.modelItemCount,
           quoteRejected: extraction.rejected.filter((r) => r.reason === 'quote_not_found').length,
+          evidenceRejected: extraction.rejected.filter((r) => EVIDENCE_REASONS.has(r.reason))
+            .length,
           inputTokens: extraction.inputTokens,
           outputTokens: extraction.outputTokens,
           costUsd: extraction.costUsd,
@@ -208,8 +238,10 @@ export async function runExtractionEval(options: RunEvalOptions): Promise<EvalRu
             planItems: missed(note.expected.planItems),
           },
           hasPlanCorrect: false,
+          dischargeCorrect: false,
           modelItemCount: 0,
           quoteRejected: 0,
+          evidenceRejected: 0,
           inputTokens: 0,
           outputTokens: 0,
           costUsd: 0,

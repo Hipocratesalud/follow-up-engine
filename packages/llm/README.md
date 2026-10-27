@@ -11,7 +11,9 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
  engine (core)                 this package                                  vendors
  ─────────────                 ────────────                                  ───────
  NoteExtractor.extract ──▶ createNoteExtractor
-   (clinicId, note)          │ prompt note-extraction@1 (note fenced as data)
+   (clinicId, note,          │ prepareNote: mask patient names/ids (redactTerms), neutralize
+    redactTerms)             │   delimiter-like tags, cap at 20,000 chars
+                             │ prompt note-extraction@2 (metadata and note fenced as data)
                              │ output schema: ModelExtractionSchema (zod)
                              ▼
                         createLlmGateway ── budget check (usage log, UTC month)
@@ -28,8 +30,9 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
                                  POST {baseUrl}/chat/completions
                                        │
                              ▼ back in the extractor
-                        postProcessExtraction: verbatim-quote check, ICD-10 and LOINC
-                        validation, due dates computed from authoredAt, clamp, dedupe
+                        postProcessExtraction: verbatim and meaningful evidence, negation,
+                        ICD-10 and LOINC validation, due dates computed from authoredAt,
+                        confidence capped by what the note backs, discharge, dedupe
 ```
 
 - **Providers** implement core's `LlmProvider` (plus an optional abort `signal` and detailed usage:
@@ -41,16 +44,16 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
 
 ## Exported API
 
-| Area       | Exports                                                                                                                                                                                                                                                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Gateway    | `createLlmGateway(config)`, `LlmGatewayConfig`, `TaskConfig`, `RouteTarget`, `GatewayResult`, `DEFAULT_RETRY_POLICY`, `backoffDelayMs`, `startOfUtcMonth`, `repairInstruction`                                                                                                                               |
-| Providers  | `createMetaProvider`, `createBasetenProvider`, `createOpenAiCompatibleProvider`, `createChatCompletionsProvider`, `createFakeProvider`, `fakeRequestKey`, `isContributorModel`, `META_API_BASE_URL`, `META_DEFAULT_MODEL`, `BASETEN_BASE_URL`, `BASETEN_MUSE_SPARK_OPEN_MODEL`, `STRUCTURED_OUTPUT_MODES`    |
-| Pricing    | `DEFAULT_PRICING`, `priceFor`, `costOf`, `ModelPrice`, `PricingTable`                                                                                                                                                                                                                                        |
-| Usage log  | `LlmUsageLog`, `LlmCallRecord` (structural copies of the core port), `InMemoryLlmUsageLog`                                                                                                                                                                                                                   |
-| Errors     | `LlmProviderError` (status, code, retryable, retryAfterMs), `LlmTimeoutError`, `LlmSchemaError` (raw output, issues, usage, repairable), `LlmUnavailableError`, `LlmConfigError`; core's `LlmBudgetExceededError` and `LlmOutputError` are thrown as is                                                      |
-| Extraction | `createNoteExtractor`, `NOTE_EXTRACTION_PROMPT_VERSION`, `NOTE_EXTRACTION_TASK`, `buildExtractionMessages`, `ModelExtractionSchema`, `postProcessExtraction`, `resolveDueAt`, `addInterval`, `locateQuote`, `isValidLoinc`, port types (`NoteExtractor`, `NoteExtraction`, ...) and `DetailedNoteExtraction` |
-| Fixtures   | `createNoteFixtureResponder`, `chainResponders`, `modelOutputFromExpected` (gold `expected`), `modelOutputFromExtraction` (scenario `llmFixture`), `heuristicExtraction` / `heuristicResponder` (rule-based baseline)                                                                                        |
-| Evals      | `loadGoldNotes`, `runExtractionEval`, `compareExtraction`, `scores`, `renderReport`, `renderComparison`                                                                                                                                                                                                      |
+| Area       | Exports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gateway    | `createLlmGateway(config)`, `LlmGatewayConfig`, `TaskConfig`, `RouteTarget`, `GatewayResult`, `DEFAULT_RETRY_POLICY`, `backoffDelayMs`, `startOfUtcMonth`, `repairInstruction`                                                                                                                                                                                                                                                                                                                                            |
+| Providers  | `createMetaProvider`, `createBasetenProvider`, `createOpenAiCompatibleProvider`, `createChatCompletionsProvider`, `createFakeProvider`, `fakeRequestKey`, `isContributorModel`, `META_API_BASE_URL`, `META_DEFAULT_MODEL`, `BASETEN_BASE_URL`, `BASETEN_MUSE_SPARK_OPEN_MODEL`, `STRUCTURED_OUTPUT_MODES`                                                                                                                                                                                                                 |
+| Pricing    | `DEFAULT_PRICING`, `priceFor`, `costOf`, `ModelPrice`, `PricingTable`                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Usage log  | `LlmUsageLog`, `LlmCallRecord` (structural copies of the core port), `InMemoryLlmUsageLog`                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Errors     | `LlmProviderError` (status, code, retryable, retryAfterMs), `LlmTimeoutError`, `LlmSchemaError` (raw output, issues, usage, repairable), `LlmUnavailableError`, `LlmConfigError`; core's `LlmBudgetExceededError` and `LlmOutputError` are thrown as is                                                                                                                                                                                                                                                                   |
+| Extraction | `createNoteExtractor`, `NOTE_EXTRACTION_PROMPT_VERSION`, `NOTE_EXTRACTION_TASK`, `buildExtractionMessages`, `sanitizeSpecialty`, `ModelExtractionSchema`, `postProcessExtraction`, `MAX_ITEM_CONFIDENCE`, `prepareNote`, `MAX_NOTE_CHARS`, `REDACTION_PLACEHOLDER`, `DEFAULT_CONDITION_TERMS`, `resolveDueAt`, `addInterval`, `createQuoteIndex`, `locateQuote`, `isValidLoinc`, port types (`NoteExtractor`, `NoteExtraction`, ...) and `DetailedNoteExtraction` (with `rejected`, `warnings`, `dischargeEvidenceQuote`) |
+| Fixtures   | `createNoteFixtureResponder`, `chainResponders`, `modelOutputFromExpected` (gold `expected`), `modelOutputFromExtraction` (scenario `llmFixture`), `heuristicExtraction` / `heuristicResponder` (rule-based baseline)                                                                                                                                                                                                                                                                                                     |
+| Evals      | `loadGoldNotes`, `runExtractionEval`, `compareExtraction`, `scores`, `renderReport`, `renderComparison`                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ### Wiring example (in an app)
 
@@ -77,6 +80,8 @@ const gateway = createLlmGateway({
   clock,
 });
 const extractor = createNoteExtractor({ gateway });
+// packages/runtime wraps it with withPatientRedaction(extractor, clinicalRecords), which looks up
+// the note's Patient resource and passes its names and identifiers as redactTerms.
 ```
 
 With no key (CI, demo), route the task to `{ provider: 'fake', model: 'fake-extractor' }` with
@@ -101,16 +106,54 @@ the real gateway, validation and post-checks.
 - **Fallback.** After a provider's retries are exhausted, the next route entry runs. With one entry the
   original error is rethrown; with several, `LlmUnavailableError` lists every failure.
 - **Privacy.** Only the note text, its specialty and its date go to a model. No clinic, patient or
-  document ids. Contributor-mode Meta models (`*-contributor`, Meta may train on the data) are refused
-  unless `allowContributorMode` is set, which only the eval CLI exposes (`--allow-contributor`).
-- **Extraction safety.** The prompt frames the task as extraction, never advice, and fences the note in
-  `<clinical_note>` with an instruction to ignore instructions inside it (a closing tag inside the note
-  is defanged). The model never computes dates: it returns `{ amount, unit }` or an ISO date and
+  document ids. The patient's names, identifiers and phone numbers (`NoteExtractionInput.redactTerms`,
+  filled by `packages/runtime` from the Patient resource of the Bundle) are replaced by `[REDACTADO]`
+  before the call: whole words, case and accent insensitive, each name part of 3+ letters on its own
+  (everyday words such as "Dolores" or "Luz" only inside the full name), identifiers by their digits
+  however punctuated. Quotes the model copies from the masked text are mapped back to the original
+  note. Contributor-mode Meta models (`*-contributor`, Meta may train on the data) are refused unless
+  `allowContributorMode` is set, which only the eval CLI exposes (`--allow-contributor`).
+- **Prompt injection.** The prompt frames the task as extraction, never advice. Every piece of host
+  text is fenced as data: the note in `<clinical_note>`, the date and specialty in `<note_metadata>`,
+  with an instruction to ignore instructions inside them. The specialty is reduced to its first line,
+  letters, digits, spaces, `_` and `-`, 40 characters at most. Any tag shaped like a delimiter, in any
+  case or spacing (`</CLINICAL_NOTE >`, `< /clinical-note>`), is replaced by `[etiqueta]`.
+- **Evidence checks.** A model (hallucinating, or obeying an injected instruction) is untrusted, so an
+  item survives only when the note backs it (`post-process.ts`): its quote is in the note (normalized
+  match, else `quote_not_found`), has at least 2 letters or digits (4 for medications and plan items,
+  else `quote_too_short`), and says something about the item, else `quote_unrelated`: a condition quote
+  contains a term linked to its ICD-10 category in `condition-terms.ts` (Spanish terms and
+  abbreviations: "DM2", "diabetes", "HTA", "hipertensión"...; a category missing from the table is
+  never accepted from free text, add it there with a gold note), a medication quote contains the drug
+  name, a plan quote contains the item's wording ("ctrl", "HbA1c", "eco", "sesión") or its timing.
+  Denied conditions ("niega HTA y diabetes", "sin antecedentes de DM2") are `negated`; measurements
+  ("Hemoglobina 10,8 g/dL", "HbA1c 7.4%") are `not_a_medication`; conditional returns ("volver si
+  fiebre", "ctrl en 1 semana solo si persisten los síntomas") are `conditional`, while "control en 1 mes
+  o antes si empeora" stays.
+- **Confidence.** The model's number is self-reported: it is clamped to `MAX_ITEM_CONFIDENCE` (0.9),
+  then capped by what the code checked: a suspected condition ("sospecha de", "probable", "en
+  estudio") gets 0.4, below every engine threshold; a plan item whose timing is only stated elsewhere
+  in the note gets 0.7; an untimed lab or imaging item that inherits the next visit gets 0.8.
+- **Dates.** The model never computes dates: it returns `{ amount, unit }` or an ISO date and
   `resolveDueAt` computes `dueAt` from `authoredAt` (calendar months, clamped at month end; explicit
-  dates before the note are rejected). Items whose quote is not in the note are dropped and counted as
-  hallucinated quotes. Untimed lab/imaging items inherit the earliest follow-up visit of the same note
-  ("traer HbA1c al próximo control"); other untimed items are dropped. LOINC codes are kept only on lab
-  items and only when the check digit is valid.
+  dates before the note are rejected). The timing must be stated where the item is quoted (its
+  sentence); an interval that contradicts the one written there is `timing_mismatch` ("HIV test in 1
+  day" quoting "Control en 3 meses"). Timing stated only elsewhere in the note is kept with a lower
+  confidence; otherwise the item is untimed. Untimed lab/imaging items inherit the earliest follow-up
+  visit of the same note ("traer HbA1c al próximo control"); other untimed items are dropped. LOINC
+  codes are kept only on lab items and only when the check digit is valid.
+- **Discharge.** `discharge: { evidenceQuote } | null` in the model schema. `discharged` is set only
+  when the quote states a discharge ("se da de alta", "alta médica", "cierre del proceso"; not "IRA
+  alta" nor "no se da de alta"); a discharge counts as a plan (`hasPlan`). The engine then anchors no
+  visit cadence on that note.
+- **Long notes.** Notes are cut at `MAX_NOTE_CHARS` (20,000 UTF-16 units, `maxNoteChars` to change)
+  and the result carries the `note_truncated` warning. Quote matching is linear in the note length and
+  works on UTF-16 offsets that emoji and other astral characters cannot shift.
+- **Log-safe errors.** Error messages never contain model output (a reply can quote the note): an
+  invalid reply is reported as "reply is not valid JSON" or as schema paths and issue codes
+  (`LlmSchemaError.summary`); refusal text is dropped. The raw reply and the full zod issues stay on
+  the error object for the repair round trip only. These messages are what `llm_calls.error`,
+  `jobs.error` and the logs store.
 
 ## Running evals
 
@@ -140,8 +183,16 @@ seed notes in `packages/llm/test/fixtures/gold-notes/`; `--gold <dir>` overrides
 `docs/evals/<date>-<provider>-<model>.md` plus a `.json` summary (no note text) that `eval:compare` reads.
 
 Metrics: precision, recall and F1 per field (conditions by ICD-10 category, plan items by kind and due
-date within ±20%, medications by fuzzy drug name), `hasPlan` accuracy, hallucinated-quote rate, results
-per specialty, tokens and cost per note, latency p50/p95. Extraction errors count as misses.
+date within ±20%, medications by fuzzy drug name), `hasPlan` accuracy, discharge accuracy,
+hallucinated-quote rate, items dropped by the evidence checks, results per specialty, tokens and cost
+per note, latency p50/p95. Extraction errors count as misses.
+
+The gold set includes adversarial notes from QA round 1: discharge ("se da de alta", gold-026, 045,
+046), negation (047, 048), as-needed and conditional phrasing (048, 049, 054), a lab value in a note
+without plan (050), emoji (051) and prompt injection with fake closing tags (052, 053). Heuristic baseline
+before and after HIP-121/122 on the same 54 notes: conditions F1 72.1% → 78.9%, medications 75.3% →
+80.9%, plan items 75.7% → 92.3%, hasPlan 87.0% → 92.6%, discharge 94.4% → 98.1% (the miss is the
+injected "dado de alta" in gold-053, which only a model can see through).
 
 Real-network smoke test, never run by `pnpm verify`:
 
