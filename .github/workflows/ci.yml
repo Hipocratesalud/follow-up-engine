@@ -50,6 +50,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm boundaries
       - run: pnpm test
+      - name: End to end (API + worker + Postgres + signed webhooks)
+        run: pnpm e2e
 
   secrets:
     name: Secret scan (gitleaks)

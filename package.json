@@ -15,6 +15,7 @@
     "boundaries": "depcruise packages apps --config .dependency-cruiser.cjs --output-type err-long",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "pnpm --filter @follow-up-engine/api e2e",
     "format": "prettier --write .",
     "verify": "pnpm lint && pnpm typecheck && pnpm boundaries && pnpm test"
   },
