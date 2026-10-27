@@ -48,6 +48,156 @@ export interface PatientContact {
   allowed: boolean;
   optedOut: boolean;
   lastContactAt?: string;
+  /** The patient's contact data is flagged (a wrong number): messages are skipped, calls go ahead. */
+  contactDataInvalid?: boolean;
+  /** The standing flag, when there is one. */
+  contactFlag?: ContactFlagView;
+}
+
+/** A flag on the patient's contact data, shown on the patient page and the case. */
+export interface ContactFlagView {
+  issue: 'wrong_number';
+  /** Spanish label: "Número equivocado". */
+  label: string;
+  raisedAt: string;
+  channel?: ContactChannel;
+}
+
+// Patient contact loop ------------------------------------------------------
+
+export const CONTACT_CHANNELS = ['whatsapp', 'phone_call', 'sms', 'email'] as const;
+export type ContactChannel = (typeof CONTACT_CHANNELS)[number];
+
+export const CONTACT_OUTCOMES = [
+  'delivered',
+  'read',
+  'replied',
+  'booked',
+  'declined',
+  'treated_elsewhere',
+  'wrong_number',
+  'no_answer',
+] as const;
+export type ContactOutcome = (typeof CONTACT_OUTCOMES)[number];
+
+/** Outcomes of a call the team made ("Llamar al paciente"). */
+export const CALL_OUTCOMES = [
+  'booked',
+  'treated_elsewhere',
+  'no_answer',
+  'wrong_number',
+  'declined',
+] as const satisfies readonly ContactOutcome[];
+export type CallOutcome = (typeof CALL_OUTCOMES)[number];
+
+/**
+ * Where an attempt stands: `waiting` for an answer within its window,
+ * `answered` (replied, booked, declined, treated elsewhere), `unreached`
+ * (no answer, wrong number), `unanswered` (its window ended with no answer),
+ * `pending_call` (a call the team has to make), `closed` (the case closed
+ * before anything came of it).
+ */
+export type ContactAttemptStatus =
+  'waiting' | 'answered' | 'unreached' | 'unanswered' | 'pending_call' | 'closed';
+
+/** One report on an attempt (a FHIR `Communication`). */
+export interface ContactCommunicationView {
+  id: string;
+  at: string;
+  status: string;
+  outcome?: ContactOutcome;
+  outcomeLabel?: string;
+  /** `host`: the clinic's system reported it; `user`: the team recorded a call. */
+  sender: 'host' | 'user';
+  senderName?: string;
+}
+
+/** One attempt to reach the patient (a FHIR `CommunicationRequest`), with what came of it. */
+export interface ContactAttemptView {
+  id: string;
+  attempt: number;
+  channel?: ContactChannel;
+  /** Spanish: "WhatsApp", "Llamada", "SMS", "Correo", "Canal de la clínica". */
+  channelLabel: string;
+  trigger: 'policy' | 'user' | 'wrong_number';
+  requestedAt: string;
+  dueBy: string;
+  requestedBy?: string;
+  status: ContactAttemptStatus;
+  statusLabel: string;
+  outcome?: ContactOutcome;
+  outcomeLabel?: string;
+  outcomeAt?: string;
+  communications: ContactCommunicationView[];
+}
+
+/** A call the team has to make for an active case ("Llamar al paciente"). */
+export interface CallTaskView {
+  requestId: string;
+  dueBy: string;
+  overdue: boolean;
+  /** `wrong_number`: a message reached the wrong person, the call came forward. */
+  trigger: 'policy' | 'user' | 'wrong_number';
+  /** The five outcomes the team can record, with their Spanish labels, in display order. */
+  outcomes: { outcome: CallOutcome; label: string }[];
+}
+
+// Dismissal and suppressions --------------------------------------------------
+
+export const DISMISS_REASONS = [
+  'handled_elsewhere',
+  'already_done',
+  'not_applicable_to_patient',
+  'wrong_diagnosis',
+  'wrong_interval',
+  'other',
+] as const;
+export type DismissReason = (typeof DISMISS_REASONS)[number];
+
+/** A rule stopped for one patient ("Recordatorios desactivados"). */
+export interface SuppressionView {
+  id: string;
+  ruleId: string;
+  /** The rule's Spanish label. */
+  label: string;
+  dismissReason: DismissReason;
+  dismissReasonLabel: string;
+  note?: string;
+  caseId?: string;
+  createdAt: string;
+  createdBy?: string;
+  active: boolean;
+  revokedAt?: string;
+  revokedBy?: string;
+}
+
+/** Why a dismissed case was dismissed. */
+export interface DismissalView {
+  reason: DismissReason;
+  reasonLabel: string;
+  note?: string;
+  by?: string;
+  at: string;
+  /** Rules the dismissal stopped for the patient. */
+  suppressions: SuppressionView[];
+}
+
+/** Per rule: how useful the team found its cases and why it dismissed them (`GET /api/inbox/calibration`). */
+export interface RuleCalibrationView {
+  ruleId: string;
+  label: string;
+  layer?: Layer;
+  casesWithFeedback: number;
+  useful: number;
+  notUseful: number;
+  usefulRate?: number;
+  dismissals: Record<DismissReason, number>;
+  notUsefulReasons: Partial<Record<string, number>>;
+}
+
+export interface CalibrationReportView {
+  since?: string;
+  rules: RuleCalibrationView[];
 }
 
 export interface ResourceSource {
@@ -70,6 +220,11 @@ export interface CaseReasonView {
   label: string;
   dueAt: string;
   overdueDays: number;
+  /**
+   * A protocol item or the visit pattern: "Dejar de recordarlo para este
+   * paciente" can stop it. What a clinician asked for never is.
+   */
+  suppressible: boolean;
   source: ResourceSource;
   evidence?: ReasonEvidence;
 }
@@ -154,13 +309,20 @@ export type FeedbackReason = (typeof FEEDBACK_REASONS)[number];
 
 export interface CaseFeedbackView {
   useful: boolean;
-  reason?: FeedbackReason;
+  /** A dismissal records its reason as the case's feedback too. */
+  reason?: FeedbackReason | DismissReason;
   comment?: string;
 }
 
 export interface CaseDetail extends CaseView {
   timeline: CaseTimelineEntry[];
   feedback?: CaseFeedbackView;
+  /** Every attempt to reach the patient about this case, oldest first. */
+  contactAttempts: ContactAttemptView[];
+  /** The call the team has to make now, if any (active cases only). */
+  callTask?: CallTaskView;
+  /** Dismissed cases: why. */
+  dismissal?: DismissalView;
 }
 
 export type CaseListView = 'active' | 'closed' | 'all';
@@ -199,7 +361,19 @@ export type CaseAction = 'notify' | 'snooze' | 'resolve' | 'dismiss';
 export interface CaseActionRequest {
   action: CaseAction;
   snoozeDays?: number;
+  /** Required with `dismiss` and reason `other`. */
   note?: string;
+  /** Required with `dismiss`. */
+  reason?: DismissReason;
+  /** `dismiss` with `not_applicable_to_patient`: stop the case's rules for this patient. */
+  suppress?: boolean;
+}
+
+/** `POST /api/inbox/cases/:id/call-outcome`: what came of the call. Answers the case detail. */
+export interface CallOutcomeRequest {
+  outcome: CallOutcome;
+  /** The call (`callTask.requestId`); the latest call of the case when absent. */
+  requestId?: string;
 }
 
 export interface FeedbackRequest {
@@ -259,6 +433,8 @@ export interface PatientDetail {
   conditions: ConditionView[];
   expectations: PatientExpectationView[];
   qualityFindings: QualityFindingView[];
+  /** Rules stopped for this patient, active first ("Recordatorios desactivados"). */
+  suppressions: SuppressionView[];
 }
 
 export interface InboxStats {

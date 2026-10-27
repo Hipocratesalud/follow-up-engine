@@ -14,6 +14,10 @@ function caseLink(caseId: string): string {
   return `Task/${caseId}`;
 }
 
+function requestLink(requestId: string): string {
+  return `CommunicationRequest/${requestId}`;
+}
+
 /** The counters of a backfill run (counts and a cost: nothing about any patient). */
 function backfillCounts(counts: BackfillCounts): Record<keyof BackfillCounts, number> {
   return {
@@ -82,7 +86,25 @@ export function toWebhookBody(event: DomainEvent): WebhookBody {
           patientId: event.payload.patientId,
           purpose: event.payload.purpose,
           dueBy: event.payload.dueBy?.toISOString() ?? null,
+          ...(event.payload.channel === undefined ? {} : { channel: event.payload.channel }),
+          ...(event.payload.attempt === undefined ? {} : { attempt: event.payload.attempt }),
           task: caseLink(event.payload.caseId),
+          ...(event.payload.requestId === undefined
+            ? {}
+            : { communicationRequest: requestLink(event.payload.requestId) }),
+        },
+      };
+    case 'contact.outcome_recorded':
+      return {
+        ...base,
+        data: {
+          caseId: event.payload.caseId,
+          patientId: event.payload.patientId,
+          outcome: event.payload.outcome,
+          ...(event.payload.channel === undefined ? {} : { channel: event.payload.channel }),
+          task: caseLink(event.payload.caseId),
+          communicationRequest: requestLink(event.payload.requestId),
+          communication: `Communication/${event.payload.communicationId}`,
         },
       };
     case 'backfill.completed':

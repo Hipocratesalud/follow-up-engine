@@ -1,6 +1,7 @@
 import {
   ACTIVE_CASE_STATUSES,
   CASE_STATUSES,
+  DISMISS_REASONS,
   EXPECTATION_LAYERS,
   EXPECTATION_STATUSES,
   caseId as toCaseId,
@@ -176,6 +177,8 @@ export function taskToCase(task: Task, clinicId: ClinicId | string): FollowUpCas
   const resolutionExt = findExtension(ext, ENGINE_EXTENSIONS.resolution)?.extension;
   const resolvedBy = findExtension(resolutionExt, 'resolvedBy')?.valueString;
   const note = findExtension(resolutionExt, 'note')?.valueString;
+  const dismissReason = findExtension(resolutionExt, 'dismissReason')?.valueCode;
+  const escalationPolicyId = stringExt(ext, ENGINE_EXTENSIONS.escalationPolicy);
   return {
     id: toCaseId(required(task.id, 'Task.id')),
     clinicId: toClinicId(clinicId),
@@ -198,6 +201,7 @@ export function taskToCase(task: Task, clinicId: ClinicId | string): FollowUpCas
     priority: integer(ENGINE_EXTENSIONS.priorityScore, 'priorityScore'),
     ...(assignee === undefined ? {} : { assignee }),
     escalationStep: integer(ENGINE_EXTENSIONS.escalationStep, 'escalationStep'),
+    ...(escalationPolicyId === undefined ? {} : { escalationPolicyId }),
     ...(nextActionAt === undefined ? {} : { nextActionAt }),
     ...(snoozedUntil === undefined ? {} : { snoozedUntil }),
     ...(releaseAt === undefined ? {} : { releaseAt }),
@@ -217,6 +221,15 @@ export function taskToCase(task: Task, clinicId: ClinicId | string): FollowUpCas
             ),
             ...(resolvedBy === undefined ? {} : { resolvedBy }),
             ...(note === undefined ? {} : { note }),
+            ...(dismissReason === undefined
+              ? {}
+              : {
+                  dismissReason: oneOf(
+                    DISMISS_REASONS,
+                    dismissReason,
+                    'Task.extension:resolution.dismissReason',
+                  ),
+                }),
           },
         }),
     createdAt: date(task.authoredOn, 'Task.authoredOn'),

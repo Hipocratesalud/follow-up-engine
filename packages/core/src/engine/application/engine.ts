@@ -3,7 +3,28 @@ import type { BackfillProgress } from '../../ports/backfill-progress.ts';
 import type { ClinicId, PatientId } from '../../domain/ids.ts';
 import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
 import type { Clock } from '../../ports/clock.ts';
-import type { ProtocolSource, RuleSource } from '../../ports/config-sources.ts';
+import type {
+  EscalationPolicySource,
+  ProtocolSource,
+  RuleSource,
+} from '../../ports/config-sources.ts';
+import type {
+  ContactCommunication,
+  ContactRequest,
+  PatientContactFlag,
+} from '../../domain/contact.ts';
+import type { ContactRequestId } from '../../domain/ids.ts';
+import { type CalibrationReport, calibrationReport } from '../calibration/calibration.ts';
+import {
+  clearContactFlags,
+  type CommunicationInput,
+  type CommunicationRecordResult,
+  recordCommunication,
+} from '../patient-contact/outcomes.ts';
+import {
+  createSuppressionCommands,
+  type SuppressionCommands,
+} from '../suppression/suppressions.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { NoteExtractor } from '../../ports/note-extractor.ts';
 import type { UnitOfWork } from '../../ports/unit-of-work.ts';
@@ -22,7 +43,11 @@ import type { CaseId } from '../../domain/ids.ts';
 import { type CaseCommands, createCaseCommands } from '../case-manager/commands.ts';
 import { Catalog } from '../catalog.ts';
 import { type EscalationReport, runEscalation } from '../escalation/escalation.ts';
-import { hasOptedOut, lastPatientContactAt } from '../patient-contact/history.ts';
+import {
+  hasInvalidContactData,
+  hasOptedOut,
+  lastPatientContactAt,
+} from '../patient-contact/history.ts';
 import { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from '../settings.ts';
 import { runWatcher, type WatcherReport } from '../watcher/watcher.ts';
 import { type ConditionCommands, createConditionCommands } from './condition-commands.ts';
@@ -38,6 +63,12 @@ export interface FollowUpEngineDeps {
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly settings?: Partial<EngineSettings>;
+  /**
+   * Named escalation policies, for clinic overrides
+   * (`ClinicSettings.escalationPolicyId`) and cases pinned to a policy no
+   * rule references any more. Without it, only the policies rules reference.
+   */
+  readonly escalationPolicies?: EscalationPolicySource;
 }
 
 /** Whether the engine may contact a patient, for the inbox. */
@@ -45,7 +76,41 @@ export interface PatientContactStatus {
   /** The clinic allows contact and the patient did not opt out. */
   readonly allowed: boolean;
   readonly optedOut: boolean;
+  /** The last message the host was asked to send (calls do not count). */
   readonly lastContactAt?: Date;
+  /** The patient's contact data is flagged (a wrong number): messages are skipped, calls go ahead. */
+  readonly contactDataInvalid: boolean;
+}
+
+/** The patient-contact loop: attempts out, outcomes back. */
+export interface ContactCommands {
+  /**
+   * What came of an attempt (an inbound FHIR `Communication`, or a call the
+   * team recorded): stored at its latest version, then the engine reacts
+   * (see `recordCommunication`). `NotFoundError` for an unknown attempt.
+   */
+  recordCommunication(
+    clinicId: ClinicId,
+    input: CommunicationInput,
+  ): Promise<CommunicationRecordResult>;
+  /**
+   * The host sent the patient's contact data again, changed (a corrected
+   * phone number): clears the patient's contact data flags so messages go
+   * out again. Returns how many flags it cleared.
+   */
+  contactDataUpdated(clinicId: ClinicId, patientId: PatientId): Promise<number>;
+  /** One attempt, or `undefined` (another clinic's attempt is unknown here). */
+  getRequest(clinicId: ClinicId, id: ContactRequestId): Promise<ContactRequest | undefined>;
+  getCommunication(clinicId: ClinicId, id: string): Promise<ContactCommunication | undefined>;
+  /** The patient's attempts and their communications, oldest first. */
+  forPatient(
+    clinicId: ClinicId,
+    patientId: PatientId,
+  ): Promise<{
+    readonly requests: readonly ContactRequest[];
+    readonly communications: readonly ContactCommunication[];
+    readonly flags: readonly PatientContactFlag[];
+  }>;
 }
 
 /** The initial backfill of a clinic (see `runBackfill`). */
@@ -87,6 +152,10 @@ export interface FollowUpEngine {
   readonly cases: CaseCommands;
   readonly conditions: ConditionCommands;
   readonly backfill: BackfillCommands;
+  readonly contacts: ContactCommands;
+  readonly suppressions: SuppressionCommands;
+  /** Per rule: how many cases the team found useful and why it dismissed the rest. */
+  calibration(clinicId: ClinicId, options?: { readonly since?: Date }): Promise<CalibrationReport>;
   /** The rules and protocols enabled for a clinic (labels, suggested actions, policies). */
   catalog(clinicId: ClinicId): Promise<Catalog>;
   patientContactStatus(clinicId: ClinicId, patientId: PatientId): Promise<PatientContactStatus>;
@@ -106,11 +175,17 @@ export interface FollowUpEngine {
 export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
   const settings: EngineSettings = { ...DEFAULT_ENGINE_SETTINGS, ...deps.settings };
   async function loadCatalog(clinicId: ClinicId): Promise<Catalog> {
-    const [rules, protocols] = await Promise.all([
+    const [rules, protocols, policies, clinic] = await Promise.all([
       deps.rules.listRules(clinicId),
       deps.protocols.listProtocols(clinicId),
+      deps.escalationPolicies?.listPolicies(clinicId) ?? Promise.resolve([]),
+      deps.clinics.get(clinicId),
     ]);
-    return new Catalog(rules, protocols);
+    const clinicPolicyId = clinic?.settings.escalationPolicyId;
+    return new Catalog(rules, protocols, {
+      policies,
+      ...(clinicPolicyId === undefined ? {} : { clinicPolicyId }),
+    });
   }
   const shared = { unitOfWork: deps.unitOfWork, ids: deps.ids, settings, loadCatalog };
   const ingestDeps = { ...shared, noteExtractor: deps.noteExtractor, clock: deps.clock };
@@ -139,19 +214,50 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
         planBackfillRelease({ ...shared, clinics: deps.clinics }, clinicId, now),
     },
     conditions: createConditionCommands({ ...shared, clock: deps.clock }),
+    contacts: {
+      recordCommunication: (clinicId, input) =>
+        recordCommunication(
+          { ...shared, clinics: deps.clinics },
+          clinicId,
+          input,
+          deps.clock.now(),
+        ),
+      contactDataUpdated: (clinicId, patientId) =>
+        deps.unitOfWork.withTransaction(clinicId, (stores) =>
+          clearContactFlags(stores, clinicId, patientId, deps.clock.now()),
+        ),
+      getRequest: (clinicId, id) =>
+        deps.unitOfWork.withTransaction(clinicId, (stores) =>
+          stores.contacts.getRequest(clinicId, id),
+        ),
+      getCommunication: (clinicId, id) =>
+        deps.unitOfWork.withTransaction(clinicId, (stores) =>
+          stores.contacts.getCommunication(clinicId, id),
+        ),
+      forPatient: (clinicId, patientId) =>
+        deps.unitOfWork.withTransaction(clinicId, async (stores) => ({
+          requests: await stores.contacts.listRequestsForPatient(clinicId, patientId),
+          communications: await stores.contacts.listCommunicationsForPatient(clinicId, patientId),
+          flags: await stores.contacts.listFlags(clinicId, patientId),
+        })),
+    },
+    suppressions: createSuppressionCommands({ ...shared, clock: deps.clock }),
+    calibration: (clinicId, options) => calibrationReport(shared, clinicId, options),
     catalog: loadCatalog,
     async patientContactStatus(clinicId, patientId) {
       const clinic = await deps.clinics.get(clinicId);
-      const { optedOut, lastContactAt } = await deps.unitOfWork.withTransaction(
+      const { optedOut, lastContactAt, contactDataInvalid } = await deps.unitOfWork.withTransaction(
         clinicId,
         async (stores) => ({
           optedOut: await hasOptedOut(stores, clinicId, patientId),
           lastContactAt: await lastPatientContactAt(stores, clinicId, patientId),
+          contactDataInvalid: await hasInvalidContactData(stores, clinicId, patientId),
         }),
       );
       return {
         allowed: clinic?.active === true && clinic.settings.allowPatientContact && !optedOut,
         optedOut,
+        contactDataInvalid,
         ...(lastContactAt === undefined ? {} : { lastContactAt }),
       };
     },

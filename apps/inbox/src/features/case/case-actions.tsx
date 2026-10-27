@@ -1,6 +1,13 @@
-import { BellRing, CheckCircle2, Clock, Lock, ShieldAlert, XCircle } from 'lucide-react';
+import { BellRing, CheckCircle2, Clock, Info, Lock, ShieldAlert, XCircle } from 'lucide-react';
 import { type ChangeEvent, type MouseEvent, type ReactNode, useId, useRef, useState } from 'react';
-import type { CaseAction, CaseActionRequest, CaseDetail } from '../../api/contract.ts';
+import { Link } from 'react-router';
+import {
+  type CaseAction,
+  type CaseActionRequest,
+  type CaseDetail,
+  DISMISS_REASONS,
+  type DismissReason,
+} from '../../api/contract.ts';
 import { useCaseAction, useNow, useRefreshAfterConflict } from '../../api/queries.ts';
 import { Dialog } from '../../components/dialog.tsx';
 import { fieldError, InlineError } from '../../components/states.tsx';
@@ -8,6 +15,8 @@ import { Button, Field, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatLimit, INPUT_LIMITS } from '../../lib/limits.ts';
 import { firstName, formatDate } from '../../lib/format.ts';
+import { DISMISS_COPY, DISMISS_REASON_HINTS, VALIDATION_COPY } from '../../lib/copy.ts';
+import { DISMISS_REASON_LABELS } from '../../lib/labels.ts';
 
 const SNOOZE_PRESETS = [3, 7, 14, 30] as const;
 const MAX_SNOOZE_DAYS = 90;
@@ -50,10 +59,14 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
   const [customDays, setCustomDays] = useState('');
   const [validationError, setValidationError] = useState<string>();
   const [noteError, setNoteError] = useState<string>();
+  const [dismissReason, setDismissReason] = useState<DismissReason>();
+  const [reasonError, setReasonError] = useState<string>();
+  const [suppress, setSuppress] = useState(false);
   const [doneMessage, setDoneMessage] = useState<string>();
   const trigger = useRef<HTMLButtonElement | null>(null);
 
   const contactBlocked = !detail.patientContact.allowed || detail.patientContact.optedOut;
+  const canSuppress = detail.reasons.some((reason) => reason.suppressible);
   const effectiveSnoozeDays = customDays ? Number(customDays) : snoozeDays;
 
   function reset(): void {
@@ -62,6 +75,9 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
     setSnoozeDays(7);
     setValidationError(undefined);
     setNoteError(undefined);
+    setDismissReason(undefined);
+    setReasonError(undefined);
+    setSuppress(false);
     mutation.reset();
   }
 
@@ -100,6 +116,21 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
     if (fieldError(mutation.error, 'note')) mutation.reset();
   }
 
+  function handleReasonChange(event: ChangeEvent<HTMLInputElement>): void {
+    const next = DISMISS_REASONS.find((reason) => reason === event.target.value);
+    setDismissReason(next);
+    setReasonError(undefined);
+    if (next !== 'other') setNoteError(undefined);
+    if (next !== 'not_applicable_to_patient') setSuppress(false);
+    if (fieldError(mutation.error, 'reason') || fieldError(mutation.error, 'suppress')) {
+      mutation.reset();
+    }
+  }
+
+  function handleSuppressChange(event: ChangeEvent<HTMLInputElement>): void {
+    setSuppress(event.target.checked);
+  }
+
   function handlePresetClick(event: MouseEvent<HTMLButtonElement>): void {
     setSnoozeDays(Number(event.currentTarget.value));
     setCustomDays('');
@@ -120,6 +151,18 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
       return;
     }
     const request: CaseActionRequest = { action, ...(note.trim() ? { note: note.trim() } : {}) };
+    if (action === 'dismiss') {
+      // Validated on click, never by disabling the button: every missing input gets its message.
+      const missingReason = dismissReason === undefined;
+      const missingNote = dismissReason === 'other' && !note.trim();
+      if (missingReason) setReasonError(VALIDATION_COPY.dismissReasonRequired);
+      if (missingNote) setNoteError(VALIDATION_COPY.dismissNoteRequired);
+      if (missingReason || missingNote) return;
+      request.reason = dismissReason;
+      if (dismissReason === 'not_applicable_to_patient' && suppress && canSuppress) {
+        request.suppress = true;
+      }
+    }
     if (action === 'snooze') {
       if (
         !Number.isInteger(effectiveSnoozeDays) ||
@@ -145,12 +188,23 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
   const snoozeUntil = new Date(now.getTime() + (effectiveSnoozeDays || 0) * DAY_MS).toISOString();
   const noteMessage = noteError ?? fieldError(mutation.error, 'note');
   const daysMessage = validationError ?? fieldError(mutation.error, 'snoozeDays');
+  const reasonMessage =
+    reasonError ?? fieldError(mutation.error, 'reason') ?? fieldError(mutation.error, 'suppress');
+  const noteRequired = action === 'dismiss' && dismissReason === 'other';
+  // Only protocol items and the visit pattern can be stopped for the patient.
+  const suppressible = [
+    ...new Set(detail.reasons.filter((reason) => reason.suppressible).map((r) => r.label)),
+  ];
+  const kept = [
+    ...new Set(detail.reasons.filter((reason) => !reason.suppressible).map((r) => r.label)),
+  ];
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-2">
         <Button
-          variant="primary"
+          // A pending call is the case's primary action: asking for contact steps back.
+          variant={detail.callTask ? 'secondary' : 'primary'}
           value="notify"
           onClick={handleOpen}
           icon={<BellRing className="size-4" aria-hidden="true" />}
@@ -281,15 +335,107 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
         ) : null}
 
         {action === 'dismiss' ? (
-          <p className="text-sm text-muted">
-            Descarta el caso si no corresponde hacer seguimiento. Si la regla se equivocó, cuéntanos
-            en «¿Te sirvió este caso?» para mejorarla.
-          </p>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted">{DISMISS_COPY.intro}</p>
+            <fieldset
+              className="flex flex-col gap-2"
+              aria-describedby={reasonMessage ? `${ids}-reason-error` : undefined}
+            >
+              <legend className="mb-1 text-sm font-medium text-fg">
+                {DISMISS_COPY.reasonLegend}
+              </legend>
+              {DISMISS_REASONS.map((reason) => (
+                <label
+                  key={reason}
+                  className={cx(
+                    'flex cursor-pointer gap-2.5 rounded-lg border px-3 py-2 transition-colors',
+                    dismissReason === reason
+                      ? 'border-primary bg-primary-soft'
+                      : 'border-border-strong hover:bg-surface-2',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name={`${ids}-reason`}
+                    value={reason}
+                    checked={dismissReason === reason}
+                    onChange={handleReasonChange}
+                    className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-fg">
+                      {DISMISS_REASON_LABELS[reason]}
+                    </span>
+                    <span className="block text-xs text-muted">{DISMISS_REASON_HINTS[reason]}</span>
+                  </span>
+                </label>
+              ))}
+              {reasonMessage ? (
+                <p id={`${ids}-reason-error`} role="alert" className="text-sm text-danger">
+                  {reasonMessage}
+                </p>
+              ) : null}
+            </fieldset>
+            {dismissReason === 'not_applicable_to_patient' ? (
+              suppressible.length > 0 ? (
+                <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
+                  <label className="flex cursor-pointer gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={suppress}
+                      onChange={handleSuppressChange}
+                      aria-describedby={`${ids}-suppress-list`}
+                      className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-fg">
+                        {DISMISS_COPY.suppressLabel}
+                      </span>
+                      <span className="block text-xs text-muted">
+                        {DISMISS_COPY.suppressHint(detail.patient.name)}
+                      </span>
+                    </span>
+                  </label>
+                  <div id={`${ids}-suppress-list`} className="pl-6.5 text-xs text-muted">
+                    <p className="font-medium text-fg">{DISMISS_COPY.suppressListTitle}</p>
+                    <ul className="mt-0.5 list-disc pl-4">
+                      {suppressible.map((label) => (
+                        <li key={label}>{label}</li>
+                      ))}
+                    </ul>
+                    {kept.length > 0 ? (
+                      <p className="mt-1.5">{DISMISS_COPY.suppressKept(kept)}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <p className="flex gap-2 rounded-lg bg-surface-2 px-3 py-2.5 text-sm text-muted">
+                  <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  {DISMISS_COPY.nothingSuppressible}
+                </p>
+              )
+            ) : null}
+            {dismissReason === 'wrong_diagnosis' ? (
+              <p className="flex gap-2 rounded-lg bg-info-soft px-3 py-2.5 text-sm text-fg">
+                <Info className="mt-0.5 size-4 shrink-0 text-info" aria-hidden="true" />
+                <span>
+                  {DISMISS_COPY.wrongDiagnosisBefore}{' '}
+                  <Link
+                    to={`/pacientes/${detail.patient.id}`}
+                    className="font-medium text-primary underline underline-offset-2"
+                  >
+                    {DISMISS_COPY.wrongDiagnosisLink}
+                  </Link>
+                  {DISMISS_COPY.wrongDiagnosisAfter}
+                </span>
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         {action && showConfirm ? (
           <Field
-            label="Nota interna (opcional)"
+            label={noteRequired ? DISMISS_COPY.noteLabelRequired : 'Nota interna (opcional)'}
             htmlFor={`${ids}-note`}
             error={noteMessage}
             hint={`Solo la ve el equipo. Hasta ${formatLimit(INPUT_LIMITS.note)} caracteres.`}
@@ -312,7 +458,10 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
           </Field>
         ) : null}
 
-        <InlineError error={mutation.error} inlineFields={['note', 'snoozeDays']} />
+        <InlineError
+          error={mutation.error}
+          inlineFields={['note', 'snoozeDays', 'reason', 'suppress']}
+        />
       </Dialog>
     </div>
   );

@@ -3,6 +3,11 @@ import {
   ACTIVE_CASE_STATUSES,
   LAYERS,
   type ActorType,
+  type CallOutcome,
+  type CallOutcomeRequest,
+  type CallTaskView,
+  CALL_OUTCOMES,
+  type CalibrationReportView,
   type CaseAction,
   type CaseActionRequest,
   type CaseDetail,
@@ -13,7 +18,14 @@ import {
   type CaseView,
   type ClinicInfo,
   type ConditionView,
+  type ContactAttemptStatus,
+  type ContactAttemptView,
+  type ContactChannel,
+  type ContactOutcome,
   type CreatedExpectation,
+  DISMISS_REASONS,
+  type DismissReason,
+  type DismissalView,
   type DemoConsultationRequest,
   type DemoConsultationResponse,
   type EscalationAction,
@@ -30,8 +42,19 @@ import {
   type PriorityLabel,
   type RecoveryPage,
   type Sex,
+  type SuppressionView,
   type WebhookDelivery,
 } from '../api/contract.ts';
+import { MOCK_TIMELINE_COPY, VALIDATION_COPY } from '../lib/copy.ts';
+import {
+  ATTEMPT_STATUS_LABELS,
+  CALL_OUTCOME_LABELS,
+  CHANNEL_LABELS,
+  CONTACT_FLAG_LABEL,
+  CONTACT_OUTCOME_LABELS,
+  DISMISS_REASON_LABELS,
+  HOST_CHANNEL_LABEL,
+} from '../lib/labels.ts';
 import { extractFromNote, MOCK_MODEL } from './extraction.ts';
 import {
   ASSIGNEES,
@@ -117,7 +140,70 @@ interface TimelineEntry {
   note?: string;
 }
 
+interface MockCommunication {
+  id: string;
+  at: Date;
+  status: string;
+  outcome?: ContactOutcome;
+  sender: 'host' | 'user';
+  senderName?: string;
+}
+
+interface MockAttempt {
+  id: string;
+  attempt: number;
+  channel?: ContactChannel;
+  trigger: 'policy' | 'user' | 'wrong_number';
+  requestedAt: Date;
+  dueBy: Date;
+  requestedBy?: string;
+  communications: MockCommunication[];
+}
+
+interface MockSuppression {
+  id: string;
+  patientId: string;
+  ruleId: string;
+  label: string;
+  dismissReason: DismissReason;
+  note?: string;
+  caseId?: string;
+  createdAt: Date;
+  createdBy?: string;
+  revokedAt?: Date;
+  revokedBy?: string;
+}
+
+interface MockDismissal {
+  reason: DismissReason;
+  note?: string;
+  by?: string;
+  at: Date;
+  suppressionIds: string[];
+}
+
+/** How strongly an outcome speaks for its attempt (higher wins), as the engine ranks it. */
+const OUTCOME_RANK: Record<ContactOutcome, number> = {
+  delivered: 1,
+  read: 2,
+  no_answer: 3,
+  wrong_number: 4,
+  replied: 5,
+  booked: 6,
+  declined: 6,
+  treated_elsewhere: 6,
+};
+/** Only protocol items and the visit pattern can be stopped for one patient (as the API decides). */
+function isSuppressible(layer: Layer): boolean {
+  return layer === 'protocol' || layer === 'cadence';
+}
+
+const ANSWERED: readonly ContactOutcome[] = ['replied', 'booked', 'declined', 'treated_elsewhere'];
+const UNREACHED: readonly ContactOutcome[] = ['wrong_number', 'no_answer'];
+
 interface MockCase {
+  contactAttempts: MockAttempt[];
+  dismissal?: MockDismissal;
   id: string;
   patientId: string;
   status: CaseStatus;
@@ -272,6 +358,9 @@ export interface MockStore {
   listPatients(query?: string, limit?: number): { items: PatientSummary[] };
   getCase(id: string): CaseDetail;
   act(id: string, request: CaseActionRequest, actorId?: string): CaseDetail;
+  recordCallOutcome(id: string, request: CallOutcomeRequest, actorId?: string): CaseDetail;
+  reactivateSuppression(id: string, actorId?: string): SuppressionView;
+  calibration(): CalibrationReportView;
   feedback(id: string, request: FeedbackRequest, actorId?: string): CaseFeedbackView;
   getPatient(id: string): PatientDetail;
   reviewCondition(id: string, decision: 'confirm' | 'reject'): ConditionView;
@@ -293,7 +382,18 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   const findings: MockQualityFinding[] = [];
   const webhooks: WebhookDelivery[] = [];
   const llmCalls: MockLlmCall[] = [];
-  const counters = { patient: 0, doc: 0, exp: 0, case: 0, cond: 0, finding: 0 };
+  const suppressions = new Map<string, MockSuppression>();
+  const counters = {
+    patient: 0,
+    doc: 0,
+    exp: 0,
+    case: 0,
+    cond: 0,
+    finding: 0,
+    attempt: 0,
+    comm: 0,
+    sup: 0,
+  };
 
   function nextId(kind: keyof typeof counters, prefix: string): string {
     counters[kind] += 1;
@@ -331,6 +431,17 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         ...(seed.contact?.lastContactDaysAgo === undefined
           ? {}
           : { lastContactAt: addDays(now, -seed.contact.lastContactDaysAgo).toISOString() }),
+        ...(seed.contact?.wrongNumberDaysAgo === undefined
+          ? {}
+          : {
+              contactDataInvalid: true,
+              contactFlag: {
+                issue: 'wrong_number' as const,
+                label: CONTACT_FLAG_LABEL,
+                raisedAt: addDays(now, -seed.contact.wrongNumberDaysAgo).toISOString(),
+                channel: 'whatsapp' as const,
+              },
+            }),
       },
     });
 
@@ -485,7 +596,9 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           caseSeed.status === 'resolved'
             ? 'Resuelto: el paciente asistió y se cargó el resultado'
             : caseSeed.status === 'dismissed'
-              ? 'Descartado: el control ya estaba agendado en otra sede'
+              ? MOCK_TIMELINE_COPY.dismissed(
+                  DISMISS_REASON_LABELS[caseSeed.dismissal?.reason ?? 'already_done'],
+                )
               : 'Sin respuesta tras todos los escalamientos: perdido en seguimiento',
       });
     }
@@ -499,9 +612,86 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     }
     timeline.sort((a, b) => a.at.getTime() - b.at.getTime());
 
+    const contactAttempts: MockAttempt[] = (caseSeed.contact ?? []).map((seedAttempt, index) => {
+      const requestedAt = addDays(now, -seedAttempt.daysAgo);
+      timeline.push({
+        at: requestedAt,
+        type: 'patient_contact_requested',
+        actor:
+          seedAttempt.trigger === 'user'
+            ? { type: 'user', id: seed.assignee }
+            : { type: 'system', id: 'default_v2' },
+        label:
+          seedAttempt.channel === 'phone_call'
+            ? MOCK_TIMELINE_COPY.callAssigned
+            : MOCK_TIMELINE_COPY.contactRequested(
+                seedAttempt.channel ? CHANNEL_LABELS[seedAttempt.channel] : HOST_CHANNEL_LABEL,
+              ),
+      });
+      return {
+        id: nextId('attempt', 'cr'),
+        attempt: index + 1,
+        ...(seedAttempt.channel ? { channel: seedAttempt.channel } : {}),
+        trigger: seedAttempt.trigger ?? 'policy',
+        requestedAt,
+        dueBy: addDays(requestedAt, seedAttempt.windowDays),
+        ...(seedAttempt.trigger === 'user' ? { requestedBy: seed.assignee } : {}),
+        communications: (seedAttempt.outcomes ?? []).map((reported) => {
+          const at = addDays(now, -reported.daysAgo);
+          timeline.push({
+            at,
+            type: 'contact_outcome_recorded',
+            actor: { type: 'patient' },
+            label: MOCK_TIMELINE_COPY.contactOutcome(CONTACT_OUTCOME_LABELS[reported.outcome]),
+          });
+          return {
+            id: nextId('comm', 'comm'),
+            at,
+            status: UNREACHED.includes(reported.outcome) ? 'not-done' : 'completed',
+            outcome: reported.outcome,
+            sender: reported.sender ?? 'host',
+          };
+        }),
+      };
+    });
+    timeline.sort((a, b) => a.at.getTime() - b.at.getTime());
+    let dismissal: MockDismissal | undefined;
+    if (caseSeed.status === 'dismissed' && caseSeed.dismissal) {
+      const at = timeline.find((entry) => entry.type === 'dismissed')?.at ?? addDays(now, -1);
+      const suppressionIds: string[] = [];
+      if (caseSeed.dismissal.suppress) {
+        for (const expectationId of expectationIds) {
+          const expectation = expectations.get(expectationId);
+          if (!expectation || !isSuppressible(expectation.layer)) continue;
+          const id = nextId('sup', 'sup');
+          suppressions.set(id, {
+            id,
+            patientId,
+            ruleId: expectation.ruleId,
+            label: expectation.label,
+            dismissReason: caseSeed.dismissal.reason,
+            ...(caseSeed.dismissal.note ? { note: caseSeed.dismissal.note } : {}),
+            caseId,
+            createdAt: at,
+            createdBy: seed.assignee,
+          });
+          suppressionIds.push(id);
+        }
+      }
+      dismissal = {
+        reason: caseSeed.dismissal.reason,
+        ...(caseSeed.dismissal.note ? { note: caseSeed.dismissal.note } : {}),
+        by: seed.assignee,
+        at,
+        suppressionIds,
+      };
+    }
+
     const step = caseSeed.escalationStep;
     const nextDelay = ESCALATION_DELAYS_DAYS[step];
     cases.set(caseId, {
+      contactAttempts,
+      ...(dismissal ? { dismissal } : {}),
       id: caseId,
       patientId,
       status: caseSeed.status,
@@ -547,6 +737,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       label: expectation.label,
       dueAt: expectation.dueAt.toISOString(),
       overdueDays: Math.max(0, daysBetween(expectation.dueAt, now)),
+      suppressible: isSuppressible(expectation.layer),
       source: { ...expectation.source },
       ...(expectation.evidence && document
         ? {
@@ -680,6 +871,123 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           ...(entry.note ? { note: entry.note } : {}),
         })),
       ...(followUpCase.feedback ? { feedback: { ...followUpCase.feedback } } : {}),
+      contactAttempts: followUpCase.contactAttempts.map((attempt) =>
+        attemptView(followUpCase, attempt),
+      ),
+      ...callTaskOf(followUpCase),
+      ...(followUpCase.dismissal ? { dismissal: dismissalView(followUpCase.dismissal) } : {}),
+    };
+  }
+
+  function bestOutcome(attempt: MockAttempt): MockCommunication | undefined {
+    let best: MockCommunication | undefined;
+    for (const communication of attempt.communications) {
+      if (!communication.outcome) continue;
+      if (!best?.outcome || OUTCOME_RANK[communication.outcome] >= OUTCOME_RANK[best.outcome]) {
+        best = communication;
+      }
+    }
+    return best;
+  }
+
+  function attemptStatus(followUpCase: MockCase, attempt: MockAttempt): ContactAttemptStatus {
+    const outcome = bestOutcome(attempt)?.outcome;
+    if (outcome && ANSWERED.includes(outcome)) return 'answered';
+    if (outcome && UNREACHED.includes(outcome)) return 'unreached';
+    if (!ACTIVE.includes(followUpCase.status)) return 'closed';
+    if (attempt.channel === 'phone_call') return 'pending_call';
+    return attempt.dueBy.getTime() <= now.getTime() ? 'unanswered' : 'waiting';
+  }
+
+  function attemptView(followUpCase: MockCase, attempt: MockAttempt): ContactAttemptView {
+    const best = bestOutcome(attempt);
+    const status = attemptStatus(followUpCase, attempt);
+    return {
+      id: attempt.id,
+      attempt: attempt.attempt,
+      ...(attempt.channel ? { channel: attempt.channel } : {}),
+      channelLabel: attempt.channel ? CHANNEL_LABELS[attempt.channel] : HOST_CHANNEL_LABEL,
+      trigger: attempt.trigger,
+      requestedAt: attempt.requestedAt.toISOString(),
+      dueBy: attempt.dueBy.toISOString(),
+      ...(attempt.requestedBy ? { requestedBy: attempt.requestedBy } : {}),
+      status,
+      statusLabel: ATTEMPT_STATUS_LABELS[status],
+      ...(best?.outcome
+        ? {
+            outcome: best.outcome,
+            outcomeLabel: CONTACT_OUTCOME_LABELS[best.outcome],
+            outcomeAt: best.at.toISOString(),
+          }
+        : {}),
+      communications: attempt.communications.map((communication) => ({
+        id: communication.id,
+        at: communication.at.toISOString(),
+        status: communication.status,
+        ...(communication.outcome
+          ? {
+              outcome: communication.outcome,
+              outcomeLabel: CONTACT_OUTCOME_LABELS[communication.outcome],
+            }
+          : {}),
+        sender: communication.sender,
+        ...(communication.senderName ? { senderName: communication.senderName } : {}),
+      })),
+    };
+  }
+
+  function pendingCall(followUpCase: MockCase): MockAttempt | undefined {
+    if (!ACTIVE.includes(followUpCase.status)) return undefined;
+    return [...followUpCase.contactAttempts]
+      .reverse()
+      .find((attempt) => attempt.channel === 'phone_call' && !bestOutcome(attempt));
+  }
+
+  function callTaskOf(followUpCase: MockCase): { callTask?: CallTaskView } {
+    const call = pendingCall(followUpCase);
+    if (!call) return {};
+    return {
+      callTask: {
+        requestId: call.id,
+        dueBy: call.dueBy.toISOString(),
+        overdue: call.dueBy.getTime() < now.getTime(),
+        trigger: call.trigger,
+        outcomes: CALL_OUTCOMES.map((outcome) => ({
+          outcome,
+          label: CALL_OUTCOME_LABELS[outcome],
+        })),
+      },
+    };
+  }
+
+  function suppressionView(suppression: MockSuppression): SuppressionView {
+    return {
+      id: suppression.id,
+      ruleId: suppression.ruleId,
+      label: suppression.label,
+      dismissReason: suppression.dismissReason,
+      dismissReasonLabel: DISMISS_REASON_LABELS[suppression.dismissReason],
+      ...(suppression.note ? { note: suppression.note } : {}),
+      ...(suppression.caseId ? { caseId: suppression.caseId } : {}),
+      createdAt: suppression.createdAt.toISOString(),
+      ...(suppression.createdBy ? { createdBy: suppression.createdBy } : {}),
+      active: suppression.revokedAt === undefined,
+      ...(suppression.revokedAt ? { revokedAt: suppression.revokedAt.toISOString() } : {}),
+      ...(suppression.revokedBy ? { revokedBy: suppression.revokedBy } : {}),
+    };
+  }
+
+  function dismissalView(dismissal: MockDismissal): DismissalView {
+    return {
+      reason: dismissal.reason,
+      reasonLabel: DISMISS_REASON_LABELS[dismissal.reason],
+      ...(dismissal.note ? { note: dismissal.note } : {}),
+      ...(dismissal.by ? { by: dismissal.by } : {}),
+      at: dismissal.at.toISOString(),
+      suppressions: dismissal.suppressionIds.flatMap((id) => {
+        const suppression = suppressions.get(id);
+        return suppression ? [suppressionView(suppression)] : [];
+      }),
     };
   }
 
@@ -734,6 +1042,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       openedAt: expectation.dueAt,
       nextActionAt: addDays(expectation.dueAt, ESCALATION_DELAYS_DAYS[0]),
       expectationIds: [expectation.id],
+      contactAttempts: [],
       timeline: [
         {
           at: expectation.dueAt,
@@ -872,6 +1181,15 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         followUpCase.status = 'notified';
         followUpCase.nextActionAt = addDays(now, ESCALATION_DELAYS_DAYS[0]);
         patient.contact.lastContactAt = now.toISOString();
+        followUpCase.contactAttempts.push({
+          id: nextId('attempt', 'cr'),
+          attempt: followUpCase.contactAttempts.length + 1,
+          trigger: 'user',
+          requestedAt: now,
+          dueBy: addDays(now, 7),
+          requestedBy: actorId,
+          communications: [],
+        });
         followUpCase.timeline.push({
           at: now,
           type: 'patient_contact_requested',
@@ -911,21 +1229,65 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         emit('case.snoozed', webhookCasePayload(followUpCase));
         break;
       }
-      case 'resolve':
       case 'dismiss': {
-        const resolved = request.action === 'resolve';
-        followUpCase.status = resolved ? 'resolved' : 'dismissed';
+        const reason = validateDismissal(followUpCase, request, note);
+        followUpCase.status = 'dismissed';
+        delete followUpCase.nextActionAt;
+        delete followUpCase.snoozedUntil;
+        const suppressionIds: string[] = [];
+        for (const expectationId of followUpCase.expectationIds) {
+          const expectation = expectations.get(expectationId);
+          if (!expectation) continue;
+          expectation.status = 'cancelled';
+          if (!request.suppress || !isSuppressible(expectation.layer)) continue;
+          const active = [...suppressions.values()].find(
+            (candidate) =>
+              candidate.patientId === followUpCase.patientId &&
+              candidate.ruleId === expectation.ruleId &&
+              !candidate.revokedAt,
+          );
+          if (active) {
+            suppressionIds.push(active.id);
+            continue;
+          }
+          const id = nextId('sup', 'sup');
+          suppressions.set(id, {
+            id,
+            patientId: followUpCase.patientId,
+            ruleId: expectation.ruleId,
+            label: expectation.label,
+            dismissReason: reason,
+            ...withNote,
+            caseId: followUpCase.id,
+            createdAt: now,
+            createdBy: actorId,
+          });
+          suppressionIds.push(id);
+        }
+        followUpCase.dismissal = { reason, ...withNote, by: actorId, at: now, suppressionIds };
+        followUpCase.timeline.push({
+          at: now,
+          type: 'dismissed',
+          actor: { type: 'user', id: actorId },
+          label: MOCK_TIMELINE_COPY.dismissed(DISMISS_REASON_LABELS[reason]),
+          ...withNote,
+        });
+        emit('case.dismissed', webhookCasePayload(followUpCase));
+        break;
+      }
+      case 'resolve': {
+        followUpCase.status = 'resolved';
         delete followUpCase.nextActionAt;
         delete followUpCase.snoozedUntil;
         for (const expectationId of followUpCase.expectationIds) {
           const expectation = expectations.get(expectationId);
-          if (expectation) expectation.status = resolved ? 'fulfilled' : 'cancelled';
+          if (expectation) expectation.status = 'fulfilled';
         }
         followUpCase.timeline.push({
           at: now,
           type: followUpCase.status,
           actor: { type: 'user', id: actorId },
-          label: ACTION_LABELS[request.action],
+          label: ACTION_LABELS.resolve,
           ...withNote,
         });
         emit(`case.${followUpCase.status}`, webhookCasePayload(followUpCase));
@@ -933,6 +1295,156 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       }
     }
     return caseDetail(followUpCase);
+  }
+
+  /** The API's 422 for a dismissal: a reason always, a note for "Otro motivo". */
+  function validateDismissal(
+    followUpCase: MockCase,
+    request: CaseActionRequest,
+    note: string | undefined,
+  ): DismissReason {
+    const reason = DISMISS_REASONS.find((candidate) => candidate === request.reason);
+    if (!reason) {
+      const message = VALIDATION_COPY.dismissReasonRequired;
+      throw new MockHttpError(422, 'invalid_request', message, [{ path: 'reason', message }]);
+    }
+    if (reason === 'other' && !note) {
+      const message = VALIDATION_COPY.dismissNoteRequired;
+      throw new MockHttpError(422, 'invalid_request', message, [{ path: 'note', message }]);
+    }
+    if (request.suppress && reason !== 'not_applicable_to_patient') {
+      const message = VALIDATION_COPY.suppressOnlyNotApplicable;
+      throw new MockHttpError(422, 'invalid_request', message, [{ path: 'suppress', message }]);
+    }
+    const suppressible = followUpCase.expectationIds.some((id) => {
+      const expectation = expectations.get(id);
+      return expectation !== undefined && isSuppressible(expectation.layer);
+    });
+    if (request.suppress && !suppressible) {
+      throw new MockHttpError(422, 'invalid_request', VALIDATION_COPY.nothingToSuppress, [
+        { path: 'suppress', message: VALIDATION_COPY.nothingToSuppress },
+      ]);
+    }
+    return reason;
+  }
+
+  function recordCallOutcome(
+    id: string,
+    request: CallOutcomeRequest,
+    actorId = 'Dra. Lucía Paredes',
+  ): CaseDetail {
+    const followUpCase = getCaseOrThrow(id);
+    if (!ACTIVE.includes(followUpCase.status)) {
+      throw new MockHttpError(409, 'invalid_transition', VALIDATION_COPY.caseClosed);
+    }
+    const call = request.requestId
+      ? followUpCase.contactAttempts.find(
+          (attempt) => attempt.id === request.requestId && attempt.channel === 'phone_call',
+        )
+      : pendingCall(followUpCase);
+    if (!call) {
+      throw new MockHttpError(404, 'not_found', VALIDATION_COPY.noPendingCall);
+    }
+    const outcome: CallOutcome = request.outcome;
+    call.communications.push({
+      id: nextId('comm', 'comm'),
+      at: now,
+      status: UNREACHED.includes(outcome) ? 'not-done' : 'completed',
+      outcome,
+      sender: 'user',
+      senderName: actorId,
+    });
+    followUpCase.timeline.push({
+      at: now,
+      type: 'contact_outcome_recorded',
+      actor: { type: 'user', id: actorId },
+      label: MOCK_TIMELINE_COPY.callOutcome(CALL_OUTCOME_LABELS[outcome]),
+    });
+    const patient = patients.get(followUpCase.patientId);
+    if (patient && ANSWERED.includes(outcome)) {
+      delete patient.contact.contactFlag;
+      patient.contact.contactDataInvalid = false;
+    }
+    if (patient && outcome === 'wrong_number') {
+      patient.contact.contactDataInvalid = true;
+      patient.contact.contactFlag = {
+        issue: 'wrong_number',
+        label: CONTACT_FLAG_LABEL,
+        raisedAt: now.toISOString(),
+        channel: 'phone_call',
+      };
+    }
+    if (outcome === 'treated_elsewhere' || outcome === 'declined') {
+      followUpCase.status = 'resolved';
+      delete followUpCase.nextActionAt;
+      delete followUpCase.snoozedUntil;
+      followUpCase.timeline.push({
+        at: now,
+        type: 'resolved',
+        actor: { type: 'user', id: actorId },
+        label:
+          outcome === 'declined'
+            ? MOCK_TIMELINE_COPY.resolvedDeclined
+            : MOCK_TIMELINE_COPY.resolvedTreatedElsewhere,
+      });
+      emit('case.resolved', webhookCasePayload(followUpCase));
+    }
+    emit('contact.outcome_recorded', {
+      caseId: followUpCase.id,
+      patientId: followUpCase.patientId,
+      requestId: call.id,
+      channel: 'phone_call',
+      outcome,
+    });
+    return caseDetail(followUpCase);
+  }
+
+  function reactivateSuppression(id: string, actorId = 'Dra. Lucía Paredes'): SuppressionView {
+    const suppression = suppressions.get(id);
+    if (!suppression || suppression.revokedAt) {
+      throw new MockHttpError(404, 'not_found', VALIDATION_COPY.suppressionAlreadyActive);
+    }
+    suppression.revokedAt = now;
+    suppression.revokedBy = actorId;
+    return suppressionView(suppression);
+  }
+
+  function calibration(): CalibrationReportView {
+    const rules = new Map<string, CalibrationReportView['rules'][number]>();
+    for (const followUpCase of cases.values()) {
+      for (const expectationId of followUpCase.expectationIds) {
+        const expectation = expectations.get(expectationId);
+        if (!expectation) continue;
+        const rule = rules.get(expectation.ruleId) ?? {
+          ruleId: expectation.ruleId,
+          label: expectation.label,
+          layer: expectation.layer,
+          casesWithFeedback: 0,
+          useful: 0,
+          notUseful: 0,
+          dismissals: Object.fromEntries(DISMISS_REASONS.map((reason) => [reason, 0])) as Record<
+            DismissReason,
+            number
+          >,
+          notUsefulReasons: {},
+        };
+        if (followUpCase.dismissal) rule.dismissals[followUpCase.dismissal.reason] += 1;
+        const verdict = followUpCase.feedback;
+        const notUseful = followUpCase.dismissal !== undefined || verdict?.useful === false;
+        if (verdict || followUpCase.dismissal) {
+          rule.casesWithFeedback += 1;
+          if (notUseful) rule.notUseful += 1;
+          else rule.useful += 1;
+          rule.usefulRate = rule.useful / rule.casesWithFeedback;
+        }
+        rules.set(expectation.ruleId, rule);
+      }
+    }
+    return {
+      rules: [...rules.values()].filter(
+        (rule) => rule.casesWithFeedback > 0 || Object.values(rule.dismissals).some(Boolean),
+      ),
+    };
   }
 
   function feedback(
@@ -1303,6 +1815,9 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
 
     act,
     feedback,
+    recordCallOutcome,
+    reactivateSuppression,
+    calibration,
 
     getPatient(id: string): PatientDetail {
       const patient = patients.get(id);
@@ -1341,6 +1856,14 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
             at: finding.at.toISOString(),
             label: 'Nota sin plan de seguimiento',
           })),
+        suppressions: [...suppressions.values()]
+          .filter((suppression) => suppression.patientId === id)
+          .sort(
+            (a, b) =>
+              Number(a.revokedAt !== undefined) - Number(b.revokedAt !== undefined) ||
+              b.createdAt.getTime() - a.createdAt.getTime(),
+          )
+          .map(suppressionView),
       };
     },
 

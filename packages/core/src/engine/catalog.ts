@@ -4,6 +4,7 @@ import type {
   EventMatcher,
   SuggestedAction,
 } from '../config/common.ts';
+import type { NamedEscalationPolicy } from '../config/loader.ts';
 import type { Protocol, ProtocolItem } from '../config/protocol.ts';
 import type { Rule } from '../config/rule.ts';
 import type { PlanItemKind } from '../domain/clinical-event.ts';
@@ -114,6 +115,17 @@ function fromProtocolItem(protocol: Protocol, item: ProtocolItem): ExpectationDe
   };
 }
 
+export interface CatalogOptions {
+  /** Named escalation policies (`default_v1`, `default_v2`, ...), for pinned cases and the override. */
+  readonly policies?: readonly NamedEscalationPolicy[];
+  /**
+   * The clinic's escalation policy (`ClinicSettings.escalationPolicyId`):
+   * replaces the named policy of every rule and protocol item. Ignored when
+   * no policy has that id. Inline policies (no id) are rule-specific and stay.
+   */
+  readonly clinicPolicyId?: string;
+}
+
 /**
  * The rules and protocols enabled for one clinic, indexed for the engine.
  * Built once per operation from the `RuleSource` and `ProtocolSource`.
@@ -122,26 +134,54 @@ export class Catalog {
   readonly rules: readonly Rule[];
   readonly protocols: readonly Protocol[];
   readonly #definitions: ReadonlyMap<string, ExpectationDefinition>;
+  readonly #policies: ReadonlyMap<string, EscalationPolicy>;
 
-  constructor(rules: readonly Rule[], protocols: readonly Protocol[]) {
+  constructor(
+    rules: readonly Rule[],
+    protocols: readonly Protocol[],
+    options: CatalogOptions = {},
+  ) {
     this.rules = rules;
     this.protocols = protocols;
+    const policies = new Map<string, EscalationPolicy>();
+    for (const policy of options.policies ?? []) {
+      policies.set(policy.id, policy);
+    }
+    const override =
+      options.clinicPolicyId === undefined ? undefined : policies.get(options.clinicPolicyId);
+    const withClinicPolicy = (definition: ExpectationDefinition): ExpectationDefinition =>
+      override === undefined || definition.escalationPolicy.id === undefined
+        ? definition
+        : { ...definition, escalationPolicy: override };
     const definitions = new Map<string, ExpectationDefinition>();
     for (const rule of rules) {
-      definitions.set(rule.id, fromRule(rule));
+      definitions.set(rule.id, withClinicPolicy(fromRule(rule)));
     }
     for (const protocol of protocols) {
       for (const item of protocol.items) {
-        const definition = fromProtocolItem(protocol, item);
+        const definition = withClinicPolicy(fromProtocolItem(protocol, item));
         definitions.set(definition.ruleId, definition);
       }
     }
+    // Policies the rules reference are known even without the policy source.
+    for (const definition of definitions.values()) {
+      const { id } = definition.escalationPolicy;
+      if (id !== undefined && !policies.has(id)) {
+        policies.set(id, definition.escalationPolicy);
+      }
+    }
     this.#definitions = definitions;
+    this.#policies = policies;
   }
 
   /** The definition behind an expectation's `ruleId`, if still enabled for the clinic. */
   definition(ruleId: string): ExpectationDefinition | undefined {
     return this.#definitions.get(ruleId);
+  }
+
+  /** A named escalation policy by id (`default_v2`). */
+  policy(policyId: string): EscalationPolicy | undefined {
+    return this.#policies.get(policyId);
   }
 
   rulesOfLayer(layer: Rule['layer']): readonly Rule[] {

@@ -1,4 +1,5 @@
 import {
+  FileEscalationPolicySource,
   FileProtocolSource,
   FileRuleSource,
   UuidIdGenerator,
@@ -50,6 +51,13 @@ export const DEMO_CLINIC = { id: 'clinic-demo', name: 'Clínica Demo Hipócrates
  * next batch. Demo seed only; real clinics keep their own setting.
  */
 export const DEMO_DAILY_CASE_CAP_PER_OWNER = 5;
+
+/**
+ * Escalation policy of the demo clinic: WhatsApp at day 14, a front-desk
+ * call at day 21 if nobody answered, a second WhatsApp at day 28, lost only
+ * once every attempt is over.
+ */
+export const DEMO_ESCALATION_POLICY = 'default_v2';
 
 /** Label of the demo clinic's inbox key (`DEMO_INBOX_API_KEY`). */
 export const DEMO_INBOX_KEY_LABEL = 'demo inbox';
@@ -172,6 +180,7 @@ export async function createRuntime(
     noteExtractor: withPatientRedaction(extractor, storage.stores.clinicalRecords),
     rules: new FileRuleSource(),
     protocols: new FileProtocolSource(),
+    escalationPolicies: new FileEscalationPolicySource(),
     clinics: storage.clinics,
     clock,
     ids: options.ids ?? new UuidIdGenerator(),
@@ -319,7 +328,8 @@ export async function createRuntime(
  * `inbox:act`, plus the demo scopes only on a fake clock: never
  * `fhir:write`). Patient contact is enabled so the demo shows
  * `patient_contact.requested` webhooks; the release cap is
- * {@link DEMO_DAILY_CASE_CAP_PER_OWNER}.
+ * {@link DEMO_DAILY_CASE_CAP_PER_OWNER}; the escalation policy is
+ * {@link DEMO_ESCALATION_POLICY}.
  */
 export async function registerDemoClinic(
   runtime: EngineRuntime,
@@ -334,6 +344,7 @@ export async function registerDemoClinic(
       allowPatientContact: true,
       timezone: 'America/Caracas',
       dailyCaseCapPerOwner: DEMO_DAILY_CASE_CAP_PER_OWNER,
+      escalationPolicyId: DEMO_ESCALATION_POLICY,
     },
   });
   if (inboxApiKey !== undefined) {

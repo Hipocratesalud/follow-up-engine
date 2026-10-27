@@ -14,6 +14,7 @@ import { createContext, useContext } from 'react';
 import { noteReader, type NoteReader } from '../lib/labels.ts';
 import { type ApiClient, isApiError } from './client.ts';
 import type {
+  CallOutcomeRequest,
   CaseActionRequest,
   CaseDetail,
   CaseListQuery,
@@ -30,6 +31,7 @@ import type {
   PatientDetail,
   PatientSummary,
   RecoveryPage,
+  SuppressionView,
   WebhookDelivery,
 } from './contract.ts';
 
@@ -263,6 +265,37 @@ export function useDemoConsultation(): UseMutationResult<
     onSuccess: () => {
       invalidateAfterCaseChange(queryClient);
       void queryClient.invalidateQueries({ queryKey: queryKeys.patients });
+    },
+  });
+}
+
+/** "Llamar al paciente": records what came of the call; the case comes back updated. */
+export function useCallOutcome(
+  caseId: string,
+): UseMutationResult<CaseDetail, Error, CallOutcomeRequest> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: CallOutcomeRequest) => api.recordCallOutcome(caseId, request),
+    onSuccess: (detail: CaseDetail) => {
+      queryClient.setQueryData(queryKeys.case(caseId), detail);
+      invalidateAfterCaseChange(queryClient);
+    },
+  });
+}
+
+/** "Volver a activar" a reminder stopped for one patient. */
+export function useReactivateSuppression(
+  patientId: string,
+): UseMutationResult<SuppressionView, Error, string> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (suppressionId: string) => api.reactivateSuppression(suppressionId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.patient(patientId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.allCases });
+      void queryClient.invalidateQueries({ queryKey: ['case'] });
     },
   });
 }

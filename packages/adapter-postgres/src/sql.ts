@@ -49,6 +49,10 @@ const TABLES = [
   'outbox',
   'jobs',
   'backfill_progress',
+  'contact_requests',
+  'contact_communications',
+  'patient_contact_flags',
+  'patient_rule_suppressions',
 ] as const;
 
 export type TableName = (typeof TABLES)[number];

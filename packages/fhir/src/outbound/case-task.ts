@@ -50,7 +50,22 @@ function resolutionExtension(followUpCase: FollowUpCase): Extension[] {
     { url: 'resolvedAt', valueDateTime: toFhirInstant(resolution.resolvedAt) },
     ...ext.string('resolvedBy', resolution.resolvedBy),
     ...ext.string('note', resolution.note),
+    ...ext.code('dismissReason', resolution.dismissReason),
   ]);
+}
+
+/**
+ * `Task.statusReason` of a closed case: why the team dismissed it (a
+ * `cancelled` Task, in the dismiss-reason CodeSystem), else how it resolved.
+ */
+function statusReason(followUpCase: FollowUpCase): Task['statusReason'] {
+  const { resolution } = followUpCase;
+  if (resolution === undefined) {
+    return undefined;
+  }
+  return resolution.dismissReason === undefined
+    ? concept(ENGINE_CODE_SYSTEMS.caseResolution, resolution.kind)
+    : concept(ENGINE_CODE_SYSTEMS.dismissReason, resolution.dismissReason);
 }
 
 /**
@@ -70,6 +85,7 @@ export function caseToTask(followUpCase: FollowUpCase): Task {
     ...ext.dateTime(ENGINE_EXTENSIONS.releaseAt, followUpCase.releaseAt),
     ...ext.dateTime(ENGINE_EXTENSIONS.nextActionAt, followUpCase.nextActionAt),
     ...ext.dateTime(ENGINE_EXTENSIONS.snoozedUntil, followUpCase.snoozedUntil),
+    ...ext.string(ENGINE_EXTENSIONS.escalationPolicy, followUpCase.escalationPolicyId),
     ...resolutionExtension(followUpCase),
   ];
   const { resolution } = followUpCase;
@@ -78,9 +94,7 @@ export function caseToTask(followUpCase: FollowUpCase): Task {
     id: toFhirId(followUpCase.id),
     extension,
     status: CASE_TASK_STATUS[followUpCase.status],
-    ...(resolution === undefined
-      ? {}
-      : { statusReason: concept(ENGINE_CODE_SYSTEMS.caseResolution, resolution.kind) }),
+    ...(resolution === undefined ? {} : { statusReason: statusReason(followUpCase) }),
     businessStatus: concept(
       ENGINE_CODE_SYSTEMS.caseStatus,
       followUpCase.status,

@@ -26,6 +26,7 @@ import { cadenceDrafts } from './layers/cadence.ts';
 import { doctorPlanDrafts } from './layers/doctor-plan.ts';
 import { protocolDrafts } from './layers/protocol.ts';
 import { plannedItems, universalDrafts } from './layers/universal.ts';
+import { suppressedRuleIds } from '../suppression/active.ts';
 import { recheckAtFor, recheckFulfilled } from './recheck.ts';
 import { retractByLaterInformation } from './retract.ts';
 import {
@@ -75,6 +76,16 @@ export async function annotate(
     context.asOf,
   );
   const writer = new CaseWriter(context.stores, context.ids, context.clinicId);
+  // Rules a clinic user stopped for this patient ("not applicable") create
+  // nothing in any layer, live or replayed by the backfill.
+  const suppressed = await suppressedRuleIds(context.stores, context.clinicId, context.patientId);
+  const create = (drafts: readonly ExpectationDraft[], lateHistory: boolean) =>
+    createExpectations(
+      context,
+      state.live,
+      drafts.filter((draft) => !suppressed.has(draft.definition.ruleId)),
+      lateHistory,
+    );
   // An event of a resource the record withdrew later (a booking cancelled,
   // an order revoked) triggers and fulfills nothing, even delivered again.
   const ordered = [...events]
@@ -99,7 +110,7 @@ export async function annotate(
     ...planDrafts,
   ];
   const lateHistory = isLateHistory(context, ordered);
-  created.push(...(await createExpectations(context, state.live, firstDrafts, lateHistory)));
+  created.push(...(await create(firstDrafts, lateHistory)));
 
   // An amended note's plan replaces the earlier version's.
   const closed = await supersedeAmendedPlans(context, state, ordered, firstDrafts);
@@ -129,7 +140,7 @@ export async function annotate(
   const cadence = cadenceDrafts(ordered, state.timeline, context.catalog).filter(
     (draft) => !coveredByPlan(state.live, draft.matchKey),
   );
-  const afterFulfillment = await createExpectations(context, state.live, cadence, lateHistory);
+  const afterFulfillment = await create(cadence, lateHistory);
 
   const protocols = protocolDrafts({
     catalog: context.catalog,
@@ -138,9 +149,7 @@ export async function annotate(
     live: state.live.list(),
     now: context.now,
   });
-  afterFulfillment.push(
-    ...(await createExpectations(context, state.live, protocols.drafts, lateHistory)),
-  );
+  afterFulfillment.push(...(await create(protocols.drafts, lateHistory)));
   created.push(...afterFulfillment);
   closed.push(
     ...(await fulfillFromRecord(

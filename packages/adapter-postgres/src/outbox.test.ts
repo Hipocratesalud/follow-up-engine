@@ -43,6 +43,26 @@ function contactRequested(clinicId: ClinicId, id: string): DomainEvent {
       patientId: 'pat-1' as never,
       purpose: 'schedule_follow_up',
       dueBy: at(10),
+      requestId: 'cr-1' as never,
+      channel: 'whatsapp',
+      attempt: 1,
+    },
+  };
+}
+
+function outcomeRecorded(clinicId: ClinicId, id: string): DomainEvent {
+  return {
+    id,
+    type: 'contact.outcome_recorded',
+    clinicId,
+    occurredAt: at(1),
+    payload: {
+      caseId: 'case-1' as never,
+      patientId: 'pat-1' as never,
+      requestId: 'cr-2' as never,
+      communicationId: 'comm-1',
+      channel: 'phone_call',
+      outcome: 'wrong_number',
     },
   };
 }
@@ -77,7 +97,12 @@ describe.skipIf(testDatabaseUrl() === undefined)(databaseSuiteTitle('Postgres ou
 
   it('delivers events in insertion order with their dates revived, exactly once per pass', async () => {
     const [a, b] = [newClinic(), newClinic()];
-    const events = [contactRequested(a, 'e1'), caseResolved(b, 'e2'), caseResolved(a, 'e3')];
+    const events = [
+      contactRequested(a, 'e1'),
+      caseResolved(b, 'e2'),
+      caseResolved(a, 'e3'),
+      outcomeRecorded(a, 'e4'),
+    ];
     for (const event of events) {
       await adapters.outbox.add(event.clinicId, event);
     }
@@ -87,7 +112,7 @@ describe.skipIf(testDatabaseUrl() === undefined)(databaseSuiteTitle('Postgres ou
     expect(
       await adapters.drainOutbox({ publisher, now: at(1), limit: 10, leaseFor: LEASE }),
     ).toEqual({
-      delivered: 3,
+      delivered: 4,
       retrying: 0,
       dead: 0,
     });

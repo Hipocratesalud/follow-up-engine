@@ -11,6 +11,7 @@ import {
   describeAuditLogContract,
   describeBackfillProgressStoreContract,
   describeCaseRepositoryContract,
+  describeContactRepositoryContract,
   describeClinicalRecordRepositoryContract,
   describeClinicDirectoryContract,
   describeConditionRepositoryContract,
@@ -20,6 +21,7 @@ import {
   describeLlmUsageLogContract,
   describeOutboxContract,
   describeQualityFindingRepositoryContract,
+  describeSuppressionRepositoryContract,
   describeUnitOfWorkContract,
 } from '@follow-up-engine/testkit';
 
@@ -41,6 +43,14 @@ describeExpectationRepositoryContract(
 describeCaseRepositoryContract(
   NAME,
   store((s) => s.cases),
+);
+describeContactRepositoryContract(
+  NAME,
+  store((s) => s.contacts),
+);
+describeSuppressionRepositoryContract(
+  NAME,
+  store((s) => s.suppressions),
 );
 describeClinicalRecordRepositoryContract(
   NAME,

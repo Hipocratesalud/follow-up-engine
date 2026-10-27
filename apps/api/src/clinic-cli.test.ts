@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { clinicId } from '@follow-up-engine/core';
 import { clinicSlug, runClinicCommand } from './clinic-cli.ts';
 import { createHarness, type Harness, STORAGES } from './test/harness.ts';
 
@@ -63,6 +64,41 @@ describe.each(STORAGES)('clinic:create (%s)', (storage) => {
     expect((await runClinicCommand(h.runtime, ['--id', 'nadie'])).code).toBe(1);
     expect((await runClinicCommand(h.runtime, ['--bogus'])).code).toBe(1);
     expect((await runClinicCommand(h.runtime, ['--help'])).code).toBe(0);
+  });
+
+  it('sets the policy of a new clinic, switches an existing one, refuses an unknown one', async () => {
+    const created = await runClinicCommand(h.runtime, [
+      '--name',
+      'Clínica Política',
+      '--escalation-policy',
+      'default_v2',
+    ]);
+    expect(created.code).toBe(0);
+    const clinic = await h.runtime.storage.clinics.get(clinicId('clinica-politica'));
+    expect(clinic?.settings.escalationPolicyId).toBe('default_v2');
+
+    const switched = await runClinicCommand(h.runtime, [
+      '--id',
+      'clinica-politica',
+      '--escalation-policy',
+      'default_v1',
+      '--label',
+      'second',
+    ]);
+    expect(switched.output).toMatch(/\(updated\)/);
+    expect(
+      (await h.runtime.storage.clinics.get(clinicId('clinica-politica')))?.settings
+        .escalationPolicyId,
+    ).toBe('default_v1');
+
+    const unknown = await runClinicCommand(h.runtime, [
+      '--id',
+      'clinica-politica',
+      '--escalation-policy',
+      'default_v9',
+    ]);
+    expect(unknown.code).toBe(1);
+    expect(unknown.output).toMatch(/Unknown escalation policy default_v9/);
   });
 });
 

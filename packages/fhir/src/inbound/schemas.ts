@@ -386,6 +386,42 @@ export const CompositionSchema = z.object({
   section: z.array(CompositionSectionSchema).optional(),
 }) satisfies z.ZodType<Partial<R4.Composition>>;
 
+/** A `Communication` extension the engine reads (the contact outcome). */
+const CommunicationExtensionSchema = z.object({
+  url: fhirString,
+  valueCodeableConcept: CodeableConceptSchema.optional(),
+  valueCode: fhirString.optional(),
+}) satisfies z.ZodType<R4.Extension>;
+
+/**
+ * What came of a contact attempt, reported by the host: `basedOn` the
+ * engine's `CommunicationRequest`, the outcome in the `contact-outcome`
+ * extension or `statusReason`.
+ */
+export const CommunicationSchema = z.object({
+  ...resourceBase('Communication'),
+  extension: z.array(CommunicationExtensionSchema).optional(),
+  basedOn: z
+    .array(ReferenceSchema)
+    .min(1, 'a Communication must be basedOn a CommunicationRequest'),
+  status: z.enum([
+    'preparation',
+    'in-progress',
+    'not-done',
+    'on-hold',
+    'stopped',
+    'completed',
+    'entered-in-error',
+    'unknown',
+  ]),
+  statusReason: CodeableConceptSchema.optional(),
+  subject: LiteralReferenceSchema,
+  medium: z.array(CodeableConceptSchema).optional(),
+  sent: fhirDateTime.optional(),
+  received: fhirDateTime.optional(),
+  sender: ReferenceSchema.optional(),
+}) satisfies z.ZodType<Partial<R4.Communication>>;
+
 // ---------------------------------------------------------------------------
 // Bundle envelope
 
@@ -428,6 +464,7 @@ export const CONSUMED_RESOURCE_SCHEMAS = {
   Condition: ConditionSchema,
   DocumentReference: DocumentReferenceSchema,
   Composition: CompositionSchema,
+  Communication: CommunicationSchema,
   Medication: MedicationSchema,
 } as const;
 

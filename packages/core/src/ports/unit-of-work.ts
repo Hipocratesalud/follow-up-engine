@@ -4,9 +4,11 @@ import type { BackfillProgressStore } from './backfill-progress.ts';
 import type { CaseRepository } from './case-repository.ts';
 import type { ClinicalRecordRepository } from './clinical-record-repository.ts';
 import type { ConditionRepository, QualityFindingRepository } from './condition-repository.ts';
+import type { ContactRepository } from './contact-repository.ts';
 import type { ExpectationRepository } from './expectation-repository.ts';
 import type { FeedbackRepository } from './feedback-repository.ts';
 import type { JobQueue, Outbox } from './job-queue.ts';
+import type { SuppressionRepository } from './suppression-repository.ts';
 
 /** Every store, bound to one transaction. */
 export interface TransactionalStores {
@@ -20,6 +22,8 @@ export interface TransactionalStores {
   readonly jobs: JobQueue;
   readonly outbox: Outbox;
   readonly backfillProgress: BackfillProgressStore;
+  readonly contacts: ContactRepository;
+  readonly suppressions: SuppressionRepository;
 }
 
 /**

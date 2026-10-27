@@ -9,20 +9,26 @@ import {
   type ExpectationLayer,
   type FollowUpCase,
   InvalidCursorError,
+  contactRequestId,
   isActiveCaseStatus,
   parseConditionId,
   patientId as toPatientId,
+  SUPPRESSIBLE_LAYERS,
+  type SuppressionId,
 } from '@follow-up-engine/core';
 import type { EngineRuntime } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import { conditionView, InboxPresenter } from '../inbox/presenter.ts';
 import { humanName, patientSummary } from '../inbox/fhir-display.ts';
-import { invalidTransitionMessage } from '../inbox/labels.ts';
+import { CONTACT_LOOP_MESSAGES, invalidTransitionMessage } from '../inbox/labels.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
 import { followUpUser } from './security.ts';
 import {
+  CalibrationQuerySchema,
+  type CalibrationReportView,
+  CallOutcomeRequestSchema,
   CaseActionRequestSchema,
   CaseListQuerySchema,
   FeedbackRequestSchema,
@@ -82,6 +88,34 @@ async function requestContact(
   return requested.status === 'open' || requested.status === 'snoozed'
     ? runtime.engine.cases.notify(clinicId, caseId, user)
     : requested;
+}
+
+/**
+ * The rules of a case's reasons that "Dejar de recordarlo" stops for the
+ * patient: protocol items and the visit pattern (`SUPPRESSIBLE_LAYERS`).
+ * A 422 when the case has none: what a clinician asked for is dismissed
+ * case by case, never switched off for the patient.
+ */
+async function suppressibleRuleIds(
+  runtime: EngineRuntime,
+  clinicId: ClinicId,
+  followUpCase: FollowUpCase,
+): Promise<string[]> {
+  const ruleIds = new Set<string>();
+  for (const reason of followUpCase.reasons) {
+    const expectation = await runtime.storage.stores.expectations.get(
+      clinicId,
+      reason.expectationId,
+    );
+    if (expectation !== undefined && SUPPRESSIBLE_LAYERS.has(expectation.layer)) {
+      ruleIds.add(expectation.ruleId);
+    }
+  }
+  if (ruleIds.size === 0) {
+    const message = CONTACT_LOOP_MESSAGES.nothingToSuppress;
+    throw new HttpError(422, 'invalid_request', message, [{ path: 'suppress', message }]);
+  }
+  return [...ruleIds];
 }
 
 type ListQuery = Omit<
@@ -297,26 +331,105 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     const withNote = note === undefined ? {} : { note };
     // "Pedir contacto" asks the host to reach the patient (the engine checks
     // the clinic's settings, opt-out and contact window), then marks the case
-    // as notified; the other actions are plain case transitions. Every action
-    // keeps the team's internal note on its case event.
-    const updated =
-      body.action === 'notify'
-        ? await requestContact(runtime, c.var.clinicId, current, user, note)
-        : await engine.cases.apply(
-            c.var.clinicId,
-            caseId,
-            body.action === 'snooze'
-              ? {
-                  type: 'snooze',
-                  until: new Date(now.getTime() + (body.snoozeDays ?? 1) * MS_PER_DAY),
-                  ...withNote,
-                }
-              : { type: body.action, ...withNote },
-            user,
-          );
+    // as notified; "Descartar" needs a reason, recorded as the case's
+    // feedback, and may stop the case's rules for the patient; the other
+    // actions are plain case transitions. Every action keeps the team's
+    // internal note on its case event.
+    let updated: FollowUpCase;
+    if (body.action === 'notify') {
+      updated = await requestContact(runtime, c.var.clinicId, current, user, note);
+    } else if (body.action === 'dismiss') {
+      const reason = body.reason ?? 'other';
+      const result = await engine.cases.dismiss(c.var.clinicId, caseId, user, {
+        reason,
+        ...withNote,
+        ...(body.suppress === true
+          ? { suppressRuleIds: await suppressibleRuleIds(runtime, c.var.clinicId, current) }
+          : {}),
+      });
+      updated = result.followUpCase;
+      c.var.log.info(
+        { caseId, reason, suppressions: result.suppressions.length },
+        'case dismissed',
+      );
+    } else {
+      updated = await engine.cases.apply(
+        c.var.clinicId,
+        caseId,
+        body.action === 'snooze'
+          ? {
+              type: 'snooze',
+              until: new Date(now.getTime() + (body.snoozeDays ?? 1) * MS_PER_DAY),
+              ...withNote,
+            }
+          : { type: body.action, ...withNote },
+        user,
+      );
+    }
     c.var.log.info({ caseId, action: body.action, status: updated.status }, 'case action');
     const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
     return c.json(await presenter.caseDetail(updated));
+  });
+
+  /** "Llamar al paciente": what came of the call the team made. Answers the case detail. */
+  app.post('/api/inbox/cases/:id/call-outcome', async (c) => {
+    const body = await readJson(c, CallOutcomeRequestSchema);
+    const caseId = c.req.param('id') as CaseId;
+    await requireCase(runtime, c.var.clinicId, caseId);
+    const result = await engine.cases.recordCallOutcome(
+      c.var.clinicId,
+      caseId,
+      {
+        outcome: body.outcome,
+        ...(body.requestId === undefined ? {} : { requestId: contactRequestId(body.requestId) }),
+      },
+      actor(c),
+    );
+    c.var.log.info(
+      { caseId, outcome: body.outcome, reactions: result.reactions },
+      'call outcome recorded',
+    );
+    const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
+    return c.json(await presenter.caseDetail(await requireCase(runtime, c.var.clinicId, caseId)));
+  });
+
+  /** "Volver a activar": the rule applies to the patient again. */
+  app.post('/api/inbox/suppressions/:id/reactivate', async (c) => {
+    const id = c.req.param('id') as SuppressionId;
+    const existing = await stores.suppressions.get(c.var.clinicId, id);
+    if (existing === undefined) {
+      throw notFound(CONTACT_LOOP_MESSAGES.suppressionNotFound);
+    }
+    if (existing.revokedAt !== undefined) {
+      throw new HttpError(409, 'conflict', CONTACT_LOOP_MESSAGES.suppressionAlreadyActive);
+    }
+    const revoked = await engine.suppressions.reactivate(c.var.clinicId, id, actor(c));
+    c.var.log.info({ suppressionId: id, ruleId: revoked.ruleId }, 'suppression reactivated');
+    const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
+    return c.json(await presenter.suppressionView(revoked));
+  });
+
+  /** Per rule: how useful the team found its cases and why it dismissed them. */
+  app.get('/api/inbox/calibration', async (c) => {
+    const query = readQuery(c, CalibrationQuerySchema);
+    const report = await engine.calibration(c.var.clinicId, {
+      ...(query.since === undefined ? {} : { since: new Date(query.since) }),
+    });
+    const view: CalibrationReportView = {
+      ...(report.since === undefined ? {} : { since: report.since.toISOString() }),
+      rules: report.rules.map((rule) => ({
+        ruleId: rule.ruleId,
+        label: rule.reason.label,
+        ...(rule.layer === undefined ? {} : { layer: rule.layer }),
+        casesWithFeedback: rule.casesWithFeedback,
+        useful: rule.useful,
+        notUseful: rule.notUseful,
+        ...(rule.usefulRate === undefined ? {} : { usefulRate: rule.usefulRate }),
+        dismissals: { ...rule.dismissals },
+        notUsefulReasons: { ...rule.notUsefulReasons },
+      })),
+    };
+    return c.json(view);
   });
 
   app.post('/api/inbox/cases/:id/feedback', async (c) => {

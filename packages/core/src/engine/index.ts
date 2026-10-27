@@ -5,6 +5,7 @@
 export { createFollowUpEngine } from './application/engine.ts';
 export type {
   BackfillCommands,
+  ContactCommands,
   FollowUpEngine,
   FollowUpEngineDeps,
   PatientContactStatus,
@@ -31,8 +32,33 @@ export {
   type RejectConditionResult,
 } from './application/condition-commands.ts';
 export type { ClosedExpectation } from './annotator/annotate.ts';
-export { Catalog, protocolRuleId, type ExpectationDefinition } from './catalog.ts';
-export type { CaseAction, CaseCommands, FeedbackInput } from './case-manager/commands.ts';
+export {
+  Catalog,
+  protocolRuleId,
+  type CatalogOptions,
+  type ExpectationDefinition,
+} from './catalog.ts';
+export {
+  CALL_OUTCOMES,
+  type CallOutcome,
+  type CaseAction,
+  type CaseCommands,
+  type DismissInput,
+  type DismissResult,
+  type FeedbackInput,
+} from './case-manager/commands.ts';
+export {
+  CALIBRATION_FEEDBACK_LIMIT,
+  type CalibrationReport,
+  type RuleCalibration,
+} from './calibration/calibration.ts';
+export type {
+  CommunicationInput,
+  CommunicationRecordResult,
+  ContactReaction,
+} from './patient-contact/outcomes.ts';
+export { summarizeAttempt, type AttemptSummary } from './patient-contact/history.ts';
+export { SUPPRESSED_FOR_PATIENT, type SuppressionCommands } from './suppression/suppressions.ts';
 export {
   CASE_TRANSITIONS,
   canTransition,
@@ -47,10 +73,16 @@ export {
 } from './case-manager/priority.ts';
 export { priorityOfCase } from './case-manager/case-priority.ts';
 export type { EscalationReport, EscalationStepRecord } from './escalation/escalation.ts';
-export { FALLBACK_ESCALATION_POLICY, nextActionAfter, policyOf } from './escalation/schedule.ts';
+export {
+  FALLBACK_ESCALATION_POLICY,
+  nextActionAfter,
+  pinnedPolicyId,
+  policyOf,
+} from './escalation/schedule.ts';
 export {
   decidePatientContact,
   PatientContactNotAllowedError,
+  type ContactSkipReason,
   type PatientContactDecision,
   type PatientContactDenial,
 } from './patient-contact/policy.ts';

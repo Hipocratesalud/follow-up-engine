@@ -4,6 +4,10 @@ import type {
   CaseFeedback,
   ClinicalEvent,
   ClinicId,
+  ContactCommunication,
+  ContactRequest,
+  PatientContactFlag,
+  RuleSuppression,
   DomainEvent,
   Expectation,
   FhirResourceJson,
@@ -66,6 +70,10 @@ export interface MemoryState {
   readonly outbox: OutboxRecord[];
   readonly llmCalls: LlmCallRecord[];
   readonly backfillRuns: Map<string, BackfillProgress>;
+  readonly contactRequests: Map<string, ContactRequest>;
+  readonly communications: Map<string, ContactCommunication>;
+  readonly contactFlags: Map<string, PatientContactFlag>;
+  readonly suppressions: Map<string, RuleSuppression>;
   sequence: number;
 }
 
@@ -85,6 +93,10 @@ function emptyState(): MemoryState {
     outbox: [],
     llmCalls: [],
     backfillRuns: new Map(),
+    contactRequests: new Map(),
+    communications: new Map(),
+    contactFlags: new Map(),
+    suppressions: new Map(),
     sequence: 0,
   };
 }

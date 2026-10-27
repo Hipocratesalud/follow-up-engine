@@ -35,6 +35,7 @@ interface CaseRow {
   readonly priority: number;
   readonly assignee: string | null;
   readonly escalation_step: number;
+  readonly escalation_policy_id: string | null;
   readonly next_action_at: Date | null;
   readonly snoozed_until: Date | null;
   readonly release_at: Date | null;
@@ -45,8 +46,9 @@ interface CaseRow {
 }
 
 const COLUMNS = `clinic_id, id, patient_id, dedup_key, reasons, status, priority, assignee,
-  escalation_step, next_action_at, snoozed_until, release_at, origin, resolution, created_at, updated_at`;
-const PLACEHOLDERS = Array.from({ length: 16 }, (_, index) => `$${String(index + 1)}`).join(', ');
+  escalation_step, next_action_at, snoozed_until, release_at, origin, resolution, created_at, updated_at,
+  escalation_policy_id`;
+const PLACEHOLDERS = Array.from({ length: 17 }, (_, index) => `$${String(index + 1)}`).join(', ');
 const ACTIVE_DEDUP_INDEX = 'follow_up_cases_active_dedup_key';
 const ACTIVE = `status IN ('open', 'notified', 'snoozed', 'escalated')`;
 
@@ -65,6 +67,7 @@ function toCase(row: CaseRow): FollowUpCase {
     priority: row.priority,
     ...optional('assignee', row.assignee),
     escalationStep: row.escalation_step,
+    ...optional('escalationPolicyId', row.escalation_policy_id),
     ...optional('nextActionAt', row.next_action_at),
     ...optional('snoozedUntil', row.snoozed_until),
     ...optional('releaseAt', row.release_at),
@@ -99,6 +102,7 @@ function toParams(value: FollowUpCase): unknown[] {
     value.resolution === undefined ? null : jsonParam(value.resolution),
     value.createdAt,
     value.updatedAt,
+    value.escalationPolicyId ?? null,
   ];
 }
 

@@ -1,4 +1,12 @@
-import type { CaseStatus, FeedbackReason, Layer, Sex } from '../api/contract.ts';
+import type {
+  CaseStatus,
+  ContactChannel,
+  ContactOutcome,
+  DismissReason,
+  FeedbackReason,
+  Layer,
+  Sex,
+} from '../api/contract.ts';
 
 /**
  * Synthetic clinic used by the mock API. Every name, note and result here is
@@ -29,8 +37,30 @@ export interface SeedCondition {
   readonly quote?: string;
 }
 
+/** One attempt to reach the patient, in days before the mock start. */
+export interface SeedAttempt {
+  /** Absent: the clinic's own messaging channel. */
+  readonly channel?: ContactChannel;
+  readonly daysAgo: number;
+  readonly windowDays: number;
+  readonly trigger?: 'policy' | 'user' | 'wrong_number';
+  readonly outcomes?: readonly {
+    readonly outcome: ContactOutcome;
+    readonly daysAgo: number;
+    readonly sender?: 'host' | 'user';
+  }[];
+}
+
 export interface SeedCase {
   readonly status: CaseStatus;
+  /** Attempts to reach the patient about the case, oldest first. */
+  readonly contact?: readonly SeedAttempt[];
+  /** A dismissed case: why, and whether its rules were stopped for the patient. */
+  readonly dismissal?: {
+    readonly reason: DismissReason;
+    readonly note?: string;
+    readonly suppress?: boolean;
+  };
   readonly escalationStep: number;
   readonly origin: 'live' | 'backfill';
   /** Backfill cases not yet visible in the inbox: days until release. */
@@ -45,7 +75,12 @@ export interface SeedPatient {
   readonly sex: Sex;
   readonly specialty: Specialty;
   readonly assignee: string;
-  readonly contact?: { readonly optedOut?: boolean; readonly lastContactDaysAgo?: number };
+  readonly contact?: {
+    readonly optedOut?: boolean;
+    readonly lastContactDaysAgo?: number;
+    /** A message reached the wrong person this many days ago (the contact data is flagged). */
+    readonly wrongNumberDaysAgo?: number;
+  };
   readonly note?: { readonly daysAgo: number; readonly text: string };
   readonly reasons: readonly SeedReason[];
   readonly conditions?: readonly SeedCondition[];
@@ -374,7 +409,21 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       },
     ],
     conditions: [DM2],
-    case: { status: 'open', escalationStep: 1, origin: 'live' },
+    contact: { lastContactDaysAgo: 4, wrongNumberDaysAgo: 3 },
+    case: {
+      status: 'open',
+      escalationStep: 1,
+      origin: 'live',
+      contact: [
+        {
+          channel: 'whatsapp',
+          daysAgo: 4,
+          windowDays: 7,
+          outcomes: [{ outcome: 'wrong_number', daysAgo: 3 }],
+        },
+        { channel: 'phone_call', daysAgo: 3, windowDays: 3, trigger: 'wrong_number' },
+      ],
+    },
   },
   {
     name: 'Rosa Inés Montilla',
@@ -382,7 +431,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     sex: 'female',
     specialty: 'internal_medicine',
     assignee: ASSIGNEES.rivas,
-    contact: { lastContactDaysAgo: 21 },
+    contact: { lastContactDaysAgo: 9 },
     note: {
       daysAgo: 80,
       text: 'Paciente de 68 años con HTA de larga data y disnea de medianos esfuerzos. Soplo sistólico II/VI en foco aórtico. Se solicita ecocardiograma transtorácico. Continúa enalapril 10 mg c/12h. Control en 1 mes con ecocardiograma.',
@@ -405,7 +454,23 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       },
     ],
     conditions: [HTA],
-    case: { status: 'escalated', escalationStep: 2, origin: 'live' },
+    case: {
+      status: 'escalated',
+      escalationStep: 2,
+      origin: 'live',
+      contact: [
+        {
+          channel: 'whatsapp',
+          daysAgo: 9,
+          windowDays: 7,
+          outcomes: [
+            { outcome: 'delivered', daysAgo: 9 },
+            { outcome: 'read', daysAgo: 8 },
+          ],
+        },
+        { channel: 'phone_call', daysAgo: 2, windowDays: 3 },
+      ],
+    },
   },
   {
     name: 'Daniela Castillo',
@@ -423,7 +488,12 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
         source: { resourceType: LAB, display: 'Citología cervicovaginal' },
       },
     ],
-    case: { status: 'notified', escalationStep: 0, origin: 'live' },
+    case: {
+      status: 'notified',
+      escalationStep: 0,
+      origin: 'live',
+      contact: [{ daysAgo: 2, windowDays: 7, trigger: 'user' }],
+    },
   },
   {
     name: 'Miguel Ángel Suárez',
@@ -600,7 +670,11 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       status: 'dismissed',
       escalationStep: 0,
       origin: 'live',
-      feedback: { useful: false, reason: 'already_handled' },
+      dismissal: {
+        reason: 'not_applicable_to_patient',
+        note: 'Se controla con su endocrinólogo en otra ciudad.',
+        suppress: true,
+      },
     },
   },
   {

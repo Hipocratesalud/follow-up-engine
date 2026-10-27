@@ -8,6 +8,9 @@ import {
 } from 'msw';
 import {
   type ApiFieldError,
+  CALL_OUTCOMES,
+  type CallOutcomeRequest,
+  DISMISS_REASONS,
   type CaseAction,
   type CaseActionRequest,
   type CaseListView,
@@ -18,6 +21,7 @@ import {
   type Origin,
 } from '../api/contract.ts';
 import { MOCK_API_KEY } from '../config.ts';
+import { VALIDATION_COPY } from '../lib/copy.ts';
 import { INPUT_LIMITS } from '../lib/limits.ts';
 import { MockHttpError, type MockStore } from './store.ts';
 
@@ -69,11 +73,24 @@ function parseAction(body: Record<string, unknown>): CaseActionRequest {
   const snoozeDays = body['snoozeDays'];
   const note = body['note'];
   checkLength('note', note, INPUT_LIMITS.note, 'La nota');
+  const reason = DISMISS_REASONS.find((candidate) => candidate === body['reason']);
   return {
     action,
     ...(typeof snoozeDays === 'number' ? { snoozeDays } : {}),
     ...(typeof note === 'string' ? { note } : {}),
+    ...(reason ? { reason } : {}),
+    ...(body['suppress'] === true ? { suppress: true } : {}),
   };
+}
+
+function parseCallOutcome(body: Record<string, unknown>): CallOutcomeRequest {
+  const outcome = CALL_OUTCOMES.find((candidate) => candidate === body['outcome']);
+  if (!outcome) {
+    const message = VALIDATION_COPY.callOutcomeRequired;
+    throw new MockHttpError(422, 'invalid_request', message, [{ path: 'outcome', message }]);
+  }
+  const requestId = body['requestId'];
+  return { outcome, ...(typeof requestId === 'string' ? { requestId } : {}) };
 }
 
 function parseFeedback(body: Record<string, unknown>): FeedbackRequest {
@@ -200,6 +217,20 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
       route(async ({ request, params }) =>
         store.act(param(params, 'id'), parseAction(await readJson(request))),
       ),
+    ),
+    http.post(
+      '*/api/inbox/cases/:id/call-outcome',
+      route(async ({ request, params }) =>
+        store.recordCallOutcome(param(params, 'id'), parseCallOutcome(await readJson(request))),
+      ),
+    ),
+    http.post(
+      '*/api/inbox/suppressions/:id/reactivate',
+      route(({ params }) => store.reactivateSuppression(param(params, 'id'))),
+    ),
+    http.get(
+      '*/api/inbox/calibration',
+      route(() => store.calibration()),
     ),
     http.post(
       '*/api/inbox/cases/:id/feedback',

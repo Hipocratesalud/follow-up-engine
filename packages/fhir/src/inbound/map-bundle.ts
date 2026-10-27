@@ -16,8 +16,10 @@ import {
   createEntryContext,
   type EntryContext,
   type MappedClinicalEvent,
+  type MappedCommunication,
   type MappedResource,
 } from './context.ts';
+import { mapCommunication } from './mappers/communication.ts';
 import { mapCondition } from './mappers/condition.ts';
 import { encounterSpecialty, mapAppointment, mapEncounter } from './mappers/encounter.ts';
 import { mapComposition, mapDocumentReference } from './mappers/notes.ts';
@@ -39,6 +41,15 @@ export interface MapBundleOptions {
   readonly checkFutureDates?: boolean;
 }
 
+/** A contact outcome of the bundle, with the entry it came from. */
+export interface BundleCommunication {
+  readonly communication: MappedCommunication;
+  /** Position of its `Bundle.entry`. */
+  readonly entryIndex: number;
+  /** `Bundle.entry[i].resource`, where issues about it point. */
+  readonly expression: string;
+}
+
 /** A resource to store for a patient, with its id filled in and bundle references resolved. */
 export interface PatientResource {
   readonly patientId: PatientId;
@@ -48,6 +59,11 @@ export interface PatientResource {
 export interface BundleMappingResult {
   /** One batch per patient and consultation; empty when a transaction is rejected. */
   readonly batches: readonly ClinicalBatch[];
+  /**
+   * Contact outcomes (`Communication`s) to record on their attempts, in
+   * bundle order; empty when a transaction is rejected.
+   */
+  readonly communications: readonly BundleCommunication[];
   /** Every patient-scoped resource of the bundle, ready for `ClinicalRecordRepository.saveResource`. */
   readonly resources: readonly PatientResource[];
   /**
@@ -110,6 +126,8 @@ function mapParsed(resource: ParsedResource, ctx: EntryContext): MappedResource 
       return mapDocumentReference(resource, ctx);
     case 'Composition':
       return mapComposition(resource, ctx);
+    case 'Communication':
+      return mapCommunication(resource, ctx);
     case 'Medication':
       return undefined;
   }
@@ -187,6 +205,7 @@ export function mapBundleToBatches(
   if (!indexed.ok) {
     return {
       batches: [],
+      communications: [],
       resources: [],
       contextResources: [],
       issues: toOperationOutcome([...sanitized.issues, ...indexed.issues]),
@@ -245,6 +264,7 @@ export function mapBundleToBatches(
     });
     return {
       batches: [],
+      communications: [],
       resources: [],
       contextResources: [],
       issues: toOperationOutcome(issues),
@@ -306,8 +326,20 @@ export function mapBundleToBatches(
         CONTEXT_TYPES.includes(entry.ref.resourceType),
     )
     .map((entry) => entry.stored);
+  const communications = mappedEntries.flatMap(({ entry, mapped }) =>
+    mapped.communication === undefined
+      ? []
+      : [
+          {
+            communication: mapped.communication,
+            entryIndex: entry.index,
+            expression: entry.expression,
+          },
+        ],
+  );
   return {
     batches,
+    communications,
     resources,
     contextResources,
     issues: toOperationOutcome(issues),

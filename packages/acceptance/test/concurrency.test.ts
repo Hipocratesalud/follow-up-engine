@@ -109,7 +109,7 @@ function concurrency(makeHarness: (options: HarnessOptions) => Promise<EngineHar
     const caseId = await openCase(harness, 'p-rd');
     const results = await race(harness, caseId, [
       { type: 'resolve' },
-      { type: 'dismiss' },
+      { type: 'dismiss', reason: 'already_done' },
       { type: 'resolve', kind: 'not_needed' },
     ]);
     const won = results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
@@ -129,7 +129,12 @@ function concurrency(makeHarness: (options: HarnessOptions) => Promise<EngineHar
     await harness.engine.runEscalation(harness.clinicId, dayToDate(16));
     harness.clock.set(dayToDate(31));
     const [dismissed] = await Promise.allSettled([
-      harness.engine.cases.dismiss(harness.clinicId, caseId, { type: 'user', id: 'u1' }),
+      harness.engine.cases.dismiss(
+        harness.clinicId,
+        caseId,
+        { type: 'user', id: 'u1' },
+        { reason: 'already_done' },
+      ),
       harness.engine.runEscalation(harness.clinicId, dayToDate(31)),
     ]);
     expect(dismissed.status).toBe('fulfilled');

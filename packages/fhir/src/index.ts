@@ -19,6 +19,7 @@ export {
   ENGINE_IDENTIFIER_SYSTEMS,
   FHIR_VERSION,
   FOLLOW_UP_OPT_OUT_CONSENT_CODE,
+  FOLLOW_UP_SUPPRESSION_FLAG_CODE,
   NOTE_TRUNCATED_CODE,
   NOTE_WITHOUT_PLAN_CODE,
   SNOMED_SERVICE_CATEGORY,
@@ -29,12 +30,13 @@ export {
 export {
   mapBundleToBatches,
   validateBundle,
+  type BundleCommunication,
   type BundleMappingResult,
   type BundleValidationResult,
   type MapBundleOptions,
   type PatientResource,
 } from './inbound/map-bundle.ts';
-export type { MappedClinicalEvent } from './inbound/context.ts';
+export type { MappedClinicalEvent, MappedCommunication } from './inbound/context.ts';
 
 // Outbound
 export { expectationToTask, EXPECTATION_TASK_STATUS } from './outbound/expectation-task.ts';
@@ -55,6 +57,15 @@ export {
 export { QUALITY_FINDING_CODES, qualityFindingToDetectedIssue } from './outbound/detected-issue.ts';
 export { caseEventId, caseEventToProvenance, provenanceAgent } from './outbound/provenance.ts';
 export { toSearchsetBundle, type SearchsetOptions } from './outbound/searchset.ts';
+export {
+  channelConcept,
+  communicationToFhir,
+  CONTACT_PURPOSE_TEXT,
+  contactRequestReference,
+  contactRequestStatus,
+  contactRequestToFhir,
+  suppressionToFlag,
+} from './outbound/contact.ts';
 export {
   FhirRepresentationError,
   fhirToPatientCondition,

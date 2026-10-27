@@ -512,7 +512,10 @@ describe(PACKAGE_NAME, () => {
         'diabetes',
         'hypertension',
       ]);
-      expect(config.escalationPolicies.map((policy) => policy.id)).toEqual(['default_v1']);
+      expect(config.escalationPolicies.map((policy) => policy.id)).toEqual([
+        'default_v1',
+        'default_v2',
+      ]);
       expect(config.rules.every((rule) => rule.reason.code === rule.id)).toBe(true);
     });
 

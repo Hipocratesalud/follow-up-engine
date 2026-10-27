@@ -6,7 +6,7 @@ It is an operational, continuity-of-care tool for the clinic. It never gives pat
 
 ## How it works
 
-A host EHR (Hipócrates today, any EHR tomorrow) pushes clinical data as HL7 FHIR R4 through an HTTP API. The engine normalizes it into clinical events, applies versioned rules, protocols and an LLM reading of the doctor's plan to create expectations (FHIR `Task`), watches their deadlines, opens and escalates cases (also `Task`), and calls the host back through signed webhooks.
+A host EHR (Hipócrates today, any EHR tomorrow) pushes clinical data as HL7 FHIR R4 through an HTTP API. The engine normalizes it into clinical events, applies versioned rules, protocols and an LLM reading of the doctor's plan to create expectations (FHIR `Task`), watches their deadlines, opens and escalates cases (also `Task`), and calls the host back through signed webhooks. Each attempt to reach a patient is a `CommunicationRequest` and the host answers with a `Communication` (replied, booked, wrong number, ...), so the engine knows when to wait, call, try again or close the case.
 
 ```
               FHIR R4 (HTTP)                          webhooks (signed)

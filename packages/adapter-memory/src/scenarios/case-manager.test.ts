@@ -63,6 +63,8 @@ describe('escalation default_v1', () => {
           patientId: 'pat-1',
           purpose: 'complete_pending_test',
           dueBy: current.dayAt(37),
+          requestId: expect.any(String) as string,
+          attempt: 1,
         });
       })
       .at(37)
@@ -184,7 +186,7 @@ describe('patient contact rules', () => {
       'escalate_to_coordinator',
     ]);
     const status = await world.engine.patientContactStatus(world.clinicId, world.patientId);
-    expect(status).toEqual({ allowed: false, optedOut: true });
+    expect(status).toEqual({ allowed: false, optedOut: true, contactDataInvalid: false });
   });
 
   it('a user asks for patient contact: allowed once per window, never for an opted-out patient', async () => {
@@ -329,16 +331,29 @@ describe('case commands', () => {
     expect(notified.nextActionAt).toEqual(world.dayAt(30));
     const assigned = await world.engine.cases.assign(world.clinicId, caseId, 'dr-mora', USER);
     expect(assigned.assignee).toBe('dr-mora');
-    const dismissed = await world.engine.cases.dismiss(world.clinicId, caseId, USER, 'duplicate');
+    const { followUpCase: dismissed, feedback } = await world.engine.cases.dismiss(
+      world.clinicId,
+      caseId,
+      USER,
+      { reason: 'other', note: 'duplicate' },
+    );
     expect(dismissed).toMatchObject({
       status: 'dismissed',
-      resolution: { kind: 'not_needed', resolvedBy: 'nurse-ana' },
+      resolution: {
+        kind: 'not_needed',
+        resolvedBy: 'nurse-ana',
+        dismissReason: 'other',
+        note: 'duplicate',
+      },
     });
+    // The dismissal's reason is the case's feedback: one input.
+    expect(feedback).toMatchObject({ useful: false, reason: 'other', comment: 'duplicate' });
     const audit = await world.audit(caseId);
     expect(audit.slice(1).map((event) => [event.type, event.actor])).toEqual([
       ['notified', USER],
       ['assigned', USER],
       ['dismissed', USER],
+      ['feedback_recorded', USER],
     ]);
     await expect(
       world.engine.cases.assign(world.clinicId, caseId, 'dr-mora', USER),

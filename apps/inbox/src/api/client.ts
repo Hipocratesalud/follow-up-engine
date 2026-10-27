@@ -2,6 +2,8 @@ import type { ApiConfig } from '../config.ts';
 import type {
   ApiErrorBody,
   ApiFieldError,
+  CalibrationReportView,
+  CallOutcomeRequest,
   CaseActionRequest,
   CaseDetail,
   CaseListQuery,
@@ -18,6 +20,7 @@ import type {
   PatientDetail,
   PatientSummary,
   RecoveryPage,
+  SuppressionView,
   WebhookDelivery,
 } from './contract.ts';
 
@@ -105,6 +108,9 @@ export interface ApiClient {
   getCase(id: string): Promise<CaseDetail>;
   actOnCase(id: string, body: CaseActionRequest): Promise<CaseDetail>;
   sendFeedback(id: string, body: FeedbackRequest): Promise<unknown>;
+  recordCallOutcome(id: string, body: CallOutcomeRequest): Promise<CaseDetail>;
+  reactivateSuppression(id: string): Promise<SuppressionView>;
+  getCalibration(): Promise<CalibrationReportView>;
   listOwners(): Promise<{ items: OwnerView[] }>;
   listPatients(query: { query?: string; limit?: number }): Promise<{ items: PatientSummary[] }>;
   getPatient(id: string): Promise<PatientDetail>;
@@ -165,6 +171,11 @@ export function createApiClient(config: ApiConfig): ApiClient {
       request('POST', `/inbox/cases/${encodeURIComponent(id)}/actions`, { body }),
     sendFeedback: (id, body) =>
       request('POST', `/inbox/cases/${encodeURIComponent(id)}/feedback`, { body }),
+    recordCallOutcome: (id, body) =>
+      request('POST', `/inbox/cases/${encodeURIComponent(id)}/call-outcome`, { body }),
+    reactivateSuppression: (id) =>
+      request('POST', `/inbox/suppressions/${encodeURIComponent(id)}/reactivate`),
+    getCalibration: () => request('GET', '/inbox/calibration'),
     listOwners: () => request('GET', '/inbox/owners'),
     listPatients: (query) => request('GET', '/inbox/patients', { query: { ...query } }),
     getPatient: (id) => request('GET', `/inbox/patients/${encodeURIComponent(id)}`),

@@ -7,6 +7,7 @@ import {
   loadEscalationPoliciesFromJson,
   loadProtocolsFromJson,
   loadRulesFromJson,
+  type EscalationPolicySource,
   type NamedEscalationPolicy,
   type Protocol,
   type ProtocolSource,
@@ -136,5 +137,25 @@ export class FileRuleSource extends StaticRuleSource {
 export class FileProtocolSource extends StaticProtocolSource {
   constructor(configDir: string = DEFAULT_CONFIG_DIR, options: SourceOptions = {}) {
     super(loadConfigDirectory(configDir).protocols, options);
+  }
+}
+
+/** {@link EscalationPolicySource} over named policies already loaded (the same for every clinic). */
+export class StaticEscalationPolicySource implements EscalationPolicySource {
+  readonly #policies: readonly NamedEscalationPolicy[];
+
+  constructor(policies: readonly NamedEscalationPolicy[]) {
+    this.#policies = policies;
+  }
+
+  listPolicies(): Promise<readonly NamedEscalationPolicy[]> {
+    return Promise.resolve(this.#policies);
+  }
+}
+
+/** {@link EscalationPolicySource} reading `config/rules/escalation` once, at construction. */
+export class FileEscalationPolicySource extends StaticEscalationPolicySource {
+  constructor(configDir: string = DEFAULT_CONFIG_DIR) {
+    super(loadConfigDirectory(configDir).escalationPolicies);
   }
 }

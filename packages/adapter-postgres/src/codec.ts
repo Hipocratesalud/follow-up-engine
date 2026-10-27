@@ -80,6 +80,7 @@ export function decodeDomainEvent(stored: Stored<DomainEvent>): DomainEvent {
     case 'case.resolved':
     case 'backfill.completed':
     case 'backfill.paused':
+    case 'contact.outcome_recorded':
       return { ...event, occurredAt };
     case 'patient_contact.requested': {
       const { dueBy, ...rest } = event.payload;

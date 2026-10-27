@@ -16,6 +16,8 @@ export function priorityOfCase(input: {
   readonly reasons: readonly Expectation[];
   readonly conditions: readonly PatientCondition[];
   readonly escalationStep: number;
+  /** The case's pinned escalation policy, when it has one. */
+  readonly escalationPolicyId?: string | undefined;
   readonly now: Date;
 }): number {
   const live = input.reasons.filter(
@@ -29,7 +31,11 @@ export function priorityOfCase(input: {
     })),
     confirmedProtocols: confirmedProtocols(input.catalog, input.conditions),
     escalationBonus: escalationPriorityBonus(
-      policyOf(input.catalog, input.reasons),
+      policyOf(input.catalog, input.reasons, {
+        ...(input.escalationPolicyId === undefined
+          ? {}
+          : { escalationPolicyId: input.escalationPolicyId }),
+      }),
       input.escalationStep,
     ),
     now: input.now,
@@ -86,6 +92,7 @@ export async function refreshCasePriorities(input: {
           reasons: await caseExpectations(stores, clinicId, followUpCase),
           conditions: patientConditions,
           escalationStep: followUpCase.escalationStep,
+          escalationPolicyId: followUpCase.escalationPolicyId,
           now,
         });
       }

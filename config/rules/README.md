@@ -11,7 +11,7 @@ Rules are never enabled for a clinic without clinical team validation.
 - `universal.json`: deterministic rules over structured data (`lab_order_result_pending`, `imaging_order_result_pending`, `short_treatment_followup`, `abnormal_result_followup`).
 - `doctor-plan.json`: `doctor_plan_followup`, one expectation per item of the plan the LLM read from a note.
 - `cadence.json`: `cadence_break`, a break in the patient's own visit pattern.
-- `escalation/*.json`: named escalation policies (`default_v1`), referenced by id from rules and protocols.
+- `escalation/*.json`: named, versioned escalation policies, referenced by id from rules and protocols: `default_v1` (contact at day 14, coordinator at 21, lost at 35) and `default_v2` (WhatsApp at 14, front-desk call at 21 if nobody answered, coordinator at 21, second WhatsApp at 28, lost at 35). A `request_patient_contact` step may set `channel` (`whatsapp`, `sms`, `email`, or `phone_call` for an inbox task), `answerWindowDays` and `skipIfAnswered`. A clinic runs another named policy with `ClinicSettings.escalationPolicyId`; a changed policy gets a new id, and open cases keep theirs.
 
 ## Clinical criteria (calibrated with the clinical review, HIP-123)
 

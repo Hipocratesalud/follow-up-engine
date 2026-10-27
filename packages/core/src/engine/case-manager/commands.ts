@@ -5,8 +5,16 @@ import type {
   CaseResolutionKind,
   FollowUpCase,
 } from '../../domain/case.ts';
+import {
+  type ContactOutcome,
+  type ContactRequest,
+  type DismissReason,
+  type RuleSuppression,
+  SUPPRESSIBLE_LAYERS,
+} from '../../domain/contact.ts';
+import type { Expectation } from '../../domain/expectation.ts';
 import { NotFoundError, ValidationError } from '../../domain/errors.ts';
-import { type CaseId, type ClinicId, feedbackId } from '../../domain/ids.ts';
+import { type CaseId, type ClinicId, type ContactRequestId, feedbackId } from '../../domain/ids.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { TransactionalStores, UnitOfWork } from '../../ports/unit-of-work.ts';
 import type { Clock } from '../../ports/clock.ts';
@@ -18,10 +26,15 @@ import {
   withNextActionAt,
 } from '../escalation/schedule.ts';
 import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
+import { contactPurpose, openContactAttempt } from '../patient-contact/attempts.ts';
 import { hasOptedOut, lastPatientContactAt } from '../patient-contact/history.ts';
+import {
+  type CommunicationRecordResult,
+  recordCommunication,
+} from '../patient-contact/outcomes.ts';
 import { decidePatientContact, PatientContactNotAllowedError } from '../patient-contact/policy.ts';
 import type { EngineSettings } from '../settings.ts';
-import { addDays } from '../support/time.ts';
+import { suppressRule } from '../suppression/suppressions.ts';
 import { CaseWriter, withoutKey } from './case-writer.ts';
 import { resolveCase } from './reconcile.ts';
 import { isActiveCaseStatus } from './state-machine.ts';
@@ -35,8 +48,39 @@ export type CaseAction =
   | { readonly type: 'notify' }
   | { readonly type: 'snooze'; readonly until: Date; readonly note?: string }
   | { readonly type: 'resolve'; readonly kind?: CaseResolutionKind; readonly note?: string }
-  | { readonly type: 'dismiss'; readonly note?: string }
+  | {
+      readonly type: 'dismiss';
+      readonly reason: DismissReason;
+      /** Required with `other`. */
+      readonly note?: string;
+      /**
+       * With `not_applicable_to_patient`: stop these rules of the case for
+       * the patient ("Dejar de recordarlo para este paciente"). Only rules
+       * of `SUPPRESSIBLE_LAYERS` (protocol items, the visit pattern).
+       */
+      readonly suppressRuleIds?: readonly string[];
+    }
   | { readonly type: 'assign'; readonly assignee: string };
+
+/** Outcomes of a call the team made ("Llamar al paciente"). */
+export const CALL_OUTCOMES = [
+  'booked',
+  'treated_elsewhere',
+  'no_answer',
+  'wrong_number',
+  'declined',
+] as const satisfies readonly ContactOutcome[];
+export type CallOutcome = (typeof CALL_OUTCOMES)[number];
+
+/** The options of a dismissal (see the `dismiss` action). */
+export type DismissInput = Omit<Extract<CaseAction, { readonly type: 'dismiss' }>, 'type'>;
+
+/** What a dismissal did besides closing the case. */
+export interface DismissResult {
+  readonly followUpCase: FollowUpCase;
+  readonly feedback: CaseFeedback;
+  readonly suppressions: readonly RuleSuppression[];
+}
 
 export interface FeedbackInput {
   readonly useful: boolean;
@@ -80,12 +124,20 @@ export interface CaseCommands {
     actor: CaseEventActor,
     options?: { readonly kind?: CaseResolutionKind; readonly note?: string },
   ): Promise<FollowUpCase>;
+  /**
+   * "Descartar": closes the case as `not_needed` with a mandatory reason,
+   * recorded as the case's feedback too (not useful, same reason and note:
+   * one input). `other` needs a note. With `not_applicable_to_patient`,
+   * `suppressRuleIds` (rules of the case's reasons) stops those rules for
+   * the patient. `ValidationError` (HTTP 422) for a missing or inconsistent
+   * input.
+   */
   dismiss(
     clinicId: ClinicId,
     caseId: CaseId,
     actor: CaseEventActor,
-    note?: string,
-  ): Promise<FollowUpCase>;
+    input: DismissInput,
+  ): Promise<DismissResult>;
   assign(
     clinicId: ClinicId,
     caseId: CaseId,
@@ -115,6 +167,21 @@ export interface CaseCommands {
    * rules and evaluating extraction.
    */
   recordFeedback(clinicId: ClinicId, caseId: CaseId, input: FeedbackInput): Promise<CaseFeedback>;
+  /**
+   * The team called the patient ("Llamar al paciente") and records what
+   * came of it, as a `Communication` (medium phone, sender the user) on the
+   * case's pending call. Reacts like an outcome the host reports. Throws
+   * `NotFoundError` when the case has no call to record, `ValidationError`
+   * for an inactive case.
+   */
+  recordCallOutcome(
+    clinicId: ClinicId,
+    caseId: CaseId,
+    input: { readonly outcome: CallOutcome; readonly requestId?: ContactRequestId },
+    actor: CaseEventActor,
+  ): Promise<CommunicationRecordResult>;
+  /** The case's contact attempts, oldest first. */
+  contactAttempts(clinicId: ClinicId, caseId: CaseId): Promise<readonly ContactRequest[]>;
 }
 
 async function requireCase(
@@ -129,6 +196,35 @@ async function requireCase(
     throw new NotFoundError('FollowUpCase', caseId);
   }
   return found;
+}
+
+/** Checks a dismissal's input against the case's reasons. @throws {ValidationError} */
+function validateDismissal(input: DismissInput, reasons: readonly Expectation[]): void {
+  if ((input.reason as string | undefined) === undefined) {
+    throw new ValidationError('reason', 'A reason is required to dismiss a case');
+  }
+  if (input.reason === 'other' && (input.note ?? '').trim() === '') {
+    throw new ValidationError('note', 'Dismissing for another reason needs a note');
+  }
+  const suppress = input.suppressRuleIds ?? [];
+  if (suppress.length > 0 && input.reason !== 'not_applicable_to_patient') {
+    throw new ValidationError(
+      'suppressRuleIds',
+      'Only a case that does not apply to the patient can stop its rules',
+    );
+  }
+  for (const ruleId of suppress) {
+    const reason = reasons.find((expectation) => expectation.ruleId === ruleId);
+    if (reason === undefined) {
+      throw new ValidationError('suppressRuleIds', `Rule ${ruleId} is not a reason of the case`);
+    }
+    if (!SUPPRESSIBLE_LAYERS.has(reason.layer)) {
+      throw new ValidationError(
+        'suppressRuleIds',
+        `Rule ${ruleId} (${reason.layer}) cannot be stopped for one patient`,
+      );
+    }
+  }
 }
 
 export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
@@ -201,29 +297,9 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
               ? {}
               : { note: action.note, payload: { note: action.note } }),
           });
-        case 'dismiss': {
-          const dismissed = await writer.transition(withoutKey(current, 'nextActionAt'), {
-            to: 'dismissed',
-            type: 'dismissed',
-            actor,
-            at: now,
-            ...(action.note === undefined ? {} : { payload: { note: action.note } }),
-            patch: {
-              resolution: {
-                kind: 'not_needed',
-                resolvedAt: now,
-                ...(actor.id === undefined ? {} : { resolvedBy: actor.id }),
-                ...(action.note === undefined ? {} : { note: action.note }),
-              },
-            },
-          });
-          await writer.emit('case.resolved', now, {
-            caseId: dismissed.id,
-            patientId: dismissed.patientId,
-            resolution: 'not_needed',
-          });
-          return dismissed;
-        }
+        case 'dismiss':
+          return (await dismissInTransaction(stores, writer, current, action, actor, now))
+            .followUpCase;
         case 'assign': {
           if (!isActiveCaseStatus(current.status)) {
             throw new ValidationError('status', 'Only active cases can be assigned');
@@ -236,6 +312,88 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
         }
       }
     });
+  }
+
+  /** Dismisses a case with its reason: feedback and suppressions in the same transaction. */
+  async function dismissInTransaction(
+    stores: TransactionalStores,
+    writer: CaseWriter,
+    current: FollowUpCase,
+    input: DismissInput,
+    actor: CaseEventActor,
+    now: Date,
+  ): Promise<DismissResult> {
+    const reasons = await caseExpectations(stores, current.clinicId, current);
+    validateDismissal(input, reasons);
+    const note = input.note?.trim() === '' ? undefined : input.note;
+    const dismissed = await writer.transition(withoutKey(current, 'nextActionAt'), {
+      to: 'dismissed',
+      type: 'dismissed',
+      actor,
+      at: now,
+      payload: {
+        reason: input.reason,
+        ...(note === undefined ? {} : { note }),
+        ...(input.suppressRuleIds === undefined || input.suppressRuleIds.length === 0
+          ? {}
+          : { suppressRuleIds: [...input.suppressRuleIds] }),
+      },
+      patch: {
+        resolution: {
+          kind: 'not_needed',
+          resolvedAt: now,
+          dismissReason: input.reason,
+          ...(actor.id === undefined ? {} : { resolvedBy: actor.id }),
+          ...(note === undefined ? {} : { note }),
+        },
+      },
+    });
+    await writer.emit('case.resolved', now, {
+      caseId: dismissed.id,
+      patientId: dismissed.patientId,
+      resolution: 'not_needed',
+    });
+    // The reason is the case's feedback: the team answers once.
+    const feedback: CaseFeedback = {
+      id: feedbackId(deps.ids.next('feedback')),
+      clinicId: current.clinicId,
+      caseId: current.id,
+      useful: false,
+      reason: input.reason,
+      ...(note === undefined ? {} : { comment: note }),
+      ...(actor.id === undefined ? {} : { authorId: actor.id }),
+      createdAt: now,
+    };
+    await stores.feedback.record(current.clinicId, feedback);
+    await writer.audit(dismissed, 'feedback_recorded', actor, now, {
+      feedbackId: feedback.id,
+      useful: false,
+      reason: input.reason,
+      source: 'dismissal',
+    });
+    const suppressions: RuleSuppression[] = [];
+    for (const ruleId of new Set(input.suppressRuleIds ?? [])) {
+      const expectation = reasons.find((candidate) => candidate.ruleId === ruleId);
+      if (expectation === undefined) {
+        continue;
+      }
+      suppressions.push(
+        await suppressRule(
+          { stores, ids: deps.ids, clinicId: current.clinicId },
+          {
+            patientId: current.patientId,
+            ruleId,
+            reason: expectation.reason,
+            dismissReason: input.reason,
+            ...(note === undefined ? {} : { note }),
+            caseId: current.id,
+            actor,
+            now,
+          },
+        ),
+      );
+    }
+    return { followUpCase: dismissed, feedback, suppressions };
   }
 
   async function requestPatientContact(
@@ -265,23 +423,19 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
       if (!decision.allowed) {
         throw new PatientContactNotAllowedError(decision.reason);
       }
-      const [first] = await caseExpectations(stores, clinicId, current);
-      const purpose =
-        (first === undefined
-          ? undefined
-          : catalog.definition(first.ruleId)?.suggestedAction.patientContactPurpose) ??
-        'schedule_follow_up';
       const writer = new CaseWriter(stores, deps.ids, clinicId);
-      await writer.audit(current, 'patient_contact_requested', actor, now, {
-        purpose,
-        ...(note === undefined ? {} : { note }),
-      });
-      await writer.emit('patient_contact.requested', now, {
-        caseId: current.id,
-        patientId: current.patientId,
-        purpose,
-        dueBy: addDays(now, deps.settings.patientContactDueInDays),
-      });
+      await openContactAttempt(
+        { stores, writer, ids: deps.ids },
+        {
+          followUpCase: current,
+          purpose: contactPurpose(catalog, await caseExpectations(stores, clinicId, current)),
+          trigger: 'user',
+          answerWindowDays: deps.settings.patientContactDueInDays,
+          actor,
+          now,
+          ...(note === undefined ? {} : { note }),
+        },
+      );
       return current;
     });
   }
@@ -294,10 +448,58 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
       apply(clinicId, caseId, { type: 'snooze', until }, actor),
     resolve: (clinicId, caseId, actor, options = {}) =>
       apply(clinicId, caseId, { type: 'resolve', ...options }, actor),
-    dismiss: (clinicId, caseId, actor, note) =>
-      apply(clinicId, caseId, { type: 'dismiss', ...(note === undefined ? {} : { note }) }, actor),
+    dismiss: (clinicId, caseId, actor, input) =>
+      deps.unitOfWork.withTransaction(clinicId, async (stores) =>
+        dismissInTransaction(
+          stores,
+          new CaseWriter(stores, deps.ids, clinicId),
+          await requireCase(stores, clinicId, caseId),
+          input,
+          actor,
+          deps.clock.now(),
+        ),
+      ),
     assign: (clinicId, caseId, assignee, actor) =>
       apply(clinicId, caseId, { type: 'assign', assignee }, actor),
+    async recordCallOutcome(clinicId, caseId, input, actor) {
+      const request = await deps.unitOfWork.withTransaction(clinicId, async (stores) => {
+        const current = await requireCase(stores, clinicId, caseId);
+        if (!isActiveCaseStatus(current.status)) {
+          throw new ValidationError('status', 'Only an active case has calls to record');
+        }
+        const calls = (await stores.contacts.listRequestsForCase(clinicId, caseId)).filter(
+          (candidate) => candidate.channel === 'phone_call',
+        );
+        const found =
+          input.requestId === undefined
+            ? calls.at(-1)
+            : calls.find((candidate) => candidate.id === input.requestId);
+        if (found === undefined) {
+          throw new NotFoundError('CommunicationRequest', input.requestId ?? `${caseId}:call`);
+        }
+        return found;
+      });
+      const now = deps.clock.now();
+      const reached = input.outcome !== 'no_answer' && input.outcome !== 'wrong_number';
+      return recordCommunication(
+        deps,
+        clinicId,
+        {
+          id: deps.ids.next('communication'),
+          requestId: request.id,
+          channel: 'phone_call',
+          status: reached ? 'completed' : 'not-done',
+          outcome: input.outcome,
+          sentAt: now,
+          sender: { type: 'user', ...(actor.id === undefined ? {} : { id: actor.id }) },
+        },
+        now,
+      );
+    },
+    contactAttempts: (clinicId, caseId) =>
+      deps.unitOfWork.withTransaction(clinicId, (stores) =>
+        stores.contacts.listRequestsForCase(clinicId, caseId),
+      ),
     async recordFeedback(clinicId, caseId, input) {
       if (!input.useful && input.reason === undefined) {
         throw new ValidationError('reason', 'A reason is required when the case was not useful');

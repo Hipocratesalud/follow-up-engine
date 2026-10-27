@@ -4,6 +4,7 @@ import { PostgresAuditLog, PostgresFeedbackRepository } from './case-records.ts'
 import { PostgresCaseRepository } from './case-repository.ts';
 import { PostgresClinicDirectory } from './clinic-directory.ts';
 import { PostgresClinicalRecordRepository } from './clinical-record-repository.ts';
+import { PostgresContactRepository, PostgresSuppressionRepository } from './contact-repository.ts';
 import {
   PostgresConditionRepository,
   PostgresQualityFindingRepository,
@@ -28,6 +29,8 @@ export interface PostgresStores extends TransactionalStores {
   readonly clinics: PostgresClinicDirectory;
   readonly llmUsage: PostgresLlmUsageLog;
   readonly backfillProgress: PostgresBackfillProgressStore;
+  readonly contacts: PostgresContactRepository;
+  readonly suppressions: PostgresSuppressionRepository;
 }
 
 export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): PostgresStores {
@@ -45,5 +48,7 @@ export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): P
     clinics: new PostgresClinicDirectory(ctx),
     llmUsage: new PostgresLlmUsageLog(ctx),
     backfillProgress: new PostgresBackfillProgressStore(ctx),
+    contacts: new PostgresContactRepository(ctx),
+    suppressions: new PostgresSuppressionRepository(ctx),
   };
 }

@@ -1,11 +1,17 @@
 import {
+  CALL_OUTCOMES,
+  CASE_FEEDBACK_REASONS,
   CASE_STATUSES,
+  CONTACT_CHANNELS,
+  CONTACT_OUTCOMES,
+  DISMISS_REASONS,
   ESCALATION_ACTIONS,
   EXPECTATION_LAYERS,
   EXPECTATION_STATUSES,
   PLAN_ITEM_KINDS,
 } from '@follow-up-engine/core';
 import { z } from 'zod';
+import { CONTACT_LOOP_MESSAGES } from '../inbox/labels.ts';
 
 /**
  * The inbox JSON contract (`/api`), as zod schemas: requests are validated
@@ -27,6 +33,12 @@ export const FeedbackReasonSchema = z.enum([
   'already_handled',
   'other',
 ]);
+/** A recorded verdict's reason: a feedback reason, or the reason of a dismissal. */
+export const VerdictReasonSchema = z.enum(CASE_FEEDBACK_REASONS);
+export const DismissReasonSchema = z.enum(DISMISS_REASONS);
+export const ContactChannelSchema = z.enum(CONTACT_CHANNELS);
+export const ContactOutcomeSchema = z.enum(CONTACT_OUTCOMES);
+export const CallOutcomeSchema = z.enum(CALL_OUTCOMES);
 
 export const ErrorBodySchema = z
   .object({
@@ -58,8 +70,28 @@ export const PatientSummarySchema = z
   })
   .meta({ id: 'PatientSummary' });
 
+export const ContactFlagViewSchema = z
+  .object({
+    issue: z.enum(['wrong_number']),
+    label: z.string().meta({ description: 'Spanish: "Número equivocado"' }),
+    raisedAt: isoDate,
+    channel: ContactChannelSchema.optional(),
+  })
+  .meta({ id: 'ContactFlagView' });
+
 export const PatientContactSchema = z
-  .object({ allowed: z.boolean(), optedOut: z.boolean(), lastContactAt: isoDate.optional() })
+  .object({
+    allowed: z.boolean(),
+    optedOut: z.boolean(),
+    lastContactAt: isoDate
+      .optional()
+      .meta({ description: 'The last message the host was asked to send (calls do not count)' }),
+    contactDataInvalid: z.boolean().optional().meta({
+      description:
+        'The contact data is flagged (a wrong number): messages are skipped, calls go on',
+    }),
+    contactFlag: ContactFlagViewSchema.optional(),
+  })
   .meta({ id: 'PatientContact' });
 
 export const CaseReasonViewSchema = z
@@ -70,6 +102,10 @@ export const CaseReasonViewSchema = z
     label: z.string().meta({ description: 'Spanish; never includes a day count' }),
     dueAt: isoDate,
     overdueDays: z.number().int(),
+    suppressible: z.boolean().meta({
+      description:
+        'A protocol item or the visit pattern: "Dejar de recordarlo para este paciente" can stop it (dismiss with suppress)',
+    }),
     source: z.object({ resourceType: z.string(), id: z.string(), display: z.string() }),
     evidence: z
       .object({
@@ -156,13 +192,85 @@ export const CaseTimelineEntrySchema = z
 
 export const CaseFeedbackViewSchema = z.object({
   useful: z.boolean(),
-  reason: FeedbackReasonSchema.optional(),
+  reason: VerdictReasonSchema.optional(),
   comment: z.string().optional(),
 });
+
+export const ContactCommunicationViewSchema = z
+  .object({
+    id: z.string().meta({ description: 'The Communication id' }),
+    at: isoDate,
+    status: z.string().meta({ description: 'FHIR Communication.status' }),
+    outcome: ContactOutcomeSchema.optional(),
+    outcomeLabel: z.string().optional(),
+    sender: z.enum(['host', 'user']),
+    senderName: z.string().optional(),
+  })
+  .meta({ id: 'ContactCommunicationView' });
+
+export const ContactAttemptViewSchema = z
+  .object({
+    id: z.string().meta({ description: 'The CommunicationRequest id' }),
+    attempt: z.number().int(),
+    channel: ContactChannelSchema.optional(),
+    channelLabel: z.string(),
+    trigger: z.enum(['policy', 'user', 'wrong_number']),
+    requestedAt: isoDate,
+    dueBy: isoDate,
+    requestedBy: z.string().optional(),
+    status: z.enum(['waiting', 'answered', 'unreached', 'unanswered', 'pending_call', 'closed']),
+    statusLabel: z.string(),
+    outcome: ContactOutcomeSchema.optional(),
+    outcomeLabel: z.string().optional(),
+    outcomeAt: isoDate.optional(),
+    communications: z.array(ContactCommunicationViewSchema),
+  })
+  .meta({ id: 'ContactAttemptView' });
+
+export const CallTaskViewSchema = z
+  .object({
+    requestId: z.string(),
+    dueBy: isoDate,
+    overdue: z.boolean(),
+    trigger: z.enum(['policy', 'user', 'wrong_number']),
+    outcomes: z.array(z.object({ outcome: CallOutcomeSchema, label: z.string() })),
+  })
+  .meta({ id: 'CallTaskView' });
+
+export const SuppressionViewSchema = z
+  .object({
+    id: z.string(),
+    ruleId: z.string(),
+    label: z.string(),
+    dismissReason: DismissReasonSchema,
+    dismissReasonLabel: z.string(),
+    note: z.string().optional(),
+    caseId: z.string().optional(),
+    createdAt: isoDate,
+    createdBy: z.string().optional(),
+    active: z.boolean(),
+    revokedAt: isoDate.optional(),
+    revokedBy: z.string().optional(),
+  })
+  .meta({ id: 'SuppressionView' });
+
+export const DismissalViewSchema = z
+  .object({
+    reason: DismissReasonSchema,
+    reasonLabel: z.string(),
+    note: z.string().optional(),
+    by: z.string().optional(),
+    at: isoDate,
+    suppressions: z.array(SuppressionViewSchema),
+  })
+  .meta({ id: 'DismissalView' });
 
 export const CaseDetailSchema = CaseViewSchema.extend({
   timeline: z.array(CaseTimelineEntrySchema),
   feedback: CaseFeedbackViewSchema.optional(),
+  contactAttempts: z.array(ContactAttemptViewSchema),
+  callTask: CallTaskViewSchema.optional(),
+  dismissal: DismissalViewSchema.optional(),
 }).meta({ id: 'CaseDetail' });
 
 export const CasePageSchema = z
@@ -210,12 +318,64 @@ export const CaseActionRequestSchema = z
     action: z.enum(['notify', 'snooze', 'resolve', 'dismiss']),
     snoozeDays: z.number().int().min(1).max(365).optional(),
     note: z.string().max(2_000).optional(),
+    reason: DismissReasonSchema.optional().meta({ description: 'dismiss: required' }),
+    suppress: z.boolean().optional().meta({
+      description:
+        'dismiss with not_applicable_to_patient: stop the case rules for this patient ("Dejar de recordarlo")',
+    }),
   })
   .refine((body) => body.action !== 'snooze' || body.snoozeDays !== undefined, {
     message: 'Indica por cuántos días posponer el caso.',
     path: ['snoozeDays'],
   })
+  .refine((body) => body.action !== 'dismiss' || body.reason !== undefined, {
+    message: 'Elige por qué descartas el caso.',
+    path: ['reason'],
+  })
+  .refine(
+    (body) =>
+      body.action !== 'dismiss' || body.reason !== 'other' || (body.note ?? '').trim() !== '',
+    { message: 'Escribe una nota que explique el motivo.', path: ['note'] },
+  )
+  .refine(
+    (body) =>
+      body.action !== 'dismiss' ||
+      body.suppress !== true ||
+      body.reason === 'not_applicable_to_patient',
+    { message: CONTACT_LOOP_MESSAGES.suppressNeedsNotApplicable, path: ['suppress'] },
+  )
   .meta({ id: 'CaseActionRequest' });
+
+export const CallOutcomeRequestSchema = z
+  .object({
+    outcome: CallOutcomeSchema,
+    requestId: z.string().max(64).optional().meta({
+      description: 'The call (callTask.requestId); the latest call of the case when absent',
+    }),
+  })
+  .meta({ id: 'CallOutcomeRequest' });
+
+export const RuleCalibrationViewSchema = z
+  .object({
+    ruleId: z.string(),
+    label: z.string(),
+    layer: LayerSchema.optional(),
+    casesWithFeedback: z.number().int(),
+    useful: z.number().int(),
+    notUseful: z.number().int(),
+    usefulRate: z.number().optional(),
+    dismissals: z.record(DismissReasonSchema, z.number().int()),
+    notUsefulReasons: z.record(z.string(), z.number().int()),
+  })
+  .meta({ id: 'RuleCalibrationView' });
+
+export const CalibrationReportSchema = z
+  .object({ since: isoDate.optional(), rules: z.array(RuleCalibrationViewSchema) })
+  .meta({ id: 'CalibrationReport' });
+
+export const CalibrationQuerySchema = z.object({
+  since: z.iso.datetime({ offset: true }).optional(),
+});
 
 /** `reason` is required when the case was not useful (and optional when it was). */
 export const FeedbackRequestSchema = z
@@ -280,6 +440,9 @@ export const PatientDetailSchema = z
     conditions: z.array(ConditionViewSchema),
     expectations: z.array(PatientExpectationViewSchema),
     qualityFindings: z.array(QualityFindingViewSchema),
+    suppressions: z.array(SuppressionViewSchema).meta({
+      description: 'Rules stopped for this patient, active first ("Recordatorios desactivados")',
+    }),
   })
   .meta({ id: 'PatientDetail' });
 
@@ -418,6 +581,13 @@ export type InboxStats = z.infer<typeof InboxStatsSchema>;
 export type DemoConsultationResponse = z.infer<typeof DemoConsultationResponseSchema>;
 export type CreatedExpectation = z.infer<typeof CreatedExpectationSchema>;
 export type WebhookDelivery = z.infer<typeof WebhookDeliverySchema>;
+export type ContactAttemptView = z.infer<typeof ContactAttemptViewSchema>;
+export type ContactCommunicationView = z.infer<typeof ContactCommunicationViewSchema>;
+export type CallTaskView = z.infer<typeof CallTaskViewSchema>;
+export type SuppressionView = z.infer<typeof SuppressionViewSchema>;
+export type DismissalView = z.infer<typeof DismissalViewSchema>;
+export type ContactFlagView = z.infer<typeof ContactFlagViewSchema>;
+export type CalibrationReportView = z.infer<typeof CalibrationReportSchema>;
 
 /** `GET /jobs/:id`: an asynchronous ingestion as the host can follow it. */
 export const JobStatusViewSchema = z

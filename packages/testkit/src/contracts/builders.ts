@@ -4,6 +4,9 @@ import {
   caseId,
   type ClinicalEvent,
   type ClinicId,
+  type ContactCommunication,
+  type ContactRequest,
+  contactRequestId,
   type DomainEvent,
   type Expectation,
   expectationId,
@@ -14,6 +17,8 @@ import {
   patientId,
   type PatientId,
   type QualityFinding,
+  type RuleSuppression,
+  suppressionId,
 } from '@follow-up-engine/core';
 import { at, uniqueId } from './harness.ts';
 
@@ -157,4 +162,60 @@ export function anEncounterEvent(
     specialty: 'diabetology',
     ...overrides,
   } as ClinicalEvent;
+}
+
+export function aContactRequest(
+  clinic: ClinicId,
+  overrides: Partial<ContactRequest> = {},
+): ContactRequest {
+  return {
+    id: contactRequestId(uniqueId('cr')),
+    clinicId: clinic,
+    patientId: patientId('pat-1'),
+    caseId: caseId('case-1'),
+    channel: 'whatsapp',
+    purpose: 'schedule_follow_up',
+    trigger: 'policy',
+    attempt: 1,
+    policyStep: 2,
+    requestedAt: at(14),
+    dueBy: at(21),
+    ...overrides,
+  };
+}
+
+export function aCommunication(
+  clinic: ClinicId,
+  overrides: Partial<ContactCommunication> = {},
+): ContactCommunication {
+  return {
+    id: uniqueId('comm'),
+    clinicId: clinic,
+    patientId: patientId('pat-1'),
+    caseId: caseId('case-1'),
+    requestId: contactRequestId('cr-1'),
+    channel: 'whatsapp',
+    status: 'completed',
+    outcome: 'delivered',
+    sentAt: at(14),
+    sender: { type: 'host' },
+    recordedAt: at(14),
+    ...overrides,
+  };
+}
+
+export function aSuppression(
+  clinic: ClinicId,
+  overrides: Partial<RuleSuppression> = {},
+): RuleSuppression {
+  return {
+    id: suppressionId(uniqueId('sup')),
+    clinicId: clinic,
+    patientId: patientId('pat-1'),
+    ruleId: 'protocol_diabetes_fundus',
+    reason: { code: 'protocol_diabetes_fundus', label: 'Fondo de ojo' },
+    dismissReason: 'not_applicable_to_patient',
+    createdAt: at(0),
+    ...overrides,
+  };
 }
