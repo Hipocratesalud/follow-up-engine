@@ -28,6 +28,8 @@ function operationOf(doc: OpenApiDoc, method: string, path: string) {
   return template === undefined ? undefined : doc.paths[template]?.[verb];
 }
 
+const ADMIN_KEY = 'openapi-admin-key';
+
 describe('OpenAPI document', () => {
   let h: Harness;
   let doc: OpenApiDoc;
@@ -38,6 +40,12 @@ describe('OpenAPI document', () => {
     doc = (await h.call<OpenApiDoc>('/openapi.json', { key: '' })).body;
     await h.call('/fhir?sync=true', { body: fixture('consultation-diabetology'), fhir: true });
     await h.call('/api/demo/clock/advance', { body: { days: 20 } });
+    await h.runtime.issueApiKey({
+      clinicId: 'clinic-demo',
+      label: 'admin',
+      scopes: ['admin:rules'],
+      apiKey: ADMIN_KEY,
+    });
     caseId = (await h.call<{ items: CaseView[] }>('/api/inbox/cases')).body.items[0]?.id ?? '';
   });
   afterAll(async () => {
@@ -48,7 +56,7 @@ describe('OpenAPI document', () => {
   const requests: readonly (readonly [
     string,
     string,
-    { body?: unknown; fhir?: boolean; key?: string; raw?: boolean },
+    { body?: unknown; fhir?: boolean; key?: string; raw?: boolean; user?: boolean },
   ])[] = [
     ['GET', '/fhir/metadata', { key: '' }],
     ['POST', '/fhir', { body: fixture('consultation-diabetology'), fhir: true }],
@@ -91,6 +99,39 @@ describe('OpenAPI document', () => {
       '/api/inbox/finding-flags',
       { body: { category: 'lab_trend', enabled: true, mode: 'live' } },
     ],
+    ['GET', '/api/admin/rules', {}],
+    ['GET', '/api/admin/rules', { key: ADMIN_KEY }],
+    ['GET', '/api/admin/rules/history?limit=0', { key: ADMIN_KEY }],
+    ['GET', '/api/admin/rules/history', { key: ADMIN_KEY }],
+    [
+      'PUT',
+      '/api/admin/rules',
+      { key: ADMIN_KEY, body: { ruleId: 'nope', override: { dueInDays: 3 }, reason: 'x' } },
+    ],
+    ['PUT', '/api/admin/rules', { key: ADMIN_KEY, body: '{' }],
+    [
+      'PUT',
+      '/api/admin/rules',
+      {
+        key: ADMIN_KEY,
+        body: { ruleId: 'cadence_break', override: { dueInDays: 30 }, reason: 'x' },
+        user: true,
+      },
+    ],
+    [
+      'PUT',
+      '/api/admin/rules',
+      {
+        key: ADMIN_KEY,
+        body: {
+          ruleId: 'cadence_break',
+          override: { dueInDays: 40 },
+          reason: 'x',
+          expectedVersion: 0,
+        },
+        user: true,
+      },
+    ],
     ['POST', '/api/demo/review/nobody', {}],
     ['POST', `/api/demo/review/${FIXTURE_PATIENT}`, {}],
   ];
@@ -103,6 +144,7 @@ describe('OpenAPI document', () => {
       ...(init.fhir === true ? { fhir: true } : {}),
       ...(init.key === undefined ? {} : { key: init.key }),
       ...(init.raw === true ? { headers: { 'content-type': 'text/plain' } } : {}),
+      ...(init.user === true ? { headers: { 'x-followup-user': 'ops' } } : {}),
     });
     const operation = operationOf(doc, method, path);
     expect(operation, `${method} ${path} is not in the document`).toBeDefined();

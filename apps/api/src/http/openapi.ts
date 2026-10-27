@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import './schemas.ts';
 import './reviewer-schemas.ts';
+import './admin-schemas.ts';
 
 /*
  * OpenAPI 3.1 document of the API. Component schemas are generated from the
@@ -20,7 +21,7 @@ interface Param {
 interface Operation {
   readonly method: 'get' | 'post' | 'put';
   readonly path: string;
-  readonly tag: 'FHIR' | 'Inbox' | 'Demo' | 'Health' | 'Jobs';
+  readonly tag: 'FHIR' | 'Inbox' | 'Admin' | 'Demo' | 'Health' | 'Jobs';
   readonly summary: string;
   readonly description?: string;
   readonly params?: readonly Param[];
@@ -495,6 +496,40 @@ const OPERATIONS: readonly Operation[] = [
   },
   {
     method: 'get',
+    path: '/api/admin/rules',
+    tag: 'Admin',
+    summary:
+      "The clinic's rules: defaults, the override in force and the version new expectations carry",
+    response: 'AdminRuleList',
+  },
+  {
+    method: 'put',
+    path: '/api/admin/rules',
+    tag: 'Admin',
+    summary:
+      'Change one rule for the clinic (override.dueInDays / override.enabled, or override: null ' +
+      'to reset), with a reason; applies to expectations created afterwards',
+    description:
+      'Audited: who (X-FollowUp-User, required), when, old → new and why. Existing ' +
+      'expectations keep their deadline and rule version.',
+    body: 'AdminRuleUpdate',
+    response: 'AdminRuleUpdateResult',
+    errors: [409, 422],
+  },
+  {
+    method: 'get',
+    path: '/api/admin/rules/history',
+    tag: 'Admin',
+    summary: "History of the clinic's rule changes, newest first",
+    params: [
+      { name: 'ruleId', in: 'query' },
+      { name: 'limit', in: 'query' },
+    ],
+    response: 'AdminRuleHistory',
+    errors: [422],
+  },
+  {
+    method: 'get',
     path: '/api/demo/clock',
     tag: 'Demo',
     summary: 'Fake clock (404 with a real clock)',
@@ -551,7 +586,7 @@ const ERROR_DESCRIPTIONS: Readonly<Record<number, string>> = {
   401: 'Missing or invalid API key',
   403: 'The API key lacks the scope this operation needs',
   404: 'Not found',
-  409: 'Invalid case transition',
+  409: 'Invalid case transition, or a stale expectedVersion',
   413: 'Body larger than 5 MB',
   415: 'Unsupported media type',
   422: 'Validation error: code invalid_request, Spanish message and fields (one per invalid field)',
@@ -655,6 +690,12 @@ export function openApiDocument(options: { readonly demo: boolean }): Record<str
     tags: [
       { name: 'FHIR', description: 'HL7 FHIR R4 (application/fhir+json)' },
       { name: 'Inbox', description: 'JSON API of the clinic inbox (Spanish labels)' },
+      {
+        name: 'Admin',
+        description:
+          "The clinic's rule configuration (scope admin:rules): deadlines and switches per rule, " +
+          'versioned and audited',
+      },
       {
         name: 'Demo',
         description:
