@@ -8,6 +8,13 @@ It is an operational, continuity-of-care tool for the clinic. It never gives pat
 
 A host EHR (Hipócrates today, any EHR tomorrow) pushes clinical data as HL7 FHIR R4 through an HTTP API. The engine normalizes it into clinical events, applies versioned rules, protocols and an LLM reading of the doctor's plan to create expectations (FHIR `Task`), watches their deadlines, opens and escalates cases (also `Task`), and calls the host back through signed webhooks.
 
+On top, a **clinical reviewer** looks for what nobody wrote down ([docs/reviewer.md](docs/reviewer.md)): a creatinine rising over three results that no note mentions, metformin with a falling eGFR, a headache in three notes never worked up.
+
+- Deterministic detectors compute trends and run curated checks.
+- An LLM agent behind `llm_gateway`, limited to read-only tools over one patient's record (`get_lab_trend`, `get_notes`, `check_interaction`, ...), confirms, discards or adds findings.
+- Code then checks every citation word for word against the record and decides what is already covered.
+- Findings are suggestions to the clinical team with cited evidence (FHIR `DetectedIssue`). They start in **shadow mode**, reviewed in batches by clinical staff, and a category reaches doctors only after the team signs it off.
+
 ```
               FHIR R4 (HTTP)                          webhooks (signed)
   Host EHR ─────────────────┐                ┌──────────────────────▶ Host EHR
@@ -72,7 +79,20 @@ Run the inbox against the API with `VITE_API_URL=http://localhost:3000 VITE_API_
 
 The demo clinic has two keys, both synthetic and refused on a real clock: `demo-clinic-key`, the host integration key (`fhir:write`, the inbox and the demo controls), and `demo-inbox-key` for the inbox (`inbox:read`, `inbox:act`, `demo:clock`, `demo:ingest`; it cannot ingest FHIR, and demo consultations only go to the synthetic demo clinic). Set `DEMO_API_KEY` / `DEMO_INBOX_API_KEY` to change them. In production each clinic gets its own scoped keys from `pnpm --filter @follow-up-engine/api clinic:create` and the inbox runs behind the host's login ([deploy.md](docs/deploy.md#security-checklist-production)).
 
-`pnpm demo` loads the synthetic clinic (120 fictional patients, two years of history) through the initial backfill, the way a real clinic is switched on: about 2 s in memory. It ends with 85 cases with origin `backfill` for 75 patients (at most 2 per patient). The demo clinic releases at most 5 of them per owner and day (`dailyCaseCapPerOwner`, 20 for real clinics), so the inbox starts with 45, 40 wait in "Por recuperar" with their release day, and "+1 día" on the Demo page lets in the next batch (32 on day 1, the last 8 on day 2). By layer (a case can have reasons of several): 33 universal, 33 doctor's plan, 24 protocol, 8 cadence. By the patient's specialty: 35 diabetology, 19 gynecology, 16 psychology, 15 internal medicine. By priority: 6 high, 13 medium, 66 low. The Demo page saves a consultation, shows how the note was read and moves the simulated clock; signed webhooks land in an in-process sink. Notes are read by the fake provider (rules, no model) unless you set `LLM_PROVIDER=meta` and `META_API_KEY` (see `.env.example`).
+`pnpm demo` loads the synthetic clinic (120 fictional patients, two years of history) through the initial backfill, the way a real clinic is switched on: about 2 s in memory. It ends with 85 cases with origin `backfill` for 75 patients (at most 2 per patient). The demo clinic releases at most 5 of them per owner and day (`dailyCaseCapPerOwner`, 20 for real clinics), so the inbox starts with 45, 40 wait in "Por recuperar" with their release day, and "+1 día" on the Demo page lets in the next batch (32 on day 1, the last 8 on day 2). By layer (a case can have reasons of several): 33 universal, 33 doctor's plan, 24 protocol, 8 cadence. By the patient's specialty: 35 diabetology, 19 gynecology, 16 psychology, 15 internal medicine. By priority: 6 high, 13 medium, 66 low.
+
+The clinical reviewer's shadow pilot runs on top. Twenty more synthetic patients, the reviewer cohort, join through the same backfill: ten with planted findings, ten controls. Their cases add 9 to the inbox on day 0, 54 in all. Then every one of the 140 patients gets one review: 84 shadow findings, about 60 per 100 patients:
+
+- 30 record quality
+- 25 questions for the next visit
+- 17 missing check-ups
+- 3 drug interactions
+- 2 lab trends, 2 vital-sign trends and 2 unaddressed symptoms
+- 1 drug-condition conflict, 1 abnormal result without follow-up and 1 utilization change
+
+"Revisión clínica" lists them for the clinical staff's verdicts. `SEED_REVIEWER=false` skips the cohort and the reviews. "Categorías" turns each category live once someone signs it off.
+
+The Demo page saves a consultation, shows how the note was read and moves the simulated clock; signed webhooks land in an in-process sink. Notes are read by the fake provider (rules, no model) unless you set `LLM_PROVIDER=meta` and `META_API_KEY` (see `.env.example`).
 
 ### On Postgres
 
@@ -112,6 +132,7 @@ docker compose --profile app up --build       # production-like split: API, work
 - [0003 Postgres job runner and transactional outbox](docs/adr/0003-postgres-job-runner-and-outbox.md)
 - [0004 Single llm_gateway, Meta models first](docs/adr/0004-llm-gateway-meta-models.md)
 - [0005 HTTP API on Hono, one engine runtime for the API and the worker](docs/adr/0005-http-api-and-runtime.md) (amended: the runtime is `packages/runtime`)
+- [0006 Clinical reviewer: deterministic detectors, a bounded LLM agent, code-checked findings, shadow first](docs/adr/0006-clinical-reviewer-agent.md)
 
 ## Principles
 
