@@ -108,6 +108,7 @@ export async function annotate(
       timeline: state.timeline,
       conditions: conditions.all,
       planned: plannedItems(state.live.list(), planDrafts),
+      now: context.now,
     }),
     ...planDrafts,
   ];

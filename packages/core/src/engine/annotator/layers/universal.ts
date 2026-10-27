@@ -10,7 +10,7 @@ import type { Catalog, ExpectationDefinition } from '../../catalog.ts';
 import { matchesFilter } from '../../matching/filter.ts';
 import { matchKeyFor } from '../../matching/match-key.ts';
 import { resultValueAs } from '../../terminology/loinc.ts';
-import { codeOfEvent } from '../../matching/correlation.ts';
+import { codeOfEvent, normalizeSpecialty, visitSpecialtyFits } from '../../matching/correlation.ts';
 import { addDays } from '../../support/time.ts';
 import { encounterOf, eventInstant, type PatientTimeline, refKey } from '../../timeline.ts';
 
@@ -114,17 +114,7 @@ function atKnownTarget(
   if (targets === undefined || event.value === undefined) {
     return false;
   }
-  const batchResults = new Set(
-    batch.flatMap((other) => (other.type === 'result.received' ? [refKey(other.source)] : [])),
-  );
-  const known = conditions.filter(
-    (condition) =>
-      (condition.status === 'confirmed' || condition.status === 'probable') &&
-      !(
-        condition.sourceType === 'inferred_from_result' &&
-        batchResults.has(refKey(condition.source))
-      ),
-  );
+  const known = knownConditions(conditions, batch);
   // The value read as the target's code and unit: an IFCC HbA1c in mmol/mol
   // is compared with the % target after conversion.
   return targets.some((target) => {
@@ -146,9 +136,130 @@ function triggers(rule: Rule, event: ClinicalEvent, input: UniversalInput): bool
     return expectsTreatmentControl(rule, event, input.timeline);
   }
   if (event.type === 'result.received') {
-    return !atKnownTarget(rule.resultTargets, event, input.conditions, input.events);
+    return (
+      !atKnownTarget(rule.resultTargets, event, input.conditions, input.events) &&
+      !controlAlreadyScheduled(rule, event, input)
+    );
   }
   return true;
+}
+
+/** Known conditions that make a result target apply (not inferred from this batch's results). */
+function knownConditions(
+  conditions: readonly PatientCondition[],
+  batch: readonly ClinicalEvent[],
+): PatientCondition[] {
+  const batchResults = new Set(
+    batch.flatMap((other) => (other.type === 'result.received' ? [refKey(other.source)] : [])),
+  );
+  return conditions.filter(
+    (condition) =>
+      (condition.status === 'confirmed' || condition.status === 'probable') &&
+      !(
+        condition.sourceType === 'inferred_from_result' &&
+        batchResults.has(refKey(condition.source))
+      ),
+  );
+}
+
+/**
+ * How a chronic marker compares with the patient's own level: `stable` when
+ * the value is at most `stableWithin` above the previous result of the same
+ * measurement (HbA1c 8.5 % after 8.5 % in a known diabetic), `worse` when
+ * it rose more than that, `unknown` without a target, a known condition or
+ * a previous result.
+ */
+function levelChange(
+  targets: readonly ResultTarget[] | undefined,
+  event: ResultReceivedEvent,
+  input: UniversalInput,
+): 'stable' | 'worse' | 'unknown' {
+  const known = knownConditions(input.conditions, input.events);
+  for (const target of targets ?? []) {
+    const value = resultValueAs(target.code, event);
+    if (
+      target.stableWithin === undefined ||
+      value === undefined ||
+      !known.some((condition) => icd10Matches(condition.code, target.conditionCodes))
+    ) {
+      continue;
+    }
+    const previous = input.timeline
+      .ofType('result.received')
+      .filter(
+        (other) =>
+          other.occurredAt.getTime() < event.occurredAt.getTime() &&
+          refKey(other.source) !== refKey(event.source),
+      )
+      .flatMap((other) => {
+        const earlier = resultValueAs(target.code, other);
+        return earlier === undefined ? [] : [earlier];
+      })
+      .at(-1);
+    if (previous === undefined) {
+      return 'unknown';
+    }
+    return value - previous <= target.stableWithin ? 'stable' : 'worse';
+  }
+  return 'unknown';
+}
+
+/**
+ * Whether a non-critical abnormal result is the patient's stable level of a
+ * chronic marker and its follow-up is already scheduled: a visit with the
+ * ordering specialty (or practitioner) booked, whenever it was booked, or
+ * planned by the doctor, within `followUpWindowDays` after the result
+ * (HbA1c 8.5 % after 8.5 % in a known diabetic whose next control is booked
+ * in three weeks). A critical result, a marker that got worse, or a first
+ * abnormal value are new findings: they expect a consultation within
+ * `dueInDays` (a booking by then fulfills it, even one made before the
+ * result).
+ */
+function controlAlreadyScheduled(
+  rule: Rule,
+  event: ResultReceivedEvent,
+  input: UniversalInput,
+): boolean {
+  if (
+    rule.followUpWindowDays === undefined ||
+    event.severity === 'critical' ||
+    levelChange(rule.resultTargets, event, input) !== 'stable'
+  ) {
+    return false;
+  }
+  const { timeline } = input;
+  const resultAt = event.occurredAt.getTime();
+  const windowEnd = resultAt + rule.followUpWindowDays * MS_PER_DAY;
+  const inWindow = (at: Date): boolean => at.getTime() > resultAt && at.getTime() <= windowEnd;
+  const specialty = normalizeSpecialty(timeline.specialtyOf(event));
+  const specialties = new Set(specialty === '' ? [] : [specialty]);
+  const practitioner = timeline.practitionerOf(event);
+  const booked = timeline
+    .ofType('appointment.booked')
+    .some(
+      (booking) =>
+        inWindow(booking.scheduledFor) &&
+        (input.now === undefined || booking.scheduledFor.getTime() > input.now.getTime()) &&
+        visitSpecialtyFits(specialties, practitioner, booking, timeline),
+    );
+  return (
+    booked ||
+    timeline.ofType('plan.extracted').some((plan) => {
+      const planSpecialty = normalizeSpecialty(timeline.specialtyOf(plan));
+      const fits =
+        specialties.size === 0 ||
+        planSpecialty === '' ||
+        specialties.has(planSpecialty) ||
+        (practitioner !== undefined && timeline.practitionerOf(plan) === practitioner);
+      return (
+        fits &&
+        plan.items.some(
+          (item) =>
+            (item.kind === 'follow_up_visit' || item.kind === 'session') && inWindow(item.dueAt),
+        )
+      );
+    })
+  );
 }
 
 export interface UniversalInput {
@@ -161,6 +272,8 @@ export interface UniversalInput {
   readonly conditions: readonly PatientCondition[];
   /** What the doctor's plan asks for (live expectations and this batch's plan). */
   readonly planned: readonly PlannedItem[];
+  /** The engine's "now": a booking whose date already passed is no longer a scheduled control. */
+  readonly now?: Date;
 }
 
 /**

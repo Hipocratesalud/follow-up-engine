@@ -227,6 +227,218 @@ function diabetologyAudit(makeHarness: (options: HarnessOptions) => Promise<Engi
       ]);
     });
   });
+
+  describe('an abnormal result whose control is already booked or planned (pat-0035)', () => {
+    const HBA1C = '4548-4';
+
+    /**
+     * A known diabetic at 8.5 % since the previous control; the visit on day 0
+     * orders an HbA1c "for the next control", booked for day 105. The result
+     * arrives on day 6.
+     */
+    async function stableDiabetic(input: {
+      readonly value: number;
+      readonly flag: string;
+      readonly bookControl: boolean;
+    }) {
+      const harness = await harnessWith(
+        new FakeNoteExtractor()
+          .setExtraction('sd0-note', { hasPlan: false })
+          .setExtraction('sd1-note', {
+            planItems: [
+              planItem('follow_up_visit', 90, 'Próximo control en 3 meses con resultados'),
+              planItem('lab', 90, 'pendiente HbA1c, se reitera orden', 'HbA1c'),
+            ],
+          }),
+      );
+      await day(harness, -90, [
+        visit('sd0', -90, {
+          specialty: 'diabetology',
+          noteText: 'DM2 fuera de metas.',
+          diagnoses: [{ icd10: 'E11.9', display: 'DM2' }],
+        }),
+        labResultBundle({
+          id: 'sd0-a1c',
+          patientId: PATIENT,
+          loinc: HBA1C,
+          display: 'HbA1c',
+          at: dayToDate(-88),
+          value: 8.5,
+          unit: '%',
+          flag: 'H',
+        }),
+      ]);
+      await day(harness, 0, [
+        visit('sd1', 0, {
+          specialty: 'diabetology',
+          noteText:
+            'DM2 fuera de metas. pendiente HbA1c, se reitera orden. Próximo control en 3 meses con resultados.',
+          diagnoses: [{ icd10: 'E11.9', display: 'DM2' }],
+          orders: [{ loinc: HBA1C, display: 'HbA1c' }],
+        }),
+        ...(input.bookControl
+          ? [
+              appointmentBundle({
+                id: 'sd-appt',
+                patientId: PATIENT,
+                specialty: 'diabetology',
+                start: dayToDate(105),
+                bookedAt: dayToDate(0),
+              }),
+            ]
+          : []),
+      ]);
+      await day(harness, 6, [
+        labResultBundle({
+          id: 'sd1-a1c',
+          patientId: PATIENT,
+          loinc: HBA1C,
+          display: 'HbA1c',
+          at: dayToDate(6),
+          value: input.value,
+          unit: '%',
+          flag: input.flag,
+          orderId: orderIdOf('sd1', 1),
+        }),
+      ]);
+      await day(harness, 20);
+      return snapshotPatient(harness, patient);
+    }
+
+    /** The abnormal-result expectations of the day-6 result (the day -88 one had its own). */
+    const fromNewResult = (snapshot: PatientSnapshot) =>
+      ofRule(snapshot, 'abnormal_result_followup').filter((e) => e.source.id.startsWith('sd1-'));
+
+    it('the patient’s stable HbA1c with the control already booked opens nothing', async () => {
+      const snapshot = await stableDiabetic({ value: 8.5, flag: 'H', bookControl: true });
+      expect(fromNewResult(snapshot)).toEqual([]);
+      expect(activeRuleIds(snapshot)).not.toContain('abnormal_result_followup');
+    });
+
+    it('a stable HbA1c whose control is only planned (not booked yet) opens nothing either', async () => {
+      const snapshot = await stableDiabetic({ value: 8.4, flag: 'H', bookControl: false });
+      expect(fromNewResult(snapshot)).toEqual([]);
+    });
+
+    it('an HbA1c that got worse than the patient’s level still opens the case', async () => {
+      const snapshot = await stableDiabetic({ value: 10.2, flag: 'H', bookControl: true });
+      expect(activeRuleIds(snapshot)).toContain('abnormal_result_followup');
+    });
+
+    it('a critical result always opens the case, booked control or not', async () => {
+      const snapshot = await stableDiabetic({ value: 8.5, flag: 'HH', bookControl: true });
+      expect(activeRuleIds(snapshot)).toContain('abnormal_result_followup');
+    });
+
+    it('a booking made before the result, within the week, covers it', async () => {
+      const harness = await harnessWith(
+        new FakeNoteExtractor().setExtraction('cr-note', { hasPlan: false }),
+      );
+      await day(harness, 0, [
+        visit('cr', 0, {
+          specialty: 'internal_medicine',
+          noteText: 'Se solicita creatinina.',
+          orders: [{ loinc: '2160-0', display: 'Creatinina' }],
+        }),
+        appointmentBundle({
+          id: 'cr-appt',
+          patientId: PATIENT,
+          specialty: 'internal_medicine',
+          start: dayToDate(9),
+          bookedAt: dayToDate(0),
+        }),
+      ]);
+      await day(harness, 4, [
+        labResultBundle({
+          id: 'cr-res',
+          patientId: PATIENT,
+          loinc: '2160-0',
+          display: 'Creatinina',
+          at: dayToDate(4),
+          value: 1.5,
+          unit: 'mg/dL',
+          flag: 'H',
+          orderId: orderIdOf('cr', 1),
+        }),
+      ]);
+      await day(harness, 8);
+      expect(activeRuleIds(await snapshotPatient(harness, patient))).not.toContain(
+        'abnormal_result_followup',
+      );
+    });
+
+    it('a first abnormal value is a new finding, even with the next control already planned', async () => {
+      const harness = await harnessWith(
+        new FakeNoteExtractor().setExtraction('first-note', {
+          planItems: [planItem('follow_up_visit', 90, 'Control en 3 meses con resultados')],
+        }),
+      );
+      await day(harness, 0, [
+        visit('first', 0, {
+          specialty: 'diabetology',
+          noteText: 'DM2. Se solicita HbA1c. Control en 3 meses con resultados.',
+          diagnoses: [{ icd10: 'E11.9', display: 'DM2' }],
+          orders: [{ loinc: '4548-4', display: 'HbA1c' }],
+        }),
+      ]);
+      await day(harness, 4, [
+        labResultBundle({
+          id: 'first-res',
+          patientId: PATIENT,
+          loinc: '4548-4',
+          display: 'HbA1c',
+          at: dayToDate(4),
+          value: 9.4,
+          unit: '%',
+          flag: 'H',
+          orderId: orderIdOf('first', 1),
+        }),
+      ]);
+      await day(harness, 20);
+      expect(activeRuleIds(await snapshotPatient(harness, patient))).toContain(
+        'abnormal_result_followup',
+      );
+    });
+
+    it('a new abnormal result with only an unrelated booking months away still opens the case', async () => {
+      const harness = await harnessWith(
+        new FakeNoteExtractor().setExtraction('nw-note', { hasPlan: false }),
+      );
+      await day(harness, -10, [
+        appointmentBundle({
+          id: 'nw-appt',
+          patientId: PATIENT,
+          specialty: 'internal_medicine',
+          start: dayToDate(60),
+          bookedAt: dayToDate(-10),
+        }),
+      ]);
+      await day(harness, 0, [
+        visit('nw', 0, {
+          specialty: 'internal_medicine',
+          noteText: 'Chequeo. Se solicita creatinina.',
+          orders: [{ loinc: '2160-0', display: 'Creatinina' }],
+        }),
+      ]);
+      await day(harness, 4, [
+        labResultBundle({
+          id: 'nw-res',
+          patientId: PATIENT,
+          loinc: '2160-0',
+          display: 'Creatinina',
+          at: dayToDate(4),
+          value: 1.9,
+          unit: 'mg/dL',
+          flag: 'H',
+          orderId: orderIdOf('nw', 1),
+        }),
+      ]);
+      await day(harness, 20);
+      expect(activeRuleIds(await snapshotPatient(harness, patient))).toContain(
+        'abnormal_result_followup',
+      );
+    });
+  });
 }
 
 describe('diabetology audit (memory)', () => {
@@ -237,5 +449,3 @@ describe.skipIf(!POSTGRES_ENABLED)(postgresTitle('diabetology audit'), () => {
   const database = useIsolatedDatabase();
   diabetologyAudit((options) => postgresHarness(database(), options));
 });
-
-export { activeRuleIds, appointmentBundle, orderIdOf };
