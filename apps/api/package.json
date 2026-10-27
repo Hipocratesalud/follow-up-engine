@@ -11,6 +11,7 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "start": "node --experimental-strip-types --no-warnings=ExperimentalWarning src/main.ts",
+    "clinic:create": "node --env-file-if-exists=../../.env --experimental-strip-types --no-warnings=ExperimentalWarning src/clinic-cli-main.ts",
     "seed": "node --env-file-if-exists=../../.env --experimental-strip-types --no-warnings=ExperimentalWarning src/test/seed-cli.ts",
     "demo": "node --env-file-if-exists=../../.env --experimental-strip-types --no-warnings=ExperimentalWarning src/test/demo-server.ts",
     "e2e": "vitest run --config vitest.e2e.config.ts"

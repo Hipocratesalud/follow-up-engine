@@ -173,7 +173,7 @@ Base: `https://hipocratesalud.com/fhir`. Every engine-defined CodeSystem, Naming
 
 | CodeSystem                                | Codes                                                                                                                                                                                            |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CodeSystem/follow-up-expectation`        | rule ids (`lab.result_pending`, ...)                                                                                                                                                             |
+| `CodeSystem/follow-up-expectation`        | rule ids (`lab_order_result_pending`, `doctor_plan_followup`, `protocol_diabetes_hba1c`, ...)                                                                                                    |
 | `CodeSystem/follow-up-task-type`          | `follow-up-case`                                                                                                                                                                                 |
 | `CodeSystem/follow-up-expectation-status` | `open`, `fulfilled`, `superseded`, `expired`, `cancelled`                                                                                                                                        |
 | `CodeSystem/follow-up-case-status`        | `open`, `notified`, `snoozed`, `escalated`, `resolved`, `dismissed`, `lost_to_follow_up`                                                                                                         |
@@ -760,7 +760,7 @@ The engine then reads the plan out of the note (the LLM gateway), creates expect
         "coding": [
           {
             "system": "https://hipocratesalud.com/fhir/CodeSystem/follow-up-reason",
-            "code": "follow_up_visit_due"
+            "code": "doctor_plan_followup"
           }
         ]
       },
@@ -774,7 +774,7 @@ The engine then reads the plan out of the note (the LLM gateway), creates expect
         "coding": [
           {
             "system": "https://hipocratesalud.com/fhir/CodeSystem/follow-up-reason",
-            "code": "lab_result_pending"
+            "code": "lab_order_result_pending"
           }
         ]
       },
@@ -804,7 +804,7 @@ And one of its expectations, from the doctor's plan:
     },
     {
       "url": "https://hipocratesalud.com/fhir/StructureDefinition/follow-up-protocol-id",
-      "valueString": "diabetes.type2"
+      "valueString": "diabetes"
     },
     {
       "url": "https://hipocratesalud.com/fhir/StructureDefinition/follow-up-protocol-version",
@@ -838,7 +838,7 @@ And one of its expectations, from the doctor's plan:
   "identifier": [
     {
       "system": "https://hipocratesalud.com/fhir/NamingSystem/follow-up-expectation-key",
-      "value": "doctor_plan.follow_up:DocumentReference/note-1:0"
+      "value": "DocumentReference/note-1#doctor_plan_followup#specialty:diabetology@2026-04-05"
     }
   ],
   "partOf": [
@@ -870,12 +870,12 @@ And one of its expectations, from the doctor's plan:
     "coding": [
       {
         "system": "https://hipocratesalud.com/fhir/CodeSystem/follow-up-expectation",
-        "code": "doctor_plan.follow_up_visit"
+        "code": "doctor_plan_followup"
       }
     ],
-    "text": "Control médico pendiente"
+    "text": "Seguimiento indicado por el médico"
   },
-  "description": "Control médico pendiente",
+  "description": "Seguimiento indicado por el médico",
   "focus": {
     "reference": "DocumentReference/note-1",
     "type": "DocumentReference"
@@ -894,10 +894,10 @@ And one of its expectations, from the doctor's plan:
     "coding": [
       {
         "system": "https://hipocratesalud.com/fhir/CodeSystem/follow-up-reason",
-        "code": "follow_up_visit_due"
+        "code": "doctor_plan_followup"
       }
     ],
-    "text": "Control médico pendiente"
+    "text": "Seguimiento indicado por el médico"
   },
   "restriction": {
     "period": {

@@ -50,7 +50,7 @@ describe('expectation → Task', () => {
       intent: 'plan',
       businessStatus: { coding: [{ system: ENGINE_CODE_SYSTEMS.expectationStatus, code: 'open' }] },
       code: {
-        coding: [{ system: ENGINE_CODE_SYSTEMS.expectation, code: 'lab.result_pending' }],
+        coding: [{ system: ENGINE_CODE_SYSTEMS.expectation, code: 'lab_order_result_pending' }],
         text: 'Resultado de laboratorio pendiente',
       },
       focus: { reference: 'ServiceRequest/sr-hba1c' },
@@ -79,9 +79,7 @@ describe('expectation → Task', () => {
     });
     expect(task.basedOn).toBeUndefined();
     expect(extension(task.extension, ENGINE_EXTENSIONS.origin)?.valueCode).toBe('backfill');
-    expect(extension(task.extension, ENGINE_EXTENSIONS.protocolId)?.valueString).toBe(
-      'diabetes.type2',
-    );
+    expect(extension(task.extension, ENGINE_EXTENSIONS.protocolId)?.valueString).toBe('diabetes');
     expect(extension(task.extension, ENGINE_EXTENSIONS.evidence)?.extension).toEqual([
       { url: 'quote', valueString: 'Control en 3 meses con resultados.' },
       {
@@ -126,11 +124,11 @@ describe('case → Task', () => {
       owner: { identifier: { value: 'user-reception-1' } },
       input: [
         {
-          type: { coding: [{ system: ENGINE_CODE_SYSTEMS.reason, code: 'follow_up_visit_due' }] },
+          type: { coding: [{ system: ENGINE_CODE_SYSTEMS.reason, code: 'doctor_plan_followup' }] },
           valueReference: { reference: 'Task/exp-plan-0002' },
         },
         {
-          type: { coding: [{ code: 'lab_result_pending' }] },
+          type: { coding: [{ code: 'lab_order_result_pending' }] },
           valueReference: { reference: 'Task/exp-hba1c-0001' },
         },
       ],
@@ -297,7 +295,7 @@ describe('case event → Provenance', () => {
       target: [{ reference: 'Task/case-0001' }],
       recorded: '2026-04-06T00:00:00.000Z',
       activity: { coding: [{ system: ENGINE_CODE_SYSTEMS.caseEvent, code: 'opened' }] },
-      agent: [{ who: { type: 'Device', identifier: { value: 'doctor_plan.follow_up_visit' } } }],
+      agent: [{ who: { type: 'Device', identifier: { value: 'doctor_plan_followup' } } }],
     });
     expect(extension(opened?.extension, ENGINE_EXTENSIONS.caseEventPayload)?.valueString).toBe(
       '{"expectationIds":["exp-plan-0002"]}',
