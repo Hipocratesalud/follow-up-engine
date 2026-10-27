@@ -1,14 +1,18 @@
 import {
+  type CaseEvent,
   type Catalog,
   type ClinicId,
   conditionId,
+  type EscalationPolicy,
   type Expectation,
   type FhirResourceJson,
   type FollowUpCase,
+  isActiveCaseStatus,
   type NoteReceivedEvent,
   type PatientCondition,
   type PatientContactStatus,
   type PatientId,
+  policyOf,
   practitionerId,
 } from '@follow-up-engine/core';
 import { taskPriority } from '@follow-up-engine/fhir';
@@ -19,6 +23,7 @@ import type {
   CaseTimelineEntry,
   CaseView,
   ConditionView,
+  EscalationView,
   PatientContact,
   PatientDetail,
   PatientExpectationView,
@@ -27,6 +32,8 @@ import { excerptAround, humanName, patientSummary, sourceDisplay } from './fhir-
 import {
   COORDINATOR_LABEL,
   DEFAULT_SUGGESTED_ACTION,
+  ESCALATION_STEP_LABELS,
+  eventNote,
   FRONT_DESK_LABEL,
   LAYER_FALLBACK_LABELS,
   planItemLabel,
@@ -49,11 +56,6 @@ const ROLE_LABELS: Readonly<Record<string, string>> = {
   front_desk: FRONT_DESK_LABEL,
   coordinator: COORDINATOR_LABEL,
 };
-
-/** Display name → owner id, so the inbox can filter by what it shows. */
-export function assigneeIdFromLabel(label: string): string {
-  return Object.entries(ROLE_LABELS).find(([, name]) => name === label)?.[0] ?? label;
-}
 
 function memo<TKey, TValue>(load: (key: TKey) => Promise<TValue>): (key: TKey) => Promise<TValue> {
   const cache = new Map<TKey, Promise<TValue>>();
@@ -287,7 +289,9 @@ export class InboxPresenter {
       priority: followUpCase.priority,
       priorityLabel: PRIORITY_LABELS[taskPriority(followUpCase.priority)],
       escalationStep: followUpCase.escalationStep,
+      escalation: this.escalationView(followUpCase),
       assignee,
+      ...(followUpCase.assignee === undefined ? {} : { assigneeId: followUpCase.assignee }),
       origin: followUpCase.origin,
       openedAt: followUpCase.createdAt.toISOString(),
       ...(followUpCase.nextActionAt === undefined
@@ -305,6 +309,60 @@ export class InboxPresenter {
     };
   }
 
+  /**
+   * The case's escalation policy (the engine's own choice, `policyOf`) as
+   * the inbox meter shows it: one labelled step per policy step, how many
+   * already passed, and the next one with its date. With the case's events
+   * (detail), each passed step says whether it ran or was skipped.
+   */
+  escalationView(followUpCase: FollowUpCase, events?: readonly CaseEvent[]): EscalationView {
+    const policy: EscalationPolicy = policyOf(
+      this.#catalog,
+      followUpCase.reasons.flatMap((reason) => {
+        const expectation = this.#expectations.get(reason.expectationId);
+        return expectation === undefined ? [] : [expectation];
+      }),
+    );
+    const passed = followUpCase.escalationStep;
+    const ran = new Map<number, Date>();
+    for (const event of events ?? []) {
+      const step = event.payload['step'];
+      if (event.actor.type === 'system' && typeof step === 'number' && !ran.has(step)) {
+        ran.set(step, event.at);
+      }
+    }
+    const nextStep = policy.steps[passed];
+    const next =
+      nextStep !== undefined &&
+      followUpCase.nextActionAt !== undefined &&
+      isActiveCaseStatus(followUpCase.status) &&
+      followUpCase.status !== 'snoozed'
+        ? {
+            action: nextStep.action,
+            label: ESCALATION_STEP_LABELS[nextStep.action],
+            at: followUpCase.nextActionAt.toISOString(),
+          }
+        : undefined;
+    return {
+      policyId: policy.id ?? 'policy',
+      currentStep: passed,
+      steps: policy.steps.map((step, index) => {
+        const at = ran.get(index);
+        return {
+          action: step.action,
+          label: ESCALATION_STEP_LABELS[step.action],
+          afterDays: step.afterDays,
+          ...(events === undefined || index >= passed
+            ? {}
+            : at === undefined
+              ? { outcome: 'skipped' as const }
+              : { outcome: 'done' as const, at: at.toISOString() }),
+        };
+      }),
+      ...(next === undefined ? {} : { next }),
+    };
+  }
+
   async caseDetail(followUpCase: FollowUpCase): Promise<CaseDetail> {
     const { stores } = this.#runtime.storage;
     const [view, events, feedback] = await Promise.all([
@@ -319,22 +377,33 @@ export class InboxPresenter {
         names.set(assignee, await this.personName(assignee));
       }
     }
-    const timeline: CaseTimelineEntry[] = events.map((event) => ({
-      at: event.at.toISOString(),
-      type: event.type,
-      actor: {
-        type: event.actor.type,
-        ...(event.actor.id === undefined ? {} : { id: event.actor.id }),
-      },
-      label: timelineLabel(
-        event,
-        (ruleId) => this.reasonLabel(ruleId),
-        (id) => (id === undefined ? FRONT_DESK_LABEL : (names.get(id) ?? id)),
-      ),
-    }));
+    const timeline: CaseTimelineEntry[] = events.map((event) => {
+      const note = eventNote(event) ?? this.#resolutionNote(followUpCase, event);
+      return {
+        at: event.at.toISOString(),
+        type: event.type,
+        actor: {
+          type: event.actor.type,
+          ...(event.actor.id === undefined ? {} : { id: event.actor.id }),
+        },
+        label: timelineLabel(
+          event,
+          ({ expectationId, ruleId }) => {
+            // The same label as the reason card: the expectation decides it
+            // (a doctor's plan item reads by what it waits for).
+            const expectation =
+              expectationId === undefined ? undefined : this.#expectations.get(expectationId);
+            return this.reasonLabel(expectation?.ruleId ?? ruleId, expectation);
+          },
+          (id) => (id === undefined ? FRONT_DESK_LABEL : (names.get(id) ?? id)),
+        ),
+        ...(note === undefined ? {} : { note }),
+      };
+    });
     const latest = feedback.at(-1);
     return {
       ...view,
+      escalation: this.escalationView(followUpCase, events),
       timeline,
       ...(latest === undefined
         ? {}
@@ -346,6 +415,18 @@ export class InboxPresenter {
             },
           }),
     };
+  }
+
+  /**
+   * The note a user left when closing the case, for events recorded before
+   * notes were kept on the event itself.
+   */
+  #resolutionNote(followUpCase: FollowUpCase, event: CaseEvent): string | undefined {
+    const note = followUpCase.resolution?.note?.trim();
+    const closing = event.type === 'resolved' || event.type === 'dismissed';
+    return closing && event.actor.type === 'user' && note !== undefined && note !== ''
+      ? note
+      : undefined;
   }
 
   async reasonView(expectation: Expectation, withExcerpt: boolean): Promise<CaseReasonView> {

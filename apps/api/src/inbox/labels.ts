@@ -1,6 +1,8 @@
 import type {
   CaseEvent,
   CaseResolutionKind,
+  CaseStatus,
+  EscalationAction,
   ExpectationLayer,
   JsonValue,
   PlanItemKind,
@@ -72,6 +74,52 @@ const RESOLUTION_LABELS: Record<CaseResolutionKind, string> = {
   patient_unreachable: 'Cerrado: no se pudo contactar al paciente',
 };
 
+/** One step of an escalation policy, as the inbox's escalation meter names it. */
+export const ESCALATION_STEP_LABELS: Record<EscalationAction, string> = {
+  notify_clinic: 'Aviso al responsable',
+  raise_priority: 'Aumento de prioridad',
+  request_patient_contact: 'Pedido de contacto al paciente',
+  escalate_to_coordinator: 'Paso a coordinación',
+  mark_lost_to_follow_up: 'Cierre como perdido en seguimiento',
+};
+
+/** Where a case stands, for error messages ("ya está resuelto"). */
+const STATUS_PHRASES: Record<CaseStatus, string> = {
+  open: 'está abierto',
+  notified: 'ya fue avisado',
+  snoozed: 'está pospuesto',
+  escalated: 'está escalado',
+  resolved: 'ya está resuelto',
+  dismissed: 'ya está descartado',
+  lost_to_follow_up: 'ya está cerrado como perdido en seguimiento',
+};
+
+/** What a transition to a status means for the user ("descartar"). */
+const TRANSITION_VERBS: Record<CaseStatus, string> = {
+  open: 'reabrir',
+  notified: 'marcar como avisado',
+  snoozed: 'posponer',
+  escalated: 'escalar',
+  resolved: 'resolver',
+  dismissed: 'descartar',
+  lost_to_follow_up: 'cerrar como perdido en seguimiento',
+};
+
+function isCaseStatus(value: string): value is CaseStatus {
+  return value in STATUS_PHRASES;
+}
+
+/**
+ * Spanish answer to an action the case's status does not allow, for example
+ * "No se puede descartar este caso: ya está resuelto." `verb` overrides the
+ * one derived from the target status ("pedir contacto para").
+ */
+export function invalidTransitionMessage(from: string, to: string, verb?: string): string {
+  const action = verb ?? (isCaseStatus(to) ? TRANSITION_VERBS[to] : 'cambiar');
+  const state = isCaseStatus(from) ? STATUS_PHRASES[from] : 'cambió de estado';
+  return `No se puede ${action} este caso: ${state}.`;
+}
+
 const ESCALATION_ACTION_LABELS: Record<string, string> = {
   notify_clinic: 'Aviso al responsable del caso',
   raise_priority: 'Prioridad aumentada por falta de respuesta',
@@ -94,24 +142,38 @@ function shortDate(iso: string | undefined): string {
     : date.toLocaleDateString('es', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 }
 
+/** The internal note a clinic user wrote with an action, if any. */
+export function eventNote(event: CaseEvent): string | undefined {
+  const note = text(event.payload['note'])?.trim();
+  return note === undefined || note === '' ? undefined : note;
+}
+
 /**
- * Spanish label of a case timeline entry. `reasonLabel` resolves a rule id
- * (from the event payload) to its catalog label; `personName` an owner id to
- * a display name.
+ * Spanish label of a case timeline entry. `reasonLabel` resolves the reason
+ * of an event (its expectation id and rule id, from the payload) to the same
+ * label the reason card shows; `personName` an owner id to a display name.
  */
 export function timelineLabel(
   event: CaseEvent,
-  reasonLabel: (ruleId: string | undefined) => string,
+  reasonLabel: (reason: { expectationId?: string; ruleId?: string }) => string,
   personName: (id: string | undefined) => string,
 ): string {
   const { payload } = event;
+  const reason = (): string => {
+    const expectationId = text(payload['expectationId']);
+    const ruleId = text(payload['ruleId']);
+    return reasonLabel({
+      ...(expectationId === undefined ? {} : { expectationId }),
+      ...(ruleId === undefined ? {} : { ruleId }),
+    });
+  };
   switch (event.type) {
     case 'opened':
-      return `Caso abierto: ${reasonLabel(text(payload['ruleId']))}`;
+      return `Caso abierto: ${reason()}`;
     case 'reason_added':
-      return `Motivo agregado: ${reasonLabel(text(payload['ruleId']))}`;
+      return `Motivo agregado: ${reason()}`;
     case 'released':
-      return 'Publicado en la bandeja (pacientes por recuperar)';
+      return 'Entró a la bandeja desde la revisión del historial';
     case 'notified':
       return event.actor.type === 'user'
         ? 'Marcado como avisado: el equipo se encarga de contactar al paciente'

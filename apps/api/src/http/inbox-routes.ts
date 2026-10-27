@@ -1,19 +1,22 @@
 import {
   ACTIVE_CASE_STATUSES,
   type CaseEventActor,
+  type CaseFeedback,
   type CaseId,
   type CaseStatus,
   type ClinicId,
   EXPECTATION_LAYERS,
   type ExpectationLayer,
   type FollowUpCase,
+  isActiveCaseStatus,
   parseConditionId,
   patientId as toPatientId,
 } from '@follow-up-engine/core';
 import type { EngineRuntime } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
-import { conditionView, InboxPresenter, assigneeIdFromLabel } from '../inbox/presenter.ts';
+import { conditionView, InboxPresenter } from '../inbox/presenter.ts';
 import { patientSummary } from '../inbox/fhir-display.ts';
+import { invalidTransitionMessage } from '../inbox/labels.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
 import {
@@ -21,6 +24,7 @@ import {
   CaseListQuerySchema,
   FeedbackRequestSchema,
   type InboxStats,
+  type OwnerView,
   PageQuerySchema,
   PatientSearchQuerySchema,
 } from './schemas.ts';
@@ -50,27 +54,66 @@ async function requireCase(
   return found;
 }
 
-/** "Pedir contacto": `patient_contact.requested` to the host, then the case is marked notified. */
+/**
+ * "Pedir contacto": `patient_contact.requested` to the host, then the case is
+ * marked notified. The team's note goes with the contact request.
+ */
 async function requestContact(
   runtime: EngineRuntime,
   clinicId: ClinicId,
-  caseId: CaseId,
+  current: FollowUpCase,
   user: CaseEventActor,
+  note: string | undefined,
 ): Promise<FollowUpCase> {
-  const requested = await runtime.engine.cases.requestPatientContact(clinicId, caseId, user);
+  if (!isActiveCaseStatus(current.status)) {
+    throw new HttpError(
+      409,
+      'invalid_transition',
+      invalidTransitionMessage(current.status, 'notified', 'pedir contacto para'),
+    );
+  }
+  const caseId = current.id;
+  const requested = await runtime.engine.cases.requestPatientContact(clinicId, caseId, user, note);
   return requested.status === 'open' || requested.status === 'snoozed'
     ? runtime.engine.cases.notify(clinicId, caseId, user)
     : requested;
+}
+
+type ListQuery = Omit<
+  Parameters<EngineRuntime['storage']['stores']['cases']['list']>[1],
+  'limit' | 'cursor'
+>;
+
+/** The latest verdict of each case: changing one's mind replaces the verdict, it does not add one. */
+export function latestVerdicts(feedback: readonly CaseFeedback[]): CaseFeedback[] {
+  const byCase = new Map<string, CaseFeedback>();
+  for (const item of feedback) {
+    const previous = byCase.get(item.caseId);
+    if (previous === undefined || item.createdAt.getTime() >= previous.createdAt.getTime()) {
+      byCase.set(item.caseId, item);
+    }
+  }
+  return [...byCase.values()];
+}
+
+/** Case order of the inbox: priority (highest first), then oldest first. */
+function byPriority(left: FollowUpCase, right: FollowUpCase): number {
+  return (
+    right.priority - left.priority ||
+    left.createdAt.getTime() - right.createdAt.getTime() ||
+    left.id.localeCompare(right.id)
+  );
+}
+
+function byCreatedAt(left: FollowUpCase, right: FollowUpCase): number {
+  return left.createdAt.getTime() - right.createdAt.getTime() || left.id.localeCompare(right.id);
 }
 
 /** Every case matching a query, across pages (stats, recovery). */
 async function listAll(
   runtime: EngineRuntime,
   clinicId: ClinicId,
-  query: Omit<
-    Parameters<EngineRuntime['storage']['stores']['cases']['list']>[1],
-    'limit' | 'cursor'
-  >,
+  query: ListQuery,
 ): Promise<FollowUpCase[]> {
   const items: FollowUpCase[] = [];
   let cursor: string | undefined;
@@ -97,30 +140,99 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
 
   app.get('/api/inbox/clinic', (c) => c.json({ id: c.var.clinic.id, name: c.var.clinic.name }));
 
+  /**
+   * Cases of a patient search (`q`): the cases of every patient whose name
+   * or id matches, merged in inbox order and paged by offset.
+   */
+  async function searchCases(
+    clinicId: ClinicId,
+    base: ListQuery,
+    search: string,
+    page: { readonly limit: number; readonly cursor?: string | undefined },
+  ): Promise<{ items: FollowUpCase[]; total: number; nextCursor?: string }> {
+    const patients = await readModel.searchPatients(clinicId, { query: search, limit: 200 });
+    const ids = patients
+      .map((record) => toPatientId(record.id))
+      .filter((id) => base.patientId === undefined || id === base.patientId);
+    const found: FollowUpCase[] = [];
+    for (const patientId of ids) {
+      found.push(...(await listAll(runtime, clinicId, { ...base, patientId })));
+    }
+    found.sort(base.orderBy === 'created_at' ? byCreatedAt : byPriority);
+    const offset = Number(page.cursor ?? '0');
+    const start = Number.isInteger(offset) && offset > 0 ? offset : 0;
+    const next = start + page.limit;
+    return {
+      items: found.slice(start, next),
+      total: found.length,
+      ...(next < found.length ? { nextCursor: String(next) } : {}),
+    };
+  }
+
   app.get('/api/inbox/cases', async (c) => {
     const query = readQuery(c, CaseListQuerySchema);
-    const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
+    const clinicId = c.var.clinicId;
+    const presenter = await InboxPresenter.create(runtime, clinicId);
     const statuses =
       query.view === 'active'
         ? ACTIVE_CASE_STATUSES
         : query.view === 'closed'
           ? CLOSED_STATUSES
           : undefined;
-    const page = await stores.cases.list(c.var.clinicId, {
+    const base: ListQuery = {
       ...(statuses === undefined ? {} : { statuses }),
       ...(query.origin === undefined ? {} : { origin: query.origin }),
       ...(query.assignee === undefined || query.assignee === ''
         ? {}
-        : { assignee: assigneeIdFromLabel(query.assignee) }),
+        : { assignee: query.assignee }),
+      ...(query.patient === undefined || query.patient === ''
+        ? {}
+        : { patientId: toPatientId(query.patient) }),
       releasedAsOf: presenter.now,
       orderBy: query.view === 'closed' ? 'created_at' : 'priority',
-      limit: query.limit,
-      ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
-    });
+    };
+    if (query.q !== undefined && query.q !== '') {
+      const found = await searchCases(clinicId, base, query.q, query);
+      return c.json({ ...found, items: await presenter.caseViews(found.items) });
+    }
+    // The total counts the whole view (the list header and the sidebar agree);
+    // pages follow the store's keyset cursor.
+    const [page, total] = await Promise.all([
+      stores.cases.list(clinicId, {
+        ...base,
+        limit: query.limit,
+        ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+      }),
+      listAll(runtime, clinicId, base).then((all) => all.length),
+    ]);
     return c.json({
       items: await presenter.caseViews(page.items),
+      total,
       ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
     });
+  });
+
+  /** Who owns the cases of the inbox, by id, for the "Responsable" filter. */
+  app.get('/api/inbox/owners', async (c) => {
+    const clinicId = c.var.clinicId;
+    const presenter = await InboxPresenter.create(runtime, clinicId);
+    const released = await listAll(runtime, clinicId, { releasedAsOf: presenter.now });
+    const active = new Map<string, number>();
+    for (const item of released) {
+      if (item.assignee !== undefined) {
+        const count = isActiveCaseStatus(item.status) ? 1 : 0;
+        active.set(item.assignee, (active.get(item.assignee) ?? 0) + count);
+      }
+    }
+    const items: OwnerView[] = await Promise.all(
+      [...active.entries()].map(async ([id, activeCases]) => ({
+        id,
+        name: await presenter.personName(id),
+        activeCases,
+      })),
+    );
+    items.sort((left, right) => left.name.localeCompare(right.name, 'es'));
+    return c.json({ items });
   });
 
   app.get('/api/inbox/cases/:id', async (c) => {
@@ -132,15 +244,18 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
   app.post('/api/inbox/cases/:id/actions', async (c) => {
     const body = await readJson(c, CaseActionRequestSchema);
     const caseId = c.req.param('id') as CaseId;
-    await requireCase(runtime, c.var.clinicId, caseId);
+    const current = await requireCase(runtime, c.var.clinicId, caseId);
     const now = runtime.clock.now();
     const user = actor(c);
+    const note = body.note?.trim() === '' ? undefined : body.note?.trim();
+    const withNote = note === undefined ? {} : { note };
     // "Pedir contacto" asks the host to reach the patient (the engine checks
     // the clinic's settings, opt-out and contact window), then marks the case
-    // as notified; the other actions are plain case transitions.
+    // as notified; the other actions are plain case transitions. Every action
+    // keeps the team's internal note on its case event.
     const updated =
       body.action === 'notify'
-        ? await requestContact(runtime, c.var.clinicId, caseId, user)
+        ? await requestContact(runtime, c.var.clinicId, current, user, note)
         : await engine.cases.apply(
             c.var.clinicId,
             caseId,
@@ -148,8 +263,9 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
               ? {
                   type: 'snooze',
                   until: new Date(now.getTime() + (body.snoozeDays ?? 1) * MS_PER_DAY),
+                  ...withNote,
                 }
-              : { type: body.action, ...(body.note === undefined ? {} : { note: body.note }) },
+              : { type: body.action, ...withNote },
             user,
           );
     c.var.log.info({ caseId, action: body.action, status: updated.status }, 'case action');
@@ -161,6 +277,13 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     const body = await readJson(c, FeedbackRequestSchema);
     const caseId = c.req.param('id') as CaseId;
     await requireCase(runtime, c.var.clinicId, caseId);
+    if (!body.useful && body.reason === undefined) {
+      throw new HttpError(
+        422,
+        'validation_error',
+        'Elige un motivo cuando el caso no fue útil: así podemos mejorar la regla.',
+      );
+    }
     await engine.cases.recordFeedback(c.var.clinicId, caseId, {
       useful: body.useful,
       ...(body.reason === undefined ? {} : { reason: body.reason }),
@@ -259,14 +382,16 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
         byLayer[layer] += 1;
       }
     }
-    const useful = feedback.filter((item) => item.useful).length;
+    // One verdict per case, the latest: changing one's mind does not count twice.
+    const verdicts = latestVerdicts(feedback);
+    const useful = verdicts.filter((item) => item.useful).length;
     const stats: InboxStats = {
       activeCases: active.length,
       byLayer,
       byStatus,
       feedback: {
-        total: feedback.length,
-        usefulRate: feedback.length === 0 ? 0 : useful / feedback.length,
+        total: verdicts.length,
+        usefulRate: verdicts.length === 0 ? 0 : useful / verdicts.length,
       },
       llm: {
         monthCostUsd: Number(usage.costUsd.toFixed(6)),

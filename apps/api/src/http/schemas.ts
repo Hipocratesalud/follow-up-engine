@@ -1,5 +1,6 @@
 import {
   CASE_STATUSES,
+  ESCALATION_ACTIONS,
   EXPECTATION_LAYERS,
   EXPECTATION_STATUSES,
   PLAN_ITEM_KINDS,
@@ -64,6 +65,34 @@ export const CaseReasonViewSchema = z
   })
   .meta({ id: 'CaseReasonView' });
 
+export const EscalationStepViewSchema = z
+  .object({
+    action: z.enum(ESCALATION_ACTIONS),
+    label: z.string().meta({ description: 'Spanish label of the step' }),
+    afterDays: z.number().int().meta({ description: 'Days after the case opened, per the policy' }),
+    outcome: z.enum(['done', 'skipped']).optional().meta({
+      description:
+        'Case detail only, for steps already passed: done, or skipped when it could not happen (for example no automatic patient contact for a backfill case)',
+    }),
+    at: isoDate.optional().meta({ description: 'Case detail only: when a done step ran' }),
+  })
+  .meta({ id: 'EscalationStepView' });
+
+export const EscalationViewSchema = z
+  .object({
+    policyId: z.string(),
+    currentStep: z
+      .number()
+      .int()
+      .meta({ description: 'Steps of the policy already passed (the case escalationStep)' }),
+    steps: z.array(EscalationStepViewSchema),
+    next: z
+      .object({ action: z.enum(ESCALATION_ACTIONS), label: z.string(), at: isoDate })
+      .optional()
+      .meta({ description: 'The next step and when it runs; absent on closed cases' }),
+  })
+  .meta({ id: 'EscalationView' });
+
 export const CaseViewSchema = z
   .object({
     id: z.string(),
@@ -72,7 +101,14 @@ export const CaseViewSchema = z
     priority: z.number().int(),
     priorityLabel: PriorityLabelSchema,
     escalationStep: z.number().int(),
+    escalation: EscalationViewSchema,
     assignee: z.string().optional().meta({ description: 'Display name of the owner' }),
+    assigneeId: z
+      .string()
+      .optional()
+      .meta({
+        description: 'Owner id (a practitioner id or a role), as the assignee filter takes it',
+      }),
     origin: OriginSchema,
     openedAt: isoDate,
     nextActionAt: isoDate.optional(),
@@ -93,6 +129,10 @@ export const CaseTimelineEntrySchema = z
       id: z.string().optional(),
     }),
     label: z.string(),
+    note: z
+      .string()
+      .optional()
+      .meta({ description: 'Internal note the team wrote with the action' }),
   })
   .meta({ id: 'CaseTimelineEntry' });
 
@@ -108,20 +148,39 @@ export const CaseDetailSchema = CaseViewSchema.extend({
 }).meta({ id: 'CaseDetail' });
 
 export const CasePageSchema = z
-  .object({ items: z.array(CaseViewSchema), nextCursor: z.string().optional() })
+  .object({
+    items: z.array(CaseViewSchema),
+    nextCursor: z.string().optional(),
+    total: z.number().int().meta({ description: 'Cases matching the query, across all pages' }),
+  })
   .meta({ id: 'CasePage' });
 
-export const RecoveryPageSchema = CasePageSchema.extend({ total: z.number().int() }).meta({
-  id: 'RecoveryPage',
-});
+export const RecoveryPageSchema = CasePageSchema.meta({ id: 'RecoveryPage' });
 
 export const CaseListQuerySchema = z.object({
   view: z.enum(['active', 'closed', 'all']).optional().default('active'),
   origin: OriginSchema.optional(),
-  assignee: z.string().optional(),
+  /** Owner id (from `/api/inbox/owners`). */
+  assignee: z.string().max(120).optional(),
+  /** Patient name or id contains this text. */
+  q: z.string().trim().max(100).optional(),
+  /** Only the cases of this patient. */
+  patient: z.string().trim().max(64).optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional().default(50),
 });
+
+export const OwnerViewSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    activeCases: z.number().int(),
+  })
+  .meta({ id: 'OwnerView' });
+
+export const OwnerListSchema = z
+  .object({ items: z.array(OwnerViewSchema) })
+  .meta({ id: 'OwnerList' });
 
 export const PageQuerySchema = z.object({
   cursor: z.string().optional(),
@@ -135,7 +194,7 @@ export const CaseActionRequestSchema = z
     note: z.string().max(2_000).optional(),
   })
   .refine((body) => body.action !== 'snooze' || body.snoozeDays !== undefined, {
-    message: 'snoozeDays is required to snooze',
+    message: 'Indica por cuántos días posponer el caso.',
     path: ['snoozeDays'],
   })
   .meta({ id: 'CaseActionRequest' });
@@ -193,7 +252,7 @@ export const PatientDetailSchema = z
 
 export const PatientSearchQuerySchema = z.object({
   query: z.string().max(100).optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  limit: z.coerce.number().int().min(1).max(500).optional().default(20),
 });
 
 export const PatientListSchema = z
@@ -311,6 +370,9 @@ export const WebhookQuerySchema = LimitQuerySchema.extend({
 });
 
 export type CaseView = z.infer<typeof CaseViewSchema>;
+export type EscalationView = z.infer<typeof EscalationViewSchema>;
+export type EscalationStepView = z.infer<typeof EscalationStepViewSchema>;
+export type OwnerView = z.infer<typeof OwnerViewSchema>;
 export type CaseReasonView = z.infer<typeof CaseReasonViewSchema>;
 export type CaseDetail = z.infer<typeof CaseDetailSchema>;
 export type CaseTimelineEntry = z.infer<typeof CaseTimelineEntrySchema>;
