@@ -160,11 +160,19 @@ function lostToFollowUp(makeHarness: (options: HarnessOptions) => Promise<Engine
   });
 }
 
-describe('lost to follow-up (memory)', () => {
+// Each case simulates weeks of sweeps day by day: well under a second on an
+// idle machine (Postgres included), past the 5 s default when it is busy.
+const TIMEOUT_MS = 30_000;
+
+describe('lost to follow-up (memory)', { timeout: TIMEOUT_MS }, () => {
   lostToFollowUp((options) => Promise.resolve(memoryHarness(options)));
 });
 
-describe.skipIf(!POSTGRES_ENABLED)(postgresTitle('lost to follow-up'), () => {
-  const database = useIsolatedDatabase();
-  lostToFollowUp((options) => postgresHarness(database(), options));
-});
+describe.skipIf(!POSTGRES_ENABLED)(
+  postgresTitle('lost to follow-up'),
+  { timeout: TIMEOUT_MS },
+  () => {
+    const database = useIsolatedDatabase();
+    lostToFollowUp((options) => postgresHarness(database(), options));
+  },
+);

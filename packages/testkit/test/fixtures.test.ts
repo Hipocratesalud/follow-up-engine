@@ -29,7 +29,9 @@ function resourcesOf(bundle: { readonly entry: readonly { readonly resource: Fhi
 const asJson = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 
 describe('synthetic clinic', () => {
-  it('validates every bundle and directory resource against FHIR R4', () => {
+  // About 3.5 s on an idle machine (1,680 bundles against the full R4
+  // schema): past the 5 s default when the machine is busy, so 30 s.
+  it('validates every bundle and directory resource against FHIR R4', { timeout: 30_000 }, () => {
     const invalid: string[] = [];
     for (const resource of [
       clinic.clinic.organization,
