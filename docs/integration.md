@@ -639,11 +639,11 @@ The initial scan of the clinic's history finished. Counters only: how much histo
     "patientsScanned": 120,
     "eventsProcessed": 5074,
     "documentsProcessed": 671,
-    "expectationsCreated": 2221,
-    "expectationsFulfilled": 1794,
-    "casesOpened": 104,
+    "expectationsCreated": 1772,
+    "expectationsFulfilled": 1231,
+    "casesOpened": 78,
     "llmCostUsd": 0,
-    "casesScheduled": 104,
+    "casesScheduled": 78,
     "casesNotNotified": 0
   }
 }

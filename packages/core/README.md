@@ -171,7 +171,7 @@ Patient contact rules (`patient-contact/policy.ts`): only if the clinic allows i
 | Overdue factor       | +0.5 per day overdue up to +6 (day 12), flat to day 90, then −1 every 15 days down to −20 (a control missed in 2024 ranks below today's) |
 | Case                 | its most pressing reason (still open or expired), +3 per extra reason (at most 2), + the `raise_priority` steps already run (+20)        |
 
-A fresh ordered result is medium (61), a fresh abnormal result high (80); only an abnormal result left without action until its escalation becomes urgent; a probable-only protocol reminder stays low. On the synthetic clinic at day 0: 6 urgent, 15 high, 15 medium, 68 low of 104 released cases (it was 50 urgent, 29 high, 23 medium, 1 low).
+A fresh ordered result is medium (61), a fresh abnormal result high (80); only an abnormal result left without action until its escalation becomes urgent; a probable-only protocol reminder stays low. On the synthetic clinic at day 0 (`pnpm demo`): 0 urgent, 6 high, 15 medium, 57 low of 78 released cases (before this model: 50 urgent, 29 high, 23 medium, 1 low of 104).
 
 ## Initial backfill
 
@@ -208,7 +208,7 @@ How it works:
 
 For the inbox: active cases are `list({ statuses: ACTIVE, releasedAsOf: now })`; the patients to recover are `list({ origin: 'backfill', unreleasedAsOf: now })`.
 
-On the synthetic clinic (120 patients, two years, 1,680 bundles; acceptance test `packages/acceptance/test/backfill.test.ts`): 5,074 events and 671 notes replayed, 1,884 expectations created and 1,337 of them fulfilled by the history itself, 76 cases for 69 patients (at most 2 per patient), all released on day 0: no owner has more than the default cap of 20 (`packages/acceptance/test/backfill-release-cap.test.ts`).
+On the synthetic clinic (120 patients, two years, 1,680 bundles; acceptance test `packages/acceptance/test/backfill.test.ts`): 5,074 events and 671 notes replayed, 1,761 expectations created and 1,221 of them fulfilled by the history itself, 78 cases for 70 patients (at most 2 per patient), all released on day 0: no owner has more than the default cap of 20 (`packages/acceptance/test/backfill-release-cap.test.ts`).
 
 ## Adding a rule or a protocol
 
