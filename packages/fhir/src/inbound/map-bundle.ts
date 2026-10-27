@@ -24,6 +24,7 @@ import { mapCondition } from './mappers/condition.ts';
 import { encounterSpecialty, mapAppointment, mapEncounter } from './mappers/encounter.ts';
 import { mapComposition, mapDocumentReference } from './mappers/notes.ts';
 import { mapMedicationRequest, mapServiceRequest } from './mappers/orders.ts';
+import { mapAllergyIntolerance } from './mappers/allergy.ts';
 import { mapConsent, mapPatient } from './mappers/patient.ts';
 import { mapDiagnosticReport, mapObservation } from './mappers/results.ts';
 import type { ParsedResource } from './schemas.ts';
@@ -122,6 +123,8 @@ function mapParsed(resource: ParsedResource, ctx: EntryContext): MappedResource 
       return mapObservation(resource, ctx);
     case 'Condition':
       return mapCondition(resource, ctx);
+    case 'AllergyIntolerance':
+      return mapAllergyIntolerance(resource, ctx);
     case 'DocumentReference':
       return mapDocumentReference(resource, ctx);
     case 'Composition':

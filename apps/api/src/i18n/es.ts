@@ -233,6 +233,9 @@ export const ES = {
     rescheduled_by_protocol: 'Reprogramado: el protocolo pide el mismo control antes',
     corrected_by_clinician: 'Corregido por el equipo clínico',
     rejected_by_clinician: 'Rechazado por el equipo clínico: la nota no lo pedía',
+    // A treatment protocol whose patient has no active prescription left (HIP-139).
+    // Neutral: never names the drug or the condition.
+    treatment_ended: 'Terminó el tratamiento que lo motivaba',
   },
   escalationSteps: {
     notify_clinic: 'Aviso al responsable',

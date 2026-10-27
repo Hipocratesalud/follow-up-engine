@@ -189,8 +189,8 @@ describe('entry identity', () => {
       entry: [
         { request: { method: 'DELETE', url: 'Appointment/a-1' } },
         {
-          resource: { resourceType: 'AllergyIntolerance', id: 'al-1', patient: PATIENT_REF },
-          request: { method: 'PUT', url: 'AllergyIntolerance/al-1' },
+          resource: { resourceType: 'Immunization', id: 'im-1', patient: PATIENT_REF },
+          request: { method: 'PUT', url: 'Immunization/im-1' },
         },
         {
           resource: { resourceType: 'Practitioner', id: 'doc-1' },

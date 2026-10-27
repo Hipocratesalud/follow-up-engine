@@ -29,7 +29,7 @@ function resourcesOf(bundle: { readonly entry: readonly { readonly resource: Fhi
 const asJson = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 
 describe('synthetic clinic', () => {
-  // About 4.5 s on an idle machine (2,185 bundles against the full R4
+  // About 4.5 s on an idle machine (2,268 bundles against the full R4
   // schema): past the 5 s default when the machine is busy, so 30 s.
   it('validates every bundle and directory resource against FHIR R4', { timeout: 30_000 }, () => {
     const invalid: string[] = [];
@@ -190,6 +190,35 @@ describe('synthetic clinic', () => {
       }
     }
     expect(short).toBeGreaterThan(5);
+  });
+
+  it('records the allergy status of most patients, in a bundle of its own (HIP-139)', () => {
+    const NO_KNOWN_ALLERGY = '716186003';
+    const statuses = clinic.patients.map((patient) => {
+      const allergies = patient.entries.filter((entry) => entry.kind === 'allergy');
+      expect(allergies.length, patient.patientId).toBeLessThanOrEqual(1);
+      const [entry] = allergies;
+      if (entry === undefined) return 'none';
+      // Its own bundle, after the first consultation sent the Patient.
+      expect(entry.bundle.id).toBe(`${patient.patientId}-allergy01`);
+      const first = patient.entries.find((item) => item.kind === 'consultation');
+      expect(entry.at > (first?.at ?? '')).toBe(true);
+      const resources = resourcesOf(entry.bundle);
+      expect(resources.every((resource) => resource.resourceType === 'AllergyIntolerance')).toBe(
+        true,
+      );
+      const codes = resources.map(
+        (resource) =>
+          (resource['code'] as { coding: { system: string; code: string }[] }).coding[0],
+      );
+      expect(codes.every((coding) => coding?.system === 'http://snomed.info/sct')).toBe(true);
+      return codes.some((coding) => coding?.code === NO_KNOWN_ALLERGY) ? 'nka' : 'drug';
+    });
+    const count = (status: string) => statuses.filter((item) => item === status).length;
+    expect(count('nka')).toBeGreaterThan(40);
+    expect(count('drug')).toBeGreaterThan(10);
+    // Not everyone: the reviewer still has records without an allergy status to find.
+    expect(count('none')).toBeGreaterThan(20);
   });
 
   it('is in sync with its deterministic generator', () => {

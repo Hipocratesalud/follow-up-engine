@@ -230,6 +230,9 @@ export const EN = {
     rescheduled_by_protocol: 'Rescheduled: the protocol asks for the same check-up sooner',
     corrected_by_clinician: 'Corrected by a clinician',
     rejected_by_clinician: 'Rejected by a clinician: the note did not ask for it',
+    // A treatment protocol whose patient has no active prescription left (HIP-139).
+    // Neutral: never names the drug or the condition.
+    treatment_ended: 'The treatment it followed ended',
   },
   escalationSteps: {
     notify_clinic: 'Notice to the owner',

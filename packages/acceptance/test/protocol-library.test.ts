@@ -406,7 +406,9 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
           diagnoses: [{ icd10: 'F41.1', display: 'TAG' }],
         }),
       ]);
-      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([30]);
+      // A diagnosis alone does not enroll (HIP-139): psychotherapy is followed
+      // by the doctor's plan and the visit cadence.
+      expect(ofRule(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([]);
       await day(harness, 0, [
         visit('psq-1', 0, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
       ]);
@@ -472,7 +474,11 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
         ['psq-4', 85],
       ] as const) {
         await day(harness, at, [
-          visit(id, at, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
+          visit(id, at, {
+            specialty: 'psychiatry',
+            ...(at === 0 ? { noteText: 'Se inicia sertralina 50 mg.' } : {}),
+            prescriptions: [sertraline(50)],
+          }),
         ]);
       }
       expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([175]);
@@ -511,6 +517,92 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
       expect(ofRule(snapshot, TREATMENT_VISIT)).toEqual([]);
       expect(liveDue(snapshot, 'doctor_plan_followup')).toEqual([14]);
     });
+    it('HIP-139: a discharge closes the protocol; a prescription at a later consultation starts it again', async () => {
+      const harness = await harnessWith();
+      await day(harness, 0, [
+        visit('psq-d1', 0, {
+          specialty: 'psychiatry',
+          noteText: 'Episodio depresivo. Se inicia sertralina 50 mg.',
+          diagnoses: [{ icd10: 'F32.1', display: 'episodio depresivo' }],
+          prescriptions: [sertraline(50)],
+        }),
+      ]);
+      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([28]);
+      await day(harness, 25, [
+        visit('psq-d2', 25, {
+          specialty: 'psychiatry',
+          noteText: 'Remision completa. Se da de alta, puede solicitar cita si lo requiere.',
+        }),
+      ]);
+      let snapshot = await snapshotPatient(harness, patient);
+      expect(liveDue(snapshot, TREATMENT_VISIT)).toEqual([]);
+      // Nothing more is expected after the discharge: no case, months later.
+      await day(harness, 200);
+      snapshot = await snapshotPatient(harness, patient);
+      expect(liveDue(snapshot, TREATMENT_VISIT)).toEqual([]);
+      expect(activeReasons(snapshot)).not.toContain(TREATMENT_VISIT);
+      // Relapse: the antidepressant again, at a later consultation: a new episode.
+      await day(harness, 300, [
+        visit('psq-d3', 300, {
+          specialty: 'psychiatry',
+          noteText: 'Recaida. Sertralina 50 mg.',
+          prescriptions: [sertraline(50)],
+        }),
+      ]);
+      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([328]);
+    });
+
+    it('HIP-139: the expectation open at the discharge is cancelled as discharged', async () => {
+      const harness = await harnessWith();
+      await day(harness, 0, [
+        visit('psq-c1', 0, {
+          specialty: 'psychiatry',
+          noteText: 'Se inicia escitalopram 10 mg.',
+          diagnoses: [{ icd10: 'F41.1', display: 'TAG' }],
+          prescriptions: [{ text: 'Escitalopram 10 mg', atc: 'N06AB10', dosage: '1 tab VO OD' }],
+        }),
+      ]);
+      // The discharge is told by a psychologist, later than the control was due.
+      await day(harness, 40, [
+        visit('psy-c2', 40, {
+          specialty: 'psychology',
+          noteText: 'Se revisan logros del proceso. Se da de alta.',
+        }),
+      ]);
+      const snapshot = await snapshotPatient(harness, patient);
+      expect(liveDue(snapshot, TREATMENT_VISIT)).toEqual([]);
+      expect(activeReasons(snapshot)).not.toContain(TREATMENT_VISIT);
+      expect(
+        ofRule(snapshot, TREATMENT_VISIT).map((expectation) => expectation.closedReason),
+      ).toContain('patient_discharged');
+    });
+
+    it('HIP-139: a coded F41 enrolls only with an active anxiolytic, and leaves when it ends', async () => {
+      const harness = await harnessWith();
+      await day(harness, 0, [
+        visit('psy-a1', 0, {
+          specialty: 'psychology',
+          noteText: 'Impresion dx: TAG. Plan: TCC. Proxima sesion en 1 semana.',
+          diagnoses: [{ icd10: 'F41.1', display: 'TAG' }],
+        }),
+      ]);
+      expect(ofRule(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([]);
+      await day(harness, 30, [
+        visit('gp-a2', 30, {
+          specialty: 'general_practice',
+          noteText: 'Se indica alprazolam 0,25 mg por 30 dias.',
+          prescriptions: [{ text: 'Alprazolam 0,25 mg', dosage: '1 tab VO HS', supplyDays: 30 }],
+        }),
+      ]);
+      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([120]);
+      // The 30 days of the prescription are over: the patient is no longer on treatment.
+      await day(harness, 90, [visit('psy-a3', 90, { specialty: 'psychology' })]);
+      const snapshot = await snapshotPatient(harness, patient);
+      expect(liveDue(snapshot, TREATMENT_VISIT)).toEqual([]);
+      expect(
+        ofRule(snapshot, TREATMENT_VISIT).map((expectation) => expectation.closedReason),
+      ).toContain('treatment_ended');
+    });
   });
 
   describe('hypothyroidism', () => {
@@ -525,6 +617,7 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
       await day(harness, 0, [
         visit('thy-1', 0, {
           specialty: 'internal_medicine',
+          noteText: 'Hipotiroidismo primario. Se inicia levotiroxina 50 mcg en ayunas.',
           diagnoses: [{ icd10: 'E03.9', display: 'hipotiroidismo' }],
           prescriptions: [levothyroxine(50)],
         }),
@@ -566,7 +659,11 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
     it('enrolls by a statin alone: a lipid panel 4-12 weeks after the start, then yearly', async () => {
       const harness = await harnessWith();
       await day(harness, 0, [
-        visit('lip-1', 0, { specialty: 'internal_medicine', prescriptions: [atorvastatin] }),
+        visit('lip-1', 0, {
+          specialty: 'internal_medicine',
+          noteText: 'Se inicia atorvastatina 20 mg VO HS.',
+          prescriptions: [atorvastatin],
+        }),
       ]);
       expect(liveDue(await snapshotPatient(harness, patient), LIPIDS)).toEqual([84]);
       // The panel arrives as its components.
@@ -579,6 +676,7 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
       await day(harness, 0, [
         visit('dm-1', 0, {
           specialty: 'diabetology',
+          noteText: 'DM2. Continuar metformina 850 mg. Se inicia atorvastatina 20 mg.',
           diagnoses: [{ icd10: 'E11.9', display: 'DM2' }],
           prescriptions: [{ text: 'Metformina 850 mg', atc: 'A10BA02' }, atorvastatin],
         }),
@@ -604,7 +702,7 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
         consultationId: id,
         patient: { id: patientRef, name: 'Paciente Sintética', gender: 'female' },
         occurredAt: dayToDate(at),
-        noteText: NEUTRAL_NOTE,
+        noteText: `Hipotiroidismo. Se inicia levotiroxina ${String(mcg)} mcg.`,
         specialty: 'internal_medicine',
         diagnoses: [{ icd10: 'E03.9', display: 'hipotiroidismo' }],
         prescriptions: [levothyroxine(mcg)],

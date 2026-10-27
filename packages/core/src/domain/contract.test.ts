@@ -40,6 +40,8 @@ function describeEvent(event: ClinicalEvent): string {
       return event.language ?? 'no language';
     case 'record.withdrawn':
       return event.reason;
+    case 'allergy.recorded':
+      return event.noKnownAllergy ? 'no known allergy' : (event.code?.code ?? event.text ?? '');
   }
 }
 

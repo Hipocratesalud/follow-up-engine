@@ -197,6 +197,57 @@
       }
     },
     {
+      "at": "2025-04-10T20:52:00.000Z",
+      "kind": "allergy",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0079-allergy01",
+        "type": "transaction",
+        "timestamp": "2025-04-10T20:52:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:9be9f86b-15a8-52d9-becd-5a9956c7449d",
+            "resource": {
+              "resourceType": "AllergyIntolerance",
+              "id": "pat-0079-al01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+                    "code": "active",
+                    "display": "Active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+                    "code": "confirmed",
+                    "display": "Confirmed"
+                  }
+                ]
+              },
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://snomed.info/sct",
+                    "code": "716186003",
+                    "display": "No known allergy"
+                  }
+                ],
+                "text": "Sin alergias conocidas"
+              },
+              "patient": { "reference": "Patient/pat-0079" },
+              "encounter": { "reference": "Encounter/pat-0079-enc01" },
+              "recordedDate": "2025-04-10T20:52:00.000Z"
+            },
+            "request": { "method": "PUT", "url": "AllergyIntolerance/pat-0079-al01" }
+          }
+        ]
+      }
+    },
+    {
       "at": "2025-04-10T21:00:00.000Z",
       "kind": "appointment_booked",
       "bundle": {

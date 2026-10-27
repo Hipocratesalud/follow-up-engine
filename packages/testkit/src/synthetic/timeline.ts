@@ -25,6 +25,7 @@ export const TIMELINE_ENTRY_KINDS = [
   'appointment_booked',
   'appointment_cancelled',
   'diagnosis',
+  'allergy',
 ] as const;
 export type TimelineEntryKind = (typeof TIMELINE_ENTRY_KINDS)[number];
 

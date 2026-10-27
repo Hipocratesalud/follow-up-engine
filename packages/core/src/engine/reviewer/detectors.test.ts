@@ -1,16 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import type { ClinicalEvent } from '../../domain/clinical-event.ts';
+import type { Expectation } from '../../domain/expectation.ts';
+import { coverageOf } from './coverage.ts';
 import { detectSignals, type Signal } from './detectors.ts';
 import { buildDossier } from './dossier.ts';
 import {
+  allergy,
+  anExpectation,
   booking,
   condition,
+  day,
   encounter,
   medication,
   note,
   result,
   snapshot,
 } from './test-support.ts';
+import type { FindingDraft } from './validation.ts';
 
 function signals(events: readonly ClinicalEvent[], overrides = {}): Signal[] {
   return detectSignals(buildDossier(snapshot(events, overrides)));
@@ -21,6 +27,8 @@ function rules(events: readonly ClinicalEvent[], overrides = {}): string[] {
 }
 
 const ALLERGIES = 'Alergias: niega.';
+/** A clinic whose host sends the allergy list (`ClinicSettings.recordCapabilities`). */
+const ALLERGY_CAPABLE = { recordCapabilities: ['allergies'] as const };
 const CREATININE = '2160-0';
 
 describe('lab trends', () => {
@@ -290,12 +298,31 @@ describe('check-ups, record quality, utilization and questions', () => {
 
   it('allergies never recorded while prescribing (a prescription in the last 90 days)', () => {
     const recent = medication(-30, 'Metformina 850 mg', { atc: 'A10BA02' });
-    expect(rules([recent, note(-60, 'DM2 estable.')])).toContain('record_quality:allergies');
-    expect(rules([recent, note(-60, 'DM2 estable. Sin alergias conocidas.')])).not.toContain(
+    expect(rules([recent, note(-60, 'DM2 estable.')], ALLERGY_CAPABLE)).toContain(
       'record_quality:allergies',
     );
+    expect(
+      rules([recent, note(-60, 'DM2 estable. Sin alergias conocidas.')], ALLERGY_CAPABLE),
+    ).not.toContain('record_quality:allergies');
     // An old chronic prescription alone does not raise it again and again.
-    expect(rules([metformin, note(-60, 'DM2 estable.')])).not.toContain('record_quality:allergies');
+    expect(rules([metformin, note(-60, 'DM2 estable.')], ALLERGY_CAPABLE)).not.toContain(
+      'record_quality:allergies',
+    );
+  });
+
+  it('HIP-139: only for a clinic whose record has allergies, and only when none is recorded', () => {
+    const recent = medication(-30, 'Metformina 850 mg', { atc: 'A10BA02' });
+    const record = [recent, note(-60, 'DM2 estable.')];
+    // The host does not send allergies: their absence says nothing.
+    expect(rules(record)).not.toContain('record_quality:allergies');
+    expect(rules(record, ALLERGY_CAPABLE)).toContain('record_quality:allergies');
+    // "No known allergy" (SNOMED CT 716186003) and a drug allergy are both a recorded status.
+    expect(
+      rules([...record, allergy(-400, '716186003', 'No known allergy')], ALLERGY_CAPABLE),
+    ).not.toContain('record_quality:allergies');
+    expect(
+      rules([...record, allergy(-400, '764146007', 'Penicillin')], ALLERGY_CAPABLE),
+    ).not.toContain('record_quality:allergies');
   });
 
   it('writes in the review locale; quotes from notes stay as written', () => {
@@ -321,6 +348,90 @@ describe('check-ups, record quality, utilization and questions', () => {
     expect(rules([encounter(-400, 'internal_medicine'), ...visits])).toContain(
       'utilization:frequent_visits',
     );
+  });
+
+  describe('visits a protocol or the doctor asked for are not a change (HIP-139)', () => {
+    /** A visit, its note, and the protocol or plan visit expectation it fulfilled. */
+    function expectedVisit(
+      offset: number,
+      ruleId: string,
+      by: 'encounter' | 'booking' = 'encounter',
+    ): { events: ClinicalEvent[]; expectation: Expectation } {
+      const visit = encounter(offset, 'gynecology');
+      const booked = booking(offset - 7, offset);
+      const fulfilledBy = by === 'encounter' ? visit.source : booked.source;
+      return {
+        events: [
+          visit,
+          ...(by === 'booking' ? [booked] : []),
+          note(offset, `Control prenatal, evolucion normal. ${ALLERGIES}`, {
+            specialty: 'gynecology',
+          }),
+        ],
+        expectation: anExpectation({
+          id: `exp-${ruleId}-${String(offset)}` as Expectation['id'],
+          idempotencyKey: `key-${ruleId}-${String(offset)}`,
+          ruleId,
+          layer: ruleId.startsWith('protocol_') ? 'protocol' : 'doctor_plan',
+          matchKey: 'visit',
+          source: { resourceType: 'Encounter', id: `previous-${String(offset)}` },
+          dueAt: day(offset + 2),
+          status: 'fulfilled',
+          closedReason: 'fulfilled_by_encounter',
+          closedBy: fulfilledBy,
+          reason: { code: ruleId, label: 'Control pendiente' },
+        }),
+      };
+    }
+    const PRENATAL = 'protocol_pregnancy_prenatal_visit';
+    // Near term: weekly prenatal controls, 7 in 90 days; monthly before.
+    const nearTerm = [-85, -70, -56, -42, -28, -14, -7].map((offset, index) =>
+      expectedVisit(
+        offset,
+        index % 2 === 0 ? PRENATAL : 'doctor_plan_followup',
+        index === 3 ? 'booking' : 'encounter',
+      ),
+    );
+    const before = [-400, -250, -160, -120].map((offset) => expectedVisit(offset, PRENATAL));
+    const record = [...nearTerm, ...before].flatMap((visit) => visit.events);
+    const fulfilledExpectations = [...nearTerm, ...before].map((visit) => visit.expectation);
+
+    it('a near-term pregnancy seen weekly, as the protocol and the plan ask, is not frequent visits', () => {
+      expect(rules(record)).toContain('utilization:frequent_visits');
+      expect(rules(record, { fulfilledExpectations })).not.toContain('utilization:frequent_visits');
+    });
+
+    it('unplanned visits on top of the expected ones still count', () => {
+      const unplanned = [-60, -45, -30, -20].flatMap((offset) => [
+        encounter(offset, 'gynecology'),
+        note(offset, `Consulta por dolor pelvico recurrente. ${ALLERGIES}`, {
+          specialty: 'gynecology',
+        }),
+      ]);
+      const found = signals([...record, ...unplanned], { fulfilledExpectations });
+      const utilization = found.find((signal) => signal.rule === 'utilization:frequent_visits');
+      expect(utilization?.summary).toMatch(/^4 unplanned visits in the last 90 days/);
+    });
+
+    it("a utilization finding is covered when the window's visits were expected", () => {
+      const dossier = buildDossier(snapshot(record, { fulfilledExpectations }));
+      const draft: FindingDraft = {
+        category: 'utilization_change',
+        severity: 'medium',
+        summary: 'Seven visits in 90 days',
+        rationale: 'More often than before.',
+        suggestion: 'Review.',
+        citations: [],
+        origin: 'added',
+        signalIds: [],
+        dedupKey: 'utilization',
+      };
+      const coverage = coverageOf(draft, dossier);
+      expect(coverage.map((item) => item.code)).toEqual(
+        expect.arrayContaining([PRENATAL, 'doctor_plan_followup']),
+      );
+      expect(coverageOf(draft, buildDossier(snapshot(record)))).toEqual([]);
+    });
   });
 
   it('questions for the next visit need a visit booked within 60 days', () => {

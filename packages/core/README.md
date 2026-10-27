@@ -256,11 +256,11 @@ How it works:
 
 For the inbox: active cases are `list({ statuses: ACTIVE, releasedAsOf: now })`; the patients to recover are `list({ origin: 'backfill', unreleasedAsOf: now })`.
 
-On the synthetic clinic (148 patients, two years, 2,185 bundles; acceptance test `packages/acceptance/test/backfill.test.ts`, default protocols diabetes and hypertension): 6,439 events and 867 notes replayed, 2,213 expectations created and 1,663 of them fulfilled by the history itself, 94 cases for 84 patients (at most 2 per patient), all released on day 0: no owner has more than the default cap of 20 (`packages/acceptance/test/backfill-release-cap.test.ts`).
+On the synthetic clinic (148 patients, two years, 2,268 bundles; acceptance test `packages/acceptance/test/backfill.test.ts`, default protocols diabetes and hypertension): 6,522 events and 867 notes replayed, 2,213 expectations created and 1,663 of them fulfilled by the history itself, 94 cases for 84 patients (at most 2 per patient), all released on day 0: no owner has more than the default cap of 20 (`packages/acceptance/test/backfill-release-cap.test.ts`).
 
 ## Clinical reviewer
 
-`createClinicalReviewer({ unitOfWork, clock, ids, agent?, redactTermsOf?, localeOf?, loadCatalog? })` (`engine/reviewer`) reviews one patient's record and stores **findings** (`ClinicalFinding`, FHIR `DetectedIssue`): suggestions to the clinical team, each with verbatim citations.
+`createClinicalReviewer({ unitOfWork, clock, ids, agent?, redactTermsOf?, localeOf?, loadCatalog?, recordCapabilitiesOf? })` (`engine/reviewer`) reviews one patient's record and stores **findings** (`ClinicalFinding`, FHIR `DetectedIssue`): suggestions to the clinical team, each with verbatim citations.
 
 1. Code builds the dossier and computes the trends.
 2. Deterministic detectors emit signals.

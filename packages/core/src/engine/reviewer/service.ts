@@ -21,6 +21,7 @@ import type {
   ReviewRunStats,
 } from '../../ports/clinical-finding-repository.ts';
 import type { ClinicalReviewAgent, ReviewLimits } from '../../ports/clinical-review-agent.ts';
+import type { RecordCapability } from '../../ports/clinic-directory.ts';
 import type { Clock } from '../../ports/clock.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { TransactionalStores, UnitOfWork } from '../../ports/unit-of-work.ts';
@@ -89,6 +90,14 @@ export interface ClinicalReviewerDeps {
   readonly redactTermsOf?: (patient: FhirResourceJson) => readonly string[];
   /** The clinic's locale: the language findings are written in. Default `en`. */
   readonly localeOf?: (clinicId: ClinicId) => ReviewLocale | Promise<ReviewLocale>;
+  /**
+   * What the clinic's host sends in full (`ClinicSettings.recordCapabilities`):
+   * a missing allergy status is a finding only for a clinic that sends
+   * allergies. Absent: nothing assumed.
+   */
+  readonly recordCapabilitiesOf?: (
+    clinicId: ClinicId,
+  ) => readonly RecordCapability[] | Promise<readonly RecordCapability[]>;
   readonly settings?: Partial<ReviewerSettings>;
   /**
    * The clinic's catalog (`engine.catalog`): what each open expectation asks
@@ -257,11 +266,13 @@ export function createClinicalReviewer(deps: ClinicalReviewerDeps): ClinicalRevi
     patientId: PatientId,
     now: Date,
     catalog: Catalog | undefined,
+    recordCapabilities: readonly RecordCapability[] | undefined,
   ): Promise<{ snapshot: PatientRecordSnapshot; redactTerms: readonly string[] }> {
-    const [events, conditions, expectations, cases, patient] = await Promise.all([
+    const [events, conditions, expectations, fulfilled, cases, patient] = await Promise.all([
       stores.clinicalRecords.listEventsForPatient(clinicId, patientId),
       stores.conditions.listByPatient(clinicId, patientId),
       stores.expectations.listByPatient(clinicId, patientId, ['open', 'expired']),
+      stores.expectations.listByPatient(clinicId, patientId, ['fulfilled']),
       listPatientCases(stores, clinicId, patientId, { statuses: ACTIVE_CASE_STATUSES }),
       stores.clinicalRecords.getResource(clinicId, { resourceType: 'Patient', id: patientId }),
     ]);
@@ -290,6 +301,8 @@ export function createClinicalReviewer(deps: ClinicalReviewerDeps): ClinicalRevi
         events,
         conditions,
         liveExpectations: expectations,
+        fulfilledExpectations: fulfilled,
+        ...(recordCapabilities === undefined ? {} : { recordCapabilities }),
         ...(catalog === undefined
           ? {}
           : { expectationTestCodes: expectationTestCodes(catalog, expectations) }),
@@ -308,10 +321,11 @@ export function createClinicalReviewer(deps: ClinicalReviewerDeps): ClinicalRevi
     const startedAt = deps.clock.now();
     const runId = deps.ids.next('review_run');
     const catalog = await deps.loadCatalog?.(clinicId);
+    const recordCapabilities = await deps.recordCapabilitiesOf?.(clinicId);
     const { snapshot, redactTerms, flags } = await deps.unitOfWork.withTransaction(
       clinicId,
       async (stores) => ({
-        ...(await snapshotOf(stores, clinicId, patientId, startedAt, catalog)),
+        ...(await snapshotOf(stores, clinicId, patientId, startedAt, catalog, recordCapabilities)),
         flags: await stores.findingFlags.list(clinicId),
       }),
     );

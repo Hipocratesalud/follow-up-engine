@@ -6,7 +6,7 @@ import { refKey } from '../timeline.ts';
 import type { ReviewDossier } from './dossier.ts';
 import { MEASUREMENTS, SCREENING_RULES } from './knowledge.ts';
 import { foldWithMap } from './text.ts';
-import type { Signal } from './detectors.ts';
+import { type Signal, utilizationWindow } from './detectors.ts';
 import type { FindingDraft } from './validation.ts';
 
 /**
@@ -126,6 +126,18 @@ export function coverageOf(
   };
 
   const coverage: FindingCoverage[] = [];
+  if (draft.category === 'utilization_change') {
+    // Explained when the visits of the window a plan or a protocol asked for
+    // account for the change: what is left is not frequent.
+    const window = utilizationWindow(dossier);
+    return window.frequent
+      ? []
+      : window.explainedBy.map((expectation) => ({
+          kind: 'expectation',
+          id: expectation.id,
+          code: expectation.ruleId,
+        }));
+  }
   const live = liveExpectations.filter(
     (expectation) => expectation.status === 'open' || expectation.status === 'expired',
   );

@@ -377,6 +377,100 @@ describe('other host events', () => {
   });
 });
 
+describe('allergies (HIP-139)', () => {
+  const allergyBundle = (resources: readonly Record<string, unknown>[]) => ({
+    resourceType: 'Bundle',
+    type: 'transaction',
+    entry: resources.map((resource) => ({
+      resource,
+      request: { method: 'PUT', url: `AllergyIntolerance/${String(resource['id'])}` },
+    })),
+  });
+  const verified = (code: string) => ({
+    coding: [
+      { system: 'http://terminology.hl7.org/CodeSystem/allergyintolerance-verification', code },
+    ],
+  });
+  const active = {
+    coding: [
+      {
+        system: 'http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical',
+        code: 'active',
+      },
+    ],
+  };
+
+  it('AllergyIntolerance becomes allergy.recorded: a substance, or "no known allergy"', () => {
+    const batch = onlyBatch(
+      map(
+        allergyBundle([
+          {
+            resourceType: 'AllergyIntolerance',
+            id: 'al-nka',
+            clinicalStatus: active,
+            verificationStatus: verified('confirmed'),
+            code: {
+              coding: [
+                {
+                  system: 'http://snomed.info/sct',
+                  code: '716186003',
+                  display: 'No known allergy',
+                },
+              ],
+              text: 'Sin alergias conocidas',
+            },
+            patient: { reference: 'Patient/p-1' },
+            recordedDate: '2025-03-01T10:00:00Z',
+          },
+          {
+            resourceType: 'AllergyIntolerance',
+            id: 'al-pen',
+            clinicalStatus: active,
+            verificationStatus: verified('confirmed'),
+            type: 'allergy',
+            category: ['medication'],
+            criticality: 'high',
+            code: {
+              coding: [
+                { system: 'http://snomed.info/sct', code: '764146007', display: 'Penicillin' },
+              ],
+              text: 'Penicilina',
+            },
+            patient: { reference: 'Patient/p-1' },
+            recordedDate: '2025-03-01T10:00:00Z',
+            reaction: [{ manifestation: [{ text: 'Urticaria' }] }],
+          },
+        ]),
+      ),
+    );
+    const allergies = eventsOf(batch, 'allergy.recorded');
+    expect(
+      allergies.map((event) => [event.code?.code, event.noKnownAllergy, event.criticality]),
+    ).toEqual([
+      ['716186003', true, undefined],
+      ['764146007', false, 'high'],
+    ]);
+    expect(allergies[0]?.occurredAt).toEqual(new Date('2025-03-01T10:00:00Z'));
+  });
+
+  it('an allergy entered in error or refuted withdraws the earlier version', () => {
+    const batch = onlyBatch(
+      map(
+        allergyBundle([
+          {
+            resourceType: 'AllergyIntolerance',
+            id: 'al-err',
+            verificationStatus: verified('entered-in-error'),
+            code: { coding: [{ system: 'http://snomed.info/sct', code: '387406002' }] },
+            patient: { reference: 'Patient/p-1' },
+          },
+        ]),
+      ),
+    );
+    expect(types(batch)).toEqual(['record.withdrawn']);
+  });
+});
+
 describe('batching', () => {
   it('splits one bundle into a batch per patient', () => {
     const a = buildConsultationBundle({

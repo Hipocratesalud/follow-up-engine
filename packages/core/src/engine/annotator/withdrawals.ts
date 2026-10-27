@@ -169,7 +169,7 @@ export async function withdrawConditions(
   const episodes = new Map(
     context.catalog.protocols.map((protocol) => [
       protocol.id,
-      { protocol, episode: protocolEpisode(protocol, conditions, state.timeline) },
+      { protocol, episode: protocolEpisode(protocol, conditions, state.timeline, context.now) },
     ]),
   );
   for (const expectation of state.live.list()) {

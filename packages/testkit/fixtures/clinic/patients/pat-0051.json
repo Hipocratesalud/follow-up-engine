@@ -359,6 +359,76 @@
       }
     },
     {
+      "at": "2024-05-31T17:28:00.000Z",
+      "kind": "allergy",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0051-allergy01",
+        "type": "transaction",
+        "timestamp": "2024-05-31T17:28:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:69ac9b2f-8b49-55e9-91b9-97c7990dee9e",
+            "resource": {
+              "resourceType": "AllergyIntolerance",
+              "id": "pat-0051-al01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+                    "code": "active",
+                    "display": "Active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+                    "code": "confirmed",
+                    "display": "Confirmed"
+                  }
+                ]
+              },
+              "type": "allergy",
+              "category": ["medication"],
+              "criticality": "high",
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://snomed.info/sct",
+                    "code": "764146007",
+                    "display": "Penicillin"
+                  }
+                ],
+                "text": "Penicilina"
+              },
+              "patient": { "reference": "Patient/pat-0051" },
+              "encounter": { "reference": "Encounter/pat-0051-enc01" },
+              "recordedDate": "2024-05-31T17:28:00.000Z",
+              "reaction": [
+                {
+                  "manifestation": [
+                    {
+                      "coding": [
+                        {
+                          "system": "http://snomed.info/sct",
+                          "code": "126485001",
+                          "display": "Urticaria"
+                        }
+                      ],
+                      "text": "Urticaria"
+                    }
+                  ]
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "AllergyIntolerance/pat-0051-al01" }
+          }
+        ]
+      }
+    },
+    {
       "at": "2024-05-31T17:36:00.000Z",
       "kind": "appointment_booked",
       "bundle": {

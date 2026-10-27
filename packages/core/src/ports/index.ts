@@ -1,7 +1,7 @@
 export type * from './audit-log.ts';
 export * from './backfill-progress.ts';
 export type * from './case-repository.ts';
-export type * from './clinic-directory.ts';
+export * from './clinic-directory.ts';
 export type * from './clinical-finding-repository.ts';
 export * from './clinical-review-agent.ts';
 export type * from './clinical-record-repository.ts';

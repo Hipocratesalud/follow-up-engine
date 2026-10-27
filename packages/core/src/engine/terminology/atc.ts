@@ -247,6 +247,14 @@ const ATC_NAMES: readonly AtcName[] = [
   { atc: 'N05AX08', names: ['risperidon'] },
   { atc: 'N05AX12', names: ['aripiprazol'] },
   { atc: 'N05AN01', names: ['litio', 'lithium', 'carbonato de litio'] },
+  { atc: 'N05BA12', names: ['alprazolam'] },
+  { atc: 'N05BA06', names: ['lorazepam'] },
+  { atc: 'N05BA01', names: ['diazepam'] },
+  { atc: 'N05BA08', names: ['bromazepam'] },
+  { atc: 'N05BE01', names: ['buspiron'] },
+  { atc: 'N05CF02', names: ['zolpidem'] },
+  { atc: 'N05CF01', names: ['zopiclon'] },
+  { atc: 'N03AE01', names: ['clonazepam'] },
   { atc: 'N06AA09', names: ['amitriptilin', 'amitriptylin'] },
   { atc: 'N06AA02', names: ['imipramin'] },
   { atc: 'N06AA04', names: ['clomipramin'] },
@@ -355,6 +363,11 @@ export function atcCodeOfName(text: string): string | undefined {
     }
   }
   return best?.atc;
+}
+
+/** The name stems the table knows for an ATC code ("atorvastat" for `C10AA05`). */
+export function atcNamesOf(atc: string): readonly string[] {
+  return ATC_NAMES.filter((entry) => entry.atc === atc).flatMap((entry) => entry.names);
 }
 
 /** Whether `code` is written like an ATC code (`B01AF02`, `C10`). */
