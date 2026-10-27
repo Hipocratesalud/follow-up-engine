@@ -38,7 +38,7 @@ describe.each(LOCALES)('clinical review in %s', (locale: Locale) => {
   it('shows a trend drawn to scale with its cited results', async () => {
     renderApp('/clinical-review/cf-001', { locale });
     const values = [1.05, 1.1, 1.4, 1.75]
-      .map((value) => value.toLocaleString(locale === 'en' ? 'en-US' : 'es-419'))
+      .map((value) => value.toLocaleString(locale === 'en' ? 'en-US' : 'es'))
       .join(' → ');
     const chart = await screen.findByRole('img', {
       name: new RegExp(escape(`${finding('cf-001').trend?.label ?? ''}: ${values} mg/dL`)),

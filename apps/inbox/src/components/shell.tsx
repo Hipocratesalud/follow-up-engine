@@ -18,7 +18,7 @@ import {
 } from '../api/queries.ts';
 import { cx } from '../lib/cx.ts';
 import { useT } from '../i18n/index.ts';
-import { formatDate } from '../lib/format.ts';
+import { formatDate, formatShortDate } from '../lib/format.ts';
 import { LanguageSwitch } from './language-switch.tsx';
 import { ThemeToggle } from './theme.tsx';
 
@@ -83,7 +83,7 @@ function Brand(): ReactNode {
         <HeartPulse className="size-4.5" aria-hidden="true" />
       </span>
       <div className="leading-tight">
-        <p className="text-sm font-semibold text-fg">{t.common.appName}</p>
+        <p className="text-sm font-semibold whitespace-nowrap text-fg">{t.common.appName}</p>
         {clinic.data || clinic.isError ? (
           <p className="hidden max-w-[150px] truncate text-xs text-muted sm:block">
             {clinic.data?.name ?? t.common.clinicFallback}
@@ -105,7 +105,10 @@ function SimulatedDate({ now }: { readonly now: string }): ReactNode {
     >
       <CalendarClock className="size-3.5" aria-hidden="true" />
       <span className="hidden sm:inline">{t.nav.simulatedDate}</span>
-      <time dateTime={now}>{formatDate(now)}</time>
+      <time dateTime={now}>
+        <span className="sm:hidden">{formatShortDate(now)}</span>
+        <span className="max-sm:hidden">{formatDate(now)}</span>
+      </time>
     </span>
   );
 }

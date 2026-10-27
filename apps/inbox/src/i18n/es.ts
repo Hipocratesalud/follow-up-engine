@@ -6,8 +6,8 @@ import type { Messages } from './types.ts';
  * parameter must match, or the inbox does not compile.
  */
 
-const plurals = new Intl.PluralRules('es-419');
-const numbers = new Intl.NumberFormat('es-419');
+const plurals = new Intl.PluralRules('es');
+const numbers = new Intl.NumberFormat('es');
 
 /** "1 caso", "3 casos". */
 function count(n: number, one: string, other: string): string {

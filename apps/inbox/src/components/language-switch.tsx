@@ -29,7 +29,7 @@ export function LanguageSwitch({ compact = false }: { readonly compact?: boolean
       aria-label={t.common.language}
       className="inline-flex items-center gap-0.5 rounded-lg bg-surface-2 p-0.5"
     >
-      <Languages className="mx-1 size-3.5 text-muted" aria-hidden="true" />
+      <Languages className="mx-1 size-3.5 text-muted max-sm:hidden" aria-hidden="true" />
       {LOCALES.map((option) => (
         <button
           key={option}

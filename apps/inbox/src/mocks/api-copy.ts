@@ -12,7 +12,7 @@ import type { Locale } from '../i18n/index.ts';
  */
 
 const englishCount = new Intl.PluralRules('en-US');
-const spanishCount = new Intl.PluralRules('es-419');
+const spanishCount = new Intl.PluralRules('es');
 
 function count(rules: Intl.PluralRules, n: number, one: string, other: string): string {
   return `${String(n)} ${rules.select(n) === 'one' ? one : other}`;

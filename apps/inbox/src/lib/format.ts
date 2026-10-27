@@ -45,7 +45,7 @@ function formatters(): Formatters {
     }),
     relative: new Intl.RelativeTimeFormat(tag, { numeric: 'auto' }),
     // Latin American Spanish renders "USD 0.0012", which reads better than "0,0012 US$" for tiny amounts.
-    usd: new Intl.NumberFormat(tag, {
+    usd: new Intl.NumberFormat(locale === 'es' ? 'es-419' : tag, {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,

@@ -19,7 +19,7 @@ export const LOCALE_STORAGE_KEY = 'inbox-locale';
 /** BCP-47 tag each locale formats dates and numbers with. */
 export const INTL_LOCALES: Readonly<Record<Locale, string>> = {
   en: 'en-US',
-  es: 'es-419',
+  es: 'es',
 };
 
 export function isLocale(value: unknown): value is Locale {
