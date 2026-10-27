@@ -1,3 +1,4 @@
+import { createReviewerMock, type ReviewerMock } from './reviewer.ts';
 import {
   type ApiFieldError,
   ACTIVE_CASE_STATUSES,
@@ -281,6 +282,8 @@ export interface MockStore {
   advance(days: number): { now: string };
   createConsultation(request: DemoConsultationRequest): DemoConsultationResponse;
   listWebhooks(limit?: number, type?: string): { items: WebhookDelivery[] };
+  /** The clinical reviewer's findings and flags. */
+  readonly reviewer: ReviewerMock;
 }
 
 export function createMockStore(options: MockStoreOptions = {}): MockStore {
@@ -294,6 +297,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   const webhooks: WebhookDelivery[] = [];
   const llmCalls: MockLlmCall[] = [];
   const counters = { patient: 0, doc: 0, exp: 0, case: 0, cond: 0, finding: 0 };
+  const reviewer = createReviewerMock(() => now);
 
   function nextId(kind: keyof typeof counters, prefix: string): string {
     counters[kind] += 1;
@@ -1416,6 +1420,8 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     },
 
     createConsultation,
+
+    reviewer,
 
     listWebhooks(limit = 30, type?: string): { items: WebhookDelivery[] } {
       return {

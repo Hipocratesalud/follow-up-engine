@@ -32,6 +32,16 @@ import type {
   RecoveryPage,
   WebhookDelivery,
 } from './contract.ts';
+import type {
+  FindingDetail,
+  FindingFlagUpdate,
+  FindingFlagView,
+  FindingListQuery,
+  FindingPage,
+  FindingReviewRequest,
+  FindingView,
+  ReviewMetrics,
+} from './reviewer-contract.ts';
 
 export const ApiContext = createContext<ApiClient | null>(null);
 
@@ -54,6 +64,11 @@ export const queryKeys = {
   stats: ['stats'] as const,
   clock: ['clock'] as const,
   webhooks: ['webhooks'] as const,
+  findings: (query: FindingListQuery) => ['findings', query] as const,
+  allFindings: ['findings'] as const,
+  finding: (id: string) => ['finding', id] as const,
+  reviewMetrics: ['review-metrics'] as const,
+  findingFlags: ['finding-flags'] as const,
 };
 
 /** The clinic the API key belongs to (its name titles the inbox). */
@@ -263,6 +278,89 @@ export function useDemoConsultation(): UseMutationResult<
     onSuccess: () => {
       invalidateAfterCaseChange(queryClient);
       void queryClient.invalidateQueries({ queryKey: queryKeys.patients });
+    },
+  });
+}
+
+// ------------------------------------------------------------ clinical reviewer
+
+export function useFindings(query: FindingListQuery): UseQueryResult<FindingPage> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.findings(query),
+    queryFn: () => api.listFindings(query),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Every page of a finding list, loaded one after the other. */
+export function useFindingPages(
+  query: Omit<FindingListQuery, 'cursor'>,
+): UseInfiniteQueryResult<InfiniteData<FindingPage, string | undefined>> {
+  const api = useApi();
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.allFindings, 'pages', query],
+    queryFn: ({ pageParam }) =>
+      api.listFindings({ ...query, ...(pageParam === undefined ? {} : { cursor: pageParam }) }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Open shadow findings: the count next to "Revisión clínica" in the nav. */
+export function useOpenShadowFindings(): UseQueryResult<FindingPage> {
+  return useFindings({ mode: 'shadow', status: 'open', limit: 1 });
+}
+
+export function useFinding(id: string): UseQueryResult<FindingDetail> {
+  const api = useApi();
+  return useQuery({ queryKey: queryKeys.finding(id), queryFn: () => api.getFinding(id) });
+}
+
+export function useReviewMetrics(): UseQueryResult<ReviewMetrics> {
+  const api = useApi();
+  return useQuery({ queryKey: queryKeys.reviewMetrics, queryFn: () => api.getReviewMetrics() });
+}
+
+export function useFindingFlags(): UseQueryResult<{ items: FindingFlagView[] }> {
+  const api = useApi();
+  return useQuery({ queryKey: queryKeys.findingFlags, queryFn: () => api.listFindingFlags() });
+}
+
+function invalidateAfterFindingChange(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.allFindings });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.reviewMetrics });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.findingFlags });
+}
+
+export function useFindingReview(
+  findingId: string,
+): UseMutationResult<FindingView, Error, FindingReviewRequest> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: FindingReviewRequest) => api.reviewFinding(findingId, request),
+    onSuccess: (view: FindingView) => {
+      queryClient.setQueryData<FindingDetail>(queryKeys.finding(findingId), (previous) =>
+        previous ? { ...previous, ...view } : previous,
+      );
+      invalidateAfterFindingChange(queryClient);
+    },
+  });
+}
+
+export function useFindingFlagUpdate(): UseMutationResult<
+  FindingFlagView,
+  Error,
+  FindingFlagUpdate
+> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: FindingFlagUpdate) => api.updateFindingFlag(request),
+    onSuccess: () => {
+      invalidateAfterFindingChange(queryClient);
     },
   });
 }
