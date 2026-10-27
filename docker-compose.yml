@@ -17,7 +17,7 @@ x-engine: &engine
       condition: service_healthy
   environment: &engine-env
     DATABASE_URL: postgres://postgres:postgres@postgres:5432/follow_up_engine
-    LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+    LLM_PROVIDER: ${LLM_PROVIDER:-} # empty: meta with META_API_KEY, else fake
     META_API_KEY: ${META_API_KEY:-}
     BASETEN_API_KEY: ${BASETEN_API_KEY:-}
     DEMO_API_KEY: ${DEMO_API_KEY:-demo-clinic-key}

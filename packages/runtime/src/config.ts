@@ -43,7 +43,15 @@ const EnvSchema = z
     DATABASE_SCHEMA: optionalString,
     CLOCK: z.enum(['system', 'fake']).optional().default('system'),
     FAKE_CLOCK_START: z.iso.datetime({ offset: true }).optional().default(DEFAULT_FAKE_CLOCK_START),
-    LLM_PROVIDER: z.enum(LLM_PROVIDERS).optional().default('fake'),
+    /**
+     * Default: `meta` (Muse Spark) when `META_API_KEY` is set, else `fake`;
+     * always `fake` in CI (`CI` set) unless named here.
+     */
+    LLM_PROVIDER: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z.enum(LLM_PROVIDERS).optional(),
+    ),
+    CI: optionalString,
     META_API_KEY: optionalString,
     META_MODEL: optionalString,
     BASETEN_API_KEY: optionalString,
@@ -203,6 +211,9 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Runtime
     throw new InvalidConfigError(`Invalid configuration:\n- ${problems.join('\n- ')}`);
   }
   const e = parsed.data;
+  const ci = e.CI !== undefined && e.CI !== 'false' && e.CI !== '0';
+  const provider: LlmProviderName =
+    e.LLM_PROVIDER ?? (e.META_API_KEY !== undefined && !ci ? 'meta' : 'fake');
   const openAiCompatible =
     e.OPENAI_COMPATIBLE_BASE_URL !== undefined &&
     e.OPENAI_COMPATIBLE_API_KEY !== undefined &&
@@ -225,7 +236,7 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Runtime
         ? { kind: 'fake', start: new Date(e.FAKE_CLOCK_START) }
         : { kind: 'system' },
     llm: {
-      provider: e.LLM_PROVIDER,
+      provider,
       ...defined('metaApiKey', e.META_API_KEY),
       ...defined('metaModel', e.META_MODEL),
       ...defined('basetenApiKey', e.BASETEN_API_KEY),

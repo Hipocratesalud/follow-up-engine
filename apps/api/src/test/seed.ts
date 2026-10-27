@@ -23,6 +23,11 @@ export interface SeedOptions {
   readonly inboxApiKey?: string;
   /** Only the first N patients (by id). All 148 by default. */
   readonly patients?: number;
+  /**
+   * Only every `count`-th patient (by id) from `index`: lets several
+   * runtimes seed disjoint parts of the clinic at once (`demo:record`).
+   */
+  readonly slice?: { readonly index: number; readonly count: number };
   /** Called every 100 staged bundles. */
   readonly onProgress?: (done: number, total: number) => void;
 }
@@ -61,7 +66,11 @@ export async function seedSyntheticClinic(
   const synthetic = loadSyntheticClinic();
   const patients = [...synthetic.patients]
     .sort((left, right) => left.patientId.localeCompare(right.patientId))
-    .slice(0, options.patients ?? synthetic.patients.length);
+    .slice(0, options.patients ?? synthetic.patients.length)
+    .filter(
+      (_, position) =>
+        options.slice === undefined || position % options.slice.count === options.slice.index,
+    );
   const bundles = patients.flatMap((patient) => patient.entries);
   clock.set(BASE_DATE);
 

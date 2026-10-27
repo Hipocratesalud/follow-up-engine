@@ -40,7 +40,12 @@ import {
 import { createWebhookPublisher } from './webhooks/publisher.ts';
 import { createLoopbackPublisher, WebhookSink } from './webhooks/sink.ts';
 import { IngestionService } from './ingestion.ts';
-import { createConfiguredExtractor, type ExtractorInfo } from './llm.ts';
+import {
+  type ConfiguredExtractor,
+  createConfiguredExtractor,
+  type ExtractorInfo,
+  type LlmSnapshotOption,
+} from './llm.ts';
 import { createLogger, type Logger } from './logger.ts';
 import { patientRedactTerms, withPatientRedaction } from './redaction.ts';
 import { createMemoryStorage, createPostgresStorage, type Storage } from './storage.ts';
@@ -95,6 +100,8 @@ export interface EngineRuntime {
   /** The clinical reviewer (PRD V3): shadow findings, flags, review runs. */
   readonly reviewer: ClinicalReviewer;
   readonly extractor: ExtractorInfo;
+  /** Replay of a recorded model snapshot (`CreateRuntimeOptions.llmSnapshot`): hits and live calls. */
+  readonly llmReplay?: ConfiguredExtractor['replay'];
   readonly ingestion: IngestionService;
   /** Delivers outbox events to the host (signed webhooks). */
   readonly publisher: EventPublisher;
@@ -141,6 +148,8 @@ export interface CreateRuntimeOptions {
   readonly logger?: Logger;
   /** Scripted note readings for the fake LLM provider (tests, seeds). */
   readonly noteFixtures?: readonly NoteFixture[];
+  /** Recorded replies of the configured model to replay (the demo's Muse Spark snapshot). */
+  readonly llmSnapshot?: LlmSnapshotOption;
   /** Deterministic ids (tests). UUIDs by default. */
   readonly ids?: IdGenerator;
   /** Size of the Postgres pool. */
@@ -173,11 +182,12 @@ export async function createRuntime(
           ...(options.poolSize === undefined ? {} : { poolSize: options.poolSize }),
         });
 
-  const { extractor, info, reviewAgent } = createConfiguredExtractor(config.llm, {
+  const { extractor, info, reviewAgent, replay } = createConfiguredExtractor(config.llm, {
     usageLog: storage.llmUsage,
     clinics: storage.clinics,
     clock,
     ...(options.noteFixtures === undefined ? {} : { noteFixtures: options.noteFixtures }),
+    ...(options.llmSnapshot === undefined ? {} : { snapshot: options.llmSnapshot }),
   });
 
   const engine = createFollowUpEngine({
@@ -271,6 +281,7 @@ export async function createRuntime(
     engine,
     reviewer,
     extractor: info,
+    ...(replay === undefined ? {} : { llmReplay: replay }),
     ingestion: new IngestionService({ storage, engine, clock }),
     publisher,
     ...(sink === undefined ? {} : { sink }),
