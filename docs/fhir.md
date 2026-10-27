@@ -954,9 +954,9 @@ And one of its expectations, from the doctor's plan:
         "code": "doctor_plan_followup"
       }
     ],
-    "text": "Seguimiento indicado por el médico"
+    "text": "Follow-up the doctor ordered"
   },
-  "description": "Seguimiento indicado por el médico",
+  "description": "Follow-up the doctor ordered",
   "focus": {
     "reference": "DocumentReference/note-1",
     "type": "DocumentReference"
@@ -978,7 +978,7 @@ And one of its expectations, from the doctor's plan:
         "code": "doctor_plan_followup"
       }
     ],
-    "text": "Seguimiento indicado por el médico"
+    "text": "Follow-up the doctor ordered"
   },
   "restriction": {
     "period": {
@@ -1176,10 +1176,10 @@ The team dismissed a case as not applicable to the patient and stopped the remin
       {
         "system": "https://hipocratesalud.com/fhir/CodeSystem/follow-up-expectation",
         "code": "protocol_diabetes_fundus",
-        "display": "Fondo de ojo anual (diabetes)"
+        "display": "Yearly eye fundus exam due"
       }
     ],
-    "text": "Fondo de ojo anual (diabetes)"
+    "text": "Yearly eye fundus exam due"
   },
   "subject": {
     "reference": "Patient/pat-dm-0001",
