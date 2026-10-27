@@ -39,10 +39,11 @@ interface RequestRow {
   readonly requested_by: string | null;
   readonly requested_at: Date;
   readonly due_by: Date;
+  readonly language: string | null;
 }
 
 const REQUEST_COLUMNS = `clinic_id, id, patient_id, case_id, channel, purpose, trigger, attempt,
-  policy_step, requested_by, requested_at, due_by`;
+  policy_step, requested_by, requested_at, due_by, language`;
 
 function toRequest(row: RequestRow): ContactRequest {
   return {
@@ -58,6 +59,7 @@ function toRequest(row: RequestRow): ContactRequest {
     ...optional('requestedBy', row.requested_by),
     requestedAt: row.requested_at,
     dueBy: row.due_by,
+    ...optional('language', row.language),
   };
 }
 
@@ -167,7 +169,7 @@ export class PostgresContactRepository implements ContactRepository {
       .db()
       .query(
         `INSERT INTO ${this.#ctx.tables.contact_requests} (${REQUEST_COLUMNS})
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           clinicId,
           request.id,
@@ -181,6 +183,7 @@ export class PostgresContactRepository implements ContactRepository {
           request.requestedBy ?? null,
           request.requestedAt,
           request.dueBy,
+          request.language ?? null,
         ],
       )
       .catch((error: unknown) => {

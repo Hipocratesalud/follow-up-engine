@@ -48,7 +48,8 @@ function resultBundle(patientId: string, loinc: string, value: number, at: Date)
   };
 }
 
-describe.each(STORAGES)('QA round 2 merge (%s)', (storage) => {
+/** A scenario moves the clock 80 days, a sweep a day: more than 5 s on Postgres. */
+describe.each(STORAGES)('QA round 2 merge (%s)', { timeout: 60_000 }, (storage) => {
   let h: Harness;
   beforeEach(async () => {
     h = await createHarness({ storage });
@@ -120,7 +121,7 @@ describe.each(STORAGES)('QA round 2 merge (%s)', (storage) => {
       expect.objectContaining({
         code: 'note_truncated',
         documentId: 'long-note-note',
-        label: 'Nota leída en parte',
+        label: 'Note read in part',
       }),
     );
     const issues = await h.call<{

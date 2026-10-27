@@ -14,6 +14,7 @@ import type { JsonObject } from '../../shared/json.ts';
 import type { CaseWriter } from '../case-manager/case-writer.ts';
 import type { Catalog } from '../catalog.ts';
 import { addDays } from '../support/time.ts';
+import { patientLanguage } from './history.ts';
 
 /** The generic purpose of contacting the patient about a case: its first reason's suggested action. */
 export function contactPurpose(
@@ -65,6 +66,7 @@ export async function openContactAttempt(
     followUpCase.clinicId,
     followUpCase.id,
   );
+  const language = await patientLanguage(stores, followUpCase.clinicId, followUpCase.patientId);
   const request: ContactRequest = {
     id: contactRequestId(ids.next('contact_request')),
     clinicId: followUpCase.clinicId,
@@ -80,6 +82,7 @@ export async function openContactAttempt(
       : {}),
     requestedAt: now,
     dueBy: addDays(now, input.answerWindowDays),
+    ...(language === undefined ? {} : { language }),
   };
   await stores.contacts.createRequest(followUpCase.clinicId, request);
   await writer.audit(followUpCase, 'patient_contact_requested', input.actor, now, {
@@ -100,6 +103,7 @@ export async function openContactAttempt(
       requestId: request.id,
       ...(request.channel === undefined ? {} : { channel: request.channel }),
       attempt: request.attempt,
+      ...(request.language === undefined ? {} : { language: request.language }),
     });
   }
   return request;

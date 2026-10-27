@@ -1,3 +1,5 @@
+import { formatNumber } from './format.ts';
+
 /**
  * Input limits of the API (`apps/api/src/http/schemas.ts`). The inputs carry
  * them as `maxLength`, so the team sees the limit while typing instead of a
@@ -6,7 +8,7 @@
 export const INPUT_LIMITS = {
   /** Internal note of a case action. */
   note: 2000,
-  /** Comment of a "No útil" verdict. */
+  /** Comment of a "Not useful" verdict. */
   comment: 2000,
   /** Patient search box of the inbox. */
   search: 100,
@@ -16,7 +18,7 @@ export const INPUT_LIMITS = {
   noteText: 20_000,
 } as const;
 
-/** "2000", "20.000": a limit as the team reads it. */
+/** "2,000" / "20.000": a limit as the team reads it, in the active locale. */
 export function formatLimit(limit: number): string {
-  return limit.toLocaleString('es');
+  return formatNumber(limit);
 }

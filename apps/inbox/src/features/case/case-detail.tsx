@@ -37,8 +37,9 @@ import { EvidenceExcerpt } from '../../components/evidence.tsx';
 import { ErrorState } from '../../components/states.tsx';
 import { Badge, Card, SectionTitle, Skeleton } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
+import { type Messages, useT } from '../../i18n/index.ts';
 import { formatDate, formatDateTime, formatOverdue, formatRelative } from '../../lib/format.ts';
-import { STATUS_LABELS, actorLabel } from '../../lib/labels.ts';
+import { actorLabel } from '../../lib/labels.ts';
 import { patientMeta } from '../inbox/case-row.tsx';
 import { CASE_CLOSED_NOTICE_ID, CASE_TITLE_ID, CaseActions } from './case-actions.tsx';
 import {
@@ -49,23 +50,10 @@ import {
 } from './contact-panel.tsx';
 import { FeedbackPanel } from './feedback-panel.tsx';
 
-const SOURCE_TYPE_LABELS: Record<string, string> = {
-  ServiceRequest: 'Orden',
-  DocumentReference: 'Nota clínica',
-  PlanDefinition: 'Protocolo',
-  Encounter: 'Consulta',
-  MedicationRequest: 'Receta',
-  DiagnosticReport: 'Resultado',
-  Observation: 'Resultado',
-  Condition: 'Diagnóstico',
-  Appointment: 'Cita',
-  Composition: 'Nota clínica',
-};
-
-/** "Resultado — HbA1c"; just the display when it already names the type ("Nota clínica del ..."). */
-function sourceLabel(source: CaseReasonView['source']): string {
-  const type = SOURCE_TYPE_LABELS[source.resourceType] ?? 'Registro clínico';
-  return source.display.startsWith(type) ? source.display : `${type} — ${source.display}`;
+/** "Result — HbA1c"; just the display when it already names the type ("Clinical note of ..."). */
+function sourceLabel(t: Messages, source: CaseReasonView['source']): string {
+  const type = t.labels.sourceTypes[source.resourceType] ?? t.labels.sourceTypeFallback;
+  return source.display.startsWith(type) ? source.display : t.labels.source(type, source.display);
 }
 
 function ReasonCard({
@@ -75,6 +63,7 @@ function ReasonCard({
   readonly reason: CaseReasonView;
   readonly now: Date;
 }): ReactNode {
+  const t = useT();
   return (
     <li className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -86,7 +75,9 @@ function ReasonCard({
       <div>
         <h3 className="text-[15px] font-semibold text-fg">{reason.label}</h3>
         <p className="mt-1 text-xs text-muted">
-          Debía ocurrir antes del {formatDate(reason.dueAt)} · Origen: {sourceLabel(reason.source)}
+          {t.caseDetail.dueBefore(formatDate(reason.dueAt))}
+          {t.common.separator}
+          {t.caseDetail.origin(sourceLabel(t, reason.source))}
         </p>
       </div>
       <ReasonProtocol protocol={reason.protocol} />
@@ -109,6 +100,7 @@ function Timeline({
   readonly entries: readonly CaseTimelineEntry[];
   readonly now: Date;
 }): ReactNode {
+  const t = useT();
   return (
     <ol className="relative flex flex-col gap-4 pl-1">
       {entries.map((entry, index) => {
@@ -130,13 +122,14 @@ function Timeline({
                 <p className="mt-1.5 flex gap-1.5 rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm text-fg">
                   <StickyNote className="mt-0.5 size-3.5 shrink-0 text-muted" aria-hidden="true" />
                   <span>
-                    <span className="sr-only">Nota interna: </span>
+                    <span className="sr-only">{t.caseDetail.internalNote}</span>
                     {entry.note}
                   </span>
                 </p>
               ) : null}
               <p className="mt-0.5 text-xs text-muted">
-                {actorLabel(entry.actor)} ·{' '}
+                {actorLabel(t, entry.actor)}
+                {t.common.separator}
                 <time dateTime={entry.at}>{formatDateTime(entry.at)}</time> (
                 {formatRelative(entry.at, now)})
               </p>
@@ -150,22 +143,22 @@ function Timeline({
 
 /** What a step of the escalation meter says: done, skipped, or when it will run. */
 function stepState(
+  t: Messages,
   escalation: EscalationView,
   index: number,
   step: EscalationView['steps'][number],
   active: boolean,
 ): string {
+  const copy = t.caseDetail;
   if (index < escalation.currentStep) {
-    if (step.outcome === 'skipped') return 'No aplicó en este caso';
-    return step.at ? `Hecho el ${formatDate(step.at)}` : 'Hecho';
+    if (step.outcome === 'skipped') return copy.stepSkipped;
+    return step.at ? copy.stepDoneOn(formatDate(step.at)) : copy.stepDone;
   }
   const isNext = index === escalation.currentStep && escalation.next;
-  if (isNext && escalation.next) return `Programado para el ${formatDate(escalation.next.at)}`;
-  if (step.scheduledAt) return `Previsto para el ${formatDate(step.scheduledAt)} si nadie actúa`;
-  if (!active) return 'No llegó a ejecutarse: el caso se cerró antes';
-  return step.afterDays === 0
-    ? 'Al entrar el caso a la bandeja'
-    : `${String(step.afterDays)} ${step.afterDays === 1 ? 'día' : 'días'} sin respuesta, según la política`;
+  if (isNext && escalation.next) return copy.stepScheduled(formatDate(escalation.next.at));
+  if (step.scheduledAt) return copy.stepPlanned(formatDate(step.scheduledAt));
+  if (!active) return copy.stepNeverRan;
+  return step.afterDays === 0 ? copy.stepOnEntry : copy.stepAfterDays(step.afterDays);
 }
 
 /** The case's escalation policy, step by step: what already happened, what was skipped, what comes next. */
@@ -176,12 +169,13 @@ function EscalationSteps({
   readonly escalation: EscalationView;
   readonly active: boolean;
 }): ReactNode {
+  const t = useT();
   return (
     <ol className="flex flex-col gap-2">
       {escalation.steps.map((step, index) => {
         const passed = index < escalation.currentStep;
         const isNext = !passed && index === escalation.currentStep && escalation.next;
-        const state = stepState(escalation, index, step, active);
+        const state = stepState(t, escalation, index, step, active);
         const Icon = passed
           ? step.outcome === 'skipped'
             ? Minus
@@ -223,6 +217,7 @@ function ContactStatus({
   readonly detail: CaseDetail;
   readonly now: Date;
 }): ReactNode {
+  const t = useT();
   const { patientContact } = detail;
   const blocked = !patientContact.allowed || patientContact.optedOut;
   return (
@@ -230,17 +225,17 @@ function ContactStatus({
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {blocked ? (
           <Badge tone="warning" icon={<MessageSquareOff className="size-3" aria-hidden="true" />}>
-            {patientContact.optedOut ? 'No acepta mensajes' : 'Contacto no permitido'}
+            {patientContact.optedOut ? t.caseDetail.noMessages : t.caseDetail.contactNotAllowed}
           </Badge>
         ) : (
           <Badge tone="success" icon={<MessageSquareText className="size-3" aria-hidden="true" />}>
-            Contacto permitido
+            {t.caseDetail.contactAllowed}
           </Badge>
         )}
         <span className="text-muted">
           {patientContact.lastContactAt
-            ? `Último contacto ${formatRelative(patientContact.lastContactAt, now)}`
-            : 'Sin contactos registrados'}
+            ? t.caseDetail.lastContact(formatRelative(patientContact.lastContactAt, now))
+            : t.caseDetail.noContacts}
         </span>
       </div>
       {patientContact.contactFlag ? (
@@ -257,6 +252,7 @@ function CaseDetailView({
   readonly detail: CaseDetail;
   readonly backTo?: string;
 }): ReactNode {
+  const t = useT();
   const now = useNow();
   const active = (ACTIVE_CASE_STATUSES as readonly string[]).includes(detail.status);
   const planReasons = detail.reasons.filter((reason) => reason.evidence).length;
@@ -289,7 +285,7 @@ function CaseDetailView({
           className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-fg lg:hidden"
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
-          Volver a la bandeja
+          {t.common.backToInbox}
         </Link>
       ) : null}
 
@@ -306,19 +302,19 @@ function CaseDetailView({
             </h2>
             <p className="mt-0.5 text-sm text-muted">
               {[
-                patientMeta(detail.patient),
-                detail.assignee ? `Responsable: ${detail.assignee}` : '',
+                patientMeta(detail.patient, t),
+                detail.assignee ? t.caseDetail.owner(detail.assignee) : '',
               ]
                 .filter(Boolean)
-                .join(' · ')}
+                .join(t.common.separator)}
             </p>
           </div>
           <Link
-            to={`/pacientes/${detail.patient.id}`}
+            to={`/patients/${detail.patient.id}`}
             className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border-strong px-3 text-[13px] font-medium text-fg hover:bg-surface-2"
           >
             <UserRound className="size-3.5" aria-hidden="true" />
-            Ver paciente
+            {t.common.viewPatient}
           </Link>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -328,9 +324,11 @@ function CaseDetailView({
             <EscalationMeter escalation={detail.escalation} showLabel />
           </span>
           {detail.origin === 'backfill' ? (
-            <Badge tone="info">Recuperado del historial</Badge>
+            <Badge tone="info">{t.caseDetail.recovered}</Badge>
           ) : null}
-          <span className="text-xs text-muted">Abierto {formatRelative(detail.openedAt, now)}</span>
+          <span className="text-xs text-muted">
+            {t.caseDetail.openedAgo(formatRelative(detail.openedAt, now))}
+          </span>
         </div>
         <ContactStatus detail={detail} now={now} />
       </Card>
@@ -352,12 +350,12 @@ function CaseDetailView({
               <Lightbulb className="size-4" aria-hidden="true" />
             </span>
             <div>
-              <h3 className="text-sm font-semibold text-fg">Siguiente paso sugerido</h3>
+              <h3 className="text-sm font-semibold text-fg">{t.caseDetail.suggestedStep}</h3>
               <p className="mt-1 text-sm text-muted">{detail.suggestedAction}</p>
               {detail.status === 'snoozed' && detail.snoozedUntil ? (
                 <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
                   <CalendarX className="size-3.5" aria-hidden="true" />
-                  Pospuesto hasta el {formatDate(detail.snoozedUntil)}
+                  {t.caseDetail.snoozedUntil(formatDate(detail.snoozedUntil))}
                 </p>
               ) : null}
             </div>
@@ -374,20 +372,19 @@ function CaseDetailView({
             className="flex items-center gap-3 rounded-xl p-4 text-sm text-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <StatusBadge status={detail.status} />
-            Este caso está cerrado ({STATUS_LABELS[detail.status].toLowerCase()}). Si el paciente
-            vuelve a tener algo pendiente, el motor abrirá un caso nuevo.
+            {t.caseDetail.closedNotice(t.labels.statuses[detail.status].toLowerCase())}
           </div>
         </Card>
       )}
 
       <section aria-labelledby="reasons-title" className="flex flex-col gap-3">
         <SectionTitle id="reasons-title" count={detail.reasons.length}>
-          Motivos
+          {t.caseDetail.reasons}
         </SectionTitle>
         {planReasons > 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-muted">
             <Bot className="size-3.5 text-layer-plan" aria-hidden="true" />
-            Las citas resaltadas son texto literal de la nota del médico, no una paráfrasis.
+            {t.caseDetail.quotesNote}
           </p>
         ) : null}
         <ul className="flex flex-col gap-3">
@@ -398,16 +395,12 @@ function CaseDetailView({
       </section>
 
       <Card className="flex flex-col gap-3 p-5" aria-labelledby="escalation-title">
-        <SectionTitle id="escalation-title">Escalamiento</SectionTitle>
-        <p className="text-xs text-muted">
-          Lo que hace el motor si nadie responde, según la política de este caso. Pedir contacto o
-          posponer el caso reinicia la espera.
-        </p>
+        <SectionTitle id="escalation-title">{t.caseDetail.escalation}</SectionTitle>
+        <p className="text-xs text-muted">{t.caseDetail.escalationIntro}</p>
         {detail.status === 'snoozed' && detail.snoozedUntil ? (
           <p className="flex items-start gap-1.5 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs text-fg">
             <CalendarX className="mt-px size-3.5 shrink-0 text-muted" aria-hidden="true" />
-            Pospuesto hasta el {formatDate(detail.snoozedUntil)}: mientras tanto no avanza, y la
-            espera de cada paso se cuenta desde ese día.
+            {t.caseDetail.escalationSnoozed(formatDate(detail.snoozedUntil))}
           </p>
         ) : null}
         <EscalationSteps escalation={detail.escalation} active={active} />
@@ -421,13 +414,13 @@ function CaseDetailView({
         ) : null
       ) : (
         <Card className="flex flex-col gap-3 p-5">
-          <h3 className="text-sm font-semibold text-fg">¿Te sirvió este caso?</h3>
+          <h3 className="text-sm font-semibold text-fg">{t.caseDetail.feedbackTitle}</h3>
           <FeedbackPanel caseId={detail.id} feedback={detail.feedback} />
         </Card>
       )}
 
       <Card className="flex flex-col gap-4 p-5" aria-labelledby="timeline-title">
-        <SectionTitle id="timeline-title">Historial del caso</SectionTitle>
+        <SectionTitle id="timeline-title">{t.caseDetail.history}</SectionTitle>
         <Timeline entries={detail.timeline} now={now} />
       </Card>
     </article>
@@ -435,8 +428,9 @@ function CaseDetailView({
 }
 
 function CaseDetailSkeleton(): ReactNode {
+  const t = useT();
   return (
-    <div aria-busy="true" aria-label="Cargando caso" className="flex flex-col gap-4">
+    <div aria-busy="true" aria-label={t.caseDetail.loading} className="flex flex-col gap-4">
       <Skeleton className="h-36 rounded-xl" />
       <Skeleton className="h-32 rounded-xl" />
       <Skeleton className="h-56 rounded-xl" />
@@ -451,6 +445,7 @@ export function CaseDetailPanel({
   readonly caseId: string;
   readonly backTo?: string;
 }): ReactNode {
+  const t = useT();
   const query = useCase(caseId);
   function handleRetry(): void {
     void query.refetch();
@@ -461,8 +456,8 @@ export function CaseDetailPanel({
       <ErrorState
         error={query.error}
         onRetry={handleRetry}
-        title="No pudimos cargar el caso"
-        notFoundTitle="No encontramos ese caso"
+        title={t.caseDetail.error}
+        notFoundTitle={t.caseDetail.notFound}
       />
     );
   }

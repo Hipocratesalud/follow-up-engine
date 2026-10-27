@@ -2,7 +2,7 @@
 
 A protocol is a versioned JSON file in [`config/protocols/`](../config/protocols) that turns a condition into a cadence of expectations ("a TSH 6 to 8 weeks after the dose changed"). Protocols are the last layer of the engine: they only fill what the doctor's plan, the universal rules and the visit cadence did not already ask for. This page is the reference for clinicians and for the clinical team that validates them (Clinical team guide, point 2).
 
-**Every protocol is a draft.** None has been validated by a clinical team yet. A draft protocol runs only for a clinic that enables it, and the inbox marks each of its reasons with "Protocolo en borrador · pendiente de validación clínica".
+**Every protocol is a draft.** None has been validated by a clinical team yet. A draft protocol runs only for a clinic that enables it, and the inbox marks each of its reasons with "Draft protocol · pending clinical validation" ("Protocolo en borrador · pendiente de validación clínica" in Spanish).
 
 | Protocol                                                                    | Id                       | Version | Status | On by default |
 | --------------------------------------------------------------------------- | ------------------------ | ------- | ------ | ------------- |
@@ -76,7 +76,7 @@ A protocol that is disabled later stops creating expectations for that clinic.
 
 ## Depression and anxiety on treatment
 
-The id `treatment_followup` and every label are deliberately neutral ("Seguimiento de tratamiento", "Control de seguimiento pendiente"): the protocol is `sensitive`, so nothing it shows in the inbox or sends in a webhook or a patient contact request names the condition, the drug or the specialty, and its contact purpose is only `schedule_follow_up` (the schema refuses anything else).
+The id `treatment_followup` and every label are deliberately neutral, in every language ("Treatment follow-up", "Follow-up visit due"; "Seguimiento de tratamiento", "Control de seguimiento pendiente"): the protocol is `sensitive`, so nothing it shows in the inbox or sends in a webhook or a patient contact request names the condition, the drug or the specialty, and its contact purpose is only `schedule_follow_up` (the schema refuses anything else).
 
 - **Enrollment:** a patient on an active antidepressant, anxiolytic or hypnotic (ATC N06A, N05B, N05C, mapped from the drug name when the host sends free text; `enrollment.activeTreatment`) with ICD-10 F32, F33 or F41 (confirmed or probable); an antidepressant without a coded diagnosis enrolls as F32 (probable). **A diagnosis alone does not enroll**: a patient in psychotherapy with no prescription is followed by the doctor's plan ("próxima sesión en 1 semana") and, when they stop coming, by the visit cadence, which reports the dropout once. Active: not stopped or cancelled by the host and, when the prescription states its supply (`expectedSupplyDuration`, refills), not over yet. When the treatment ends, the protocol's live expectations are cancelled (`treatment_ended`).
 - **Discharge** (`closesOnDischarge`): a visit of one of the protocol's specialties whose note discharges the patient ("se da de alta", "se cierra el proceso terapéutico", read by the note extraction) ends the episode. Its live expectations are cancelled (`patient_discharged`, the same reason the cadence layer uses) and nothing more is expected. A diagnosis of the protocol or a prescription of its drugs at a later consultation starts a new episode; its first prescription is read as a restart (the early control again).

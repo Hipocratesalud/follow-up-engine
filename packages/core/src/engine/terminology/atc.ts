@@ -3,8 +3,8 @@ import { foldText } from '../support/text.ts';
 
 /**
  * WHO ATC classification of a prescription. Hosts often send medications as
- * free text ("Apixabán 5 mg"); this table maps Spanish and international
- * (INN) names to their ATC code so a rule can reason by drug class
+ * free text ("Apixabán 5 mg", "metformin 500 mg BID"); this table maps
+ * Spanish, English and international (INN) names to their ATC code so a rule can reason by drug class
  * (`B01` antithrombotics, `J01` antibacterials). A terminology fact, not a
  * clinical policy: which classes are chronic or acute is the rule's config.
  */
@@ -55,6 +55,7 @@ const ATC_NAMES: readonly AtcName[] = [
   { atc: 'A10BB01', names: ['glibenclamid', 'glyburid'] },
   { atc: 'A10BB12', names: ['glimepirid'] },
   { atc: 'A10BB09', names: ['gliclazid'] },
+  { atc: 'A10BB07', names: ['glipizid'] },
   { atc: 'A10BH01', names: ['sitagliptin'] },
   { atc: 'A10BH02', names: ['vildagliptin'] },
   { atc: 'A10BH03', names: ['saxagliptin'] },
@@ -66,6 +67,7 @@ const ATC_NAMES: readonly AtcName[] = [
   { atc: 'A10BJ05', names: ['dulaglutid'] },
   { atc: 'A10BJ06', names: ['semaglutid'] },
   { atc: 'A10BG03', names: ['pioglitazon'] },
+  { atc: 'A10BX16', names: ['tirzepatid'] },
   // B01 antithrombotic agents (aspirin by strength: antiplatelet up to 325 mg)
   { atc: 'B01AF02', names: ['apixaban'] },
   { atc: 'B01AF01', names: ['rivaroxaban'] },

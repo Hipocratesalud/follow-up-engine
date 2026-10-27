@@ -5,7 +5,7 @@
   "description": "Pregnancy and postpartum follow-up: prenatal visits by gestational age (every 4 weeks up to week 28, every 2 weeks up to 36, weekly after), an oral glucose tolerance test between weeks 24 and 28, and a postpartum visit within 6 weeks of a delivery. The episode ends on a delivery or a loss: nothing prenatal is expected after it. Fills only what the doctor's plan did not cover.",
   "reason": {
     "code": "protocol_pregnancy",
-    "label": "Embarazo y puerperio"
+    "label": "Pregnancy and postpartum"
   },
   "sources": [
     {
@@ -103,7 +103,7 @@
       "kind": "follow_up_visit",
       "reason": {
         "code": "protocol_pregnancy_prenatal_visit",
-        "label": "Control prenatal pendiente"
+        "label": "Prenatal visit due"
       },
       "schedule": {
         "type": "gestational_age",
@@ -138,7 +138,7 @@
       "priority": 45,
       "suggestedAction": {
         "code": "schedule_follow_up",
-        "label": "Agendar control prenatal",
+        "label": "Schedule a prenatal visit",
         "patientContactPurpose": "schedule_follow_up"
       }
     },
@@ -152,7 +152,7 @@
       },
       "reason": {
         "code": "protocol_pregnancy_glucose_tolerance",
-        "label": "Prueba de tolerancia a la glucosa pendiente (semanas 24 a 28)"
+        "label": "Glucose tolerance test due (weeks 24 to 28)"
       },
       "schedule": {
         "type": "gestational_window",
@@ -184,7 +184,7 @@
       "priority": 35,
       "suggestedAction": {
         "code": "order_lab",
-        "label": "Indicar prueba de tolerancia oral a la glucosa",
+        "label": "Order an oral glucose tolerance test",
         "patientContactPurpose": "complete_pending_test"
       }
     },
@@ -193,7 +193,7 @@
       "kind": "follow_up_visit",
       "reason": {
         "code": "protocol_pregnancy_postpartum_visit",
-        "label": "Control posparto pendiente (6 semanas)"
+        "label": "Postpartum visit due (6 weeks)"
       },
       "schedule": {
         "type": "after_outcome",
@@ -213,7 +213,7 @@
       "priority": 40,
       "suggestedAction": {
         "code": "schedule_follow_up",
-        "label": "Agendar control posparto",
+        "label": "Schedule a postpartum visit",
         "patientContactPurpose": "schedule_follow_up"
       }
     }

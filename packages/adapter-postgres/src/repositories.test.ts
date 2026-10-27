@@ -93,6 +93,11 @@ function everyEventType(clinicId: ClinicId, patientId: PatientId): ClinicalEvent
       extractor: { model: 'fake', promptVersion: 'plan-v1' },
     },
     { ...base('patient.opted_out', 9), type: 'patient.opted_out' },
+    {
+      ...base('patient.language_recorded', 9),
+      type: 'patient.language_recorded',
+      language: 'es-VE',
+    },
     { ...base('record.withdrawn', 10), type: 'record.withdrawn', reason: 'revoked' },
     {
       ...base('allergy.recorded', 11),
@@ -774,6 +779,7 @@ describe.skipIf(testDatabaseUrl() === undefined)(
             backfillNotifyMaxAgeDays: 730,
             llmMonthlyBudgetUsd: 50,
             timezone: 'America/Caracas',
+            locale: 'en-US',
           },
         });
         expect(await pg.clinics.findByApiKeyHash(keyHash)).toEqual(clinic);

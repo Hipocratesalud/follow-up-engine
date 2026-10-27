@@ -106,6 +106,11 @@ export interface ContactRequest {
   readonly requestedAt: Date;
   /** End of the answer window: no answer by then counts as unanswered. */
   readonly dueBy: Date;
+  /**
+   * The patient's preferred language when the attempt was asked (BCP-47, from
+   * `Patient.communication`): the host writes its message in it. Absent: not stated.
+   */
+  readonly language?: string;
 }
 
 /** FHIR `Communication.status` values the engine accepts (R4 event status). */

@@ -5,7 +5,7 @@
   "description": "Depression and anxiety on treatment (id and every label deliberately neutral: nothing it shows or sends names the condition). Only patients on an active antidepressant, anxiolytic or hypnotic (ATC N06A, N05B, N05C) are in it: an F32/F33/F41 diagnosis alone does not enroll (psychotherapy is followed by the doctor's plan and the visit cadence), and an antidepressant without a coded diagnosis enrolls as F32. A discharge ends it. A control 2 to 4 weeks after an antidepressant is started or its dose changes, then monthly until 3 consecutive controls without a change, then every 3 months. Fills only what the doctor's plan did not cover.",
   "reason": {
     "code": "protocol_treatment_followup",
-    "label": "Seguimiento de tratamiento"
+    "label": "Treatment follow-up"
   },
   "sources": [
     {
@@ -50,7 +50,7 @@
       "kind": "follow_up_visit",
       "reason": {
         "code": "protocol_treatment_followup_visit",
-        "label": "Control de seguimiento pendiente"
+        "label": "Follow-up visit due"
       },
       "schedule": {
         "type": "treatment_change",
@@ -77,7 +77,7 @@
       "priority": 40,
       "suggestedAction": {
         "code": "schedule_follow_up",
-        "label": "Agendar control de seguimiento",
+        "label": "Schedule a follow-up visit",
         "patientContactPurpose": "schedule_follow_up"
       }
     }

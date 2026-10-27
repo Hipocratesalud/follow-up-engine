@@ -31,8 +31,8 @@ import {
 import { EmptyState, ErrorState, InlineError } from '../../components/states.tsx';
 import { Badge, Button, Card, INPUT_CLASS, SectionTitle, Skeleton } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
+import { type Messages, useT } from '../../i18n/index.ts';
 import { formatDateTime, formatLongDate } from '../../lib/format.ts';
-import { WEBHOOK_LABELS } from '../../lib/labels.ts';
 import { ConsultationForm } from './consultation-form.tsx';
 import { ExtractionPlaceholder, ExtractionResult } from './extraction-result.tsx';
 
@@ -48,29 +48,15 @@ interface AdvanceSummary {
   readonly heldAfter: number | undefined;
 }
 
-function daysLabel(days: number): string {
-  return days === 1 ? '1 día' : `${String(days)} días`;
-}
-
-/** "Entraron 5 pacientes de «Por recuperar» a la bandeja (quedan 28)." */
-function releasedSentence(summary: AdvanceSummary): string | undefined {
+/** "5 patients from “To recover” entered the inbox (28 left)." */
+function releasedSentence(t: Messages, summary: AdvanceSummary): string | undefined {
   const { heldBefore, heldAfter } = summary;
   if (heldBefore === undefined || heldAfter === undefined) return undefined;
   const released = heldBefore - heldAfter;
   if (released <= 0) {
-    return heldAfter > 0
-      ? `Ningún paciente de «Por recuperar» entró a la bandeja (quedan ${String(heldAfter)}).`
-      : undefined;
+    return heldAfter > 0 ? t.demo.releasedNone(heldAfter) : undefined;
   }
-  const who = released === 1 ? '1 paciente' : `${String(released)} pacientes`;
-  const verb = released === 1 ? 'Entró' : 'Entraron';
-  const left =
-    heldAfter === 0
-      ? 'ya no queda ninguno'
-      : heldAfter === 1
-        ? 'queda 1'
-        : `quedan ${String(heldAfter)}`;
-  return `${verb} ${who} de «Por recuperar» a la bandeja (${left}).`;
+  return t.demo.released(released, heldAfter);
 }
 
 function ClockPanel({
@@ -80,6 +66,7 @@ function ClockPanel({
   readonly now: string;
   readonly onAdvanced: (previousNow: string) => void;
 }): ReactNode {
+  const t = useT();
   const queryClient = useQueryClient();
   const stats = useStats();
   const recovery = useRecovery();
@@ -118,7 +105,7 @@ function ClockPanel({
         <div>
           <p className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-warning uppercase">
             <CalendarClock className="size-3.5" aria-hidden="true" />
-            Fecha simulada
+            {t.demo.simulatedDate}
           </p>
           <p className="mt-1 text-2xl font-semibold tracking-tight text-fg first-letter:uppercase sm:text-3xl">
             <time dateTime={now}>{formatLongDate(now)}</time>
@@ -126,7 +113,7 @@ function ClockPanel({
         </div>
         <div className="flex flex-col gap-2">
           <p className="text-xs font-medium text-muted" id="advance-label">
-            Avanzar el tiempo
+            {t.demo.advance}
           </p>
           <div role="group" aria-labelledby="advance-label" className="flex flex-wrap gap-2">
             {ADVANCE_OPTIONS.map((days) => (
@@ -140,7 +127,7 @@ function ClockPanel({
                 onClick={handleAdvance}
                 icon={<FastForward className="size-3.5" aria-hidden="true" />}
               >
-                +{daysLabel(days)}
+                {t.demo.daysButton(days)}
               </Button>
             ))}
           </div>
@@ -150,27 +137,27 @@ function ClockPanel({
         <p aria-live="polite" className="text-sm text-muted">
           {summary ? (
             <>
-              {summary.days === 1 ? 'Pasó 1 día' : `Pasaron ${String(summary.days)} días`}. El motor
-              revisó los vencimientos y escaló los casos sin respuesta
+              {t.demo.passed(summary.days)}
+              {t.demo.engineRan}
               {delta === undefined ? (
                 '.'
               ) : (
                 <>
-                  : casos activos {summary.before}{' '}
+                  {t.demo.activeCases} {summary.before}{' '}
                   <ArrowRight className="inline size-3.5" aria-hidden="true" />{' '}
                   <strong className="font-semibold text-fg">{summary.after}</strong>
                   {delta > 0 ? ` (+${String(delta)})` : ''}.
                 </>
               )}{' '}
-              {releasedSentence(summary) ? (
-                <strong className="font-medium text-fg">{releasedSentence(summary)} </strong>
+              {releasedSentence(t, summary) ? (
+                <strong className="font-medium text-fg">{releasedSentence(t, summary)} </strong>
               ) : null}
-              <Link to="/bandeja" className="font-medium text-primary hover:underline">
-                Ver la bandeja
+              <Link to="/inbox" className="font-medium text-primary hover:underline">
+                {t.demo.viewInbox}
               </Link>
             </>
           ) : (
-            'Cada salto ejecuta lo que el motor haría con el paso de los días: vencer expectativas, abrir o agrupar casos y escalarlos.'
+            t.demo.clockHint
           )}
         </p>
         <InlineError error={advance.error} />
@@ -186,41 +173,42 @@ function WebhookItem({
   readonly item: WebhookDelivery;
   readonly isNew: boolean;
 }): ReactNode {
+  const t = useT();
   return (
     <li className={cx('flex flex-col gap-1.5 px-4 py-2.5', isNew && 'bg-primary-soft/40')}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-fg">
           <Send className="size-3.5 text-primary" aria-hidden="true" />
-          {WEBHOOK_LABELS[item.type] ?? item.type}
+          {t.labels.webhooks[item.type] ?? item.type}
           <code className="font-mono text-[11px] font-normal text-muted">{item.type}</code>
-          {isNew ? <Badge tone="primary">Nuevo</Badge> : null}
+          {isNew ? <Badge tone="primary">{t.common.newBadge}</Badge> : null}
         </span>
         <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
           {item.signatureValid ? (
             <Badge tone="success" icon={<ShieldCheck className="size-3" aria-hidden="true" />}>
-              Firma válida
+              {t.demo.signatureValid}
             </Badge>
           ) : (
             <Badge tone="danger" icon={<XCircle className="size-3" aria-hidden="true" />}>
-              Firma inválida
+              {t.demo.signatureInvalid}
             </Badge>
           )}
           {item.delivered ? (
             <Badge tone="success" icon={<CheckCircle2 className="size-3" aria-hidden="true" />}>
-              Entregado
+              {t.demo.delivered}
             </Badge>
           ) : (
-            <Badge tone="warning">Pendiente de entrega</Badge>
+            <Badge tone="warning">{t.demo.pendingDelivery}</Badge>
           )}
           <time dateTime={item.at}>{formatDateTime(item.at)}</time>
         </span>
       </div>
       <details className="text-xs">
-        <summary className="cursor-pointer text-muted hover:text-fg">Ver contenido</summary>
+        <summary className="cursor-pointer text-muted hover:text-fg">{t.demo.viewContent}</summary>
         {/* Focusable and named so a keyboard user can scroll it (axe scrollable-region-focusable). */}
         <pre
           role="region"
-          aria-label={`Contenido del webhook ${item.type}`}
+          aria-label={t.demo.webhookContent(item.type)}
           tabIndex={0}
           className="mt-2 max-h-56 overflow-auto rounded-lg bg-surface-2 p-2.5 font-mono text-[11px] text-fg"
         >
@@ -233,15 +221,16 @@ function WebhookItem({
 
 /** Event types a demo viewer filters by (escalations of the backfill cases outnumber the rest). */
 const WEBHOOK_FILTERS = [
-  { value: '', label: 'Todos los eventos' },
-  { value: 'case.opened', label: 'Casos abiertos' },
-  { value: 'case.escalated', label: 'Casos escalados' },
-  { value: 'patient_contact.requested', label: 'Pedidos de contacto' },
-  { value: 'case.resolved', label: 'Casos cerrados' },
-  { value: 'backfill.completed', label: 'Revisión del historial' },
+  { value: '', key: 'all' },
+  { value: 'case.opened', key: 'opened' },
+  { value: 'case.escalated', key: 'escalated' },
+  { value: 'patient_contact.requested', key: 'contact' },
+  { value: 'case.resolved', key: 'resolved' },
+  { value: 'backfill.completed', key: 'backfill' },
 ] as const;
 
 function WebhookFeed({ newSince }: { readonly newSince: string | undefined }): ReactNode {
+  const t = useT();
   const [type, setType] = useState('');
   const webhooks = useWebhooks(true, type === '' ? undefined : type);
   function handleRetry(): void {
@@ -255,15 +244,12 @@ function WebhookFeed({ newSince }: { readonly newSince: string | undefined }): R
       <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <SectionTitle id="webhooks-title" count={webhooks.data?.items.length}>
-            Eventos enviados al sistema del consultorio
+            {t.demo.webhooksTitle}
           </SectionTitle>
-          <p className="mt-1 text-xs text-muted">
-            Webhooks firmados: así el sistema del consultorio se entera de cada caso y decide cómo
-            contactar al paciente. Se muestran los últimos 30.
-          </p>
+          <p className="mt-1 text-xs text-muted">{t.demo.webhooksIntro}</p>
         </div>
         <label className="sr-only" htmlFor="webhook-type">
-          Tipo de evento
+          {t.demo.eventType}
         </label>
         <select
           id="webhook-type"
@@ -273,13 +259,13 @@ function WebhookFeed({ newSince }: { readonly newSince: string | undefined }): R
         >
           {WEBHOOK_FILTERS.map((filter) => (
             <option key={filter.value} value={filter.value}>
-              {filter.label}
+              {t.demo.webhookFilters[filter.key]}
             </option>
           ))}
         </select>
       </div>
       {webhooks.isPending ? (
-        <div className="flex flex-col gap-2 p-4" aria-busy="true" aria-label="Cargando eventos">
+        <div className="flex flex-col gap-2 p-4" aria-busy="true" aria-label={t.demo.loadingEvents}>
           <Skeleton className="h-14" />
           <Skeleton className="h-14" />
         </div>
@@ -288,14 +274,11 @@ function WebhookFeed({ newSince }: { readonly newSince: string | undefined }): R
           error={webhooks.error}
           onRetry={handleRetry}
           className="m-4"
-          title="No pudimos cargar los eventos"
+          title={t.demo.eventsError}
         />
       ) : webhooks.data.items.length === 0 ? (
-        <EmptyState
-          icon={<Send className="size-5" aria-hidden="true" />}
-          title="Aún no hay eventos"
-        >
-          Aparecen cuando el motor abre, escala o cierra un caso.
+        <EmptyState icon={<Send className="size-5" aria-hidden="true" />} title={t.demo.noEvents}>
+          {t.demo.noEventsBody}
         </EmptyState>
       ) : (
         <ul className="max-h-[560px] divide-y divide-border overflow-y-auto">
@@ -318,6 +301,7 @@ interface DemoResult {
 }
 
 export function DemoPage(): ReactNode {
+  const t = useT();
   const clock = useDemoClock();
   const reader = useNoteReader();
   const consulting = useIsMutating({ mutationKey: DEMO_CONSULTATION_MUTATION_KEY }) > 0;
@@ -339,30 +323,24 @@ export function DemoPage(): ReactNode {
 
   if (clock.isPending) {
     return (
-      <div className="flex flex-col gap-4" aria-busy="true" aria-label="Cargando demostración">
+      <div className="flex flex-col gap-4" aria-busy="true" aria-label={t.demo.loading}>
         <Skeleton className="h-32 rounded-xl" />
         <Skeleton className="h-96 rounded-xl" />
       </div>
     );
   }
   if (clock.isError) {
-    return (
-      <ErrorState
-        error={clock.error}
-        onRetry={handleRetry}
-        title="No pudimos consultar el reloj de la API"
-      />
-    );
+    return <ErrorState error={clock.error} onRetry={handleRetry} title={t.demo.clockError} />;
   }
   if (!clock.data) {
     return (
       <EmptyState
         icon={<FlaskConical className="size-5" aria-hidden="true" />}
-        title="Demostración no disponible"
+        title={t.demo.unavailableTitle}
       >
-        El panel de demostración solo funciona cuando la API usa el reloj simulado.{' '}
-        <Link to="/bandeja" className="font-medium text-primary hover:underline">
-          Ir a la bandeja
+        {t.demo.unavailableBody}{' '}
+        <Link to="/inbox" className="font-medium text-primary hover:underline">
+          {t.common.goToInbox}
         </Link>
       </EmptyState>
     );
@@ -371,11 +349,9 @@ export function DemoPage(): ReactNode {
   return (
     <div className="flex flex-col gap-5">
       <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold tracking-tight text-fg">Demostración</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-fg">{t.demo.title}</h1>
         <p className="text-sm text-muted">
-          De la consulta al caso: guarda una nota, mira lo que{' '}
-          {reader.simulated ? 'entiende la lectura simulada' : `lee ${reader.name}`} y adelanta el
-          reloj para ver cómo el motor abre y escala casos.
+          {reader.simulated ? t.demo.introSimulated : t.demo.introModel(reader.name)}
         </p>
       </header>
       <ClockPanel now={clock.data.now} onAdvanced={handleAdvanced} />

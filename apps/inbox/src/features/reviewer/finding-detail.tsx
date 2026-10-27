@@ -15,21 +15,17 @@ import type { FindingCitation, FindingDetail, ReviewRunView } from '../../api/re
 import { useFinding } from '../../api/queries.ts';
 import { ErrorState } from '../../components/states.tsx';
 import { Badge, Card, SectionTitle, Skeleton } from '../../components/ui.tsx';
+import { useT } from '../../i18n/index.ts';
 import { formatDate, formatUsd } from '../../lib/format.ts';
 import { segmentByQuotes } from '../../lib/highlight.ts';
+import { patientMeta } from '../inbox/case-row.tsx';
 import {
-  CITATION_KIND_LABELS,
   describeStep,
   discardLabel,
-  ORIGIN_LABELS,
   outcomeLabel,
   stopReasonLabel,
-  REVIEW_COPY,
   summaryLabel,
-} from './copy.ts';
-
-const COPY = REVIEW_COPY.detail;
-import { patientMeta } from '../inbox/case-row.tsx';
+} from './describe.ts';
 import { CoveredBadge, SeverityBadge } from './finding-row.tsx';
 import { TrendChart } from './trend-chart.tsx';
 import { VerdictPanel } from './verdict-panel.tsx';
@@ -76,6 +72,8 @@ function CitationCard({
   readonly citation: FindingCitation;
   readonly quotes: readonly string[];
 }): ReactNode {
+  const t = useT();
+  const COPY = t.review.detail;
   const Icon = KIND_ICONS[citation.kind];
   return (
     <li>
@@ -86,7 +84,7 @@ function CitationCard({
             <span className="truncate">{citation.title}</span>
           </span>
           <span>
-            {COPY.citationCaption(CITATION_KIND_LABELS[citation.kind], formatDate(citation.date))}
+            {COPY.citationCaption(t.review.citationKinds[citation.kind], formatDate(citation.date))}
           </span>
         </figcaption>
         {citation.kind === 'note' && citation.text ? (
@@ -104,6 +102,7 @@ function CitationCard({
 }
 
 function Evidence({ finding }: { readonly finding: FindingDetail }): ReactNode {
+  const COPY = useT().review.detail;
   // A note cited twice is shown once, with every quote marked inside it.
   const seen = new Set<string>();
   const unique = finding.citations.filter((citation) => {
@@ -138,12 +137,14 @@ function Evidence({ finding }: { readonly finding: FindingDetail }): ReactNode {
 }
 
 function RunFacts({ run }: { readonly run: ReviewRunView }): ReactNode {
+  const t = useT();
+  const COPY = t.review.detail;
   const facts: [string, string][] = [
     [COPY.traceFacts.steps, String(run.steps)],
     [COPY.traceFacts.toolCalls, String(run.toolCalls)],
     [COPY.traceFacts.cost, formatUsd(run.costUsd)],
     [COPY.traceFacts.model, run.modelId],
-    [COPY.traceFacts.stop, stopReasonLabel(run.stopReason)],
+    [COPY.traceFacts.stop, stopReasonLabel(t, run.stopReason)],
     [COPY.traceFacts.signals, String(run.signalsCount)],
   ];
   return (
@@ -166,6 +167,8 @@ function AgentTrace({
   readonly run: ReviewRunView;
   readonly finding: FindingDetail;
 }): ReactNode {
+  const t = useT();
+  const COPY = t.review.detail;
   return (
     <details className="group rounded-xl border border-border bg-surface shadow-card">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-fg">
@@ -176,7 +179,7 @@ function AgentTrace({
         <span className="text-xs font-normal text-muted group-open:hidden">{COPY.traceToggle}</span>
       </summary>
       <div className="flex flex-col gap-4 border-t border-border px-5 py-4">
-        <p className="text-xs text-muted">{ORIGIN_LABELS[finding.origin]}.</p>
+        <p className="text-xs text-muted">{t.review.origins[finding.origin]}.</p>
         <RunFacts run={run} />
         <ol className="flex flex-col gap-2">
           {run.trace.map((step) => (
@@ -185,10 +188,14 @@ function AgentTrace({
                 {step.index}
               </span>
               <span className="min-w-0">
-                <span className="text-fg">{describeStep(step)}</span>
+                <span className="text-fg">{describeStep(t, step)}</span>
                 <span className="block text-xs text-muted">
-                  <code className="font-mono">{step.tool}</code> · {outcomeLabel(step.outcome)}
-                  {step.outcome === 'ok' && step.summary ? ` · ${summaryLabel(step.summary)}` : ''}
+                  <code className="font-mono">{step.tool}</code>
+                  {t.common.separator}
+                  {outcomeLabel(t, step.outcome)}
+                  {step.outcome === 'ok' && step.summary
+                    ? `${t.common.separator}${summaryLabel(t, step.summary)}`
+                    : ''}
                 </span>
               </span>
             </li>
@@ -198,7 +205,7 @@ function AgentTrace({
           <p className="text-xs text-muted">
             {COPY.discardedPrefix}
             {run.discarded
-              .map((item) => COPY.discardedItem(item.count, discardLabel(item.reason)))
+              .map((item) => COPY.discardedItem(item.count, discardLabel(t, item.reason)))
               .join(', ')}
             .
           </p>
@@ -215,6 +222,8 @@ function FindingDetailView({
   readonly finding: FindingDetail;
   readonly backTo: string;
 }): ReactNode {
+  const t = useT();
+  const COPY = t.review.detail;
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     const element = heading.current;
@@ -258,17 +267,17 @@ function FindingDetailView({
           <div className="min-w-0">
             <p className="text-sm font-medium text-fg">{finding.patient.name}</p>
             <p className="text-xs text-muted">
-              {[patientMeta(finding.patient), COPY.detectedOn(formatDate(finding.createdAt))]
+              {[patientMeta(finding.patient, t), COPY.detectedOn(formatDate(finding.createdAt))]
                 .filter(Boolean)
-                .join(' · ')}
+                .join(t.common.separator)}
             </p>
           </div>
           <Link
-            to={`/pacientes/${finding.patient.id}`}
+            to={`/patients/${finding.patient.id}`}
             className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border-strong px-3 text-[13px] font-medium text-fg hover:bg-surface-2"
           >
             <UserRound className="size-3.5" aria-hidden="true" />
-            {COPY.viewPatient}
+            {t.common.viewPatient}
           </Link>
         </div>
       </Card>
@@ -311,6 +320,7 @@ function FindingDetailView({
 }
 
 function FindingDetailSkeleton(): ReactNode {
+  const COPY = useT().review.detail;
   return (
     <div aria-busy="true" aria-label={COPY.loading} className="flex flex-col gap-4">
       <Skeleton className="h-40 rounded-xl" />
@@ -327,6 +337,7 @@ export function FindingDetailPanel({
   readonly findingId: string;
   readonly backTo: string;
 }): ReactNode {
+  const COPY = useT().review.detail;
   const query = useFinding(findingId);
   function handleRetry(): void {
     void query.refetch();

@@ -1,6 +1,7 @@
 import type { ClinicId, LlmGateway, LlmGatewayResult } from '@follow-up-engine/core';
 import type { GatewayResult } from '../gateway/gateway.ts';
 import type { ConditionTermTable } from './condition-terms.ts';
+import { resolveNoteLanguage } from './language.ts';
 import { postProcessExtraction } from './post-process.ts';
 import { MAX_NOTE_CHARS, prepareNote } from './prepare.ts';
 import {
@@ -51,6 +52,8 @@ export function createNoteExtractor(options: NoteExtractorOptions): DetailedNote
     clinicId: ClinicId,
     input: NoteExtractionInput,
   ): Promise<DetailedNoteExtraction> {
+    // The host's language when it stated one, else detected from the note itself.
+    const noteLanguage = resolveNoteLanguage(input.language, input.text);
     const prepared = prepareNote(input.text, {
       ...(input.redactTerms === undefined ? {} : { redactTerms: input.redactTerms }),
       maxChars: options.maxNoteChars ?? MAX_NOTE_CHARS,
@@ -62,6 +65,7 @@ export function createNoteExtractor(options: NoteExtractorOptions): DetailedNote
         text: prepared.text,
         authoredAt: input.authoredAt,
         ...(input.specialty === undefined ? {} : { specialty: input.specialty }),
+        ...(noteLanguage === undefined ? {} : { language: noteLanguage }),
       }),
       output: { name: EXTRACTION_OUTPUT_NAME, schema: ModelExtractionSchema },
       ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
@@ -72,7 +76,10 @@ export function createNoteExtractor(options: NoteExtractorOptions): DetailedNote
     const processed = postProcessExtraction(
       result.output,
       { prepared, authoredAt: input.authoredAt },
-      options.conditionTerms === undefined ? {} : { conditionTerms: options.conditionTerms },
+      {
+        ...(options.conditionTerms === undefined ? {} : { conditionTerms: options.conditionTerms }),
+        ...(noteLanguage === undefined ? {} : { language: noteLanguage }),
+      },
     );
     // The gateway in this package also reports what retries and repair cost.
     const totals =
@@ -91,6 +98,7 @@ export function createNoteExtractor(options: NoteExtractorOptions): DetailedNote
       ...(processed.pregnancy === undefined ? {} : { pregnancy: processed.pregnancy }),
       ...(processed.discharged ? { discharged: true } : {}),
       ...(prepared.truncated ? { truncated: true } : {}),
+      ...(noteLanguage === undefined ? {} : { noteLanguage }),
       ...(processed.dischargeEvidenceQuote === undefined
         ? {}
         : { dischargeEvidenceQuote: processed.dischargeEvidenceQuote }),

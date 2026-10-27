@@ -124,6 +124,17 @@ export function patientResource(input: PatientInput): FhirResource {
     ],
     gender: input.gender,
     birthDate: input.birthDate,
+    // The synthetic clinic's patients speak Spanish (HIP-138): contact
+    // requests carry it, whatever the clinic's locale.
+    communication: [
+      {
+        language: {
+          coding: [{ system: 'urn:ietf:bcp:47', code: 'es-VE', display: 'Spanish (Venezuela)' }],
+          text: 'Español',
+        },
+        preferred: true,
+      },
+    ],
     managingOrganization: clinicRef(),
   };
 }

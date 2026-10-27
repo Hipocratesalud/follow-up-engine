@@ -16,32 +16,18 @@ import { EmptyState, ErrorState, fieldError, InlineError } from '../../component
 import { StatsBar } from '../../components/stats-bar.tsx';
 import { Button, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
+import { type Messages, useT } from '../../i18n/index.ts';
 import { INPUT_LIMITS } from '../../lib/limits.ts';
 import { CaseRow, CaseRowSkeleton, isNewCase } from './case-row.tsx';
 
-const VIEW_OPTIONS: readonly { value: CaseListView; label: string }[] = [
-  { value: 'active', label: 'Activos' },
-  { value: 'closed', label: 'Cerrados' },
-  { value: 'all', label: 'Todos' },
-];
-
-const EMPTY_COPY: Record<CaseListView, { title: string; body: string }> = {
-  active: {
-    title: 'No hay casos activos',
-    body: 'Todos los pacientes tienen su seguimiento al día. Los casos nuevos aparecen aquí apenas una expectativa vence.',
-  },
-  closed: {
-    title: 'Aún no hay casos cerrados',
-    body: 'Los casos resueltos o descartados aparecen aquí.',
-  },
-  all: {
-    title: 'Aún no hay casos',
-    body: 'Los casos aparecen cuando una expectativa vence sin cumplirse.',
-  },
-};
+const VIEWS: readonly CaseListView[] = ['active', 'closed', 'all'];
 
 function parseView(value: string | null): CaseListView {
-  return VIEW_OPTIONS.find((option) => option.value === value)?.value ?? 'active';
+  return VIEWS.find((view) => view === value) ?? 'active';
+}
+
+function emptyCopy(t: Messages, view: CaseListView): { title: string; body: string } {
+  return t.inbox.empty[view];
 }
 
 function ViewFilter({
@@ -51,28 +37,29 @@ function ViewFilter({
   readonly value: CaseListView;
   readonly onChange: (view: CaseListView) => void;
 }): ReactNode {
+  const t = useT();
   function handleClick(event: MouseEvent<HTMLButtonElement>): void {
     onChange(parseView(event.currentTarget.value));
   }
   return (
     <div
       role="group"
-      aria-label="Estado de los casos"
+      aria-label={t.inbox.viewGroup}
       className="inline-flex rounded-lg bg-surface-2 p-0.5"
     >
-      {VIEW_OPTIONS.map((option) => (
+      {VIEWS.map((option) => (
         <button
-          key={option.value}
+          key={option}
           type="button"
-          value={option.value}
-          aria-pressed={value === option.value}
+          value={option}
+          aria-pressed={value === option}
           onClick={handleClick}
           className={cx(
             'rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors',
-            value === option.value ? 'bg-surface text-fg shadow-card' : 'text-muted hover:text-fg',
+            value === option ? 'bg-surface text-fg shadow-card' : 'text-muted hover:text-fg',
           )}
         >
-          {option.label}
+          {t.inbox.views[option]}
         </button>
       ))}
     </div>
@@ -123,14 +110,15 @@ function useLoadMoreOnView(
 }
 
 function CaseList(): ReactNode {
+  const t = useT();
   const { caseId } = useParams();
   const now = useNow();
   const [searchParams, setSearchParams] = useSearchParams();
-  const view = parseView(searchParams.get('vista'));
-  const assignee = searchParams.get('responsable') ?? '';
+  const view = parseView(searchParams.get('view'));
+  const assignee = searchParams.get('assignee') ?? '';
   // A shared link may carry a longer search than the box accepts.
   const [searchText, setSearchText] = useState(
-    (searchParams.get('buscar') ?? '').slice(0, INPUT_LIMITS.search),
+    (searchParams.get('q') ?? '').slice(0, INPUT_LIMITS.search),
   );
   const search = useDebounced(searchText.trim(), SEARCH_DEBOUNCE_MS);
   const cases = useCasePages({
@@ -157,15 +145,15 @@ function CaseList(): ReactNode {
   );
 
   useEffect(() => {
-    updateParam('buscar', search, '');
+    updateParam('q', search, '');
   }, [search, updateParam]);
 
   function handleViewChange(next: CaseListView): void {
-    updateParam('vista', next, 'active');
+    updateParam('view', next, 'active');
   }
 
   function handleAssigneeChange(event: ChangeEvent<HTMLSelectElement>): void {
-    updateParam('responsable', event.target.value, '');
+    updateParam('assignee', event.target.value, '');
   }
 
   function handleSearchChange(event: ChangeEvent<HTMLInputElement>): void {
@@ -191,18 +179,18 @@ function CaseList(): ReactNode {
   const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
   const total = cases.data?.pages[0]?.total;
   const ownerName = owners.data?.items.find((owner) => owner.id === assignee)?.name;
-  const emptyCopy = search
-    ? `No hay casos de pacientes que coincidan con «${search}» en esta vista.`
+  const emptyBody = search
+    ? t.inbox.noMatches(search)
     : assignee
-      ? `No hay casos de ${ownerName ?? 'este responsable'} en esta vista.`
-      : EMPTY_COPY[view].body;
+      ? t.inbox.noOwnerCases(ownerName ?? t.inbox.thisOwner)
+      : emptyCopy(t, view).body;
 
   return (
     <section aria-labelledby="case-list-title" className="flex min-w-0 flex-col gap-3">
       <div className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-border bg-surface p-3 shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="case-list-title" className="text-sm font-semibold text-fg">
-            Casos
+            {t.inbox.cases}
             {total === undefined ? null : (
               <span className="ml-2 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted tabular-nums">
                 {total}
@@ -213,7 +201,7 @@ function CaseList(): ReactNode {
         </div>
         <div className="relative">
           <label className="sr-only" htmlFor="case-search">
-            Buscar paciente
+            {t.inbox.searchLabel}
           </label>
           <Search
             aria-hidden="true"
@@ -228,14 +216,14 @@ function CaseList(): ReactNode {
             aria-invalid={searchError ? true : undefined}
             aria-describedby={searchError ? 'case-search-error' : undefined}
             autoComplete="off"
-            placeholder="Buscar paciente por nombre"
+            placeholder={t.inbox.searchPlaceholder}
             className={cx(INPUT_CLASS, 'h-9 py-0 pr-9 pl-9')}
           />
           {searchText ? (
             <button
               type="button"
               onClick={handleClearSearch}
-              aria-label="Borrar búsqueda"
+              aria-label={t.inbox.clearSearch}
               className="absolute top-1/2 right-1.5 grid size-7 -translate-y-1/2 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg"
             >
               <X className="size-4" aria-hidden="true" />
@@ -248,7 +236,7 @@ function CaseList(): ReactNode {
           </p>
         ) : null}
         <label className="sr-only" htmlFor="assignee-filter">
-          Responsable
+          {t.inbox.ownerLabel}
         </label>
         <select
           id="assignee-filter"
@@ -256,7 +244,7 @@ function CaseList(): ReactNode {
           onChange={handleAssigneeChange}
           className={cx(INPUT_CLASS, 'h-9 py-0')}
         >
-          <option value="">Todos los responsables</option>
+          <option value="">{t.inbox.allOwners}</option>
           {(owners.data?.items ?? []).map((owner) => (
             <option key={owner.id} value={owner.id}>
               {owner.name}
@@ -266,19 +254,19 @@ function CaseList(): ReactNode {
       </div>
 
       {cases.isPending ? (
-        <div aria-busy="true" aria-label="Cargando casos" className="flex flex-col gap-1">
+        <div aria-busy="true" aria-label={t.inbox.loading} className="flex flex-col gap-1">
           {[0, 1, 2, 3, 4].map((key) => (
             <CaseRowSkeleton key={key} />
           ))}
         </div>
       ) : searchError && items.length === 0 ? null : cases.isError && items.length === 0 ? (
-        <ErrorState error={cases.error} onRetry={handleRetry} title="No pudimos cargar los casos" />
+        <ErrorState error={cases.error} onRetry={handleRetry} title={t.inbox.error} />
       ) : items.length === 0 ? (
         <EmptyState
           icon={<CheckCheck className="size-5" aria-hidden="true" />}
-          title={search ? 'Sin resultados' : EMPTY_COPY[view].title}
+          title={search ? t.inbox.noResults : emptyCopy(t, view).title}
         >
-          {emptyCopy}
+          {emptyBody}
         </EmptyState>
       ) : (
         <>
@@ -289,7 +277,7 @@ function CaseList(): ReactNode {
               <li key={item.id} className="min-w-0">
                 <CaseRow
                   item={item}
-                  to={`/bandeja/${item.id}${suffix}`}
+                  to={`/inbox/${item.id}${suffix}`}
                   selected={item.id === caseId}
                   isNew={isNewCase(item, now)}
                 />
@@ -298,9 +286,7 @@ function CaseList(): ReactNode {
           </ul>
           <div ref={sentinel} className="flex flex-col items-center gap-2 py-2 text-xs text-muted">
             <p aria-live="polite">
-              {total === undefined
-                ? null
-                : `Mostrando ${String(items.length)} de ${String(total)} ${total === 1 ? 'caso' : 'casos'}`}
+              {total === undefined ? null : t.inbox.showing(items.length, total)}
             </p>
             {cases.hasNextPage ? (
               <Button
@@ -309,7 +295,7 @@ function CaseList(): ReactNode {
                 loading={cases.isFetchingNextPage}
                 disabled={cases.isFetchingNextPage}
               >
-                Cargar más casos
+                {t.inbox.loadMore}
               </Button>
             ) : null}
             {cases.isFetchNextPageError ? <InlineError error={cases.error} /> : null}
@@ -321,18 +307,15 @@ function CaseList(): ReactNode {
 }
 
 export function InboxPage(): ReactNode {
+  const t = useT();
   const { caseId } = useParams();
   const hasSelection = caseId !== undefined;
   return (
     <div className="flex flex-col gap-4">
       {/* With a case open on a phone the header is visually hidden, but the page keeps its h1. */}
       <header className={cx('flex flex-col gap-0.5', hasSelection && 'sr-only lg:not-sr-only')}>
-        <h1 className="text-xl font-semibold tracking-tight text-fg">Bandeja de seguimiento</h1>
-        <p className="text-sm text-muted">
-          Pacientes con algo pendiente, ordenados por prioridad. Cada caso reúne los motivos de un
-          paciente por un mismo tipo de seguimiento: si tiene pendientes de distinto tipo, aparece
-          en más de un caso.
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight text-fg">{t.inbox.title}</h1>
+        <p className="text-sm text-muted">{t.inbox.intro}</p>
       </header>
       <div className={cx(hasSelection && 'hidden lg:block')}>
         <StatsBar />
@@ -353,10 +336,9 @@ export function InboxPage(): ReactNode {
             <div className="rounded-xl border border-dashed border-border-strong">
               <EmptyState
                 icon={<MousePointerClick className="size-5" aria-hidden="true" />}
-                title="Elige un caso de la lista"
+                title={t.inbox.selectTitle}
               >
-                Verás todos los motivos del paciente, la evidencia citada de la nota y el siguiente
-                paso sugerido.
+                {t.inbox.selectBody}
               </EmptyState>
             </div>
           )}

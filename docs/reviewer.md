@@ -118,9 +118,9 @@ A text reply without a tool call is a repairable schema error: the gateway asks 
 `finding_flags` holds one row per clinic, category and specialty (`specialty = ''` for every specialty). A specialty's own flag wins over the clinic-wide one.
 
 - **Every category starts off and in shadow.** A clinic starting its pilot turns categories on in shadow (`shadowPilotFlags`). The demo clinic starts that way.
-- **Shadow findings** are stored and listed only in the inbox's batch review ("Revisión clínica", `GET /api/inbox/findings?mode=shadow`), for the clinical staff validating the reviewer. They are never exported to `/fhir/DetectedIssue`, never sent as a webhook and never shown to doctors or patients. With Supabase, `supabase/rls.sql` exposes only live findings (`mode <> 'shadow'`) to clinic users.
-- **Verdicts.** Staff mark each finding _Relevante_, _Ya lo sabía_ or _No relevante_; "No relevante" requires a reason. The flags page shows each category's shadow precision (relevant / reviewed), which is the evidence for going live.
-- **Live.** A category goes live only with `validatedBy`, the clinician who signs it off. Without it the API answers 422, the domain throws `ValidationError` and the database rejects the row (CHECK). A live flag that somehow lacks a sign-off is still treated as shadow. Live findings emit `clinical_finding.created`, a signed webhook with ids and severity only, and appear in `/fhir/DetectedIssue`. Live `pre_visit_question` findings appear on the patient page as "Para preguntar en la próxima consulta".
+- **Shadow findings** are stored and listed only in the inbox's batch review ("Clinical review", `GET /api/inbox/findings?mode=shadow`), for the clinical staff validating the reviewer. They are never exported to `/fhir/DetectedIssue`, never sent as a webhook and never shown to doctors or patients. With Supabase, `supabase/rls.sql` exposes only live findings (`mode <> 'shadow'`) to clinic users.
+- **Verdicts.** Staff mark each finding _Relevant_, _Already knew_ or _Not relevant_; "Not relevant" requires a reason. The flags page shows each category's shadow precision (relevant / reviewed), which is the evidence for going live.
+- **Live.** A category goes live only with `validatedBy`, the clinician who signs it off. Without it the API answers 422, the domain throws `ValidationError` and the database rejects the row (CHECK). A live flag that somehow lacks a sign-off is still treated as shadow. Live findings emit `clinical_finding.created`, a signed webhook with ids and severity only, and appear in `/fhir/DetectedIssue`. Live `pre_visit_question` findings appear on the patient page as "To ask at the next visit".
 
 ## Triggers and cost
 
@@ -212,7 +212,7 @@ Reports: [docs/evals/reviewer/](evals/reviewer/). On the cohort the scripted rev
 | Adapters         | `packages/adapter-memory/src/repositories/clinical-finding-repositories.ts`, `packages/adapter-postgres/src/clinical-finding-repositories.ts`, migration 0010   |
 | FHIR             | `packages/fhir/src/outbound/clinical-finding.ts`                                                                                                                |
 | Runtime and API  | `packages/runtime` (wiring, `clinical_review.run` job, daily sweep, webhook), `apps/api/src/http/reviewer-*.ts`, `apps/api/src/inbox/reviewer-*.ts`             |
-| Inbox            | `apps/inbox/src/features/reviewer/` ("Revisión clínica", finding detail with highlighted quotes and trend chart, agent trace, flags page)                       |
+| Inbox            | `apps/inbox/src/features/reviewer/` ("Clinical review", finding detail with highlighted quotes and trend chart, agent trace, flags page)                        |
 | Cohort and eval  | `packages/testkit/src/reviewer/`, `packages/llm/src/eval/reviewer/`                                                                                             |
 
 ## Not done yet

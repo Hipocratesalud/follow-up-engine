@@ -36,6 +36,8 @@ function describeEvent(event: ClinicalEvent): string {
       return String(event.items.length);
     case 'patient.opted_out':
       return 'opted out';
+    case 'patient.language_recorded':
+      return event.language ?? 'no language';
     case 'record.withdrawn':
       return event.reason;
     case 'allergy.recorded':
@@ -70,8 +72,16 @@ describe('domain contract', () => {
   });
 
   it('keeps patient contact requests free of clinical content', () => {
+    // `language` is the patient's preferred language (BCP-47), not clinical content.
     expectTypeOf<keyof PatientContactRequestedPayload>().toEqualTypeOf<
-      'caseId' | 'patientId' | 'purpose' | 'dueBy' | 'requestId' | 'channel' | 'attempt'
+      | 'caseId'
+      | 'patientId'
+      | 'purpose'
+      | 'dueBy'
+      | 'requestId'
+      | 'channel'
+      | 'attempt'
+      | 'language'
     >();
     expectTypeOf<keyof ContactOutcomeRecordedPayload>().toEqualTypeOf<
       'caseId' | 'patientId' | 'requestId' | 'communicationId' | 'channel' | 'outcome'

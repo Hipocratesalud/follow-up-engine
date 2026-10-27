@@ -32,6 +32,7 @@ export function aClinic(id: ClinicId, overrides: Partial<Clinic> = {}): Clinic {
       backfillNotifyMaxAgeDays: 730,
       llmMonthlyBudgetUsd: 50,
       timezone: 'America/Caracas',
+      locale: 'es-VE',
     },
     ...overrides,
   };
