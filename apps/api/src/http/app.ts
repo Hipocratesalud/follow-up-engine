@@ -1,8 +1,9 @@
 import { type EngineRuntime, hashApiKey, type Worker } from '@follow-up-engine/runtime';
-import { Hono, type MiddlewareHandler } from 'hono';
+import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { routePath } from 'hono/route';
+import { type ApiLocale, messagesFor, resolveApiLocale } from '../i18n/index.ts';
 import type { App, AppEnv } from './context.ts';
 import { registerDemoRoutes } from './demo-routes.ts';
 import { errorResponse, HttpError, toHttpError } from './errors.ts';
@@ -57,14 +58,10 @@ function rejectControlCharacters(): MiddlewareHandler<AppEnv> {
     try {
       values = [decodeURIComponent(url.pathname), ...[...url.searchParams].flat()];
     } catch {
-      throw new HttpError(400, 'invalid_request', 'La dirección de la petición no es válida.');
+      throw new HttpError(400, 'invalid_request', c.var.t.errors.invalidUrl);
     }
     if (values.some((value) => CONTROL_CHARACTER.test(value))) {
-      throw new HttpError(
-        400,
-        'invalid_request',
-        'La petición tiene caracteres de control en la dirección o los parámetros.',
-      );
+      throw new HttpError(400, 'invalid_request', c.var.t.errors.controlCharacters);
     }
     await next();
   };
@@ -172,7 +169,7 @@ function authenticate(
       if (!attempt.ok) {
         throw tooManyRequests(c, attempt.retryAfter);
       }
-      throw new HttpError(401, 'unauthorized', 'Falta la clave de API (Authorization: Bearer).');
+      throw new HttpError(401, 'unauthorized', c.var.t.errors.missingApiKey);
     }
     const keyHash = hashApiKey(key);
     let reserved = false;
@@ -206,7 +203,7 @@ function authenticate(
           throw tooManyRequests(c, attempt.retryAfter);
         }
       }
-      throw new HttpError(401, 'unauthorized', 'Clave de API no válida.');
+      throw new HttpError(401, 'unauthorized', c.var.t.errors.invalidApiKey);
     }
     if (reserved) {
       limiter.refund(bucket, limits.failedAuthPerMinute);
@@ -219,8 +216,33 @@ function authenticate(
     c.set('clinic', principal.clinic);
     c.set('clinicId', principal.clinic.id);
     c.set('scopes', principal.scopes);
+    // Now that the clinic is known, its locale is the fallback of the user's.
+    setLocale(
+      c,
+      resolveApiLocale(c.req.header('accept-language'), principal.clinic.settings.locale),
+    );
     c.set('log', c.var.log.child({ clinicId: principal.clinic.id }));
     await next();
+  };
+}
+
+function setLocale(c: Context<AppEnv>, locale: ApiLocale): void {
+  c.set('locale', locale);
+  c.set('t', messagesFor(locale));
+}
+
+/**
+ * The language of the response (docs/adr/0006): from `Accept-Language`
+ * until the API key names the clinic, whose locale is then the fallback.
+ * The response says which one it used (`Content-Language`) and that it
+ * depends on the header (`Vary`).
+ */
+function localize(): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    setLocale(c, resolveApiLocale(c.req.header('accept-language')));
+    await next();
+    c.header('content-language', c.var.locale);
+    c.header('vary', 'Accept-Language', { append: true });
   };
 }
 
@@ -257,12 +279,20 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   const app = new Hono<AppEnv>();
 
   app.use('*', accessLog(runtime));
+  app.use('*', localize());
   app.use('*', securityHeaders());
   app.use(
     '*',
     cors({
       origin: [...options.corsOrigins],
-      allowHeaders: ['Authorization', 'Content-Type', 'Prefer', 'X-Request-Id', 'X-FollowUp-User'],
+      allowHeaders: [
+        'Authorization',
+        'Content-Type',
+        'Accept-Language',
+        'Prefer',
+        'X-Request-Id',
+        'X-FollowUp-User',
+      ],
       allowMethods: ['GET', 'POST', 'PUT', 'OPTIONS'],
       exposeHeaders: [
         'X-Request-Id',
@@ -273,6 +303,7 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
         'ETag',
         'Retry-After',
         'X-FollowUp-Stale',
+        'Content-Language',
       ],
       maxAge: 600,
     }),
@@ -283,11 +314,13 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
     '*',
     bodyLimit({
       maxSize: options.maxBodyBytes ?? MAX_BODY_BYTES,
-      onError: () => {
+      onError: (c) => {
         throw new HttpError(
           413,
           'payload_too_large',
-          `El cuerpo supera el máximo de ${String(Math.floor((options.maxBodyBytes ?? MAX_BODY_BYTES) / 1024))} KB.`,
+          (c as Context<AppEnv>).var.t.errors.payloadTooLarge(
+            Math.floor((options.maxBodyBytes ?? MAX_BODY_BYTES) / 1024),
+          ),
         );
       },
     }),
@@ -329,11 +362,11 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   }
 
   app.notFound((c) => {
-    const error = new HttpError(404, 'not_found', 'Ruta no encontrada.');
+    const error = new HttpError(404, 'not_found', c.var.t.errors.routeNotFound);
     return c.req.path.startsWith('/fhir') ? fhirErrorResponse(c, error) : errorResponse(c, error);
   });
   app.onError((error, c) => {
-    const httpError = toHttpError(error);
+    const httpError = toHttpError(error, c.var.t);
     if (httpError.status >= 500) {
       c.var.log.error(
         { error: error instanceof Error ? `${error.name}: ${error.message}` : String(error) },

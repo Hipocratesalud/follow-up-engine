@@ -248,13 +248,23 @@ describe.each(STORAGES)(
       let detail = (await h.call<CaseDetail>(`/api/inbox/cases/${caseId}`)).body;
       expect(detail.callTask).toMatchObject({ trigger: 'wrong_number' });
       expect(detail.callTask?.outcomes.map((option) => option.label)).toEqual([
+        'Answered and booked',
+        'Answered, treated elsewhere',
+        'No answer',
+        'Wrong number',
+        'Declined follow-up',
+      ]);
+      expect(detail.patientContact.contactFlag).toMatchObject({ label: 'Wrong number' });
+      const spanish = await h.call<CaseDetail>(`/api/inbox/cases/${caseId}`, {
+        headers: { 'accept-language': 'es' },
+      });
+      expect(spanish.body.callTask?.outcomes.map((option) => option.label)).toEqual([
         'Contestó y agendó',
         'Contestó, se atiende en otro lado',
         'No contestó',
         'Número equivocado',
         'No quiere seguimiento',
       ]);
-      expect(detail.patientContact.contactFlag).toMatchObject({ label: 'Número equivocado' });
       const patientPage = await h.call<PatientDetail>('/api/inbox/patients/pat-wn');
       expect(patientPage.body.patient.contact.contactDataInvalid).toBe(true);
 
@@ -272,7 +282,7 @@ describe.each(STORAGES)(
       expect(detail.contactAttempts[1]?.communications[0]).toMatchObject({
         sender: 'user',
         senderName: 'recepcion-ana',
-        outcomeLabel: 'No contestó',
+        outcomeLabel: 'No answer',
       });
       await advance(1);
       const outcome = (await deliveries('contact.outcome_recorded')).find(
@@ -376,7 +386,7 @@ describe.each(STORAGES)(
       expect(dismissed.status).toBe(200);
       expect(dismissed.body.dismissal).toMatchObject({
         reason: 'not_applicable_to_patient',
-        reasonLabel: 'No aplica a este paciente',
+        reasonLabel: 'Does not apply to this patient',
       });
       expect(dismissed.body.dismissal?.suppressions.map((item) => item.ruleId)).toContain(
         'protocol_diabetes_hba1c',
@@ -402,7 +412,7 @@ describe.each(STORAGES)(
       );
       expect(suppression).toMatchObject({
         active: true,
-        dismissReasonLabel: 'No aplica a este paciente',
+        dismissReasonLabel: 'Does not apply to this patient',
       });
       const flags = await h.call<Bundle>('/fhir/Flag?patient=pat-ds');
       expect(flags.body.total).toBe(page.body.suppressions.length);

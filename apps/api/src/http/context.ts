@@ -1,6 +1,7 @@
 import type { Clinic, ClinicId } from '@follow-up-engine/core';
 import type { ApiKeyScope, Logger } from '@follow-up-engine/runtime';
 import type { Hono } from 'hono';
+import type { ApiLocale, ApiMessages } from '../i18n/index.ts';
 
 /** Per-request values set by the middleware. */
 export interface AppEnv {
@@ -11,6 +12,13 @@ export interface AppEnv {
     clinicId: ClinicId;
     /** What the request's API key may do. */
     scopes: readonly ApiKeyScope[];
+    /**
+     * The language of the labels and messages of this response: the user's
+     * `Accept-Language`, else the clinic's locale, else English (ADR 0006).
+     */
+    locale: ApiLocale;
+    /** The message catalog of {@link locale}. */
+    t: ApiMessages;
   };
 }
 

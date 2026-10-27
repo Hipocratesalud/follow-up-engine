@@ -10,8 +10,8 @@ import {
 import { clinicalFindingToDetectedIssue } from '@follow-up-engine/fhir';
 import type { EngineRuntime } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
-import { reviewerLabels } from '../inbox/reviewer-labels.ts';
 import { FindingPresenter, runView } from '../inbox/reviewer-presenter.ts';
+import type { ApiMessages } from '../i18n/index.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
 import {
@@ -30,9 +30,14 @@ function userOf(c: Context<AppEnv>): string {
   return followUpUser(c) ?? 'inbox-user';
 }
 
-async function requireFinding(runtime: EngineRuntime, clinicId: ClinicId, id: string) {
+async function requireFinding(
+  runtime: EngineRuntime,
+  t: ApiMessages,
+  clinicId: ClinicId,
+  id: string,
+) {
   const finding = await runtime.reviewer.getFinding(clinicId, id);
-  if (finding === undefined) throw notFound(reviewerLabels.findingNotFound);
+  if (finding === undefined) throw notFound(t, t.reviewer.findingNotFound);
   return finding;
 }
 
@@ -86,7 +91,7 @@ export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
         ...(query.patientId === undefined ? {} : { patientId: toPatientId(query.patientId) }),
       }),
     ]);
-    const presenter = new FindingPresenter(runtime, clinicId);
+    const presenter = new FindingPresenter(runtime, clinicId, c.var.t);
     return c.json({
       items: await Promise.all(page.items.map((finding) => presenter.view(finding))),
       ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
@@ -136,14 +141,14 @@ export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
 
   app.get('/api/inbox/findings/:id', async (c) => {
     const clinicId = c.var.clinicId;
-    const finding = await requireFinding(runtime, clinicId, c.req.param('id'));
+    const finding = await requireFinding(runtime, c.var.t, clinicId, c.req.param('id'));
     const run = await runtime.reviewer.getRun(clinicId, finding.runId);
-    const view = await new FindingPresenter(runtime, clinicId).view(finding);
+    const view = await new FindingPresenter(runtime, clinicId, c.var.t).view(finding);
     return c.json({ ...view, ...(run === undefined ? {} : { run: runView(run) }) });
   });
 
   app.get('/api/inbox/findings/:id/fhir', async (c) => {
-    const finding = await requireFinding(runtime, c.var.clinicId, c.req.param('id'));
+    const finding = await requireFinding(runtime, c.var.t, c.var.clinicId, c.req.param('id'));
     c.header('content-type', 'application/fhir+json; charset=utf-8');
     return c.body(JSON.stringify(clinicalFindingToDetectedIssue(finding)));
   });
@@ -152,10 +157,10 @@ export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
     const clinicId = c.var.clinicId;
     const body = await readJson(c, FindingReviewRequestSchema);
     const id = c.req.param('id');
-    await requireFinding(runtime, clinicId, id);
+    await requireFinding(runtime, c.var.t, clinicId, id);
     if (body.verdict === 'not_relevant' && (body.reason === undefined || body.reason === '')) {
-      throw new HttpError(422, 'invalid_request', reviewerLabels.reasonRequired, [
-        { path: 'reason', message: reviewerLabels.reasonRequiredField },
+      throw new HttpError(422, 'invalid_request', c.var.t.reviewer.reasonRequired, [
+        { path: 'reason', message: c.var.t.reviewer.reasonRequiredField },
       ]);
     }
     try {
@@ -164,9 +169,9 @@ export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
         ...(body.reason === undefined || body.reason === '' ? {} : { reason: body.reason }),
         userId: userOf(c),
       });
-      return c.json(await new FindingPresenter(runtime, clinicId).view(reviewed));
+      return c.json(await new FindingPresenter(runtime, clinicId, c.var.t).view(reviewed));
     } catch (error) {
-      if (error instanceof NotFoundError) throw notFound(reviewerLabels.findingNotFound);
+      if (error instanceof NotFoundError) throw notFound(c.var.t, c.var.t.reviewer.findingNotFound);
       throw error;
     }
   });
@@ -179,8 +184,8 @@ export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
     ]);
     const items: FindingFlagView[] = flags.map((flag) => ({
       category: flag.category,
-      label: reviewerLabels.categories[flag.category].label,
-      description: reviewerLabels.categories[flag.category].description,
+      label: c.var.t.reviewer.categories[flag.category].label,
+      description: c.var.t.reviewer.categories[flag.category].description,
       implemented: (IMPLEMENTED_FINDING_CATEGORIES as readonly string[]).includes(flag.category),
       ...(flag.specialty === undefined ? {} : { specialty: flag.specialty }),
       enabled: flag.enabled,
@@ -201,8 +206,8 @@ export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
       !(IMPLEMENTED_FINDING_CATEGORIES as readonly string[]).includes(body.category) &&
       body.enabled
     ) {
-      throw new HttpError(422, 'invalid_request', reviewerLabels.reservedCategory, [
-        { path: 'enabled', message: reviewerLabels.reservedCategoryField },
+      throw new HttpError(422, 'invalid_request', c.var.t.reviewer.reservedCategory, [
+        { path: 'enabled', message: c.var.t.reviewer.reservedCategoryField },
       ]);
     }
     const current = (await runtime.reviewer.listFlags(clinicId)).find(
@@ -213,8 +218,8 @@ export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
       body.validatedBy === undefined &&
       current?.validatedBy === undefined
     ) {
-      throw new HttpError(422, 'invalid_request', reviewerLabels.signOffRequired, [
-        { path: 'validatedBy', message: reviewerLabels.signOffRequiredField },
+      throw new HttpError(422, 'invalid_request', c.var.t.reviewer.signOffRequired, [
+        { path: 'validatedBy', message: c.var.t.reviewer.signOffRequiredField },
       ]);
     }
     const flag = await runtime.reviewer.updateFlag(
@@ -233,8 +238,8 @@ export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
     const counts = await runtime.reviewer.countFindings(clinicId, { mode: 'shadow' });
     return c.json({
       category: flag.category,
-      label: reviewerLabels.categories[flag.category].label,
-      description: reviewerLabels.categories[flag.category].description,
+      label: c.var.t.reviewer.categories[flag.category].label,
+      description: c.var.t.reviewer.categories[flag.category].description,
       implemented: true,
       ...(flag.specialty === undefined ? {} : { specialty: flag.specialty }),
       enabled: flag.enabled,
@@ -261,9 +266,9 @@ export function registerReviewerDemoRoutes(app: App, runtime: EngineRuntime): vo
       resourceType: 'Patient',
       id: patientId,
     });
-    if (patient === undefined) throw notFound(reviewerLabels.patientNotFound);
+    if (patient === undefined) throw notFound(c.var.t, c.var.t.reviewer.patientNotFound);
     const report = await runtime.reviewer.reviewPatient(clinicId, patientId, 'manual');
-    const presenter = new FindingPresenter(runtime, clinicId);
+    const presenter = new FindingPresenter(runtime, clinicId, c.var.t);
     return c.json({
       run: runView(report.run),
       findings: await Promise.all(report.findings.map((finding) => presenter.view(finding))),

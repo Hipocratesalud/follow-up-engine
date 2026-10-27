@@ -35,7 +35,11 @@ interface Harness {
   readonly app: App;
   // The response body is JSON the test asserts on: callers name its shape.
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-  call<T>(path: string, body?: unknown): Promise<{ status: number; body: T }>;
+  call<T>(
+    path: string,
+    body?: unknown,
+    language?: string,
+  ): Promise<{ status: number; body: T; headers: Headers }>;
 }
 
 async function seededHarness(): Promise<Harness> {
@@ -46,17 +50,22 @@ async function seededHarness(): Promise<Harness> {
     runtime,
     app,
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-    async call<T>(path: string, body?: unknown) {
+    async call<T>(path: string, body?: unknown, language?: string) {
       const response = await app.request(path, {
         method: body === undefined ? 'GET' : 'POST',
         headers: {
           authorization: `Bearer ${KEY}`,
           ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+          ...(language === undefined ? {} : { 'accept-language': language }),
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
       const text = await response.text();
-      return { status: response.status, body: (text === '' ? undefined : JSON.parse(text)) as T };
+      return {
+        status: response.status,
+        body: (text === '' ? undefined : JSON.parse(text)) as T,
+        headers: response.headers,
+      };
     },
   };
 }
@@ -267,32 +276,37 @@ describe('inbox API on a seeded clinic', () => {
     });
   });
 
-  describe('HIP-127 Spanish copy', () => {
-    it('answers an invalid transition in Spanish, without English states', async () => {
+  describe('HIP-127 copy, in English by default and in Spanish (HIP-138)', () => {
+    it('answers an invalid transition in the request language, without internal states', async () => {
       const caseId = (await h.call<CasePage>('/api/inbox/cases?limit=1')).body.items[0]?.id ?? '';
       expect(
         (await h.call(`/api/inbox/cases/${caseId}/actions`, { action: 'resolve' })).status,
       ).toBe(200);
       for (const action of ['dismiss', 'resolve', 'notify'] as const) {
-        const response = await h.call<ErrorBody>(`/api/inbox/cases/${caseId}/actions`, {
-          action,
-          ...(action === 'dismiss' ? { reason: 'already_done' } : {}),
-        });
-        expect(response.status).toBe(409);
-        expect(response.body.error.code).toBe('invalid_transition');
-        expect(response.body.error.message).not.toMatch(INTERNAL_TOKENS);
-        expect(response.body.error.message).toMatch(/resuelto/);
+        const body = { action, ...(action === 'dismiss' ? { reason: 'already_done' } : {}) };
+        const spanish = await h.call<ErrorBody>(`/api/inbox/cases/${caseId}/actions`, body, 'es');
+        expect(spanish.status).toBe(409);
+        expect(spanish.body.error.code).toBe('invalid_transition');
+        expect(spanish.body.error.message).not.toMatch(INTERNAL_TOKENS);
+        expect(spanish.body.error.message).toMatch(/resuelto/);
+        expect(spanish.headers.get('content-language')).toBe('es');
+        const english = await h.call<ErrorBody>(`/api/inbox/cases/${caseId}/actions`, body);
+        expect(english.body.error.message).toMatch(
+          /^You cannot \w.* this case: it is already resolved\.$/,
+        );
+        expect(english.headers.get('content-language')).toBe('en');
       }
     });
 
-    it('asks for a feedback reason in Spanish', async () => {
+    it('asks for a feedback reason in the request language', async () => {
       const caseId = (await h.call<CasePage>('/api/inbox/cases?limit=1')).body.items[0]?.id ?? '';
-      const response = await h.call<ErrorBody>(`/api/inbox/cases/${caseId}/feedback`, {
-        useful: false,
-      });
-      expect(response.status).toBe(422);
-      expect(response.body.error.message).not.toMatch(INTERNAL_TOKENS);
-      expect(response.body.error.message).toMatch(/motivo/);
+      const path = `/api/inbox/cases/${caseId}/feedback`;
+      const spanish = await h.call<ErrorBody>(path, { useful: false }, 'es-VE,es;q=0.9,en;q=0.5');
+      expect(spanish.status).toBe(422);
+      expect(spanish.body.error.message).not.toMatch(INTERNAL_TOKENS);
+      expect(spanish.body.error.message).toMatch(/motivo/);
+      const english = await h.call<ErrorBody>(path, { useful: false }, 'fr-CA,en;q=0.8');
+      expect(english.body.error.message).toMatch(/reason/);
     });
 
     it('names reasons in the timeline as on the reason cards, never by rule id', async () => {

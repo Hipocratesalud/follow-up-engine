@@ -120,7 +120,7 @@ describe.each(STORAGES)('QA round 2 merge (%s)', (storage) => {
       expect.objectContaining({
         code: 'note_truncated',
         documentId: 'long-note-note',
-        label: 'Nota leída en parte',
+        label: 'Note read in part',
       }),
     );
     const issues = await h.call<{
