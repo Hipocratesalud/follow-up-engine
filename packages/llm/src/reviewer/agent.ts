@@ -9,6 +9,7 @@ import {
   type ReviewStopReason,
   SubmitFindingsArgs,
 } from '@follow-up-engine/core';
+import type { z } from 'zod';
 import { prepareNote } from '../extraction/prepare.ts';
 import { createQuoteIndex } from '../extraction/quote.ts';
 import type { FollowUpLlmGateway } from '../gateway/gateway.ts';
@@ -176,7 +177,7 @@ export function createReviewAgent(options: ReviewAgentOptions): ClinicalReviewAg
         reject('invalid_arguments', 'arguments is not a JSON object string');
         continue;
       }
-      const checked = definition.parameters.safeParse(parsedArgs);
+      const checked = parseToolArguments(definition.parameters, parsedArgs);
       if (!checked.success) {
         reject('invalid_arguments', issueSummary(checked.error));
         continue;
@@ -230,4 +231,30 @@ export function createReviewAgent(options: ReviewAgentOptions): ClinicalReviewAg
   }
 
   return { review };
+}
+
+/** Every string value `"null"` (at any depth) replaced by `null`. */
+function nullStrings(value: unknown): unknown {
+  if (value === 'null') return null;
+  if (Array.isArray(value)) return value.map(nullStrings);
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, inner]) => [key, nullStrings(inner)]),
+    );
+  }
+  return value;
+}
+
+/**
+ * Validates tool arguments with the tool's schema. When they fail, they are
+ * validated once more with every `"null"` string read as `null`: models
+ * (Muse Spark among them, 2026-10-27) often write a nullable field as the
+ * string `"null"`. The retry is accepted only when it validates, so a
+ * required string is never silently nulled.
+ */
+function parseToolArguments<T>(schema: z.ZodType<T>, args: unknown): z.ZodSafeParseResult<T> {
+  const checked = schema.safeParse(args);
+  if (checked.success) return checked;
+  const lenient = schema.safeParse(nullStrings(args));
+  return lenient.success ? lenient : checked;
 }

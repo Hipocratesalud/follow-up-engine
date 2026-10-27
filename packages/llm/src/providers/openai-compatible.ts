@@ -28,6 +28,8 @@ export interface OpenAiCompatibleProviderOptions {
   readonly maxTokensParam?: 'max_completion_tokens' | 'max_tokens';
   /** How agent steps with tools are sent (default `native`, see `ChatCompletionsProviderOptions`). */
   readonly toolCalling?: 'native' | 'structured';
+  /** `tool_choice` of native agent steps (default `required`, see `ChatCompletionsProviderOptions`). */
+  readonly toolChoice?: 'required' | 'auto';
   readonly extraBody?: Readonly<Record<string, unknown>>;
   readonly headers?: Readonly<Record<string, string>>;
   readonly fetch?: FetchLike;
@@ -53,6 +55,7 @@ export function createOpenAiCompatibleProvider(
     maxTokensParam: options.maxTokensParam ?? 'max_tokens',
     ...(options.strict === undefined ? {} : { strict: options.strict }),
     ...(options.toolCalling === undefined ? {} : { toolCalling: options.toolCalling }),
+    ...(options.toolChoice === undefined ? {} : { toolChoice: options.toolChoice }),
     ...(options.extraBody ? { extraBody: options.extraBody } : {}),
     ...(options.headers ? { headers: options.headers } : {}),
     ...(options.fetch ? { fetch: options.fetch } : {}),

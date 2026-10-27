@@ -4,6 +4,7 @@ import {
   FINDING_CATEGORIES,
   locateVerbatim,
   reviewRecord,
+  type ResourceRef,
   type ReviewOutcome,
 } from '@follow-up-engine/core';
 import type { CohortRecord } from './cohort.ts';
@@ -125,12 +126,20 @@ function match(
 function hallucinated(outcome: ReviewOutcome): { bad: number; total: number } {
   let bad = 0;
   let total = 0;
+  const sameSource = (left: ResourceRef, right: ResourceRef): boolean =>
+    left.resourceType === right.resourceType && left.id === right.id;
   for (const finding of outcome.findings) {
     for (const citation of finding.citations) {
       total += 1;
-      const handle = outcome.dossier.handleOf(citation.source);
-      const document = handle === undefined ? undefined : outcome.dossier.documents.get(handle);
-      if (document === undefined || locateVerbatim(document.text, citation.quote) === undefined) {
+      // Every document of the cited resource: a blood pressure panel is one
+      // Observation with a systolic and a diastolic document, and the stored
+      // citation keeps only the Observation.
+      const documents = [...outcome.dossier.documents.values()].filter((document) =>
+        sameSource(document.source, citation.source),
+      );
+      if (
+        !documents.some((document) => locateVerbatim(document.text, citation.quote) !== undefined)
+      ) {
         bad += 1;
       }
     }
