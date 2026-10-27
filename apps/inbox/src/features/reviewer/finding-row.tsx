@@ -4,21 +4,24 @@ import { Link } from 'react-router';
 import type { FindingSeverity, FindingView } from '../../api/reviewer-contract.ts';
 import { Badge } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
-import { REVIEW_COPY, SEVERITY_LABELS, SEVERITY_TONES, VERDICT_LABELS } from './copy.ts';
+import { useT } from '../../i18n/index.ts';
+import { SEVERITY_TONES } from './describe.ts';
 
 export function SeverityBadge({ severity }: { readonly severity: FindingSeverity }): ReactNode {
+  const t = useT();
   return (
     <Badge tone={SEVERITY_TONES[severity]}>
-      <span className="sr-only">{REVIEW_COPY.row.severityPrefix}</span>
-      {SEVERITY_LABELS[severity]}
+      <span className="sr-only">{t.review.row.severityPrefix}</span>
+      {t.review.severities[severity]}
     </Badge>
   );
 }
 
 export function CoveredBadge(): ReactNode {
+  const t = useT();
   return (
     <Badge tone="info" icon={<ShieldCheck className="size-3" aria-hidden="true" />}>
-      {REVIEW_COPY.row.covered}
+      {t.review.row.covered}
     </Badge>
   );
 }
@@ -38,6 +41,7 @@ export function FindingRow({
   readonly to: string;
   readonly selected: boolean;
 }): ReactNode {
+  const t = useT();
   return (
     <Link
       to={to}
@@ -64,7 +68,7 @@ export function FindingRow({
           {item.alreadyCovered ? <CoveredBadge /> : null}
           {item.review ? (
             <Badge tone={item.review.verdict === 'relevant' ? 'success' : 'neutral'}>
-              {VERDICT_LABELS[item.review.verdict]}
+              {t.review.verdicts[item.review.verdict]}
             </Badge>
           ) : null}
         </span>
