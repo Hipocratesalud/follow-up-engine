@@ -8,7 +8,11 @@ import { isActiveCaseStatus } from './state-machine.ts';
 
 export type ClosingStatus = Extract<ExpectationStatus, 'fulfilled' | 'superseded' | 'cancelled'>;
 
-/** Closes an open or expired expectation with a machine-readable reason (and what closed it). */
+/**
+ * Closes an open or expired expectation with a machine-readable reason (and
+ * what closed it). `recheckAt`: fulfilled by a booking, when to check the
+ * visit took place.
+ */
 export async function closeExpectation(
   stores: TransactionalStores,
   expectation: Expectation,
@@ -16,8 +20,9 @@ export async function closeExpectation(
   closedReason: string,
   now: Date,
   closedBy?: ResourceRef,
+  recheckAt?: Date,
 ): Promise<Expectation> {
-  const closed: Expectation = {
+  const closed: { -readonly [K in keyof Expectation]: Expectation[K] } = {
     ...expectation,
     status,
     closedReason,
@@ -25,8 +30,32 @@ export async function closeExpectation(
     ...(closedBy === undefined ? {} : { closedBy }),
     updatedAt: now,
   };
+  if (recheckAt === undefined) {
+    delete closed.recheckAt;
+  } else {
+    closed.recheckAt = recheckAt;
+  }
   await stores.expectations.update(expectation.clinicId, closed);
   return closed;
+}
+
+/**
+ * An expectation open again: what closed it no longer stands (a booking
+ * cancelled, rescheduled or not kept, a visit or result withdrawn). Out of
+ * its former case; if already due, the next watcher run expires it again.
+ */
+export function reopened(expectation: Expectation, now: Date): Expectation {
+  const open: { -readonly [K in keyof Expectation]: Expectation[K] } = {
+    ...expectation,
+    status: 'open',
+    updatedAt: now,
+  };
+  delete open.closedAt;
+  delete open.closedReason;
+  delete open.closedBy;
+  delete open.caseId;
+  delete open.recheckAt;
+  return open;
 }
 
 function resolutionKind(reasons: readonly Expectation[]): CaseResolutionKind {

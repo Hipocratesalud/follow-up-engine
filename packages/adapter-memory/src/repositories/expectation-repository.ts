@@ -90,6 +90,24 @@ export class MemoryExpectationRepository implements ExpectationRepository {
     );
   }
 
+  findDueForRecheck(clinicId: ClinicId, now: Date, limit: number): Promise<readonly Expectation[]> {
+    return Promise.resolve(
+      this.#all(clinicId)
+        .filter(
+          (expectation) =>
+            expectation.status === 'fulfilled' &&
+            expectation.recheckAt !== undefined &&
+            expectation.recheckAt.getTime() <= now.getTime(),
+        )
+        .sort(
+          (left, right) =>
+            (left.recheckAt?.getTime() ?? 0) - (right.recheckAt?.getTime() ?? 0) ||
+            left.id.localeCompare(right.id),
+        )
+        .slice(0, limit),
+    );
+  }
+
   update(clinicId: ClinicId, expectation: Expectation): Promise<void> {
     if (expectation.clinicId !== clinicId) {
       return Promise.reject(new TenantMismatchError());

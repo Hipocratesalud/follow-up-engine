@@ -265,6 +265,53 @@ describe('other host events', () => {
     expect(results[2]?.occurredAt).toEqual(new Date('2026-01-14T11:30:00Z'));
   });
 
+  it('results: critical (HH, LL, AA, "panic") and mild abnormal flags set the severity (HIP-124)', () => {
+    const observation = (id: string, interpretation: Record<string, unknown>) => ({
+      resource: {
+        resourceType: 'Observation',
+        id,
+        status: 'final',
+        code: { coding: [{ system: 'http://loinc.org', code: '2823-3' }] },
+        subject: { reference: 'Patient/p-1' },
+        effectiveDateTime: '2026-01-05T10:00:00Z',
+        interpretation: [interpretation],
+      },
+      request: { method: 'PUT', url: `Observation/${id}` },
+    });
+    const v3 = (code: string) => ({
+      coding: [
+        { system: 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation', code },
+      ],
+    });
+    const results = eventsOf(
+      onlyBatch(
+        map({
+          resourceType: 'Bundle',
+          type: 'batch',
+          entry: [
+            observation('k-hh', v3('HH')),
+            observation('k-ll', v3('LL')),
+            observation('k-aa', v3('AA')),
+            observation('k-h', v3('H')),
+            observation('k-n', v3('N')),
+            observation('k-panic', { text: 'Valor de pánico' }),
+          ],
+        }),
+      ),
+      'result.received',
+    );
+    expect(
+      results.map((result) => [result.source.id, result.interpretation, result.severity]),
+    ).toEqual([
+      ['k-hh', 'abnormal', 'critical'],
+      ['k-ll', 'abnormal', 'critical'],
+      ['k-aa', 'abnormal', 'critical'],
+      ['k-h', 'abnormal', 'mild'],
+      ['k-n', 'normal', undefined],
+      ['k-panic', 'abnormal', 'critical'],
+    ]);
+  });
+
   it('results: Observation.valueQuantity becomes the value; a single-test report carries it too', () => {
     const results = eventsOf(onlyBatch(map(loadBundle('result-hba1c'))), 'result.received');
     expect(results.map((result) => result.value)).toEqual([

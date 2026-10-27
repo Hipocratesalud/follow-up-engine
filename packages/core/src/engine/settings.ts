@@ -16,6 +16,13 @@ export interface EngineSettings {
   readonly sweepBatchSize: number;
   /** Patients per page of the initial backfill (each patient is its own transaction). */
   readonly backfillPageSize: number;
+  /**
+   * Days after a booked appointment's date within which its visit may still
+   * be recorded. Past them with no visit, the booking no longer fulfills
+   * anything (many hosts never mark a no-show) and what it fulfilled is open
+   * again.
+   */
+  readonly bookingVisitGraceDays: number;
 }
 
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
@@ -27,4 +34,5 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   coordinatorOwner: 'coordinator',
   sweepBatchSize: 200,
   backfillPageSize: 50,
+  bookingVisitGraceDays: 2,
 };

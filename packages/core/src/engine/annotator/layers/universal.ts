@@ -1,4 +1,8 @@
-import type { ResultTarget, Rule } from '../../../config/rule.ts';
+import {
+  DEFAULT_CRITICAL_RESULT_DUE_IN_DAYS,
+  type ResultTarget,
+  type Rule,
+} from '../../../config/rule.ts';
 import type { ClinicalEvent, ResultReceivedEvent } from '../../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../../domain/condition.ts';
 import type { Expectation } from '../../../domain/expectation.ts';
@@ -14,7 +18,18 @@ import { icd10Matches } from '../conditions.ts';
 import { type ExpectationDraft, expectationIdempotencyKey } from '../draft.ts';
 import { expectsTreatmentControl } from '../treatment.ts';
 
+/** A critical (panic) result: acted on within `criticalDueInDays`, ranked above everything. */
+function isCritical(event: ClinicalEvent): boolean {
+  return event.type === 'result.received' && event.severity === 'critical';
+}
+
 function dueAtFor(rule: Rule, event: ClinicalEvent): Date | undefined {
+  if (isCritical(event)) {
+    return addDays(
+      event.occurredAt,
+      Math.min(rule.dueInDays, rule.criticalDueInDays ?? DEFAULT_CRITICAL_RESULT_DUE_IN_DAYS),
+    );
+  }
   if (rule.dueFrom === 'treatment_end') {
     if (event.type !== 'medication.prescribed' || event.durationDays === undefined) {
       return undefined;
@@ -39,6 +54,7 @@ function draftFor(
     matchKey: matchKeyFor(definition.expects ?? 'follow_up_visit', codeOfEvent(event)),
     dueAt,
     idempotencyKey: expectationIdempotencyKey(event.source, rule.id),
+    ...(isCritical(event) ? { severity: 'critical' as const } : {}),
   };
 }
 

@@ -29,7 +29,7 @@ import {
 } from '../application/note-extraction.ts';
 import { CaseWriter } from '../case-manager/case-writer.ts';
 import type { Catalog } from '../catalog.ts';
-import { expirePatient } from '../watcher/watcher.ts';
+import { expirePatient, recheckPatientBookings } from '../watcher/watcher.ts';
 import {
   type BackfillReleasePlan,
   planBackfillRelease,
@@ -216,6 +216,15 @@ async function replayPatient(
         asOf: batch.at,
       });
     }
+    // A booking of history whose date passed with no visit fulfills nothing.
+    await recheckPatientBookings({
+      stores,
+      settings: deps.settings,
+      catalog: input.catalog,
+      clinicId,
+      patientId,
+      now: deps.clock.now(),
+    });
     await expirePatient(
       { stores, deps, catalog: input.catalog, clinicId, patientId, now: deps.clock.now() },
       'backfill',

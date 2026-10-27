@@ -2,10 +2,17 @@ import {
   type AppointmentWithdrawalReason,
   practitionerId,
   type PractitionerId,
+  type RecordWithdrawalReason,
 } from '@follow-up-engine/core';
 import { TERMINOLOGY } from '../../terminology.ts';
 import { firstDate } from '../../support/datetime.ts';
-import { hasCode, specialtyOf, type EntryContext, type MappedResource } from '../context.ts';
+import {
+  hasCode,
+  specialtyOf,
+  withdrawal,
+  type EntryContext,
+  type MappedResource,
+} from '../context.ts';
 import type { ParsedResourceOf } from '../schemas.ts';
 
 /** Participation types in order of preference for "the" practitioner of an encounter. */
@@ -49,7 +56,20 @@ export function encounterSpecialty(encounter: ParsedResourceOf<'Encounter'>): st
   return specialtyOf(encounter.serviceType, ...(encounter.type ?? []));
 }
 
-/** Encounter (finished) → `encounter.finished`. Other statuses only group the bundle. */
+/**
+ * Encounter statuses that withdraw an encounter sent before as finished:
+ * the visit did not happen (or not for this patient), so what it fulfilled
+ * is open again and nothing is anchored on it.
+ */
+const WITHDRAWN_ENCOUNTER_STATUSES: Readonly<Record<string, RecordWithdrawalReason>> = {
+  'entered-in-error': 'entered_in_error',
+  cancelled: 'cancelled',
+};
+
+/**
+ * Encounter (finished) → `encounter.finished`; entered in error or
+ * cancelled → `record.withdrawn`. Other statuses only group the bundle.
+ */
 export function mapEncounter(
   encounter: ParsedResourceOf<'Encounter'>,
   ctx: EntryContext,
@@ -59,6 +79,15 @@ export function mapEncounter(
     return undefined;
   }
   const encounterId = ctx.entry.ref.id;
+  const withdrawn = WITHDRAWN_ENCOUNTER_STATUSES[encounter.status];
+  if (withdrawn !== undefined) {
+    return withdrawal(
+      ctx,
+      { patientId: patient.id, encounterId },
+      withdrawn,
+      encounter.meta?.lastUpdated,
+    );
+  }
   if (encounter.status !== 'finished') {
     ctx.report(
       'information',
@@ -141,12 +170,17 @@ export function mapAppointment(
     ctx.report('error', 'required', `a ${appointment.status} Appointment needs a start`, 'start');
     return undefined;
   }
+  // When the host recorded this version: orders a reschedule or a booking
+  // made again after a cancellation (both keep the original `created`).
+  const recordedAt = firstDate(appointment.meta?.lastUpdated);
+  const versioned = recordedAt === undefined ? {} : { recordedAt };
   if (withdrawal !== undefined) {
     return {
       patientId,
       events: [
         {
           ...ctx.base('appointment.cancelled', firstDate(appointment.meta?.lastUpdated)),
+          ...versioned,
           scheduledFor,
           ...(withdrawal === 'cancelled' ? {} : { reason: withdrawal }),
         },
@@ -166,6 +200,7 @@ export function mapAppointment(
           'appointment.booked',
           firstDate(appointment.created, appointment.meta?.lastUpdated),
         ),
+        ...versioned,
         scheduledFor,
         ...(practitioner === undefined ? {} : { practitionerId: practitioner }),
         ...(specialty === undefined ? {} : { specialty }),

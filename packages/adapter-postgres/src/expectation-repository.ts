@@ -40,6 +40,8 @@ interface ExpectationRow {
   readonly reason_code: string;
   readonly reason_label: string;
   readonly evidence: Evidence | null;
+  readonly recheck_at: Date | null;
+  readonly severity: 'critical' | null;
   readonly created_at: Date;
   readonly updated_at: Date;
 }
@@ -47,7 +49,7 @@ interface ExpectationRow {
 const COLUMNS = `clinic_id, id, patient_id, idempotency_key, rule_id, rule_version, layer, source_type,
   source_id, match_key, due_at, status, case_id, closed_reason, closed_at, closed_by_type,
   closed_by_id, origin, protocol_id, protocol_version, reason_code, reason_label, evidence,
-  created_at, updated_at`;
+  recheck_at, severity, created_at, updated_at`;
 
 function toExpectation(row: ExpectationRow): Expectation {
   return {
@@ -73,6 +75,8 @@ function toExpectation(row: ExpectationRow): Expectation {
     ...optional('protocolVersion', row.protocol_version),
     reason: { code: row.reason_code, label: row.reason_label },
     ...optional('evidence', row.evidence),
+    ...optional('recheckAt', row.recheck_at),
+    ...optional('severity', row.severity),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -104,12 +108,14 @@ function toParams(expectation: Expectation): unknown[] {
     expectation.reason.code,
     expectation.reason.label,
     expectation.evidence === undefined ? null : jsonParam(expectation.evidence),
+    expectation.recheckAt ?? null,
+    expectation.severity ?? null,
     expectation.createdAt,
     expectation.updatedAt,
   ];
 }
 
-const PLACEHOLDERS = Array.from({ length: 25 }, (_, index) => `$${String(index + 1)}`).join(', ');
+const PLACEHOLDERS = Array.from({ length: 27 }, (_, index) => `$${String(index + 1)}`).join(', ');
 
 export class PostgresExpectationRepository implements ExpectationRepository {
   readonly #ctx: RepositoryContext;
@@ -199,6 +205,21 @@ export class PostgresExpectationRepository implements ExpectationRepository {
       `SELECT ${COLUMNS} FROM ${this.#ctx.tables.expectations}
        WHERE clinic_id = $1 AND status = 'open' AND due_at <= $2
        ORDER BY due_at, id
+       LIMIT $3`,
+      [clinicId, now, limit],
+    );
+    return rows.map(toExpectation);
+  }
+
+  async findDueForRecheck(
+    clinicId: ClinicId,
+    now: Date,
+    limit: number,
+  ): Promise<readonly Expectation[]> {
+    const { rows } = await this.#ctx.db().query<ExpectationRow>(
+      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.expectations}
+       WHERE clinic_id = $1 AND status = 'fulfilled' AND recheck_at <= $2
+       ORDER BY recheck_at, id
        LIMIT $3`,
       [clinicId, now, limit],
     );

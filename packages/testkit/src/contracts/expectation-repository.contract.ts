@@ -87,9 +87,32 @@ export function describeExpectationRepositoryContract(
         protocolId: 'diabetes',
         protocolVersion: '1.0.0',
         evidence: { quote: 'ctrl en 3 meses', sourceDocumentId: 'doc-1' },
+        recheckAt: at(12),
+        severity: 'critical',
       });
       await repo().upsertByIdempotencyKey(a, full);
       expect(await repo().get(a, full.id)).toEqual(full);
+    });
+
+    it('finds fulfilled expectations to recheck by recheckAt, honouring the limit', async () => {
+      const { a, b } = freshClinics();
+      const fulfilled = { status: 'fulfilled' as const, closedReason: 'fulfilled_by_appointment' };
+      const r9 = anExpectation(a, { ...fulfilled, recheckAt: at(9) });
+      const r4 = anExpectation(a, { ...fulfilled, recheckAt: at(4) });
+      const r10 = anExpectation(a, { ...fulfilled, recheckAt: at(10) });
+      const later = anExpectation(a, { ...fulfilled, recheckAt: at(30) });
+      const byVisit = anExpectation(a, { ...fulfilled, closedReason: 'fulfilled_by_encounter' });
+      const open = anExpectation(a, { recheckAt: at(1) });
+      for (const e of [r9, r4, r10, later, byVisit, open]) {
+        await repo().upsertByIdempotencyKey(a, e);
+      }
+      expect((await repo().findDueForRecheck(a, at(10), 10)).map((e) => e.id)).toEqual([
+        r4.id,
+        r9.id,
+        r10.id,
+      ]);
+      expect((await repo().findDueForRecheck(a, at(10), 1)).map((e) => e.id)).toEqual([r4.id]);
+      expect(await repo().findDueForRecheck(b, at(100), 10)).toEqual([]);
     });
 
     it('finds due open expectations ordered by dueAt and honours the limit', async () => {

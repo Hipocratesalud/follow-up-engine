@@ -247,7 +247,9 @@ describe('PRD acceptance scenarios', () => {
           },
         ])
         .expectOpenExpectations([])
-        .at(43)
+        // Past the 6-week deadline: the booking (day 41) still stands until
+        // its grace days end without a visit.
+        .at(42)
         .runWatcher()
         .expectNoCases()
         .run();

@@ -82,6 +82,9 @@ export const CadenceEpisodeSchema = z.strictObject({
 });
 export type CadenceEpisode = z.infer<typeof CadenceEpisodeSchema>;
 
+/** Days within which a critical (panic) result is expected to be acted on. */
+export const DEFAULT_CRITICAL_RESULT_DUE_IN_DAYS = 1;
+
 /**
  * A versioned rule (config/rules/*.json): when `trigger` happens, expect one
  * of `fulfilledBy` within `dueInDays`, otherwise escalate.
@@ -155,6 +158,12 @@ export const RuleSchema = z.strictObject({
   treatment: TreatmentCriteriaSchema.optional(),
   /** Condition-aware targets of a `result.received` rule. */
   resultTargets: z.array(ResultTargetSchema).optional(),
+  /**
+   * `result.received` rules: days within which a critical (panic) result is
+   * expected to be acted on, instead of `dueInDays`. Defaults to
+   * {@link DEFAULT_CRITICAL_RESULT_DUE_IN_DAYS}.
+   */
+  criticalDueInDays: z.number().int().positive().optional(),
   /**
    * Universal rules: skip (or withdraw) the expectation when a live
    * doctor's-plan expectation already asks for the same thing (same match

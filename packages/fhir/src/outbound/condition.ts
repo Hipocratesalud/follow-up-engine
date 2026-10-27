@@ -18,18 +18,21 @@ export type PatientConditionInput = PatientCondition & { readonly id?: string };
 
 /**
  * `Condition.verificationStatus` and `clinicalStatus` codes for each engine
- * status. A clinician's rejection is `refuted` (never `confirmed`); its
- * clinical status is `inactive`, since R4 (con-3) requires one on a
- * problem-list item that is not entered-in-error.
+ * status. A rejection (by a clinician or by the host) is `refuted` (never
+ * `confirmed`); its clinical status is `inactive`, since R4 (con-3) requires
+ * one on a problem-list item that is not entered-in-error. A condition that
+ * was never the patient's is `entered-in-error`, without a clinical status
+ * (con-5).
  */
 export const CONDITION_STATUS_CODES = {
   confirmed: { verification: 'confirmed', clinical: 'active' },
   probable: { verification: 'provisional', clinical: 'active' },
   resolved: { verification: 'confirmed', clinical: 'resolved' },
   rejected: { verification: 'refuted', clinical: 'inactive' },
+  entered_in_error: { verification: 'entered-in-error', clinical: undefined },
 } as const satisfies Record<
   PatientConditionStatus,
-  { readonly verification: string; readonly clinical: string }
+  { readonly verification: string; readonly clinical: string | undefined }
 >;
 
 /** Default FHIR id of a patient condition: unique per patient and code. */
@@ -75,7 +78,9 @@ export function patientConditionToFhir(condition: PatientConditionInput): Condit
       ),
       ...evidenceExtension(condition.evidence),
     ],
-    clinicalStatus: concept(TERMINOLOGY.conditionClinical, codes.clinical),
+    ...(codes.clinical === undefined
+      ? {}
+      : { clinicalStatus: concept(TERMINOLOGY.conditionClinical, codes.clinical) }),
     verificationStatus: concept(TERMINOLOGY.conditionVerification, codes.verification),
     category: [concept(TERMINOLOGY.conditionCategory, 'problem-list-item')],
     code: {

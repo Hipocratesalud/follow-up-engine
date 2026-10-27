@@ -29,6 +29,13 @@ function reviveOptionalDate(value: unknown, field: string): Date | undefined {
   return value === undefined || value === null ? undefined : reviveDate(value, field);
 }
 
+/** The stored event with `recordedAt` (when the host recorded its source's version) revived. */
+function withRecordedAt(payload: Stored<ClinicalEvent>): ClinicalEvent {
+  const event = payload as ClinicalEvent;
+  const recordedAt = reviveOptionalDate(payload.recordedAt, 'recordedAt');
+  return recordedAt === undefined ? event : { ...event, recordedAt };
+}
+
 function revivePlanItems(items: unknown): PlanItem[] {
   if (!Array.isArray(items)) {
     throw new CorruptRowError('Stored plan.extracted items is not an array');
@@ -41,7 +48,7 @@ function revivePlanItems(items: unknown): PlanItem[] {
 
 /** Decodes a `clinical_events.payload` value. */
 export function decodeClinicalEvent(payload: Stored<ClinicalEvent>): ClinicalEvent {
-  const event = payload as ClinicalEvent;
+  const event = withRecordedAt(payload);
   const occurredAt = reviveDate(payload.occurredAt, 'occurredAt');
   switch (event.type) {
     case 'encounter.finished':

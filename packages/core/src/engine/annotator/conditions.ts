@@ -20,7 +20,7 @@ const PROVISIONAL_CONFIDENCE = 0.6;
 /** A condition the current batch suggests, before merging with what is stored. */
 export interface ConditionCandidate {
   readonly code: Coding;
-  readonly status: Exclude<PatientConditionStatus, 'resolved' | 'rejected'>;
+  readonly status: Exclude<PatientConditionStatus, 'resolved' | 'rejected' | 'entered_in_error'>;
   readonly confidence: number;
   readonly sourceType: ConditionSourceType;
   readonly source: ResourceRef;
@@ -77,7 +77,8 @@ function icd10(code: string): Coding {
   return { system: ICD10_SYSTEM, code };
 }
 
-function recordedCandidate(
+/** The condition a recorded (or note-extracted) diagnosis suggests. */
+export function recordedCandidate(
   event: Extract<ClinicalEvent, { type: 'condition.recorded' }>,
   extractedConfidence: ReadonlyMap<string, number>,
 ): ConditionCandidate {
@@ -166,9 +167,12 @@ export function conditionCandidates(input: {
       : [],
   );
   const inferred = input.protocols.flatMap((protocol) => {
+    // A diagnosis entered in error was never the patient's: it blocks nothing.
     const known = [
       ...input.existing.filter(
-        (condition) => condition.status !== 'resolved' || condition.confirmedBy !== undefined,
+        (condition) =>
+          (condition.status !== 'resolved' && condition.status !== 'entered_in_error') ||
+          condition.confirmedBy !== undefined,
       ),
       ...recorded,
     ];
@@ -204,7 +208,12 @@ export function mergeCondition(
     ...(candidate.evidence === undefined ? {} : { evidence: candidate.evidence }),
     updatedAt: context.now,
   };
-  if (existing === undefined || existing.status === 'resolved' || existing.status === 'rejected') {
+  if (
+    existing === undefined ||
+    existing.status === 'resolved' ||
+    existing.status === 'rejected' ||
+    existing.status === 'entered_in_error'
+  ) {
     return existing?.confirmedBy === undefined ? next : undefined;
   }
   if (existing.confirmedBy !== undefined) {

@@ -25,21 +25,36 @@ export function encounterOf(event: ClinicalEvent): string | undefined {
     : event.encounterId;
 }
 
+/** When the version an event was derived from was recorded: `recordedAt`, else the clinical time. */
+function versionInstant(event: ClinicalEvent): number {
+  return (event.recordedAt ?? event.occurredAt).getTime();
+}
+
 /**
- * Drops each `appointment.booked` that a later `appointment.cancelled` of the
- * same Appointment withdrew: a cancelled booking fulfills nothing and anchors
- * nothing. A booking made again after the cancellation stays.
+ * Keeps only the latest version of each Appointment: its booking stands
+ * when that version is booked (a reschedule replaces the earlier date), and
+ * nothing stands when it is cancelled, a no-show or entered in error (a
+ * booking made again after a cancellation stands again). Versions are
+ * ordered by when the host recorded them (`recordedAt`, else the clinical
+ * time), then by arrival. A cancelled booking fulfills nothing and anchors
+ * nothing.
  */
-export function withoutCancelledBookings(events: readonly ClinicalEvent[]): ClinicalEvent[] {
+export function latestAppointmentVersions(events: readonly ClinicalEvent[]): ClinicalEvent[] {
+  const latest = new Map<string, { readonly event: ClinicalEvent; readonly at: number }>();
+  for (const event of events) {
+    if (event.type !== 'appointment.booked' && event.type !== 'appointment.cancelled') {
+      continue;
+    }
+    const key = refKey(event.source);
+    const at = versionInstant(event);
+    const current = latest.get(key);
+    if (current === undefined || at >= current.at) {
+      latest.set(key, { event, at });
+    }
+  }
   return events.filter(
     (event) =>
-      event.type !== 'appointment.booked' ||
-      !events.some(
-        (other) =>
-          other.type === 'appointment.cancelled' &&
-          refKey(other.source) === refKey(event.source) &&
-          other.occurredAt.getTime() >= event.occurredAt.getTime(),
-      ),
+      event.type !== 'appointment.booked' || latest.get(refKey(event.source))?.event === event,
   );
 }
 
@@ -84,7 +99,7 @@ export class PatientTimeline {
     const sorted = [...events].sort(
       (left, right) => left.occurredAt.getTime() - right.occurredAt.getTime(),
     );
-    this.events = withoutWithdrawnRecords(withoutCancelledBookings(sorted));
+    this.events = withoutWithdrawnRecords(latestAppointmentVersions(sorted));
     this.#kept = new Set(this.events.map((event) => event.idempotencyKey));
     for (const event of this.events) {
       const key = refKey(event.source);
@@ -102,7 +117,8 @@ export class PatientTimeline {
 
   /**
    * Whether the event is in the record but no longer stands: a booking
-   * cancelled later, or any event of a resource withdrawn later.
+   * replaced by a later version of its Appointment (rescheduled, cancelled),
+   * or any event of a resource withdrawn later.
    */
   isWithdrawn(event: ClinicalEvent): boolean {
     return !this.#kept.has(event.idempotencyKey);

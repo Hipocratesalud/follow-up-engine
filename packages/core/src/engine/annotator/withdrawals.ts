@@ -1,15 +1,18 @@
 import {
   type ClinicalEvent,
   type PlanExtractedEvent,
+  type RecordWithdrawnEvent,
   RETRACTING_WITHDRAWAL_REASONS,
 } from '../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
+import type { Expectation } from '../../domain/expectation.ts';
 import { closeExpectation } from '../case-manager/reconcile.ts';
+import { sameCoding } from '../matching/match-key.ts';
 import type { PatientState } from '../patient-state.ts';
-import { refKey } from '../timeline.ts';
-import { enrollingConditions } from './conditions.ts';
+import { type PatientTimeline, refKey } from '../timeline.ts';
+import { enrollingConditions, mergeCondition, recordedCandidate } from './conditions.ts';
 import type { AnnotationContext, ClosedExpectation } from './context.ts';
-import type { ExpectationDraft } from './draft.ts';
+import { type ExpectationDraft, movedIdempotencyKey } from './draft.ts';
 
 /** `Expectation.closedReason` of an expectation whose source was withdrawn (cancelled, revoked, in error). */
 export const SOURCE_WITHDRAWN = 'source_withdrawn';
@@ -31,6 +34,16 @@ export function withdrawnSources(events: readonly ClinicalEvent[]): Map<string, 
 }
 
 /**
+ * A protocol expectation counted from the diagnosis that enrolled the
+ * patient: whether it goes depends on the enrollment, not on that one
+ * record (another record of the diagnosis may keep the patient enrolled),
+ * so {@link withdrawConditions} decides.
+ */
+function anchoredOnDiagnosis(expectation: Expectation): boolean {
+  return expectation.protocolId !== undefined && expectation.source.resourceType === 'Condition';
+}
+
+/**
  * Expectations triggered by a withdrawn resource (the result an order no
  * longer waits for, the control after a treatment that was stopped, the
  * protocol's next visit counted from a booking that was cancelled) have
@@ -49,7 +62,7 @@ export async function cancelWithdrawn(
   }
   for (const expectation of state.live.list()) {
     const by = withdrawn.get(refKey(expectation.source));
-    if (by === undefined) {
+    if (by === undefined || anchoredOnDiagnosis(expectation)) {
       continue;
     }
     const next = await closeExpectation(
@@ -67,13 +80,49 @@ export async function cancelWithdrawn(
 }
 
 /**
- * A diagnosis refuted or entered in error (or moved to another patient)
- * no longer stands: the condition it alone recorded is `resolved` unless a
- * clinician reviewed it (a review is never overridden by automation), and
- * the protocol expectations of every protocol the patient is no longer
- * enrolled in are cancelled (`source_withdrawn`).
+ * What a patient condition becomes when the record it rested on is
+ * withdrawn: re-derived from the records of the same diagnosis that still
+ * stand (a duplicate of the diagnosis, a note that mentions it), else
+ * `rejected` when the host refuted it (the patient does not have it) or
+ * `entered_in_error` when it was entered in error or moved to another
+ * patient (it was never this patient's).
+ */
+function afterWithdrawal(
+  condition: PatientCondition,
+  withdrawal: RecordWithdrawnEvent,
+  timeline: PatientTimeline,
+  now: Date,
+): PatientCondition {
+  const remaining = timeline
+    .ofType('condition.recorded')
+    .filter((event) => sameCoding(event.code, condition.code))
+    .map((event) => recordedCandidate(event, new Map()));
+  let next: PatientCondition | undefined;
+  for (const candidate of remaining) {
+    next = mergeCondition(next, candidate, { ...condition, now }) ?? next;
+  }
+  if (next !== undefined) {
+    return next;
+  }
+  return {
+    ...condition,
+    status: withdrawal.reason === 'refuted' ? 'rejected' : 'entered_in_error',
+    confidence: 0,
+    updatedAt: now,
+  };
+}
+
+/**
+ * A diagnosis refuted or entered in error (or moved to another patient) no
+ * longer stands. The condition it recorded is decided again from the
+ * records of the same diagnosis that remain (another record of it keeps the
+ * patient enrolled, whichever is withdrawn first); with none left it is
+ * `rejected` (refuted by the host) or `entered_in_error`. A clinician's
+ * review is never overridden by automation. The protocol expectations of
+ * every protocol the patient is no longer enrolled in are cancelled
+ * (`source_withdrawn`).
  *
- * @returns the conditions it resolved and the expectations it cancelled.
+ * @returns the conditions it changed and the expectations it cancelled.
  */
 export async function withdrawConditions(
   context: AnnotationContext,
@@ -84,7 +133,7 @@ export async function withdrawConditions(
   readonly resolved: readonly PatientCondition[];
   readonly closed: readonly ClosedExpectation[];
 }> {
-  const retracted = new Map<string, ClinicalEvent>();
+  const retracted = new Map<string, RecordWithdrawnEvent>();
   for (const event of events) {
     if (event.type === 'record.withdrawn' && RETRACTING_WITHDRAWAL_REASONS.has(event.reason)) {
       retracted.set(refKey(event.source), event);
@@ -102,16 +151,12 @@ export async function withdrawConditions(
       withdrawal === undefined ||
       condition.confirmedBy !== undefined ||
       condition.status === 'resolved' ||
-      condition.status === 'rejected'
+      condition.status === 'rejected' ||
+      condition.status === 'entered_in_error'
     ) {
       continue;
     }
-    const next: PatientCondition = {
-      ...condition,
-      status: 'resolved',
-      confidence: 0,
-      updatedAt: context.now,
-    };
+    const next = afterWithdrawal(condition, withdrawal, state.timeline, context.now);
     await context.stores.conditions.upsert(context.clinicId, next);
     conditions[index] = next;
     resolved.push(next);
@@ -165,7 +210,14 @@ export async function supersedeAmendedPlans(
   if (plans.length === 0) {
     return closed;
   }
-  const kept = new Set(drafts.map((draft) => draft.idempotencyKey));
+  // What the new plan asks for again stays, also under the key it takes on
+  // a patient the note was moved to (its subject was corrected).
+  const kept = new Set(
+    drafts.flatMap((draft) => [
+      draft.idempotencyKey,
+      movedIdempotencyKey(draft.idempotencyKey, context.patientId),
+    ]),
+  );
   for (const plan of plans) {
     const replaced = new Set([plan.sourceDocumentId, ...(plan.replacesDocumentIds ?? [])]);
     for (const expectation of state.live.list()) {

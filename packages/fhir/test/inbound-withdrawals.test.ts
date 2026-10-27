@@ -143,6 +143,70 @@ describe('withdrawn resources', () => {
     ]);
   });
 
+  it.each([
+    ['entered-in-error', 'entered_in_error'],
+    ['cancelled', 'cancelled'],
+  ])('a %s Encounter withdraws the visit (HIP-133)', (status, reason) => {
+    const result = map({
+      resourceType: 'Encounter',
+      id: 'enc-1',
+      meta,
+      status,
+      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+      subject: PATIENT_REF,
+    });
+    expect(result.batches).toMatchObject([{ encounterId: 'enc-1' }]);
+    expect(events(result)).toMatchObject([
+      {
+        type: 'record.withdrawn',
+        reason,
+        source: { resourceType: 'Encounter', id: 'enc-1' },
+        occurredAt: new Date(UPDATED),
+      },
+    ]);
+  });
+
+  it('a DiagnosticReport entered in error withdraws the Observations it lists (HIP-133)', () => {
+    const result = map({
+      resourceType: 'DiagnosticReport',
+      id: 'dr-1',
+      meta,
+      status: 'entered-in-error',
+      code: { coding: [{ system: 'http://loinc.org', code: '2160-0' }] },
+      subject: PATIENT_REF,
+      result: [{ reference: 'Observation/obs-1' }, { reference: 'Observation/obs-2' }],
+    });
+    expect(events(result)).toMatchObject([
+      { type: 'record.withdrawn', source: { resourceType: 'DiagnosticReport', id: 'dr-1' } },
+      {
+        type: 'record.withdrawn',
+        reason: 'entered_in_error',
+        source: { resourceType: 'Observation', id: 'obs-1' },
+        idempotencyKey: 'DiagnosticReport/dr-1/2#record.withdrawn:Observation/obs-1',
+      },
+      { type: 'record.withdrawn', source: { resourceType: 'Observation', id: 'obs-2' } },
+    ]);
+  });
+
+  it('every version of an Appointment carries when the host recorded it (HIP-133)', () => {
+    const booked = map({
+      resourceType: 'Appointment',
+      id: 'ap-1',
+      meta,
+      status: 'booked',
+      created: '2026-01-02T10:00:00Z',
+      start: '2026-02-06T10:00:00Z',
+      participant: [{ actor: PATIENT_REF, status: 'accepted' }],
+    });
+    expect(events(booked)).toMatchObject([
+      {
+        type: 'appointment.booked',
+        occurredAt: new Date('2026-01-02T10:00:00Z'),
+        recordedAt: new Date(UPDATED),
+      },
+    ]);
+  });
+
   it('a note that replaces another names it', () => {
     const result = map({
       resourceType: 'DocumentReference',

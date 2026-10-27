@@ -55,6 +55,17 @@ export interface Expectation {
    * fulfilled.
    */
   readonly closedBy?: ResourceRef;
+  /**
+   * Fulfilled by a booking: when to check that the visit took place (the
+   * appointment date plus the grace days). A booking whose date passed with
+   * no visit stops fulfilling and the expectation is open again.
+   */
+  readonly recheckAt?: Date;
+  /**
+   * `critical`: triggered by a panic result. Due sooner and ranked above
+   * every other reason (see the case priority model).
+   */
+  readonly severity?: 'critical';
   readonly origin: Origin;
   readonly protocolId?: string;
   readonly protocolVersion?: string;

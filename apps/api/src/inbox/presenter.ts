@@ -86,6 +86,9 @@ export function conditionView(condition: PatientCondition): ConditionView {
     code: condition.code.code,
     display: icd10Label(condition.code.code, condition.code.display),
     status: condition.status,
+    ...(condition.status === 'rejected'
+      ? { rejectedBy: condition.confirmedBy === undefined ? 'host' : 'clinician' }
+      : {}),
     confidence: condition.confidence,
     sourceType: condition.sourceType,
     ...(condition.evidence === undefined
@@ -516,7 +519,10 @@ export class InboxPresenter {
     return {
       patient: { ...summary, contact: contactInfo },
       contact: contactInfo,
-      conditions: withoutConfirmedDuplicates(conditions).map(conditionView),
+      // A condition entered in error (or moved to another patient) was never the patient's.
+      conditions: withoutConfirmedDuplicates(conditions)
+        .filter((condition) => condition.status !== 'entered_in_error')
+        .map(conditionView),
       expectations: expectations.map((expectation) => this.expectationView(expectation)),
       qualityFindings: findings.map((finding) => ({
         id: finding.id,
