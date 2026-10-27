@@ -76,6 +76,8 @@ describe('OpenAPI document', () => {
     ['GET', '/api/inbox/cases?view=nope', {}],
     ['GET', '/api/inbox/cases', { key: '' }],
     ['GET', '/api/inbox/patients?limit=-1', {}],
+    ['GET', `/api/inbox/patients/${FIXTURE_PATIENT}/documents`, {}],
+    ['GET', '/api/inbox/patients/nobody/documents', {}],
     ['POST', '/api/inbox/cases/{case}/actions', { body: '{' }],
     ['POST', '/api/inbox/cases/{case}/feedback', { body: '{' }],
     ['POST', '/api/inbox/cases/{case}/feedback', { body: { useful: false } }],
@@ -175,6 +177,19 @@ describe('OpenAPI document', () => {
     const protocol = JSON.stringify(doc.components.schemas['ProtocolRef']);
     expect(protocol).toContain('"enum":["draft","validated"]');
     expect(protocol).toMatch(/"required":\["id","version"\]/);
+  });
+
+  it('documents the evidence behind every reason (HIP-142)', () => {
+    const reason = JSON.stringify(doc.components.schemas['CaseReasonView']);
+    expect(reason).toContain('#/components/schemas/ReasonWhyView');
+    const why = JSON.stringify(doc.components.schemas['ReasonWhyView']);
+    for (const field of ['"due"', '"fulfilledBy"', '"enrollment"', '"cadence"', '"plan"']) {
+      expect(why).toContain(field);
+    }
+    expect(why).toContain('#/components/schemas/DocumentRefView');
+    expect(JSON.stringify(doc.components.schemas['PatientExpectationView'] ?? doc)).toContain(
+      'ReasonWhyView',
+    );
   });
 
   it('says that a reason is required when a case was not useful', () => {

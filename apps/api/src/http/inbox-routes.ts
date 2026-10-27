@@ -493,6 +493,16 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     return c.json(detail);
   });
 
+  /** The "View documents" drawer: every document of the patient, oldest first (HIP-142). */
+  app.get('/api/inbox/patients/:id/documents', async (c) => {
+    const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
+    const items = await presenter.patientDocuments(toPatientId(c.req.param('id')));
+    if (items === undefined) {
+      throw notFound(c.var.t, c.var.t.errors.patientNotFound);
+    }
+    return c.json({ items });
+  });
+
   for (const command of ['confirm', 'reject'] as const) {
     app.post(`/api/inbox/conditions/:id/${command}`, async (c) => {
       const parsed = parseConditionId(c.req.param('id'));

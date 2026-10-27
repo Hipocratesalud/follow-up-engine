@@ -13,6 +13,7 @@ import {
 } from '@follow-up-engine/core';
 import { z } from 'zod';
 import { PlanItemViewSchema } from './plan-item-schemas.ts';
+import { ReasonWhyViewSchema } from './why-schemas.ts';
 
 /**
  * The inbox JSON contract (`/api`), as zod schemas: requests are validated
@@ -152,6 +153,10 @@ export const CaseReasonViewSchema = z
       .optional(),
     planItem: PlanItemViewSchema.optional().meta({
       description: "Doctor's plan reasons only: the AI reading and its review (HIP-141)",
+    }),
+    why: ReasonWhyViewSchema.optional().meta({
+      description:
+        'Case detail only: the evidence behind the reason, recomputed from the record (HIP-142)',
     }),
   })
   .meta({ id: 'CaseReasonView' });
@@ -465,6 +470,9 @@ export const PatientExpectationViewSchema = z.object({
   evidence: z.object({ quote: z.string(), documentId: z.string() }).optional(),
   planItem: PlanItemViewSchema.optional().meta({
     description: "Doctor's plan expectations only: the AI reading and its review (HIP-141)",
+  }),
+  why: ReasonWhyViewSchema.optional().meta({
+    description: 'The evidence behind the expectation, recomputed from the record (HIP-142)',
   }),
 });
 
