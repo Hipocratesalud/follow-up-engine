@@ -213,6 +213,11 @@ describe('API over the memory runtime', () => {
     );
     expect(webhooks.body.items.every((item) => item.signatureValid)).toBe(true);
     expect(JSON.stringify(webhooks.body.items)).not.toMatch(/diabetes|HbA1c|metformina/i);
+    const opened = await h.call<{ items: { type: string }[] }>(
+      '/api/demo/webhooks?type=case.opened',
+    );
+    expect(opened.body.items.length).toBeGreaterThan(0);
+    expect(opened.body.items.every((item) => item.type === 'case.opened')).toBe(true);
 
     const stats = await h.call<InboxStats>('/api/inbox/stats');
     expect(stats.body.llm).toMatchObject({ provider: 'fake', model: 'fake-extractor' });
@@ -223,8 +228,23 @@ describe('API over the memory runtime', () => {
     await h.call('/fhir?sync=true', { body: BUNDLE, fhir: true });
     const patient = await h.call<PatientDetail>(`/api/inbox/patients/${PATIENT}`);
     expect(patient.body.patient).toMatchObject({ name: 'Ana Prueba', birthDate: '1967-08-14' });
-    const probable = patient.body.conditions.find((item) => item.status === 'probable');
-    expect(probable).toBeDefined();
+    // The note's "DM2" is already recorded (E11.9): no probable duplicate to review.
+    expect(patient.body.conditions.map((item) => item.status)).not.toContain('probable');
+    const consultation = await h.call<{
+      bundle: { entry: { resource: { resourceType: string; id: string } }[] };
+    }>('/api/demo/consultations', {
+      body: {
+        patientName: 'Luis Demo',
+        specialty: 'internal_medicine',
+        noteText: 'Paciente con HTA de reciente diagnóstico. Plan: control en 1 mes.',
+      },
+    });
+    const demoPatient = consultation.body.bundle.entry.find(
+      (entry) => entry.resource.resourceType === 'Patient',
+    )?.resource.id;
+    const inferred = await h.call<PatientDetail>(`/api/inbox/patients/${demoPatient ?? ''}`);
+    const probable = inferred.body.conditions.find((item) => item.status === 'probable');
+    expect(probable?.evidence?.quote).toBeDefined();
     const rejected = await h.call<ConditionView>(
       `/api/inbox/conditions/${encodeURIComponent(probable?.id ?? '')}/reject`,
       { method: 'POST' },

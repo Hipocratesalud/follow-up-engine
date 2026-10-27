@@ -29,10 +29,11 @@ import {
   DEFAULT_SUGGESTED_ACTION,
   FRONT_DESK_LABEL,
   LAYER_FALLBACK_LABELS,
+  planItemLabel,
   QUALITY_FINDING_LABEL,
   timelineLabel,
 } from './labels.ts';
-import { icd10Label } from './terminology.ts';
+import { icd10Label, loincLabel } from './terminology.ts';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -102,6 +103,25 @@ export function conditionView(condition: PatientCondition): ConditionView {
           },
         }),
   };
+}
+
+/**
+ * Hides a probable condition when the clinician already recorded or confirmed
+ * one of the same ICD-10 category (the note says "DM2", the record has
+ * E11.9): asking to confirm what the chart already states is noise.
+ */
+export function withoutConfirmedDuplicates(
+  conditions: readonly PatientCondition[],
+): PatientCondition[] {
+  const confirmed = new Set(
+    conditions
+      .filter((condition) => condition.status === 'confirmed')
+      .map((condition) => condition.code.code.slice(0, 3)),
+  );
+  return conditions.filter(
+    (condition) =>
+      condition.status !== 'probable' || !confirmed.has(condition.code.code.slice(0, 3)),
+  );
 }
 
 /** Rules whose reason is a result that came back abnormal: the most urgent thing to act on. */
@@ -217,6 +237,9 @@ export class InboxPresenter {
 
   /** Spanish reason label of a rule, from the catalog. Never contains a day count. */
   reasonLabel(ruleId: string | undefined, fallback?: Expectation): string {
+    if (fallback?.layer === 'doctor_plan') {
+      return planItemLabel(fallback.matchKey, loincLabel);
+    }
     const definition = ruleId === undefined ? undefined : this.#catalog.definition(ruleId);
     return (
       definition?.reason.label ??
@@ -418,7 +441,7 @@ export class InboxPresenter {
     return {
       patient: { ...summary, contact: contactInfo },
       contact: contactInfo,
-      conditions: conditions.map(conditionView),
+      conditions: withoutConfirmedDuplicates(conditions).map(conditionView),
       expectations: expectations.map((expectation) => this.expectationView(expectation)),
       qualityFindings: findings.map((finding) => ({
         id: finding.id,

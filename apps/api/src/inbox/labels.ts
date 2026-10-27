@@ -33,6 +33,37 @@ export const PLAN_ITEM_LABELS: Record<PlanItemKind, string> = {
   other: 'Indicación del plan',
 };
 
+const UNCODED_PLAN_KEYS: Readonly<Record<string, PlanItemKind>> = {
+  visit: 'follow_up_visit',
+  session: 'session',
+  lab: 'lab',
+  imaging: 'imaging',
+  other: 'other',
+};
+
+/**
+ * Label of a doctor's-plan expectation from what it waits for (its match
+ * key: `visit`, `session`, or a test code such as `loinc:4548-4`), so two
+ * items of the same plan read differently ("Control indicado en el plan",
+ * "Examen indicado en el plan: Perfil lipídico").
+ */
+export function planItemLabel(
+  matchKey: string,
+  testName: (code: string) => string | undefined,
+): string {
+  const kind = UNCODED_PLAN_KEYS[matchKey];
+  if (kind !== undefined) {
+    return PLAN_ITEM_LABELS[kind];
+  }
+  const code =
+    matchKey
+      .slice(matchKey.indexOf(':') + 1)
+      .split('|')
+      .at(-1) ?? '';
+  const name = testName(code);
+  return name === undefined ? 'Examen indicado en el plan' : `Examen indicado en el plan: ${name}`;
+}
+
 const RESOLUTION_LABELS: Record<CaseResolutionKind, string> = {
   fulfilled: 'Resuelto: se cumplió lo pendiente',
   handled_outside: 'Resuelto por el equipo',

@@ -278,7 +278,10 @@ const OPERATIONS: readonly Operation[] = [
     path: '/api/demo/webhooks',
     tag: 'Demo',
     summary: 'Webhooks the sink received for this clinic',
-    params: [{ name: 'limit', in: 'query' }],
+    params: [
+      { name: 'limit', in: 'query' },
+      { name: 'type', in: 'query' },
+    ],
     response: 'WebhookList',
     errors: [404],
   },

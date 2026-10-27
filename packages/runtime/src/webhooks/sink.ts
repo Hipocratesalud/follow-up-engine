@@ -111,10 +111,13 @@ export class WebhookSink {
     return this.receive({ headers: webhook.headers, rawBody: webhook.rawBody });
   }
 
-  /** Newest first. */
-  list(options: { readonly limit?: number; readonly clinicId?: string } = {}): SinkDelivery[] {
+  /** Newest first; only one clinic and one event type when given. */
+  list(
+    options: { readonly limit?: number; readonly clinicId?: string; readonly type?: string } = {},
+  ): SinkDelivery[] {
     return this.#deliveries
       .filter((item) => options.clinicId === undefined || item.clinicId === options.clinicId)
+      .filter((item) => options.type === undefined || item.type === options.type)
       .slice(0, options.limit ?? 50);
   }
 
@@ -129,7 +132,7 @@ export const WEBHOOK_SINK_PATH = '/webhooks/follow-up-engine';
 
 /**
  * HTTP face of a {@link WebhookSink}: `POST /webhooks/follow-up-engine`
- * (204, or 401 on a bad signature) and `GET /deliveries?limit=&clinicId=`.
+ * (204, or 401 on a bad signature) and `GET /deliveries?limit=&clinicId=&type=`.
  */
 export function createWebhookSinkApp(sink: WebhookSink): Hono {
   const app = new Hono();
@@ -141,10 +144,12 @@ export function createWebhookSinkApp(sink: WebhookSink): Hono {
   app.get('/deliveries', (c) => {
     const limit = Number(c.req.query('limit') ?? '50');
     const clinicId = c.req.query('clinicId');
+    const type = c.req.query('type');
     return c.json({
       items: sink.list({
         limit: Number.isInteger(limit) && limit > 0 ? Math.min(limit, 500) : 50,
         ...(clinicId === undefined ? {} : { clinicId }),
+        ...(type === undefined || type === '' ? {} : { type }),
       }),
     });
   });

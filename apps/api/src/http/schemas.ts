@@ -305,6 +305,11 @@ export const LimitQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional().default(30),
 });
 
+export const WebhookQuerySchema = LimitQuerySchema.extend({
+  /** Only one event type (`case.opened`, ...). */
+  type: z.string().trim().min(1).max(60).optional(),
+});
+
 export type CaseView = z.infer<typeof CaseViewSchema>;
 export type CaseReasonView = z.infer<typeof CaseReasonViewSchema>;
 export type CaseDetail = z.infer<typeof CaseDetailSchema>;

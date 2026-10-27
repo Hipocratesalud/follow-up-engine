@@ -1,7 +1,7 @@
-import type { Expectation, ExpectationLayer } from '@follow-up-engine/core';
+import type { Expectation, ExpectationLayer, PatientCondition } from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import { sourceDisplay } from './fhir-display.ts';
-import { byActionability } from './presenter.ts';
+import { byActionability, withoutConfirmedDuplicates } from './presenter.ts';
 import { icd10Label } from './terminology.ts';
 
 function expectation(id: string, ruleId: string, layer: ExpectationLayer, dueAt: string) {
@@ -79,5 +79,18 @@ describe('Spanish displays', () => {
     );
     expect(icd10Label('F41.0', 'Panic disorder')).toBe('Trastorno de pánico');
     expect(icd10Label('Q99.9', 'Unknown thing')).toBe('Unknown thing');
+  });
+});
+
+describe('patient conditions', () => {
+  it('hide a probable condition the record already confirms in the same category', () => {
+    const condition = (code: string, status: PatientCondition['status']) =>
+      ({ code: { system: 'icd10', code }, status }) as unknown as PatientCondition;
+    const kept = withoutConfirmedDuplicates([
+      condition('E11', 'probable'),
+      condition('E11.9', 'confirmed'),
+      condition('I10', 'probable'),
+    ]);
+    expect(kept.map((item) => item.code.code)).toEqual(['E11.9', 'I10']);
   });
 });

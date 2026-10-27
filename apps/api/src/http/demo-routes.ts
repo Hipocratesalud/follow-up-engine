@@ -3,13 +3,14 @@ import type { FakeClock, NoteExtraction } from '@follow-up-engine/core';
 import { buildConsultationBundle } from '@follow-up-engine/fhir';
 import { type EngineRuntime, Worker } from '@follow-up-engine/runtime';
 import { InboxPresenter } from '../inbox/presenter.ts';
+import { icd10Label } from '../inbox/terminology.ts';
 import type { App } from './context.ts';
 import { HttpError, readJson, readQuery } from './errors.ts';
 import {
   AdvanceClockRequestSchema,
   type DemoConsultationResponse,
   DemoConsultationRequestSchema,
-  LimitQuerySchema,
+  WebhookQuerySchema,
   type WebhookDelivery,
 } from './schemas.ts';
 
@@ -26,7 +27,8 @@ function extractionView(
       code: {
         system: condition.code.system,
         code: condition.code.code,
-        ...(condition.code.display === undefined ? {} : { display: condition.code.display }),
+        // The model writes standard (English) displays: the clinic reads Spanish names.
+        display: icd10Label(condition.code.code, condition.code.display),
       },
       confidence: condition.confidence,
       evidenceQuote: condition.evidenceQuote,
@@ -52,10 +54,14 @@ async function remoteDeliveries(
   sinkUrl: string,
   clinicId: string,
   limit: number,
+  type: string | undefined,
 ): Promise<WebhookDelivery[]> {
   const url = new URL('/deliveries', sinkUrl);
   url.searchParams.set('limit', String(limit));
   url.searchParams.set('clinicId', clinicId);
+  if (type !== undefined) {
+    url.searchParams.set('type', type);
+  }
   const response = await fetch(url, { signal: AbortSignal.timeout(5_000) });
   if (!response.ok) {
     throw new HttpError(502, 'webhook_sink_unavailable', 'El receptor de webhooks no respondió.');
@@ -80,13 +86,16 @@ export function registerDemoRoutes(
     const { days } = await readJson(c, AdvanceClockRequestSchema);
     // Day by day, as the hourly sweeps would: cases open on the day their
     // expectation expires and escalate on schedule, not all at the end.
+    // Webhooks go out at the end of each day, so the host sees them on the
+    // simulated timeline.
+    let webhooks = 0;
     for (let day = 0; day < days; day += 1) {
       clock.advance({ days: 1 });
       await worker.runJobs();
       await worker.runSweeps([c.var.clinicId]);
+      webhooks += (await worker.deliverOutbox()).delivered;
     }
-    const delivery = await worker.deliverOutbox();
-    c.var.log.info({ days, webhooks: delivery.delivered }, 'demo clock advanced');
+    c.var.log.info({ days, webhooks }, 'demo clock advanced');
     return c.json({ now: clock.now().toISOString() });
   });
 
@@ -146,21 +155,23 @@ export function registerDemoRoutes(
   });
 
   app.get('/api/demo/webhooks', async (c) => {
-    const { limit } = readQuery(c, LimitQuerySchema);
+    const { limit, type } = readQuery(c, WebhookQuerySchema);
     const { sink } = runtime;
     const sinkUrl = runtime.config.webhooks.sinkUrl;
     const items: WebhookDelivery[] =
       sink !== undefined
-        ? sink.list({ limit, clinicId: c.var.clinicId }).map((delivery) => ({
-            at: delivery.at,
-            type: delivery.type,
-            payload: delivery.payload,
-            signatureValid: delivery.signatureValid,
-            delivered: delivery.delivered,
-          }))
+        ? sink
+            .list({ limit, clinicId: c.var.clinicId, ...(type === undefined ? {} : { type }) })
+            .map((delivery) => ({
+              at: delivery.at,
+              type: delivery.type,
+              payload: delivery.payload,
+              signatureValid: delivery.signatureValid,
+              delivered: delivery.delivered,
+            }))
         : sinkUrl === undefined
           ? []
-          : await remoteDeliveries(sinkUrl, c.var.clinicId, limit);
+          : await remoteDeliveries(sinkUrl, c.var.clinicId, limit, type);
     return c.json({ items });
   });
 }
