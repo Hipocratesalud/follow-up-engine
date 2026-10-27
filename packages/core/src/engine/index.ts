@@ -20,6 +20,7 @@ export { BACKFILL_RELEASE_DEFAULTS, type BackfillReleasePlan } from './backfill/
 export type { IngestReport, NoteExtractionOutcome } from './application/ingest.ts';
 export {
   NOTE_EXTRACTION_JOB,
+  NOTE_EXTRACTION_MAX_ATTEMPTS,
   deriveFromExtraction,
   type NoteExtractionJobPayload,
 } from './application/note-extraction.ts';
