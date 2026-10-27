@@ -1012,12 +1012,16 @@ const metrics: MetricsCopy = {
     protocol: 'Protocol',
     version: (version) => `version ${version}`,
   },
-  hours: (hours) =>
-    hours < 1
-      ? `${String(Math.round(hours * 60))} min`
-      : hours < 48
-        ? `${hours.toFixed(1)} h`
-        : `${(hours / 24).toFixed(1)} d`,
+  hours: (hours) => {
+    // Number(): the value may arrive as any numeric-like (tests pass a sample string).
+    const value = Number(hours);
+    const one = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+    if (value < 1) return `${String(Math.round(value * 60))} min`;
+    return value < 48 ? `${one.format(value)} h` : `${one.format(value / 24)} d`;
+  },
 };
 
 export const en = {

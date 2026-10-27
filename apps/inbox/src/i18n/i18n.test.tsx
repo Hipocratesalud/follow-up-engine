@@ -60,6 +60,12 @@ const SAME_IN_BOTH = new Set([
   'contact.attemptTitle',
   'feedback.reasonSuffix',
   'extraction.probable',
+  // HIP-141 Metrics: punctuation and numbers only ("A – B", "—", "Label 3", "2 tokens").
+  'metrics.periodRange',
+  'metrics.tiles.none',
+  'metrics.funnel.summary',
+  'metrics.extraction.legend',
+  'metrics.ai.tokens',
 ]);
 
 describe('catalogs', () => {
