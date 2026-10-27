@@ -313,11 +313,15 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
       const tasks = await call<{
         entry?: { resource: { status: string; focus?: { reference?: string } } }[];
       }>(`/fhir/Task?patient=${PATIENT}&code=lab_order_result_pending&status=completed`);
-      return tasks.body.entry?.[0];
-    }, 'the HbA1c expectation to be fulfilled by the worker');
-    expect(completed.resource.focus?.reference).toBe(
+      const focus = (tasks.body.entry ?? []).map((entry) => entry.resource.focus?.reference);
+      return focus.length >= 2 ? focus : undefined;
+    }, 'the HbA1c and lipid panel expectations to be fulfilled by the worker');
+    // The HbA1c report answers its order; the LDL result answers the lipid
+    // panel order by one of its components (LOINC equivalence, HIP-123).
+    expect([...completed].sort()).toEqual([
       'ServiceRequest/5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e05',
-    );
+      'ServiceRequest/5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e06',
+    ]);
   });
 
   let planCase = '';
