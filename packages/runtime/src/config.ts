@@ -6,6 +6,17 @@ export const DEFAULT_FAKE_CLOCK_START = '2026-01-05T12:00:00.000Z';
 /** Secret the in-process webhook loopback signs with when `WEBHOOK_SECRET` is unset (demo only). */
 export const DEV_WEBHOOK_SECRET = 'dev-only-webhook-secret';
 
+/** Default demo keys, printed in the README: never accepted on a real clock. */
+export const DEFAULT_DEMO_API_KEY = 'demo-clinic-key';
+export const DEFAULT_DEMO_INBOX_API_KEY = 'demo-inbox-key';
+export const PUBLIC_DEMO_KEYS: readonly string[] = [
+  DEFAULT_DEMO_API_KEY,
+  DEFAULT_DEMO_INBOX_API_KEY,
+];
+
+/** Shortest demo key accepted with `CLOCK=system` and `DEMO_CLINIC=true`. */
+const MIN_PRODUCTION_KEY_LENGTH = 24;
+
 export const LLM_PROVIDERS = ['fake', 'meta', 'baseten', 'openai-compatible'] as const;
 export type LlmProviderName = (typeof LLM_PROVIDERS)[number];
 
@@ -45,8 +56,18 @@ const EnvSchema = z
     WEBHOOK_SECRET: optionalString,
     /** Where the API reads demo webhook deliveries from when the sink runs as its own service. */
     WEBHOOK_SINK_URL: optionalString,
-    /** API key of the demo clinic `clinic-demo`; registered at boot when set. */
+    /**
+     * API key of the demo clinic `clinic-demo` (host integration scopes);
+     * registered at boot on a fake clock, or with `DEMO_CLINIC=true`.
+     */
     DEMO_API_KEY: optionalString,
+    /** Inbox key of the demo clinic (`inbox:read`, `inbox:act`, `demo`): `VITE_API_KEY`. */
+    DEMO_INBOX_API_KEY: optionalString,
+    /** Register the demo clinic with `CLOCK=system` too (its keys must not be the public ones). */
+    DEMO_CLINIC: z
+      .enum(['true', 'false', '1', '0', ''])
+      .optional()
+      .transform((value) => value === 'true' || value === '1'),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .optional()
@@ -81,6 +102,21 @@ const EnvSchema = z
             code: 'custom',
             path: [key],
             message: 'required by LLM_PROVIDER=openai-compatible',
+          });
+        }
+      }
+    }
+    if (env.CLOCK === 'system' && env.DEMO_CLINIC) {
+      for (const key of ['DEMO_API_KEY', 'DEMO_INBOX_API_KEY'] as const) {
+        const value = env[key];
+        if (
+          value !== undefined &&
+          (PUBLIC_DEMO_KEYS.includes(value) || value.length < MIN_PRODUCTION_KEY_LENGTH)
+        ) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: `with CLOCK=system it must be a private key of at least ${String(MIN_PRODUCTION_KEY_LENGTH)} characters, not a published default`,
           });
         }
       }
@@ -123,7 +159,13 @@ export interface RuntimeConfig {
   readonly clock: { readonly kind: 'system' } | { readonly kind: 'fake'; readonly start: Date };
   readonly llm: LlmConfig;
   readonly webhooks: WebhookConfig;
-  readonly demoApiKey?: string;
+  /**
+   * The demo clinic to register: on a fake clock whenever `DEMO_API_KEY` is
+   * set; on a real clock only with `DEMO_CLINIC=true`.
+   */
+  readonly demo?: { readonly apiKey: string; readonly inboxApiKey?: string };
+  /** `DEMO_API_KEY` was set on a real clock without `DEMO_CLINIC=true` (logged, ignored). */
+  readonly ignoredDemoApiKey: boolean;
   readonly logLevel: string;
   readonly worker: {
     readonly pollMs: number;
@@ -189,7 +231,15 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Runtime
       ...defined('url', e.WEBHOOK_URL),
       ...defined('sinkUrl', e.WEBHOOK_SINK_URL),
     },
-    ...defined('demoApiKey', e.DEMO_API_KEY),
+    ...(e.DEMO_API_KEY !== undefined && (e.CLOCK === 'fake' || e.DEMO_CLINIC)
+      ? {
+          demo: {
+            apiKey: e.DEMO_API_KEY,
+            ...defined('inboxApiKey', e.DEMO_INBOX_API_KEY),
+          },
+        }
+      : {}),
+    ignoredDemoApiKey: e.DEMO_API_KEY !== undefined && e.CLOCK === 'system' && !e.DEMO_CLINIC,
     logLevel: e.LOG_LEVEL,
     worker: {
       pollMs: e.WORKER_POLL_MS,

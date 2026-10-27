@@ -25,13 +25,47 @@ The engine never contacts patients. It asks the host to, with ids and a generic 
 
 ## 1. Authentication
 
-Every request carries the clinic's API key:
+Every request carries one of the clinic's API keys:
 
 ```http
 Authorization: Bearer <clinic API key>
 ```
 
-The key identifies the clinic (`sha256(key)` is looked up in the clinic registry; the key itself is never stored). The clinic is never read from the body, and nothing of another clinic is visible with a key. A missing or unknown key is `401` (an `OperationOutcome` under `/fhir`, `{ "error": { "code", "message" } }` elsewhere).
+The key identifies the clinic (`sha256(key)` is looked up in the clinic registry; the key itself is never stored). The clinic is never read from the body, and nothing of another clinic is visible with a key. A missing or unknown key is `401` (an `OperationOutcome` under `/fhir`, `{ "error": { "code", "message" } }` elsewhere); a key without the scope a route needs is `403` (`insufficient_scope`). `GET /fhir/metadata`, `/openapi.json`, `/docs` and the health probes are public.
+
+### Registering a clinic and issuing keys
+
+A clinic gets its keys from the operator, with the CLI (it prints each key once; only its hash is stored):
+
+```sh
+DATABASE_URL=... pnpm --filter @follow-up-engine/api clinic:create \
+  --name "Clínica Ejemplo" --scopes fhir:write              # the host integration key
+DATABASE_URL=... pnpm --filter @follow-up-engine/api clinic:create \
+  --id clinica-ejemplo --label inbox --scopes inbox:read,inbox:act   # another key, same clinic
+```
+
+`--id` defaults to a slug of `--name`; giving the id of an existing clinic adds a key (and updates the name when given). `--label` names the key (default `integration`); `--revoke <label>` revokes the clinic's keys with that label. Run `--help` for the rest (`--allow-patient-contact`, `--timezone`).
+
+### Scopes
+
+Each key carries the least it needs:
+
+| Scope        | Allows                                                                                                                     | Who holds it                      |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `fhir:write` | Everything under `/fhir` (ingest, read `Task`, `Condition`, `DetectedIssue`) and `/jobs`.                                  | The host integration (server)     |
+| `inbox:read` | `GET /api/inbox/*` (and reading the demo clock and webhooks).                                                              | The inbox                         |
+| `inbox:act`  | `POST /api/inbox/*`: case actions, feedback, condition review.                                                             | The inbox                         |
+| `demo`       | `POST /api/demo/*`: moving the fake clock (shared by every clinic of the process) and demo consultations. Fake clock only. | The demo operator; never a clinic |
+
+An inbox key never has `fhir:write`: whoever can open the inbox cannot ingest clinical data or opt patients out. In production the inbox runs behind the host's own login, and the host calls the inbox API from its server (or a proxy), so the key never reaches a browser; `VITE_API_KEY` in a browser bundle is for the demo only.
+
+### Who acted: `X-FollowUp-User`
+
+Inbox actions (notify, snooze, resolve, feedback, confirming or rejecting a condition) record the acting clinic user in the audit trail from the `X-FollowUp-User` header (host user id, at most 120 characters; `inbox-user` when absent). The engine does not authenticate users: the header is trusted **only when the host sets it**, after its own login, on the server side (strip any value the browser sent). A key used straight from a browser lets its holder write any name there.
+
+### Limits
+
+Each key may make 600 requests per minute (`429` with `Retry-After` beyond that, per API process); requests with a wrong key are limited per client address (60 per minute) before any lookup. Request bodies are at most 5 MB (`413`).
 
 ## 2. Sending a consultation
 
@@ -50,7 +84,7 @@ The key identifies the clinic (`sha256(key)` is looked up in the clinic registry
 | Médico                                   | `Practitioner`                         | Optional, once: lets the inbox show the owner's name instead of an id.                                                                       |
 | Cita agendada / cancelada                | `Appointment` `booked` / `cancelled`   | Separate Bundle when it happens; a booked visit fulfills visit expectations.                                                                 |
 | Resultado de laboratorio / imagen        | `DiagnosticReport` + `Observation`s    | `basedOn` the `ServiceRequest` when known; `interpretation` `H`/`L`/`N`.                                                                     |
-| Paciente no quiere seguimiento           | `Consent` (deny, `follow-up-opt-out`)  | Closes everything open for the patient and stops contact requests.                                                                           |
+| Paciente no quiere seguimiento           | `Consent` (deny, `follow-up-opt-out`)  | Stops patient contact requests only: open expectations and cases stay, and escalation goes to the coordinator instead of the patient.        |
 
 Use stable ids (`PUT Type/<host id>`) or `urn:uuid` full URLs: re-sending a Bundle is harmless, ingestion is idempotent end to end (resources, events, expectations, cases).
 
@@ -496,12 +530,14 @@ X-FollowUp-Timestamp: 1775476800
 X-FollowUp-Signature: sha256=5d0c8f7c1b...e9a4
 ```
 
-| Header                 | Meaning                                                                           |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| `X-FollowUp-Event`     | Event type (also `type` in the body).                                             |
-| `X-FollowUp-Delivery`  | Event id (also `id` in the body). Stable across retries: **deduplicate on it**.   |
-| `X-FollowUp-Timestamp` | Unix seconds when this attempt was sent.                                          |
-| `X-FollowUp-Signature` | `sha256=` + hex HMAC-SHA256 of the **raw body** with the shared `WEBHOOK_SECRET`. |
+| Header                 | Meaning                                                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `X-FollowUp-Event`     | Event type (also `type` in the body).                                                                                        |
+| `X-FollowUp-Delivery`  | Event id (also `id` in the body). Stable across retries: **deduplicate on it**.                                              |
+| `X-FollowUp-Timestamp` | Unix seconds when this attempt was sent.                                                                                     |
+| `X-FollowUp-Signature` | `sha256=` + hex HMAC-SHA256, with the shared `WEBHOOK_SECRET`, of `<X-FollowUp-Timestamp>.<X-FollowUp-Delivery>.<raw body>`. |
+
+The signature covers the timestamp and the delivery id as well as the body, so a captured webhook cannot be replayed with a fresh timestamp or a new delivery id: both headers can be trusted once the signature checks out.
 
 Bodies are deliberately thin: ids, codes, numbers and dates. Never a diagnosis, a test name, a reason label or note text (a reason code like `protocol_diabetes_hba1c` would already name a condition). Fetch details with `GET /fhir/Task/<caseId>` if needed.
 
@@ -639,28 +675,33 @@ Alert: the scan stopped before the end because the clinic's monthly LLM budget r
 
 ### Verifying the signature (Node)
 
-Verify the exact bytes received, before parsing, in constant time. Reject (401) when it does not match; drop deliveries whose timestamp is too old if you want replay protection on top of deduplication.
+Verify the exact bytes received, before parsing, in constant time; reject (401) a signature that does not match or a timestamp more than 5 minutes from your clock; then deduplicate on the (signed) delivery id.
 
 ```js
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import express from 'express';
 
 const app = express();
+const TOLERANCE_SECONDS = 300;
 
 app.post(
   '/webhooks/follow-up-engine',
   express.raw({ type: 'application/json' }), // keep the raw body
   async (req, res) => {
+    const timestamp = req.get('X-FollowUp-Timestamp') ?? '';
+    const delivery = req.get('X-FollowUp-Delivery') ?? '';
+    const signed = Buffer.concat([Buffer.from(`${timestamp}.${delivery}.`), req.body]);
     const expected = Buffer.from(
       'sha256=' +
-        createHmac('sha256', process.env.FOLLOW_UP_WEBHOOK_SECRET).update(req.body).digest('hex'),
+        createHmac('sha256', process.env.FOLLOW_UP_WEBHOOK_SECRET).update(signed).digest('hex'),
     );
     const received = Buffer.from(req.get('X-FollowUp-Signature') ?? '');
-    if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
+    const fresh = Math.abs(Date.now() / 1000 - Number(timestamp)) <= TOLERANCE_SECONDS;
+    if (!fresh || expected.length !== received.length || !timingSafeEqual(expected, received)) {
       return res.sendStatus(401);
     }
     const event = JSON.parse(req.body.toString('utf8'));
-    const firstTime = await rememberDelivery(req.get('X-FollowUp-Delivery')); // unique index
+    const firstTime = await rememberDelivery(delivery); // unique index
     if (firstTime) {
       await queue.add(event.type, event.data); // do the work out of band
     }
@@ -669,7 +710,7 @@ app.post(
 );
 ```
 
-The same check is exported as `verifyWebhookSignature(secret, rawBody, signature)` from `@follow-up-engine/runtime`, and `pnpm --filter @follow-up-engine/worker webhook-sink` runs a receiver that verifies and lists deliveries (`GET /deliveries`) for development.
+The same check is exported as `verifyWebhookSignature(secret, { timestamp, deliveryId, rawBody, signature }, { now })` from `@follow-up-engine/runtime` (with `now` it also enforces the 5-minute window), and `pnpm --filter @follow-up-engine/worker webhook-sink` runs a receiver that verifies and lists deliveries (`GET /deliveries`) for development.
 
 ### Delivery and retries
 
@@ -680,12 +721,13 @@ The same check is exported as `verifyWebhookSignature(secret, rawBody, signature
 
 ## 4. Configuration
 
-| Variable                         | Meaning                                                                                                           |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                   | Postgres (vanilla or Supabase). Migrated at startup. Unset: in-memory storage (demo only).                        |
-| `WEBHOOK_URL` / `WEBHOOK_SECRET` | Where webhooks go and the shared HMAC secret. Unset URL: delivered to an in-process sink (demo).                  |
-| `LLM_PROVIDER`                   | `meta` (Muse Spark, `META_API_KEY`), `baseten` (Muse Spark Open, `BASETEN_API_KEY`), `openai-compatible`, `fake`. |
-| `CLOCK`                          | `system` in production; `fake` enables the demo endpoints.                                                        |
-| `EMBEDDED_WORKER`                | `true` runs the worker inside the API process (one-container deployment).                                         |
+| Variable                              | Meaning                                                                                                                                                                                                                                             |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                        | Postgres (vanilla or Supabase). Migrated at startup. Unset: in-memory storage (demo only).                                                                                                                                                          |
+| `WEBHOOK_URL` / `WEBHOOK_SECRET`      | Where webhooks go and the shared HMAC secret. Unset URL: delivered to an in-process sink (demo).                                                                                                                                                    |
+| `LLM_PROVIDER`                        | `meta` (Muse Spark, `META_API_KEY`), `baseten` (Muse Spark Open, `BASETEN_API_KEY`), `openai-compatible`, `fake`.                                                                                                                                   |
+| `CLOCK`                               | `system` in production; `fake` enables the demo endpoints and the demo clinic.                                                                                                                                                                      |
+| `DEMO_API_KEY` / `DEMO_INBOX_API_KEY` | Keys of the synthetic demo clinic (integration; inbox). Registered only with `CLOCK=fake`, or with `DEMO_CLINIC=true` and private keys of 24+ characters; the published defaults (`demo-clinic-key`, `demo-inbox-key`) are refused on a real clock. |
+| `EMBEDDED_WORKER`                     | `true` runs the worker inside the API process (one-container deployment).                                                                                                                                                                           |
 
 See [.env.example](../.env.example) for the full list and [deploy.md](deploy.md) for the database.

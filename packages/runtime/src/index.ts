@@ -7,8 +7,11 @@
  * points over it; see docs/adr/0005-http-api-and-runtime.md.
  */
 export {
+  DEFAULT_DEMO_API_KEY,
+  DEFAULT_DEMO_INBOX_API_KEY,
   DEFAULT_FAKE_CLOCK_START,
   defined,
+  PUBLIC_DEMO_KEYS,
   DEV_WEBHOOK_SECRET,
   InvalidConfigError,
   LLM_PROVIDERS,
@@ -22,11 +25,24 @@ export {
   activeClinicIds,
   createRuntime,
   DEMO_CLINIC,
-  hashApiKey,
+  DEMO_INBOX_KEY_LABEL,
   registerDemoClinic,
   type CreateRuntimeOptions,
   type EngineRuntime,
+  type IssuedApiKey,
+  type Principal,
 } from './runtime.ts';
+export {
+  API_KEY_SCOPES,
+  generateApiKey,
+  hashApiKey,
+  INBOX_SCOPES,
+  INTEGRATION_SCOPES,
+  isApiKeyScope,
+  type ApiKeyRecord,
+  type ApiKeyScope,
+  type ApiKeyStore,
+} from './api-keys.ts';
 export {
   CLINIC_CONTEXT_OWNER,
   INGEST_BUNDLE_JOB,
@@ -57,7 +73,13 @@ export {
   type SignedWebhook,
   type WebhookPublisherOptions,
 } from './webhooks/publisher.ts';
-export { signWebhookBody, verifyWebhookSignature, WEBHOOK_HEADERS } from './webhooks/signature.ts';
+export {
+  signWebhook,
+  verifyWebhookSignature,
+  WEBHOOK_HEADERS,
+  WEBHOOK_TOLERANCE_SECONDS,
+  type SignedParts,
+} from './webhooks/signature.ts';
 export {
   createLoopbackPublisher,
   createWebhookSinkApp,

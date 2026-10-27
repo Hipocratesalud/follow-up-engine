@@ -1,5 +1,5 @@
 import type { Clinic, ClinicId } from '@follow-up-engine/core';
-import type { Logger } from '@follow-up-engine/runtime';
+import type { ApiKeyScope, Logger } from '@follow-up-engine/runtime';
 import type { Hono } from 'hono';
 
 /** Per-request values set by the middleware. */
@@ -9,6 +9,8 @@ export interface AppEnv {
     log: Logger;
     clinic: Clinic;
     clinicId: ClinicId;
+    /** What the request's API key may do. */
+    scopes: readonly ApiKeyScope[];
   };
 }
 

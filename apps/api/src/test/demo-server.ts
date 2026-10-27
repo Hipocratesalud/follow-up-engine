@@ -1,4 +1,9 @@
-import { createRuntime, loadRuntimeConfig } from '@follow-up-engine/runtime';
+import {
+  createRuntime,
+  DEFAULT_DEMO_API_KEY,
+  DEFAULT_DEMO_INBOX_API_KEY,
+  loadRuntimeConfig,
+} from '@follow-up-engine/runtime';
 import { loadApiConfig } from '../config.ts';
 import { createApiServer } from '../server.ts';
 import { seedSyntheticClinic } from './seed.ts';
@@ -11,12 +16,19 @@ import { seedSyntheticClinic } from './seed.ts';
  * patients; `SEED_PATIENTS=N` loads fewer, `SEED=false` skips it). Seeding an
  * already seeded database is a no-op.
  */
-const apiKey = process.env['DEMO_API_KEY'] ?? 'demo-clinic-key';
-const config = loadRuntimeConfig({ ...process.env, CLOCK: 'fake', DEMO_API_KEY: apiKey });
+const apiKey = process.env['DEMO_API_KEY'] ?? DEFAULT_DEMO_API_KEY;
+const inboxApiKey = process.env['DEMO_INBOX_API_KEY'] ?? DEFAULT_DEMO_INBOX_API_KEY;
+const config = loadRuntimeConfig({
+  ...process.env,
+  CLOCK: 'fake',
+  DEMO_API_KEY: apiKey,
+  DEMO_INBOX_API_KEY: inboxApiKey,
+});
 const runtime = await createRuntime(config, { service: 'api' });
 if (process.env['SEED'] !== 'false') {
   const report = await seedSyntheticClinic(runtime, {
     apiKey,
+    inboxApiKey,
     ...(process.env['SEED_PATIENTS'] === undefined
       ? {}
       : { patients: Number(process.env['SEED_PATIENTS']) }),
@@ -24,7 +36,13 @@ if (process.env['SEED'] !== 'false') {
   runtime.logger.info(report, 'synthetic clinic seeded');
 }
 const server = createApiServer(runtime, { ...loadApiConfig(), embeddedWorker: true });
-await server.listen();
+const port = await server.listen();
+process.stdout.write(
+  `\nDemo clinic keys (synthetic, demo only; refused on a real clock):\n` +
+    `  host integration (fhir:write, inbox, demo): ${apiKey}\n` +
+    `  inbox (inbox:read, inbox:act, demo; no fhir:write): ${inboxApiKey}\n` +
+    `  VITE_API_URL=http://localhost:${String(port)} VITE_API_KEY=${inboxApiKey} pnpm inbox\n\n`,
+);
 
 async function shutdown(): Promise<void> {
   await server.close();

@@ -6,6 +6,7 @@ import { InboxPresenter } from '../inbox/presenter.ts';
 import { icd10Label } from '../inbox/terminology.ts';
 import type { App } from './context.ts';
 import { HttpError, readJson, readQuery } from './errors.ts';
+import { requireScope } from './security.ts';
 import {
   AdvanceClockRequestSchema,
   type DemoConsultationResponse,
@@ -80,6 +81,9 @@ export function registerDemoRoutes(
   clock: FakeClock,
   worker: Worker = new Worker(runtime),
 ): void {
+  // Reading the demo clock and webhooks: `inbox:read`; moving the shared
+  // clock or saving a demo consultation: `demo` (never any clinic's key).
+  app.use('/api/demo/*', requireScope({ demoRoutes: true }));
   app.get('/api/demo/clock', (c) => c.json({ now: clock.now().toISOString(), fake: true }));
 
   app.post('/api/demo/clock/advance', async (c) => {
@@ -87,12 +91,13 @@ export function registerDemoRoutes(
     // Day by day, as the hourly sweeps would: cases open on the day their
     // expectation expires and escalate on schedule, not all at the end.
     // Webhooks go out at the end of each day, so the host sees them on the
-    // simulated timeline.
+    // simulated timeline. The clock is the whole process's, so every clinic
+    // is swept (only keys with the `demo` scope get here).
     let webhooks = 0;
     for (let day = 0; day < days; day += 1) {
       clock.advance({ days: 1 });
       await worker.runJobs();
-      await worker.runSweeps([c.var.clinicId]);
+      await worker.runSweeps();
       webhooks += (await worker.deliverOutbox()).delivered;
     }
     c.var.log.info({ days, webhooks }, 'demo clock advanced');

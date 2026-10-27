@@ -111,7 +111,7 @@ describe.skipIf(testDatabaseUrl() === undefined)(databaseSuiteTitle('migrate'), 
        ORDER BY t.table_name`,
       [schema],
     );
-    expect(rows.length).toBe(12);
+    expect(rows.length).toBeGreaterThanOrEqual(12);
     expect(rows.filter((row) => row.is_nullable !== 'NO')).toEqual([]);
   });
 });

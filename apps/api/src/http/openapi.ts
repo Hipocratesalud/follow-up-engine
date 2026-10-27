@@ -481,7 +481,19 @@ export function openApiDocument(options: { readonly demo: boolean }): Record<str
   };
 }
 
-/** API reference UI (Scalar, from a CDN) over `/openapi.json`. */
+/**
+ * The API reference UI: Scalar, pinned to one version and loaded with
+ * Subresource Integrity, so the CDN can never serve other code on the API's
+ * origin (where people type their API key into the reference). To upgrade,
+ * change the version and recompute the hash:
+ * `curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A`.
+ */
+export const DOCS_UI_SCRIPT = {
+  url: 'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.76.0/dist/browser/standalone.js',
+  integrity: 'sha384-oH1C0RwqcwbVXkC+r8A+4qRoyEUQdtxAzOwumkxZtQBBcsy61FOoPt7B50OVJYYQ',
+} as const;
+
+/** API reference UI (Scalar, pinned with SRI) over `/openapi.json`. */
 export function docsPage(): string {
   return `<!doctype html>
 <html lang="en">
@@ -492,7 +504,11 @@ export function docsPage(): string {
   </head>
   <body>
     <script id="api-reference" data-url="/openapi.json"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1"></script>
+    <script
+      src="${DOCS_UI_SCRIPT.url}"
+      integrity="${DOCS_UI_SCRIPT.integrity}"
+      crossorigin="anonymous"
+    ></script>
   </body>
 </html>`;
 }

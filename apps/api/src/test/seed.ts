@@ -19,6 +19,8 @@ export const SEED_RUN_ID = 'seed-synthetic-clinic';
 
 export interface SeedOptions {
   readonly apiKey: string;
+  /** The inbox key (`VITE_API_KEY`): inbox and demo scopes, never `fhir:write`. */
+  readonly inboxApiKey?: string;
   /** Only the first N patients (by id). All 120 by default. */
   readonly patients?: number;
   /** Called every 100 staged bundles. */
@@ -55,7 +57,7 @@ export async function seedSyntheticClinic(
     throw new Error('Seeding replays two years of history: run it with CLOCK=fake');
   }
   const started = performance.now();
-  const clinic = await registerDemoClinic(runtime, options.apiKey);
+  const clinic = await registerDemoClinic(runtime, options.apiKey, options.inboxApiKey);
   const synthetic = loadSyntheticClinic();
   const patients = [...synthetic.patients]
     .sort((left, right) => left.patientId.localeCompare(right.patientId))
