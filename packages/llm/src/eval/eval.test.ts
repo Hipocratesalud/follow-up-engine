@@ -20,7 +20,7 @@ import {
   percentile,
   scores,
 } from './metrics.ts';
-import { renderReport, reportFileName } from './report.ts';
+import { renderComparison, renderReport, reportFileName, reportSidecar } from './report.ts';
 import { mapWithConcurrency, runExtractionEval, summarize, type NoteResult } from './run.ts';
 
 const GOLD_DIR = fileURLToPath(new URL('../../test/fixtures/gold-notes', import.meta.url));
@@ -232,6 +232,14 @@ describe('eval harness on the gold notes', () => {
     expect(report).toContain('Hallucinated-quote rate');
     expect(report).toContain('## By specialty');
     expect(report).toContain('| gold-llm-001 |');
+    const sidecar = reportSidecar(run, 'seed (6 notes)');
+    expect(JSON.stringify(sidecar)).not.toContain(notes[0]?.text.slice(0, 20));
+    const comparison = renderComparison([
+      sidecar,
+      { ...sidecar, provider: 'meta', model: 'muse-spark-1.3' },
+    ]);
+    expect(comparison).toContain('[`muse-spark-1.3`](2026-10-27-fake-fake-extractor.md)');
+    expect(comparison.match(/^\| 2026-10-27/gm)).toHaveLength(2);
   });
 
   it('scores a failing provider as misses instead of crashing', async () => {

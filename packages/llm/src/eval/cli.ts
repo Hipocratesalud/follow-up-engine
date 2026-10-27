@@ -10,9 +10,9 @@
  *
  * Run `--help` for every flag.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { clinicId } from '@follow-up-engine/core';
@@ -46,7 +46,7 @@ import {
 } from '../providers/openai-compatible.ts';
 import { InMemoryLlmUsageLog } from '../usage-log.ts';
 import { loadGoldNotes, type GoldNote } from './gold.ts';
-import { renderReport, reportFileName } from './report.ts';
+import { renderReport, reportFileName, reportSidecar } from './report.ts';
 import { runExtractionEval } from './run.ts';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -75,6 +75,13 @@ const HELP = `Usage: eval:extraction --provider <${PROVIDERS.join('|')}> [option
   --fake-mode <mode>       baseline (rule-based, default) | oracle (returns the gold answer)
   --no-report              print the summary only
 `;
+
+/** The shared testkit gold set once it has notes, otherwise this package's seed notes. */
+function defaultGoldDir(): string {
+  const hasNotes =
+    existsSync(SHARED_GOLD_DIR) && readdirSync(SHARED_GOLD_DIR).some((f) => f.endsWith('.json'));
+  return hasNotes ? SHARED_GOLD_DIR : LOCAL_GOLD_DIR;
+}
 
 function positiveInt(value: string | undefined, flag: string): number | undefined {
   if (value === undefined) return undefined;
@@ -132,7 +139,7 @@ async function main(argv: readonly string[]): Promise<void> {
   const kind = values.provider as ProviderKind;
   if (!PROVIDERS.includes(kind))
     throw new LlmConfigError(`--provider must be one of ${PROVIDERS.join(', ')}`);
-  const goldDir = values.gold ?? (existsSync(SHARED_GOLD_DIR) ? SHARED_GOLD_DIR : LOCAL_GOLD_DIR);
+  const goldDir = values.gold ? resolve(values.gold) : defaultGoldDir();
   const limit = positiveInt(values.limit, '--limit');
   const concurrency = positiveInt(values.concurrency, '--concurrency') ?? 4;
   const allNotes = await loadGoldNotes(goldDir);
@@ -189,7 +196,7 @@ async function main(argv: readonly string[]): Promise<void> {
       });
       runNote = oracle
         ? '> Fake provider in **oracle** mode: it returns the gold answer, so this run checks the harness and the post-checks, not a model. Anything below 100% is a harness or post-check bug.'
-        : '> Fake provider in **baseline** mode: a deterministic, rule-based extractor (regexes, no model). It runs offline in CI and is the floor a Meta model has to beat.';
+        : '> Fake provider in **baseline** mode: a deterministic, rule-based extractor (regexes, no model). It runs offline in CI and is the floor a Meta model has to beat. Its rules were written alongside the six seed notes, so on them it overstates how well regexes generalize.';
       break;
     }
   }
@@ -255,7 +262,14 @@ async function main(argv: readonly string[]): Promise<void> {
     const outDir = values.out ? resolve(values.out) : join(REPO_ROOT, 'docs/evals');
     await mkdir(outDir, { recursive: true });
     const file = join(outDir, reportFileName(run));
-    await writeFile(file, renderReport(run, runNote), 'utf8');
+    const dataset = `${relative(REPO_ROOT, goldDir)} (${String(notes.length)} of ${String(allNotes.length)} notes)`;
+    const header = [`- Gold set: \`${dataset}\``, ...(runNote ? ['', runNote] : [])].join('\n');
+    await writeFile(file, renderReport(run, header), 'utf8');
+    await writeFile(
+      file.replace(/\.md$/, '.json'),
+      `${JSON.stringify(reportSidecar(run, dataset), null, 2)}\n`,
+      'utf8',
+    );
     process.stdout.write(`Report: ${file}\n`);
   }
 }

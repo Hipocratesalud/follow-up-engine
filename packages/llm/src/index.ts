@@ -36,6 +36,7 @@ export {
   type StructuredLlmProvider,
   type StructuredOutputMode,
 } from './providers/chat-completions.ts';
+export { extractJsonText, parseStructuredOutput } from './providers/structured-output.ts';
 export {
   META_API_BASE_URL,
   META_DEFAULT_MODEL,
