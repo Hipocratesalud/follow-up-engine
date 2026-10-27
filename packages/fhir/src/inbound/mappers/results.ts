@@ -1,5 +1,6 @@
 import type {
   Coding,
+  RecordWithdrawalReason,
   ResourceRef,
   ResultInterpretation,
   ResultReceivedEvent,
@@ -9,6 +10,7 @@ import { firstDate } from '../../support/datetime.ts';
 import {
   hasCode,
   pickCoding,
+  withdrawal,
   type ConceptInput,
   type EntryContext,
   type MappedResource,
@@ -18,6 +20,12 @@ import { orderCoding } from './orders.ts';
 
 /** Statuses at which a result counts as received. */
 const RESULT_STATUSES: readonly string[] = ['final', 'amended', 'corrected', 'appended'];
+
+/** Result statuses that withdraw a result sent before: what it fulfilled is open again. */
+const WITHDRAWN_RESULT_STATUSES: Readonly<Record<string, RecordWithdrawalReason>> = {
+  cancelled: 'cancelled',
+  'entered-in-error': 'entered_in_error',
+};
 
 /** v3 ObservationInterpretation codes read as abnormal (high, low, critical, abnormal). */
 const ABNORMAL_CODES = ['A', 'AA', 'H', 'HH', 'HU', 'L', 'LL', 'LU'] as const;
@@ -113,6 +121,10 @@ export function mapDiagnosticReport(
     patientId: patient.id,
     ...(encounter === undefined ? {} : { encounterId: encounter.id }),
   };
+  const withdrawn = WITHDRAWN_RESULT_STATUSES[report.status];
+  if (withdrawn !== undefined) {
+    return withdrawal(ctx, scope, withdrawn, report.meta?.lastUpdated);
+  }
   if (!RESULT_STATUSES.includes(report.status)) {
     ctx.report(
       'information',
@@ -181,6 +193,10 @@ export function mapObservation(
     patientId: patient.id,
     ...(encounter === undefined ? {} : { encounterId: encounter.id }),
   };
+  const withdrawn = WITHDRAWN_RESULT_STATUSES[observation.status];
+  if (withdrawn !== undefined) {
+    return withdrawal(ctx, scope, withdrawn, observation.meta?.lastUpdated);
+  }
   if (!RESULT_STATUSES.includes(observation.status)) {
     ctx.report(
       'information',

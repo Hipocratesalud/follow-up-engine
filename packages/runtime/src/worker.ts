@@ -41,6 +41,41 @@ export interface SweepResult {
   readonly escalation: EscalationReport;
 }
 
+/**
+ * The tail of the sweeps (and demo clock advances) of each runtime: they run
+ * one at a time whichever `Worker` starts them (the embedded worker's loop,
+ * a demo request), so two never interleave over the same clinic.
+ */
+const sweepTails = new WeakMap<EngineRuntime, Promise<unknown>>();
+
+function serialized<TResult>(
+  runtime: EngineRuntime,
+  work: () => Promise<TResult>,
+): Promise<TResult> {
+  const tail = sweepTails.get(runtime) ?? Promise.resolve();
+  const run = tail.then(work, work);
+  sweepTails.set(
+    runtime,
+    run.catch(() => undefined),
+  );
+  return run;
+}
+
+/** What a demo clock advance did. */
+export interface ClockAdvance {
+  readonly now: Date;
+  readonly webhooks: number;
+}
+
+/** The runtime runs on the system clock: it cannot be moved. */
+export class ClockNotFakeError extends Error {
+  override readonly name = 'ClockNotFakeError';
+
+  constructor() {
+    super('The clock can only be advanced on a fake clock (CLOCK=fake)');
+  }
+}
+
 function describe(error: unknown): string {
   return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 }
@@ -107,8 +142,40 @@ export class Worker {
     return { completed, failed };
   }
 
-  /** Watcher then escalation, for the given clinics (default: every active clinic). */
-  async runSweeps(clinicIds?: readonly ClinicId[]): Promise<readonly SweepResult[]> {
+  /**
+   * Watcher then escalation, for the given clinics (default: every active
+   * clinic). One sweep at a time per runtime (see {@link advanceFakeClock}).
+   */
+  runSweeps(clinicIds?: readonly ClinicId[]): Promise<readonly SweepResult[]> {
+    return serialized(this.#runtime, () => this.#sweep(clinicIds));
+  }
+
+  /**
+   * Demo: moves the fake clock forward `days` days, one at a time as the
+   * hourly sweeps would (jobs, watcher and escalation, then webhooks, each
+   * day), atomically: concurrent advances and sweeps wait for each other, so
+   * every advance moves the clock by exactly what it asked.
+   *
+   * @throws {ClockNotFakeError} on the system clock.
+   */
+  advanceFakeClock(days: number, clinicIds?: readonly ClinicId[]): Promise<ClockAdvance> {
+    const clock = this.#runtime.fakeClock;
+    if (clock === undefined) {
+      return Promise.reject(new ClockNotFakeError());
+    }
+    return serialized(this.#runtime, async () => {
+      let webhooks = 0;
+      for (let day = 0; day < days; day += 1) {
+        clock.advance({ days: 1 });
+        await this.runJobs();
+        await this.#sweep(clinicIds);
+        webhooks += (await this.deliverOutbox()).delivered;
+      }
+      return { now: clock.now(), webhooks };
+    });
+  }
+
+  async #sweep(clinicIds?: readonly ClinicId[]): Promise<readonly SweepResult[]> {
     const clinics = clinicIds ?? (await activeClinicIds(this.#runtime));
     const results: SweepResult[] = [];
     for (const clinicId of clinics) {

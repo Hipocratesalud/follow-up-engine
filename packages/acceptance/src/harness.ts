@@ -22,6 +22,7 @@ import {
   FakeClock,
   type FollowUpEngine,
   type IngestReport,
+  isOlderResourceVersion,
   type NoteExtractor,
   type TransactionalStores,
   type UnitOfWork,
@@ -148,14 +149,25 @@ export async function ingestBundle(
   if (errors.length > 0) {
     throw new BundleMappingError(errors.map((issue) => issue.diagnostics ?? '').join('; '));
   }
+  // Like the runtime: an older version than the one stored is not ingested.
+  const stale = new Set<string>();
   await harness.unitOfWork.withTransaction(harness.clinicId, async (stores) => {
     for (const { patientId, resource } of mapped.resources) {
+      const stored = await stores.clinicalRecords.getResource(harness.clinicId, resource);
+      if (stored !== undefined && isOlderResourceVersion(resource, stored.resource)) {
+        stale.add(`${resource.resourceType}/${resource.id}`);
+      }
       await stores.clinicalRecords.saveResource(harness.clinicId, patientId, resource, receivedAt);
     }
   });
   const reports: IngestReport[] = [];
   for (const batch of mapped.batches) {
-    reports.push(await harness.engine.ingest(batch satisfies ClinicalBatch));
+    const events = batch.events.filter(
+      (event) => !stale.has(`${event.source.resourceType}/${event.source.id}`),
+    );
+    if (events.length > 0) {
+      reports.push(await harness.engine.ingest({ ...batch, events } satisfies ClinicalBatch));
+    }
   }
   return reports;
 }

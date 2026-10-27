@@ -18,6 +18,7 @@ export const CLINICAL_EVENT_TYPES = [
   'note.received',
   'plan.extracted',
   'patient.opted_out',
+  'record.withdrawn',
 ] as const;
 
 export type ClinicalEventType = (typeof CLINICAL_EVENT_TYPES)[number];
@@ -60,10 +61,20 @@ export interface AppointmentBookedEvent extends ClinicalEventBase {
   readonly specialty?: string;
 }
 
-/** A booked appointment was cancelled. */
+/** Why a booked appointment no longer counts (FHIR `Appointment.status`). */
+export const APPOINTMENT_WITHDRAWAL_REASONS = ['cancelled', 'no_show', 'entered_in_error'] as const;
+export type AppointmentWithdrawalReason = (typeof APPOINTMENT_WITHDRAWAL_REASONS)[number];
+
+/**
+ * A booked appointment will not happen or did not happen: cancelled, the
+ * patient did not show up, or it was entered in error. Whatever its booking
+ * fulfilled is open again.
+ */
 export interface AppointmentCancelledEvent extends ClinicalEventBase {
   readonly type: 'appointment.cancelled';
   readonly scheduledFor: Date;
+  /** Absent means `cancelled`. */
+  readonly reason?: AppointmentWithdrawalReason;
 }
 
 /** A lab, imaging or other order was placed (FHIR `ServiceRequest`). */
@@ -111,6 +122,12 @@ export interface NoteReceivedEvent extends ClinicalEventBase {
   readonly text: string;
   readonly specialty?: string;
   readonly authoredAt: Date;
+  /**
+   * Notes this one replaces (FHIR `relatesTo.code = replaces`): their plan
+   * gives way to this note's. A new version of the same note replaces the
+   * previous version without saying so.
+   */
+  readonly replacesDocumentIds?: readonly string[];
 }
 
 /** One follow-up the doctor wrote in the plan section of a note. */
@@ -136,6 +153,8 @@ export interface PlanExtractedEvent extends ClinicalEventBase {
   readonly discharged?: boolean;
   /** Which model and prompt produced the items, for provenance. */
   readonly extractor: { readonly model: string; readonly promptVersion: string };
+  /** The note's `replacesDocumentIds`: their plan items give way to these. */
+  readonly replacesDocumentIds?: readonly string[];
 }
 
 /**
@@ -146,6 +165,42 @@ export interface PlanExtractedEvent extends ClinicalEventBase {
 export interface PatientOptedOutEvent extends ClinicalEventBase {
   readonly type: 'patient.opted_out';
 }
+
+/**
+ * Why a resource the host sent before no longer stands: an order revoked, a
+ * prescription stopped or cancelled, a diagnosis refuted, a note superseded,
+ * anything entered in error, or a resource moved to another patient (its
+ * subject was corrected).
+ */
+export const RECORD_WITHDRAWAL_REASONS = [
+  'revoked',
+  'stopped',
+  'cancelled',
+  'refuted',
+  'superseded',
+  'entered_in_error',
+  'subject_changed',
+] as const;
+export type RecordWithdrawalReason = (typeof RECORD_WITHDRAWAL_REASONS)[number];
+
+/**
+ * A resource the host sent before was withdrawn (`source` is that
+ * resource). What the engine derived from it is withdrawn too: expectations
+ * it triggered are cancelled (`source_withdrawn`), what it fulfilled is open
+ * again, a condition it alone recorded no longer enrolls the patient, and
+ * the rest of the engine ignores its earlier events.
+ */
+export interface RecordWithdrawnEvent extends ClinicalEventBase {
+  readonly type: 'record.withdrawn';
+  readonly reason: RecordWithdrawalReason;
+}
+
+/** Withdrawals that mean the fact was never true (not just that it ended). */
+export const RETRACTING_WITHDRAWAL_REASONS: ReadonlySet<RecordWithdrawalReason> = new Set([
+  'refuted',
+  'entered_in_error',
+  'subject_changed',
+]);
 
 /** A normalized clinical fact. Discriminated by `type`. */
 export type ClinicalEvent =
@@ -158,7 +213,8 @@ export type ClinicalEvent =
   | ConditionRecordedEvent
   | NoteReceivedEvent
   | PlanExtractedEvent
-  | PatientOptedOutEvent;
+  | PatientOptedOutEvent
+  | RecordWithdrawnEvent;
 
 /** The event variant with the given `type`. */
 export type ClinicalEventOf<TType extends ClinicalEventType> = Extract<

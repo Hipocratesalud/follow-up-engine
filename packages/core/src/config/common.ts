@@ -72,9 +72,20 @@ export type EventMatcher = z.infer<typeof EventMatcherSchema>;
  * - `same_code`: same terminology code as the trigger.
  * - `same_specialty`: same specialty as the triggering encounter.
  * - `any`: any matching event for the patient after the expectation was created.
+ *
+ * Whatever the strategy, a booked appointment must be scheduled on time
+ * (`toleranceDays`), and a visit fulfills a visit expectation only when it
+ * is of the expectation's specialty or with its practitioner (see
+ * `correlates` in the engine).
  */
 export const MATCH_STRATEGIES = ['same_order', 'same_code', 'same_specialty', 'any'] as const;
 export type MatchStrategy = (typeof MATCH_STRATEGIES)[number];
+
+/**
+ * Days a booked appointment may fall after the due date and still fulfill
+ * the expectation, unless the correlation says otherwise (`toleranceDays`).
+ */
+export const DEFAULT_BOOKING_TOLERANCE_DAYS = 3;
 
 export const EventCorrelationSchema = z.strictObject({
   event: z.enum(CLINICAL_EVENT_TYPES),
@@ -85,6 +96,12 @@ export const EventCorrelationSchema = z.strictObject({
    * rules, whose items can be visits, labs or imaging). All kinds when absent.
    */
   forKinds: z.array(z.enum(PLAN_ITEM_KINDS)).min(1).optional(),
+  /**
+   * For `appointment.booked`: how many days after the expectation's due date
+   * the appointment may be scheduled and still count. Defaults to
+   * {@link DEFAULT_BOOKING_TOLERANCE_DAYS}.
+   */
+  toleranceDays: z.number().int().nonnegative().optional(),
 });
 export type EventCorrelation = z.infer<typeof EventCorrelationSchema>;
 

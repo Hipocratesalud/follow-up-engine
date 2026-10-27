@@ -346,6 +346,14 @@ export const DocumentReferenceSchema = z.object({
       practiceSetting: CodeableConceptSchema.optional(),
     })
     .optional(),
+  relatesTo: z
+    .array(
+      z.object({
+        code: z.enum(['replaces', 'transforms', 'signs', 'appends']),
+        target: ReferenceSchema,
+      }),
+    )
+    .optional(),
 }) satisfies z.ZodType<Partial<R4.DocumentReference>>;
 
 /** One `Composition.section`, recursively. */

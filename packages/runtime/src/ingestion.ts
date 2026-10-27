@@ -4,6 +4,7 @@ import {
   type Clock,
   type FollowUpEngine,
   type IngestReport,
+  isOlderResourceVersion,
   type JobId,
   type JsonObject,
   type PatientId,
@@ -31,6 +32,8 @@ export interface StoredEntry {
   readonly id: string;
   readonly versionId: string;
   readonly changed: boolean;
+  /** An older version than the stored one: not stored, its events not ingested. */
+  readonly stale?: boolean;
 }
 
 export interface BundleAcceptance {
@@ -119,7 +122,7 @@ export class IngestionService {
     if (mode === 'async') {
       return { ...base, ...(jobId === undefined ? {} : { jobId }) };
     }
-    return { ...base, reports: await this.#ingestBatches(mapping.batches) };
+    return { ...base, reports: await this.#ingestBatches(await this.#current(clinicId, mapping)) };
   }
 
   /**
@@ -162,7 +165,39 @@ export class IngestionService {
       throw new ValidationError('payload', `Invalid ${INGEST_BUNDLE_JOB} payload`);
     }
     const mapping = mapBundleToBatches(bundle, { clinicId, receivedAt: new Date(receivedAt) });
-    return this.#ingestBatches(mapping.batches);
+    return this.#ingestBatches(await this.#current(clinicId, mapping));
+  }
+
+  /**
+   * The batches without the events of resources older than the version
+   * stored (delivery is at least once and may reorder: a late older version
+   * must not undo a newer one).
+   */
+  async #current(
+    clinicId: ClinicId,
+    mapping: BundleMappingResult,
+  ): Promise<readonly ClinicalBatch[]> {
+    const stale = await this.#deps.storage.unitOfWork.withTransaction(clinicId, async (stores) => {
+      const keys = new Set<string>();
+      for (const { resource } of mapping.resources) {
+        const stored = await stores.clinicalRecords.getResource(clinicId, resource);
+        if (stored !== undefined && isOlderResourceVersion(resource, stored.resource)) {
+          keys.add(`${resource.resourceType}/${resource.id}`);
+        }
+      }
+      return keys;
+    });
+    if (stale.size === 0) {
+      return mapping.batches;
+    }
+    return mapping.batches
+      .map((batch) => ({
+        ...batch,
+        events: batch.events.filter(
+          (event) => !stale.has(`${event.source.resourceType}/${event.source.id}`),
+        ),
+      }))
+      .filter((batch) => batch.events.length > 0);
   }
 
   async #ingestBatches(batches: readonly ClinicalBatch[]): Promise<readonly IngestReport[]> {

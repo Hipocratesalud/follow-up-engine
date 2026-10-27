@@ -1,4 +1,4 @@
-import type { Coding, ServiceCategory } from '@follow-up-engine/core';
+import type { Coding, RecordWithdrawalReason, ServiceCategory } from '@follow-up-engine/core';
 import { SNOMED_SERVICE_CATEGORY, TERMINOLOGY } from '../../terminology.ts';
 import { daysBetween, durationToDays, firstDate } from '../../support/datetime.ts';
 import {
@@ -6,6 +6,7 @@ import {
   hasCode,
   pickCoding,
   uncodedCoding,
+  withdrawal,
   type ConceptInput,
   type EntryContext,
   type MappedResource,
@@ -26,6 +27,19 @@ const PRESCRIPTION_INTENTS: readonly string[] = [...ORDER_INTENTS, 'plan'];
 
 /** `MedicationRequest.status` values that count as prescribed. */
 const PRESCRIBED_STATUSES: readonly string[] = ['active', 'completed'];
+
+/** `ServiceRequest.status` values that withdraw an order sent before. */
+const WITHDRAWN_ORDER_STATUSES: Readonly<Record<string, RecordWithdrawalReason>> = {
+  revoked: 'revoked',
+  'entered-in-error': 'entered_in_error',
+};
+
+/** `MedicationRequest.status` values that withdraw a prescription sent before. */
+const WITHDRAWN_PRESCRIPTION_STATUSES: Readonly<Record<string, RecordWithdrawalReason>> = {
+  stopped: 'stopped',
+  cancelled: 'cancelled',
+  'entered-in-error': 'entered_in_error',
+};
 
 /**
  * Category of an order: SNOMED CT 108252007 (laboratory procedure) or
@@ -80,7 +94,10 @@ export function orderCoding(
   return uncodedCoding(label);
 }
 
-/** ServiceRequest (active order) → `service_request.created`. */
+/**
+ * ServiceRequest (active order) → `service_request.created`; revoked or
+ * entered in error → `record.withdrawn` (its expectation is cancelled).
+ */
 export function mapServiceRequest(
   request: ParsedResourceOf<'ServiceRequest'>,
   ctx: EntryContext,
@@ -94,6 +111,10 @@ export function mapServiceRequest(
     patientId: patient.id,
     ...(encounter === undefined ? {} : { encounterId: encounter.id }),
   };
+  const withdrawn = WITHDRAWN_ORDER_STATUSES[request.status];
+  if (withdrawn !== undefined) {
+    return withdrawal(ctx, scope, withdrawn, request.meta?.lastUpdated);
+  }
   if (request.status !== 'active' || !ORDER_INTENTS.includes(request.intent)) {
     ctx.report(
       'information',
@@ -176,7 +197,11 @@ export function prescriptionDurationDays(
   return undefined;
 }
 
-/** MedicationRequest (active or completed prescription) → `medication.prescribed`. */
+/**
+ * MedicationRequest (active or completed prescription) →
+ * `medication.prescribed`; stopped, cancelled or entered in error →
+ * `record.withdrawn` (no end-of-treatment follow-up).
+ */
 export function mapMedicationRequest(
   request: ParsedResourceOf<'MedicationRequest'>,
   ctx: EntryContext,
@@ -190,6 +215,10 @@ export function mapMedicationRequest(
     patientId: patient.id,
     ...(encounter === undefined ? {} : { encounterId: encounter.id }),
   };
+  const withdrawn = WITHDRAWN_PRESCRIPTION_STATUSES[request.status];
+  if (withdrawn !== undefined) {
+    return withdrawal(ctx, scope, withdrawn, request.meta?.lastUpdated);
+  }
   if (
     !PRESCRIBED_STATUSES.includes(request.status) ||
     !PRESCRIPTION_INTENTS.includes(request.intent)

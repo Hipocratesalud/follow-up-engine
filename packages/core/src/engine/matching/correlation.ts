@@ -1,8 +1,13 @@
-import type { EventCorrelation, EventMatcher } from '../../config/common.ts';
+import {
+  DEFAULT_BOOKING_TOLERANCE_DAYS,
+  type EventCorrelation,
+  type EventMatcher,
+} from '../../config/common.ts';
 import type { ClinicalEvent, PlanItemKind } from '../../domain/clinical-event.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import type { Coding } from '../../domain/resource.ts';
 import type { ExpectationDefinition } from '../catalog.ts';
+import { addDays } from '../support/time.ts';
 import { encounterOf, eventInstant, type PatientTimeline, refKey } from '../timeline.ts';
 import { matchesFilter } from './filter.ts';
 import { kindOfMatchKey, parseCodeMatchKey, sameCoding } from './match-key.ts';
@@ -15,6 +20,13 @@ export interface CorrelationTarget {
   readonly code?: Coding;
   /** The event that created it (order, prescription, note, ...), when still in the record. */
   readonly anchor?: ClinicalEvent;
+  /**
+   * Normalized specialties whose visits fulfill it: the protocol's, else the
+   * specialty of the consultation that created it. Empty when unknown.
+   */
+  readonly specialties: ReadonlySet<string>;
+  /** The practitioner of the consultation that created it, if known. */
+  readonly practitionerId?: string;
 }
 
 export function toCorrelationTarget(
@@ -24,12 +36,21 @@ export function toCorrelationTarget(
 ): CorrelationTarget {
   const code = parseCodeMatchKey(expectation.matchKey) ?? definition.code;
   const anchor = timeline.bySource(expectation.source);
+  const anchorSpecialty = anchor === undefined ? undefined : timeline.specialtyOf(anchor);
+  const specialties = (
+    definition.specialties ?? (anchorSpecialty === undefined ? [] : [anchorSpecialty])
+  )
+    .map(normalizeSpecialty)
+    .filter((specialty) => specialty !== '');
+  const practitionerId = anchor === undefined ? undefined : timeline.practitionerOf(anchor);
   return {
     expectation,
     definition,
     kind: definition.expects ?? kindOfMatchKey(expectation.matchKey),
     ...(code === undefined ? {} : { code }),
     ...(anchor === undefined ? {} : { anchor }),
+    specialties: new Set(specialties),
+    ...(practitionerId === undefined ? {} : { practitionerId }),
   };
 }
 
@@ -48,12 +69,111 @@ export function codeOfEvent(event: ClinicalEvent): Coding | undefined {
     case 'note.received':
     case 'plan.extracted':
     case 'patient.opted_out':
+    case 'record.withdrawn':
       return undefined;
   }
 }
 
-function normalizeSpecialty(specialty: string | undefined): string {
-  return (specialty ?? '').trim().toLowerCase();
+/** `Medicina Interna` and `medicina_interna` compare equal; accents and case do not matter. */
+export function normalizeSpecialty(specialty: string | undefined): string {
+  return (specialty ?? '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}
+
+/** Events that are a visit (done or booked). */
+const VISIT_EVENTS: ReadonlySet<ClinicalEvent['type']> = new Set([
+  'encounter.finished',
+  'appointment.booked',
+]);
+/** Expectation kinds that ask for a visit with someone, so the specialty matters. */
+const VISIT_KINDS: ReadonlySet<PlanItemKind> = new Set(['follow_up_visit', 'session']);
+
+/**
+ * Whether a visit is with the right people for a visit expectation: the same
+ * practitioner, or one of `specialties`. Lenient when either side is
+ * unknown (no specialty recorded), so hosts that send no specialty keep
+ * working as before.
+ */
+export function visitSpecialtyFits(
+  specialties: ReadonlySet<string>,
+  practitionerId: string | undefined,
+  event: ClinicalEvent,
+  timeline: PatientTimeline,
+): boolean {
+  if (!VISIT_EVENTS.has(event.type) || specialties.size === 0) {
+    return true;
+  }
+  if (practitionerId !== undefined && timeline.practitionerOf(event) === practitionerId) {
+    return true;
+  }
+  const specialty = normalizeSpecialty(timeline.specialtyOf(event));
+  return specialty === '' || specialties.has(specialty);
+}
+
+/**
+ * A protocol's visit items only count visits of the protocol's specialties
+ * (used to pick the visit that anchors the next one).
+ */
+export function definitionVisitFits(
+  definition: ExpectationDefinition,
+  event: ClinicalEvent,
+  timeline: PatientTimeline,
+): boolean {
+  if (definition.specialties === undefined || !VISIT_KINDS.has(definition.expects ?? 'other')) {
+    return true;
+  }
+  return visitSpecialtyFits(
+    new Set(definition.specialties.map(normalizeSpecialty)),
+    undefined,
+    event,
+    timeline,
+  );
+}
+
+function visitFits(
+  correlation: EventCorrelation,
+  event: ClinicalEvent,
+  target: CorrelationTarget,
+  timeline: PatientTimeline,
+): boolean {
+  if (!VISIT_KINDS.has(target.kind) || correlation.filter?.['specialty'] !== undefined) {
+    return true;
+  }
+  return visitSpecialtyFits(target.specialties, target.practitionerId, event, timeline);
+}
+
+/**
+ * A booking fulfills only when it brings the visit in on time: scheduled on
+ * or before the due date (plus `toleranceDays`). Once the expectation is
+ * overdue (the booking comes after the due date, usually because the team
+ * called the patient), the appointment must fall within one normal window of
+ * the booking (the time the expectation originally gave).
+ */
+function bookedInTime(
+  correlation: EventCorrelation,
+  event: ClinicalEvent,
+  target: CorrelationTarget,
+): boolean {
+  if (event.type !== 'appointment.booked') {
+    return true;
+  }
+  const tolerance = correlation.toleranceDays ?? DEFAULT_BOOKING_TOLERANCE_DAYS;
+  const due = target.expectation.dueAt;
+  if (event.occurredAt.getTime() <= due.getTime()) {
+    return event.scheduledFor.getTime() <= addDays(due, tolerance).getTime();
+  }
+  const anchorInstant =
+    target.anchor === undefined ? target.expectation.createdAt : eventInstant(target.anchor);
+  const window = Math.max(0, due.getTime() - anchorInstant.getTime());
+  const deadline = Math.max(
+    addDays(event.occurredAt, tolerance).getTime(),
+    event.occurredAt.getTime() + window,
+  );
+  return event.scheduledFor.getTime() <= deadline;
 }
 
 /**
@@ -123,10 +243,15 @@ export function correlates(
       );
     case 'same_code':
     case 'any':
-      return happensAfterAnchor(event, target);
+      return (
+        happensAfterAnchor(event, target) &&
+        bookedInTime(correlation, event, target) &&
+        visitFits(correlation, event, target, timeline)
+      );
     case 'same_specialty':
       return (
         happensAfterAnchor(event, target) &&
+        bookedInTime(correlation, event, target) &&
         (target.anchor === undefined ||
           normalizeSpecialty(timeline.specialtyOf(event)) ===
             normalizeSpecialty(timeline.specialtyOf(target.anchor)))
@@ -184,6 +309,7 @@ export function fulfillmentReason(event: ClinicalEvent): string {
     case 'note.received':
     case 'plan.extracted':
     case 'patient.opted_out':
+    case 'record.withdrawn':
       return `fulfilled_by_${event.type.replace('.', '_')}`;
   }
 }

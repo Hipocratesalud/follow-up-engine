@@ -13,8 +13,20 @@ export interface StoredResource {
 
 export interface SaveResourceResult {
   readonly versionId: string;
-  /** False when identical content was already stored (idempotent re-delivery). */
+  /** False when identical content was already stored (idempotent re-delivery), or when stale. */
   readonly changed: boolean;
+  /**
+   * The resource was an older version of the stored one (see
+   * `isOlderResourceVersion`): nothing was stored, and its events must not
+   * be ingested.
+   */
+  readonly stale?: boolean;
+}
+
+/** A patient with events derived from a resource. */
+export interface SourcePatient {
+  readonly source: ResourceRef;
+  readonly patientId: PatientId;
 }
 
 export interface ClinicalEventQuery {
@@ -36,7 +48,11 @@ export interface PatientIdPage {
  * and the normalized clinical events derived from them.
  */
 export interface ClinicalRecordRepository {
-  /** Inserts or replaces a resource keyed by `resourceType/id` in the clinic. Idempotent. */
+  /**
+   * Inserts or replaces a resource keyed by `resourceType/id` in the clinic.
+   * Idempotent. An older version than the stored one (out-of-order
+   * delivery) is not stored: `{ changed: false, stale: true }`.
+   */
   saveResource(
     clinicId: ClinicId,
     patientId: PatientId,
@@ -59,6 +75,17 @@ export interface ClinicalRecordRepository {
     patientId: PatientId,
     query?: ClinicalEventQuery,
   ): Promise<readonly ClinicalEvent[]>;
+
+  /**
+   * The patients other than `exceptPatientId` that have events derived from
+   * any of `sources`: a resource whose subject was corrected left its events
+   * on the old patient.
+   */
+  findOtherPatientsWithSources(
+    clinicId: ClinicId,
+    exceptPatientId: PatientId,
+    sources: readonly ResourceRef[],
+  ): Promise<readonly SourcePatient[]>;
 
   /** Pages through every patient with at least one event, ordered by id (used by backfill). */
   listPatientIds(

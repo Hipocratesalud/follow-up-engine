@@ -1,14 +1,22 @@
 import { ICD10_SYSTEM, type ConditionVerification } from '@follow-up-engine/core';
 import { TERMINOLOGY } from '../../terminology.ts';
 import { firstDate } from '../../support/datetime.ts';
-import { hasCode, pickCoding, type EntryContext, type MappedResource } from '../context.ts';
+import {
+  hasCode,
+  pickCoding,
+  withdrawal,
+  type EntryContext,
+  type MappedResource,
+} from '../context.ts';
 import type { ParsedResourceOf } from '../schemas.ts';
 
 const PROVISIONAL_CODES = ['provisional', 'differential', 'unconfirmed'] as const;
-const DISCARDED_CODES = ['refuted', 'entered-in-error'] as const;
+const REFUTED_CODES = ['refuted'] as const;
+const IN_ERROR_CODES = ['entered-in-error'] as const;
 const INACTIVE_CODES = ['inactive', 'resolved', 'remission'] as const;
 
 /**
+ * Condition refuted or entered in error → `record.withdrawn`. Otherwise
  * Condition → `condition.recorded` with its ICD-10 code (ICD-10-CM codings are
  * accepted and reported under the ICD-10 system: the engine matches on the
  * category prefix). An absent verification status reads as confirmed: a
@@ -32,8 +40,13 @@ export function mapCondition(
     return { ...scope, events: [] };
   };
   const verification = condition.verificationStatus;
-  if (hasCode(verification, DISCARDED_CODES, TERMINOLOGY.conditionVerification)) {
-    return noEvent('refuted or entered-in-error Condition produces no event', 'verificationStatus');
+  // A refuted diagnosis, or one entered in error, withdraws what its earlier
+  // version enrolled (the protocol expectations of the condition it recorded).
+  if (hasCode(verification, REFUTED_CODES, TERMINOLOGY.conditionVerification)) {
+    return withdrawal(ctx, scope, 'refuted', condition.meta?.lastUpdated);
+  }
+  if (hasCode(verification, IN_ERROR_CODES, TERMINOLOGY.conditionVerification)) {
+    return withdrawal(ctx, scope, 'entered_in_error', condition.meta?.lastUpdated);
   }
   if (hasCode(condition.clinicalStatus, INACTIVE_CODES, TERMINOLOGY.conditionClinical)) {
     return noEvent('inactive or resolved Condition produces no event', 'clinicalStatus');

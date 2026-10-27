@@ -37,7 +37,14 @@ export {
   canTransition,
   isActiveCaseStatus,
 } from './case-manager/state-machine.ts';
-export { computeCasePriority, PRIORITY_WEIGHTS } from './case-manager/priority.ts';
+export {
+  computeCasePriority,
+  overdueFactor,
+  PRIORITY_MODEL,
+  type PriorityCategory,
+  priorityCategory,
+} from './case-manager/priority.ts';
+export { priorityOfCase } from './case-manager/case-priority.ts';
 export type { EscalationReport, EscalationStepRecord } from './escalation/escalation.ts';
 export { FALLBACK_ESCALATION_POLICY, nextActionAfter } from './escalation/schedule.ts';
 export {

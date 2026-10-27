@@ -71,9 +71,19 @@ Each rule declares `fulfilledBy`, `supersededBy` and `notFulfilledBy` correlatio
 
 - A result answers its order (`basedOn`) or any later result of the same code.
 - A finished encounter or a booked appointment fulfills visit expectations, never lab or imaging ones.
+- **A booking counts only if it brings the visit in on time**: scheduled on or before the due date plus `toleranceDays` (on the correlation; default `DEFAULT_BOOKING_TOLERANCE_DAYS` = 3). A booking made once the expectation is overdue (the team called the patient) counts when the appointment falls within one normal window of the booking (the time the expectation originally gave). A booking for months later does not fulfill an abnormal result's 7-day follow-up; the case opens on time.
+- **A visit must be with the right people.** A visit expectation (`follow_up_visit`, `session`) is fulfilled only by a visit of its specialty (the protocol's `specialties`, else the specialty of the consultation that created it) or with the same practitioner; a gynecology visit does not fulfill the diabetologist's control, nor re-anchors the diabetes protocol. When either side has no specialty recorded, any visit counts (hosts without specialties keep working). A correlation with its own `specialty` filter (fundus exam at ophthalmology) is not restricted further.
 - A new order of the **same** test supersedes the old expectation (its case closes as `not_needed`, audit reason `superseded_by_new_order`) and starts a new clock; different tests coexist.
 - An expired expectation can still be fulfilled late while its case is active; the case resolves when all its reasons are closed.
-- **A cancelled appointment fulfills nothing.** Every closed expectation records what closed it (`closedBy`). An `appointment.cancelled` reopens what that Appointment's booking fulfilled, unless something else in the record (a visit, another booking) still fulfills it; a reopened expectation already past due expires into a case at the next watcher run (a new case if the booking had resolved the old one). Bookings withdrawn by a later cancellation are ignored everywhere else too (protocol anchors, fulfillment).
+- **A cancelled appointment fulfills nothing.** Every closed expectation records what closed it (`closedBy`). An `appointment.cancelled` (a cancellation, a no-show, or an appointment entered in error: `reason`) reopens what that Appointment's booking fulfilled, unless something else in the record (a visit, another booking) still fulfills it; a reopened expectation already past due expires into a case at the next watcher run (a new case if the booking had resolved the old one). Bookings withdrawn by a later cancellation are ignored everywhere else too (protocol anchors, fulfillment), and an expectation anchored on the withdrawn booking (the protocol's next visit counted from it) is cancelled with `closedReason: 'source_withdrawn'`.
+
+**Updates to resources already sent** (HIP-116):
+
+- A `record.withdrawn` event (an order revoked, a prescription stopped or cancelled, a diagnosis refuted, a note or result entered in error, a note superseded) cancels the live expectations the resource triggered (`closedReason: 'source_withdrawn'`; a case left without open reasons resolves as `not_needed`) and reopens what it fulfilled, like a cancelled booking. The timeline ignores the resource's earlier events (and what was derived from them: a withdrawn note's plan), so they neither trigger, fulfill nor anchor anything again.
+- When the withdrawal means the fact was never true (`refuted`, `entered_in_error`, `subject_changed`), a condition that the resource alone recorded becomes `resolved` (unless a clinician reviewed it) and the protocol expectations of protocols the patient is no longer enrolled in are cancelled (`source_withdrawn`).
+- A resource re-sent for another patient (its `subject` corrected): `ingest` finds the other patients with events of the same source (`ClinicalRecordRepository.findOtherPatientsWithSources`), records a `record.withdrawn` (`subject_changed`) for each and annotates it there, so the old patient's expectation is cancelled; the new patient gets its own expectation (key `<key>@<patientId>` when the plain key is taken).
+- An amended note (a new version of the same document, or one that `replaces` it) is read again (extraction is deduplicated by note version, and skipped when the text did not change); live plan items of the earlier version that the new plan does not ask for again are superseded (`superseded_by_amended_note`).
+- Out-of-order delivery: adapters do not store an older version than the stored one (`isOlderResourceVersion`: numeric `meta.versionId`, else `meta.lastUpdated`), `saveResource` answers `stale: true`, and the runtime does not ingest its events.
 
 Idempotency: an expectation's key is `<source type>/<source id>#<rule id>[#<item>]`; events are stored once per `idempotencyKey`; a note whose plan was already extracted is never read again.
 
@@ -113,14 +123,16 @@ stateDiagram-v2
   notified --> dismissed
   snoozed --> dismissed
   escalated --> dismissed
-  notified --> lost_to_follow_up: attempts exhausted
-  escalated --> lost_to_follow_up
+  notified --> lost_to_follow_up: contact attempts exhausted
+  escalated --> lost_to_follow_up: contact attempts exhausted
   resolved --> [*]
   dismissed --> [*]
   lost_to_follow_up --> [*]
 ```
 
 Every transition is appended to the `AuditLog` with its actor (`rule`, `user`, `patient`, `system`) in the same transaction as the change and its outbound event.
+
+**Concurrent writers are serialized per case** (HIP-119). Every read-modify-write of a case locks it until its transaction commits (`CaseRepository.get(..., { forUpdate: true })`, `findActiveByDedupKey(..., { forUpdate: true })`: Postgres `SELECT ... FOR UPDATE`; the memory adapter serializes whole transactions). A second command on the same case waits, then sees the first one's outcome and fails exactly as it would afterwards (`InvalidCaseTransitionError`, HTTP 409), with no audit entry and no `case.resolved` of its own. The escalation sweep locks the due cases it takes and skips one a user is changing right now (`FOR UPDATE SKIP LOCKED`), so a user's dismiss is never overwritten by a stale escalation step. The priority refresh writes only the priority of a still active case (`setPriority`).
 
 ## Escalation (`default_v1`)
 
@@ -131,13 +143,29 @@ Every transition is appended to the `AuditLog` with its actor (`rule`, `user`, `
 | 0                         | `notify_clinic`: the owner (treating practitioner, else `front_desk`) is notified once |
 | 14                        | `raise_priority` (+20) and `request_patient_contact`                                   |
 | 21                        | `escalate_to_coordinator`                                                              |
-| 35                        | `mark_lost_to_follow_up`                                                               |
+| 35                        | `mark_lost_to_follow_up`, only if the patient was asked to come back (see below)       |
 
 A user action (notify, assign, end of a snooze) restarts the wait before the next step.
+
+**Lost to follow-up means attempts were made and exhausted.** `mark_lost_to_follow_up` closes the case only when a contact request went out for the patient since the case opened (the automatic step or a user's "Pedir contacto", from any of the patient's cases). The resolution is `patient_unreachable`, or `patient_declined` when the patient opted out after being contacted. When nobody contacted the patient (the clinic does not allow it, the patient opted out first, the case rests on probable conditions, the case comes from the backfill), the step is skipped (`EscalationReport.lostToFollowUpSkipped`) and the case stays escalated with the coordinator until someone resolves or dismisses it.
 
 Patient contact rules (`patient-contact/policy.ts`): only if the clinic allows it; never after `patient.opted_out`; never for cases resting only on probable conditions; at most one request per patient per 14 days whatever the number of cases.
 
 **Opt-out means no patient contact, not no follow-up.** After `patient.opted_out` the clinic keeps following the patient: expectations and cases are created, merged and resolved as usual, and `patientContactStatus` reports `optedOut: true` (`allowed: false`). Escalation skips the patient-contact step and goes straight to the coordinator instead of waiting for an answer that cannot come. The `patient_contact.requested` payload carries ids, a generic purpose and a date, never a diagnosis or test name.
+
+## Case priority
+
+`computeCasePriority` (`case-manager/priority.ts`, `PRIORITY_MODEL`), 0 to 100; the inbox and the FHIR Task read ≥ 90 as urgent, ≥ 75 high, ≥ 60 medium. **Recomputed on every watcher tick** (`refreshCasePriorities`, `WatcherReport.prioritiesUpdated`; it writes only the priority, through `CaseRepository.setPriority`), so the overdue factor follows the calendar for live and backfill cases alike.
+
+| Part                 | Points                                                                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Category of a reason | abnormal result 75 > ordered result (lab, imaging) 60 > doctor's plan and end of treatment 50 > cadence 38 > protocol 32                 |
+| Rule `priority`      | (priority − 40) / 4, at most ±5: a nudge within the category                                                                             |
+| Confidence           | protocol reminder resting only on a probable condition −10; any other reason of a patient with a confirmed chronic condition +3          |
+| Overdue factor       | +0.5 per day overdue up to +6 (day 12), flat to day 90, then −1 every 15 days down to −20 (a control missed in 2024 ranks below today's) |
+| Case                 | its most pressing reason (still open or expired), +3 per extra reason (at most 2), + the `raise_priority` steps already run (+20)        |
+
+A fresh ordered result is medium (61), a fresh abnormal result high (80); only an abnormal result left without action until its escalation becomes urgent; a probable-only protocol reminder stays low. On the synthetic clinic at day 0: 6 urgent, 15 high, 15 medium, 68 low of 104 released cases (it was 50 urgent, 29 high, 23 medium, 1 low).
 
 ## Initial backfill
 
@@ -165,7 +193,7 @@ How it works:
 
 - **Same path as steady state.** Each patient's stored events are grouped into steps (one per consultation, else per instant) and annotated in order through `ingest`'s own `extractNotes` and `applyInTransaction`, with `now` = the step's time and the patient's state as of that time. Notes not read yet go through the `NoteExtractor` (`llm_gateway`).
 - **History closes itself.** What a later event fulfilled (a result for an order, a visit for a plan) closes without a case; a newer order of the same test supersedes; a cancelled booking fulfills nothing. Only what is still unmet when the replay reaches today becomes a case, with `origin: 'backfill'`.
-- **Held, then released in batches.** A backfill case is created with `releaseAt = BACKFILL_UNSCHEDULED_RELEASE_AT` (year 9999: hidden by every `releasedAsOf` query, no escalation). When the run completes, `schedule` orders cases by risk (priority, which weighs chronic conditions, pending results and the rule; then the longest overdue) and gives each owner at most `ClinicSettings.dailyCaseCapPerOwner` (default 20) per day, day 0 being now. Cases whose most recent reason is overdue by more than `backfillNotifyMaxAgeDays` (default 730) are never released: they stay listed among the patients to recover. `runWatcher` releases each day's batch: `released` audit event, escalation starts, `case.opened` emitted. If something due today joins a held case, it is released at once.
+- **Held, then released in batches.** A backfill case is created with `releaseAt = BACKFILL_UNSCHEDULED_RELEASE_AT` (year 9999: hidden by every `releasedAsOf` query, no escalation). When the run completes, `schedule` orders cases by risk (priority, see [Case priority](#case-priority); then the longest overdue) and gives each owner at most `ClinicSettings.dailyCaseCapPerOwner` (default 20) per day, day 0 being now. Cases whose most recent reason is overdue by more than `backfillNotifyMaxAgeDays` (default 730) are never released: they stay listed among the patients to recover. `runWatcher` releases each day's batch: `released` audit event, escalation starts, `case.opened` emitted. If something due today joins a held case, it is released at once.
 - **No mass messages.** Backfill cases never request patient contact (`PatientContactDenial` `backfill_case`); the team decides.
 - **Resumable and idempotent.** One transaction per patient carries its writes and `BackfillProgressStore.advance`; a crash rolls the patient back and `run` continues after the last finished patient, with the same totals. Running again replays everything and changes nothing (keys by source and rule; decisions taken on the state as of each step).
 - **Budget.** `LlmBudgetExceededError` from the extractor pauses the run at the last finished patient (`paused_budget`) and emits `backfill.paused`; `run` resumes it once there is budget.

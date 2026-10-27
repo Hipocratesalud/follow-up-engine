@@ -1,4 +1,8 @@
-import { practitionerId, type PractitionerId } from '@follow-up-engine/core';
+import {
+  type AppointmentWithdrawalReason,
+  practitionerId,
+  type PractitionerId,
+} from '@follow-up-engine/core';
 import { TERMINOLOGY } from '../../terminology.ts';
 import { firstDate } from '../../support/datetime.ts';
 import { hasCode, specialtyOf, type EntryContext, type MappedResource } from '../context.ts';
@@ -82,7 +86,20 @@ export function mapEncounter(
   };
 }
 
-/** Appointment (booked / cancelled) → `appointment.booked` / `appointment.cancelled`. */
+/**
+ * Appointment statuses that withdraw a booking: whatever the booking
+ * fulfilled is open again (`appointment.cancelled` with this reason).
+ */
+const WITHDRAWN_APPOINTMENT_STATUSES: Readonly<Record<string, AppointmentWithdrawalReason>> = {
+  cancelled: 'cancelled',
+  noshow: 'no_show',
+  'entered-in-error': 'entered_in_error',
+};
+
+/**
+ * Appointment booked → `appointment.booked`; cancelled, no-show or entered
+ * in error → `appointment.cancelled` (with its reason).
+ */
 export function mapAppointment(
   appointment: ParsedResourceOf<'Appointment'>,
   ctx: EntryContext,
@@ -109,7 +126,8 @@ export function mapAppointment(
     ctx.report('error', 'required', 'an Appointment needs a Patient participant', 'participant');
     return undefined;
   }
-  if (appointment.status !== 'booked' && appointment.status !== 'cancelled') {
+  const withdrawal = WITHDRAWN_APPOINTMENT_STATUSES[appointment.status];
+  if (appointment.status !== 'booked' && withdrawal === undefined) {
     ctx.report(
       'information',
       'informational',
@@ -123,13 +141,14 @@ export function mapAppointment(
     ctx.report('error', 'required', `a ${appointment.status} Appointment needs a start`, 'start');
     return undefined;
   }
-  if (appointment.status === 'cancelled') {
+  if (withdrawal !== undefined) {
     return {
       patientId,
       events: [
         {
           ...ctx.base('appointment.cancelled', firstDate(appointment.meta?.lastUpdated)),
           scheduledFor,
+          ...(withdrawal === 'cancelled' ? {} : { reason: withdrawal }),
         },
       ],
     };

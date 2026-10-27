@@ -22,7 +22,8 @@ import {
 } from '../application/ingest.ts';
 import {
   type DerivedFromNote,
-  extractedDocumentIds,
+  extractedNotes,
+  noteKeyOfPlan,
   NOTE_EXTRACTION_JOB,
   type NoteExtractionJobPayload,
 } from '../application/note-extraction.ts';
@@ -179,7 +180,7 @@ async function replayPatient(
   const notes = events.filter(
     (event): event is NoteReceivedEvent => event.type === 'note.received',
   );
-  const pass = await extractNotes(deps, clinicId, notes, extractedDocumentIds(events), {
+  const pass = await extractNotes(deps, clinicId, notes, extractedNotes(events), {
     propagate: isBudgetExceeded,
     at: (note) => note.occurredAt,
   });
@@ -187,7 +188,7 @@ async function replayPatient(
   pass.derived.forEach((derived) => {
     const plan = derived.events.find((event) => event.type === 'plan.extracted');
     if (plan?.type === 'plan.extracted') {
-      derivedByNote.set(plan.sourceDocumentId, derived);
+      derivedByNote.set(noteKeyOfPlan(plan), derived);
     }
   });
   return deps.unitOfWork.withTransaction(clinicId, async (stores) => {
@@ -202,7 +203,7 @@ async function replayPatient(
     }
     for (const batch of replayBatches(events)) {
       const derived = batch.events.flatMap((event) =>
-        event.type === 'note.received' ? (derivedByNote.get(event.documentId) ?? []) : [],
+        event.type === 'note.received' ? (derivedByNote.get(event.idempotencyKey) ?? []) : [],
       );
       await applyInTransaction(deps, stores, {
         clinicId,

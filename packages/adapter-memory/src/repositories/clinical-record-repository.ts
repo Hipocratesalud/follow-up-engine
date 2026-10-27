@@ -4,10 +4,12 @@ import {
   type ClinicalRecordRepository,
   type ClinicId,
   type FhirResourceJson,
+  isOlderResourceVersion,
   type PatientId,
   type PatientIdPage,
   type ResourceRef,
   type SaveResourceResult,
+  type SourcePatient,
   type StoredResource,
   TenantMismatchError,
 } from '@follow-up-engine/core';
@@ -41,8 +43,15 @@ export class MemoryClinicalRecordRepository implements ClinicalRecordRepository 
   ): Promise<SaveResourceResult> {
     const key = tenantKey(clinicId, resource.resourceType, resource.id);
     const existing = this.#db.state.resources.get(key);
-    if (existing !== undefined && stableJson(existing.resource) === stableJson(resource)) {
+    if (
+      existing !== undefined &&
+      stableJson(existing.resource) === stableJson(resource) &&
+      existing.patientId === patientId
+    ) {
       return Promise.resolve({ versionId: existing.versionId, changed: false });
+    }
+    if (existing !== undefined && isOlderResourceVersion(resource, existing.resource)) {
+      return Promise.resolve({ versionId: existing.versionId, changed: false, stale: true });
     }
     const versionId = String(existing === undefined ? 1 : Number(existing.versionId) + 1);
     this.#db.setIn(this.#db.state.resources, key, {
@@ -116,6 +125,27 @@ export class MemoryClinicalRecordRepository implements ClinicalRecordRepository 
       )
       .map(({ event }) => event);
     return Promise.resolve(events);
+  }
+
+  findOtherPatientsWithSources(
+    clinicId: ClinicId,
+    exceptPatientId: PatientId,
+    sources: readonly ResourceRef[],
+  ): Promise<readonly SourcePatient[]> {
+    const wanted = new Map(
+      sources.map((source) => [`${source.resourceType}/${source.id}`, source]),
+    );
+    const found = new Map<string, SourcePatient>();
+    for (const event of this.#db.state.events.get(clinicId) ?? []) {
+      const source = wanted.get(`${event.source.resourceType}/${event.source.id}`);
+      if (source !== undefined && event.patientId !== exceptPatientId) {
+        found.set(`${event.source.resourceType}/${event.source.id}|${event.patientId}`, {
+          source,
+          patientId: event.patientId,
+        });
+      }
+    }
+    return Promise.resolve([...found.values()]);
   }
 
   listPatientIds(

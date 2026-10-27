@@ -2,6 +2,7 @@ import type {
   ClinicalBatch,
   ClinicalEvent,
   NoteReceivedEvent,
+  RecordWithdrawnEvent,
 } from '../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
 import { TenantMismatchError, ValidationError } from '../../domain/errors.ts';
@@ -23,10 +24,12 @@ import type { ExtractedMedicationHint } from '../annotator/conditions.ts';
 import { annotate, type ClosedExpectation } from '../annotator/annotate.ts';
 import type { Catalog } from '../catalog.ts';
 import type { EngineSettings } from '../settings.ts';
+import { refKey } from '../timeline.ts';
 import {
   deriveFromExtraction,
   type DerivedFromNote,
-  extractedDocumentIds,
+  type ExtractedNotes,
+  extractedNotes,
   NOTE_EXTRACTION_JOB,
   type NoteExtractionJobPayload,
 } from './note-extraction.ts';
@@ -106,7 +109,7 @@ export async function extractNotes(
   deps: IngestDeps,
   clinicId: ClinicId,
   notes: readonly NoteReceivedEvent[],
-  alreadyExtracted: ReadonlySet<string>,
+  alreadyExtracted: ExtractedNotes,
   options: {
     /** Errors that must stop the caller instead of queuing a retry (the backfill's budget). */
     readonly propagate?: (error: unknown) => boolean;
@@ -116,7 +119,7 @@ export async function extractNotes(
 ): Promise<ExtractionPass> {
   const pass: ExtractionPass = { outcomes: [], derived: [], failed: [] };
   for (const note of notes) {
-    if (alreadyExtracted.has(note.documentId)) {
+    if (alreadyExtracted.has(note)) {
       pass.outcomes.push({ documentId: note.documentId, status: 'already_extracted' });
       continue;
     }
@@ -171,6 +174,67 @@ export interface ApplyBatchInput {
   readonly asOf?: Date;
 }
 
+/**
+ * The host corrected the subject of a resource it sent before (an order
+ * re-sent for another patient): the old patient gets a `record.withdrawn`
+ * (`subject_changed`) for it and is annotated with it, so what the engine
+ * derived there (the expectation, a case, a protocol enrollment) is
+ * withdrawn. The new patient's own annotation then creates what is due.
+ * Not done in a replay, whose patients are processed one at a time.
+ */
+async function withdrawFromOtherPatients(
+  deps: IngestDeps,
+  stores: TransactionalStores,
+  input: ApplyBatchInput,
+  now: Date,
+): Promise<void> {
+  const sources = new Map(
+    input.events
+      .filter(
+        (event) =>
+          event.type !== 'record.withdrawn' &&
+          event.type !== 'patient.opted_out' &&
+          event.source.resourceType !== 'Patient',
+      )
+      .map((event) => [refKey(event.source), event.source]),
+  );
+  if (sources.size === 0) {
+    return;
+  }
+  const moved = await stores.clinicalRecords.findOtherPatientsWithSources(
+    input.clinicId,
+    input.patientId,
+    [...sources.values()],
+  );
+  for (const { source, patientId } of moved) {
+    const withdrawal: RecordWithdrawnEvent = {
+      type: 'record.withdrawn',
+      clinicId: input.clinicId,
+      patientId,
+      source,
+      occurredAt: now,
+      idempotencyKey: `${refKey(source)}#record.withdrawn:subject_changed@${patientId}->${input.patientId}`,
+      reason: 'subject_changed',
+    };
+    const { inserted } = await stores.clinicalRecords.appendEvents(input.clinicId, [withdrawal]);
+    if (inserted === 0) {
+      continue;
+    }
+    await annotate(
+      {
+        clinicId: input.clinicId,
+        patientId,
+        stores,
+        catalog: input.catalog,
+        ids: deps.ids,
+        settings: deps.settings,
+        now,
+      },
+      [withdrawal],
+    );
+  }
+}
+
 /** Stores derived facts and annotates, inside the caller's transaction. */
 export async function applyInTransaction(
   deps: IngestDeps,
@@ -179,6 +243,10 @@ export async function applyInTransaction(
 ): Promise<Omit<IngestReport, 'notes' | 'eventsReceived'>> {
   const derivedEvents = input.derived.flatMap((derived) => derived.events);
   const all = [...input.events, ...derivedEvents];
+  const now = input.now ?? deps.clock.now();
+  if (input.asOf === undefined) {
+    await withdrawFromOtherPatients(deps, stores, input, now);
+  }
   const { inserted } = await stores.clinicalRecords.appendEvents(input.clinicId, all);
   const findings = input.derived.flatMap((derived) =>
     derived.finding === undefined ? [] : [derived.finding],
@@ -200,7 +268,7 @@ export async function applyInTransaction(
       catalog: input.catalog,
       ids: deps.ids,
       settings: deps.settings,
-      now: input.now ?? deps.clock.now(),
+      now,
       ...(input.origin === undefined ? {} : { origin: input.origin }),
       ...(input.asOf === undefined ? {} : { asOf: input.asOf }),
     },
@@ -233,12 +301,12 @@ export async function ingest(deps: IngestDeps, batch: ClinicalBatch): Promise<In
   );
   const alreadyExtracted =
     notes.length === 0
-      ? new Set<string>()
+      ? extractedNotes([])
       : await deps.unitOfWork.withTransaction(clinicId, async (stores) => {
           const history = await stores.clinicalRecords.listEventsForPatient(clinicId, patientId, {
-            types: ['plan.extracted'],
+            types: ['plan.extracted', 'note.received'],
           });
-          return extractedDocumentIds([...history, ...batch.events]);
+          return extractedNotes([...history, ...batch.events]);
         });
   const pass = await extractNotes(deps, clinicId, notes, alreadyExtracted);
 
@@ -305,7 +373,7 @@ export async function runNoteExtractionJob(
       `Note ${payload.documentId} is not in the clinical record`,
     );
   }
-  const pass = await extractNotes(deps, clinicId, [note], extractedDocumentIds(history));
+  const pass = await extractNotes(deps, clinicId, [note], extractedNotes(history));
   const [failure] = pass.failed;
   if (failure !== undefined) {
     throw new Error(pass.outcomes[0]?.error ?? `Extraction of ${failure.documentId} failed`);

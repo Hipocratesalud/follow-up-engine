@@ -1,13 +1,9 @@
 import type { ClinicalEvent } from '../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
-import type { Origin } from '../../domain/common.ts';
 import type { Expectation } from '../../domain/expectation.ts';
-import { type CaseId, type ClinicId, expectationId, type PatientId } from '../../domain/ids.ts';
-import type { IdGenerator } from '../../ports/id-generator.ts';
-import type { TransactionalStores } from '../../ports/unit-of-work.ts';
+import { type CaseId, expectationId } from '../../domain/ids.ts';
 import { CaseWriter } from '../case-manager/case-writer.ts';
 import { closeExpectation, resolveSatisfiedCases } from '../case-manager/reconcile.ts';
-import type { Catalog } from '../catalog.ts';
 import {
   findFulfillment,
   fulfillmentReason,
@@ -20,42 +16,22 @@ import {
   type LiveExpectations,
   type PatientState,
 } from '../patient-state.ts';
-import type { EngineSettings } from '../settings.ts';
 import { type PatientTimeline, refKey } from '../timeline.ts';
-import { conditionCandidates, type ExtractedMedicationHint, mergeCondition } from './conditions.ts';
+import { conditionCandidates, mergeCondition } from './conditions.ts';
+import type { AnnotationContext, AnnotationHints, ClosedExpectation } from './context.ts';
 import { type ExpectationDraft, materializeExpectation } from './draft.ts';
 import { cadenceDrafts } from './layers/cadence.ts';
 import { doctorPlanDrafts } from './layers/doctor-plan.ts';
 import { protocolDrafts } from './layers/protocol.ts';
 import { universalDrafts } from './layers/universal.ts';
+import {
+  cancelWithdrawn,
+  supersedeAmendedPlans,
+  withdrawConditions,
+  withdrawnSources,
+} from './withdrawals.ts';
 
-/** Everything one annotation run needs, bound to an open transaction. */
-export interface AnnotationContext {
-  readonly clinicId: ClinicId;
-  readonly patientId: PatientId;
-  readonly stores: TransactionalStores;
-  readonly catalog: Catalog;
-  readonly ids: IdGenerator;
-  readonly settings: EngineSettings;
-  readonly now: Date;
-  /** Origin of what the run creates: `live` traffic (default) or the initial `backfill`. */
-  readonly origin?: Origin;
-  /** Replay mode: the patient's timeline only holds events up to this instant. */
-  readonly asOf?: Date;
-}
-
-/** Side inputs that only exist when the batch came with a freshly read note. */
-export interface AnnotationHints {
-  /** Model confidence of note-extracted `condition.recorded` events, by idempotency key. */
-  readonly extractedConfidence?: ReadonlyMap<string, number>;
-  readonly extractedMedications?: readonly ExtractedMedicationHint[];
-}
-
-/** An expectation the run closed, and why. */
-export interface ClosedExpectation {
-  readonly expectation: Expectation;
-  readonly closedBy: ClinicalEvent['type'];
-}
+export type { AnnotationContext, AnnotationHints, ClosedExpectation } from './context.ts';
 
 export interface AnnotationResult {
   readonly expectationsCreated: readonly Expectation[];
@@ -91,9 +67,11 @@ export async function annotate(
     context.asOf,
   );
   const writer = new CaseWriter(context.stores, context.ids, context.clinicId);
-  const ordered = [...events].sort(
-    (left, right) => left.occurredAt.getTime() - right.occurredAt.getTime(),
-  );
+  // An event of a resource the record withdrew later (a booking cancelled,
+  // an order revoked) triggers and fulfills nothing, even delivered again.
+  const ordered = [...events]
+    .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime())
+    .filter((event) => !state.timeline.isWithdrawn(event));
 
   const conditions = await upsertConditions(context, state, ordered, hints);
   const created: Expectation[] = [];
@@ -103,7 +81,13 @@ export async function annotate(
   ];
   created.push(...(await createExpectations(context, state.live, firstDrafts)));
 
-  const closed = await applyFulfillment(context, state.timeline, state.live, ordered);
+  // An amended note's plan replaces the earlier version's.
+  const closed = await supersedeAmendedPlans(context, state, ordered, firstDrafts);
+  closed.push(...(await applyFulfillment(context, state.timeline, state.live, ordered)));
+  // What withdrawn resources triggered goes; what they fulfilled is open again.
+  closed.push(...(await cancelWithdrawn(context, state, ordered)));
+  const unenrolled = await withdrawConditions(context, state, ordered, conditions.all);
+  closed.push(...unenrolled.closed);
   const reopened = await reopenCancelled(context, state, ordered);
 
   // The doctor's explicit plan beats the inferred visit pattern for what it
@@ -146,7 +130,7 @@ export async function annotate(
     expectationsClosed: closed,
     expectationsReopened: reopened,
     casesResolved,
-    conditionsUpserted: conditions.upserted,
+    conditionsUpserted: [...conditions.upserted, ...unenrolled.resolved],
     optedOut: state.timeline.optedOut,
   };
 }
@@ -220,10 +204,19 @@ async function createExpectations(
       now: context.now,
       origin: context.origin ?? 'live',
     });
-    const result = await context.stores.expectations.upsertByIdempotencyKey(
+    let result = await context.stores.expectations.upsertByIdempotencyKey(
       context.clinicId,
       candidate,
     );
+    if (!result.created && result.expectation.patientId !== context.patientId) {
+      // The resource was first sent for another patient and its subject was
+      // corrected since (that patient's expectation was withdrawn): this
+      // patient gets an expectation of its own.
+      result = await context.stores.expectations.upsertByIdempotencyKey(context.clinicId, {
+        ...candidate,
+        idempotencyKey: `${draft.idempotencyKey}@${context.patientId}`,
+      });
+    }
     if (result.created) {
       created.push(result.expectation);
       live.put(result.expectation);
@@ -285,9 +278,9 @@ async function applyFulfillment(
 }
 
 /**
- * A cancelled appointment fulfills nothing: what its booking fulfilled is
- * open again, unless something else in the record (a visit, a new booking)
- * still fulfills it. A reopened expectation that is already due expires into
+ * A cancelled appointment (or a withdrawn result) fulfills nothing: what it
+ * fulfilled is open again, unless something else in the record (a visit, a
+ * new booking, another result) still fulfills it. A reopened expectation that is already due expires into
  * a case at the next watcher run, like any other.
  */
 async function reopenCancelled(
@@ -295,11 +288,7 @@ async function reopenCancelled(
   state: PatientState,
   events: readonly ClinicalEvent[],
 ): Promise<Expectation[]> {
-  const cancelled = new Set(
-    events.flatMap((event) =>
-      event.type === 'appointment.cancelled' ? [refKey(event.source)] : [],
-    ),
-  );
+  const cancelled = new Set(withdrawnSources(events).keys());
   if (cancelled.size === 0) {
     return [];
   }

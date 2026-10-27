@@ -3,8 +3,10 @@ import type {
   ClinicalEventType,
   Coding,
   PlanExtractedEvent,
+  RecordWithdrawalReason,
   ResourceRef,
 } from '@follow-up-engine/core';
+import { firstDate } from '../support/datetime.ts';
 import { ENGINE_CODE_SYSTEMS } from '../terminology.ts';
 import type { IssueCode, IssueSeverity, MappingIssue } from '../support/operation-outcome.ts';
 import type { BundleIndex, IndexedEntry } from './bundle-index.ts';
@@ -106,6 +108,24 @@ export function createEntryContext(
         idempotencyKey: `${entry.ref.resourceType}/${entry.ref.id}/${entry.version}#${type}`,
       };
     },
+  };
+}
+
+/**
+ * A resource the host sent before no longer stands (an order revoked, a
+ * diagnosis refuted, anything entered in error): one `record.withdrawn`
+ * event, dated by `meta.lastUpdated` (else the reception time). The engine
+ * withdraws what it derived from the resource.
+ */
+export function withdrawal(
+  ctx: EntryContext,
+  scope: { readonly patientId: string; readonly encounterId?: string },
+  reason: RecordWithdrawalReason,
+  lastUpdated: string | undefined,
+): MappedResource {
+  return {
+    ...scope,
+    events: [{ ...ctx.base('record.withdrawn', firstDate(lastUpdated)), reason }],
   };
 }
 

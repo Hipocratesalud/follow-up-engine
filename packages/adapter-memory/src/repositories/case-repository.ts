@@ -54,6 +54,7 @@ export class MemoryCaseRepository implements CaseRepository {
     this.#db = db;
   }
 
+  // Transactions are serialized: a read is always the latest, no lock needed.
   get(clinicId: ClinicId, id: CaseId): Promise<FollowUpCase | undefined> {
     return Promise.resolve(this.#db.state.cases.get(tenantKey(clinicId, id)));
   }
@@ -92,6 +93,16 @@ export class MemoryCaseRepository implements CaseRepository {
     }
     this.#db.setIn(this.#db.state.cases, key, value);
     return Promise.resolve();
+  }
+
+  setPriority(clinicId: ClinicId, id: CaseId, priority: number): Promise<boolean> {
+    const key = tenantKey(clinicId, id);
+    const stored = this.#db.state.cases.get(key);
+    if (stored === undefined || !isActive(stored)) {
+      return Promise.resolve(false);
+    }
+    this.#db.setIn(this.#db.state.cases, key, { ...stored, priority });
+    return Promise.resolve(true);
   }
 
   list(clinicId: ClinicId, query: CaseListQuery): Promise<CasePage> {

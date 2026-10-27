@@ -49,6 +49,13 @@ export const ProtocolSchema = z.strictObject({
       )
       .optional(),
   }),
+  /**
+   * Specialties whose visits count as this protocol's control (engine
+   * specialty codes, for example `diabetology`). A visit of another
+   * specialty neither fulfills nor re-anchors a visit item, unless it is with
+   * the patient's treating practitioner. Any specialty when absent.
+   */
+  specialties: z.array(z.string().min(1)).min(1).optional(),
   /** Case group of every item (see `Rule.caseGroup`). Defaults to the protocol reason code. */
   caseGroup: ConfigIdSchema.optional(),
   items: z
