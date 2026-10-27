@@ -4,49 +4,75 @@
  * note. Matching ignores case, accents, curly vs straight quotes and
  * whitespace runs (doctors write "Plan:  ctrl" and models echo "plan: ctrl"),
  * and returns the span exactly as written in the note.
+ *
+ * Every function here is linear in the note length: the normalized text is
+ * built once into an array and joined, and its map back to the note has one
+ * entry per UTF-16 code unit of the normalized text, so emoji and other
+ * astral characters (two code units) never shift a span.
  */
 
 const QUOTE_EDGES = /^[\s"'“”‘’«»`]+|[\s"'“”‘’«»`]+$/g;
+const WHITESPACE = /\s/u;
+const MARKS = /\p{M}/gu;
 
+const normalizedChars = new Map<string, string>();
+
+/** Lowercase, no combining marks, straight quotes. Memoized per code point. */
 function normalizeChar(char: string): string {
-  return char
+  const cached = normalizedChars.get(char);
+  if (cached !== undefined) return cached;
+  const normalized = char
     .normalize('NFD')
-    .replace(/\p{M}/gu, '')
+    .replace(MARKS, '')
     .toLowerCase()
     .replace(/[“”«»]/g, '"')
     .replace(/[‘’`]/g, "'");
+  if (normalizedChars.size < 10_000) normalizedChars.set(char, normalized);
+  return normalized;
 }
 
-interface NormalizedText {
+/** A note in comparison form, with the way back to the original text. */
+export interface NormalizedText {
+  /** Lowercase, no accents, whitespace runs collapsed to one space, trimmed. */
   readonly text: string;
-  /** For each normalized character, the [start, end) range in the source string. */
-  readonly spans: readonly (readonly [number, number])[];
+  /**
+   * For each UTF-16 code unit of `text`, the start and end (exclusive) of
+   * the source code point(s) it came from, as UTF-16 indices into the source.
+   */
+  readonly starts: Uint32Array;
+  readonly ends: Uint32Array;
 }
 
-function normalizeWithSpans(source: string): NormalizedText {
-  let text = '';
-  const spans: [number, number][] = [];
+/** Normalizes `source` once, keeping a per-code-unit map back to it. Linear time. */
+export function normalizeWithSpans(source: string): NormalizedText {
+  const parts: string[] = [];
+  const starts: number[] = [];
+  const ends: number[] = [];
+  let pendingSpace: [number, number] | undefined;
   let index = 0;
   for (const char of source) {
     const start = index;
     index += char.length;
-    if (/\s/u.test(char)) {
-      if (text.length > 0 && !text.endsWith(' ')) {
-        text += ' ';
-        spans.push([start, index]);
-      }
+    if (WHITESPACE.test(char)) {
+      // Collapse a run into one space, emitted only if text follows it.
+      if (parts.length > 0) pendingSpace ??= [start, index];
       continue;
     }
-    for (const normalized of normalizeChar(char)) {
-      text += normalized;
-      spans.push([start, index]);
+    const normalized = normalizeChar(char);
+    if (normalized.length === 0) continue;
+    if (pendingSpace) {
+      parts.push(' ');
+      starts.push(pendingSpace[0]);
+      ends.push(pendingSpace[1]);
+      pendingSpace = undefined;
+    }
+    parts.push(normalized);
+    for (let units = normalized.length; units > 0; units -= 1) {
+      starts.push(start);
+      ends.push(index);
     }
   }
-  if (text.endsWith(' ')) {
-    text = text.slice(0, -1);
-    spans.pop();
-  }
-  return { text, spans };
+  return { text: parts.join(''), starts: Uint32Array.from(starts), ends: Uint32Array.from(ends) };
 }
 
 /** The comparison form of a string: lowercase, no accents, single spaces. */
@@ -54,16 +80,64 @@ export function normalizeForMatch(value: string): string {
   return normalizeWithSpans(value).text;
 }
 
+/** A located quote: the verbatim note text and its UTF-16 range in the note. */
+export interface QuoteSpan {
+  readonly text: string;
+  readonly start: number;
+  readonly end: number;
+  /** The same quote's range in the normalized text. */
+  readonly normalizedStart: number;
+  readonly normalizedEnd: number;
+}
+
+/**
+ * A note prepared for many quote lookups: normalized once, then each lookup
+ * is one `indexOf` over the normalized text.
+ */
+export interface QuoteIndex {
+  readonly source: string;
+  readonly normalized: NormalizedText;
+  /** Finds `quote` (normalized comparison) and returns its verbatim span, or `undefined`. */
+  locate(quote: string): QuoteSpan | undefined;
+  /** Maps `[start, end)` of the normalized text to the verbatim source span. */
+  spanOf(start: number, end: number): QuoteSpan | undefined;
+}
+
+export function createQuoteIndex(source: string): QuoteIndex {
+  const normalized = normalizeWithSpans(source);
+  const spanOf = (start: number, end: number): QuoteSpan | undefined => {
+    if (start < 0 || end <= start || end > normalized.text.length) return undefined;
+    const from = normalized.starts[start];
+    const to = normalized.ends[end - 1];
+    if (from === undefined || to === undefined) return undefined;
+    return {
+      text: source.slice(from, to),
+      start: from,
+      end: to,
+      normalizedStart: start,
+      normalizedEnd: end,
+    };
+  };
+  return {
+    source,
+    normalized,
+    spanOf,
+    locate(quote) {
+      const needle = normalizeForMatch(quote.replace(QUOTE_EDGES, ''));
+      if (needle.length === 0) return undefined;
+      const at = normalized.text.indexOf(needle);
+      return at < 0 ? undefined : spanOf(at, at + needle.length);
+    },
+  };
+}
+
 /**
  * Maps the range `[start, end)` of `normalizeForMatch(source)` back to the
- * verbatim text of `source`.
+ * verbatim text of `source`. Builds an index per call: for many lookups on
+ * the same note use {@link createQuoteIndex}.
  */
 export function originalSpan(source: string, start: number, end: number): string {
-  const { spans } = normalizeWithSpans(source);
-  const first = spans[start];
-  const last = spans[Math.max(start, end - 1)];
-  if (!first || !last) return '';
-  return source.slice(first[0], last[1]);
+  return createQuoteIndex(source).spanOf(start, Math.max(start + 1, end))?.text ?? '';
 }
 
 /**
@@ -71,13 +145,5 @@ export function originalSpan(source: string, start: number, end: number): string
  * span verbatim from the note, or `undefined` when it is not there.
  */
 export function locateQuote(note: string, quote: string): string | undefined {
-  const needle = normalizeForMatch(quote.replace(QUOTE_EDGES, ''));
-  if (needle.length === 0) return undefined;
-  const haystack = normalizeWithSpans(note);
-  const at = haystack.text.indexOf(needle);
-  if (at < 0) return undefined;
-  const first = haystack.spans[at];
-  const last = haystack.spans[at + needle.length - 1];
-  if (!first || !last) return undefined;
-  return note.slice(first[0], last[1]);
+  return createQuoteIndex(note).locate(quote)?.text;
 }

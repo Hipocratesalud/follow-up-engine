@@ -8,6 +8,12 @@ export interface NoteExtractionInput {
   readonly text: string;
   readonly specialty?: string;
   readonly authoredAt: Date;
+  /**
+   * The patient's names and identifiers, for the extractor to mask before the
+   * note leaves for a model (never sent). Filled by the composition root from
+   * the Patient resource the host sent; the engine itself passes none.
+   */
+  readonly redactTerms?: readonly string[];
 }
 
 /** A condition the model read from the note. */

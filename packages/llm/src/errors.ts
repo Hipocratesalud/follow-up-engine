@@ -52,10 +52,18 @@ export class LlmTimeoutError extends LlmProviderError {
  * schema. Carries the raw reply and the validation issues so the gateway can
  * ask the model to repair it once, and the usage so the failed call is still
  * accounted for.
+ *
+ * The message is built from `summary` only, never from the reply: messages
+ * end up in logs, `jobs.error`, `llm_calls.error` and API errors, and a
+ * reply can quote the note. `rawOutput` and `issues` (which may echo the
+ * reply) stay on the object for the repair round trip and are never logged.
  */
 export class LlmSchemaError extends LlmOutputError {
   readonly rawOutput: string;
+  /** Validation issues for the repair prompt. May echo model output: never log it. */
   readonly issues: string;
+  /** Log-safe description: issue codes and schema paths, no model text. */
+  readonly summary: string;
   readonly usage: DetailedUsage;
   readonly model: string;
   /**
@@ -70,14 +78,17 @@ export class LlmSchemaError extends LlmOutputError {
       readonly model: string;
       readonly rawOutput: string;
       readonly issues: string;
+      /** Log-safe description; must not contain model output. */
+      readonly summary: string;
       readonly usage: DetailedUsage;
       readonly repairable: boolean;
       readonly cause?: unknown;
     },
   ) {
-    super(provider, `Model output does not match the schema: ${details.issues}`, {
+    super(provider, `Model output does not match the schema: ${details.summary}`, {
       cause: details.cause,
     });
+    this.summary = details.summary;
     this.model = details.model;
     this.rawOutput = details.rawOutput;
     this.issues = details.issues;

@@ -257,11 +257,19 @@ function readReply(
   const message = isRecord(choice) ? choice['message'] : undefined;
   const finishReason = isRecord(choice) ? choice['finish_reason'] : undefined;
   const unusable = (issues: string, raw = ''): LlmSchemaError =>
-    new LlmSchemaError(provider, { model, rawOutput: raw, issues, usage, repairable: false });
+    new LlmSchemaError(provider, {
+      model,
+      rawOutput: raw,
+      issues,
+      summary: issues,
+      usage,
+      repairable: false,
+    });
 
   if (!isRecord(message)) throw unusable('response has no choices[0].message');
   if (typeof message['refusal'] === 'string' && message['refusal'].length > 0) {
-    throw unusable(`model refused: ${message['refusal']}`);
+    // The refusal text is model output (it can quote the note): not kept.
+    throw unusable('model refused');
   }
   if (finishReason === 'content_filter') throw unusable('reply stopped by the content filter');
 

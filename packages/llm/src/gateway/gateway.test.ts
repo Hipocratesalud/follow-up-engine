@@ -70,6 +70,7 @@ const schemaError = (raw: string): LlmSchemaError =>
     model: 'p-model',
     rawOutput: raw,
     issues: '✖ Invalid input: expected string, received number\n  → at value',
+    summary: '1 schema issue(s): value: invalid_type',
     usage: { inputTokens: 1_000_000, outputTokens: 0 },
     repairable: true,
   });
@@ -340,6 +341,7 @@ describe('llm gateway', () => {
         model: 'p-model',
         rawOutput: '{"va',
         issues: 'truncated',
+        summary: 'truncated',
         usage: { inputTokens: 1, outputTokens: 1 },
         repairable: false,
       });

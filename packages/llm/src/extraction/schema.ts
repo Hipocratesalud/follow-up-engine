@@ -58,8 +58,19 @@ export const ModelPlanItemSchema = z.object({
   confidence: z.number().describe('0 to 1.'),
 });
 
+export const ModelDischargeSchema = z
+  .object({
+    evidenceQuote: z
+      .string()
+      .describe('Exact substring of the note where the clinician discharges the patient.'),
+  })
+  .describe(
+    'Set only when the clinician explicitly ends follow-up in this specialty ("se da de alta"); otherwise null.',
+  );
+
 export const ModelExtractionSchema = z.object({
   hasPlan: z.boolean().describe('Whether the note states any follow-up plan.'),
+  discharge: ModelDischargeSchema.nullable(),
   conditions: z.array(ModelConditionSchema),
   medications: z.array(ModelMedicationSchema),
   planItems: z.array(ModelPlanItemSchema),
@@ -69,6 +80,7 @@ export type ModelTiming = z.infer<typeof ModelTimingSchema>;
 export type ModelCondition = z.infer<typeof ModelConditionSchema>;
 export type ModelMedication = z.infer<typeof ModelMedicationSchema>;
 export type ModelPlanItem = z.infer<typeof ModelPlanItemSchema>;
+export type ModelDischarge = z.infer<typeof ModelDischargeSchema>;
 export type ModelExtraction = z.infer<typeof ModelExtractionSchema>;
 
 /** Name of the structured output, sent to providers that name response formats. */

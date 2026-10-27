@@ -2,6 +2,7 @@ import { ICD10_SYSTEM } from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import {
   clampConfidence,
+  MAX_ITEM_CONFIDENCE,
   isValidLoinc,
   normalizeIcd10,
   postProcessExtraction,
@@ -14,7 +15,13 @@ const note = {
   authoredAt: new Date('2025-03-10T12:00:00Z'),
 };
 
-const empty: ModelExtraction = { hasPlan: false, conditions: [], medications: [], planItems: [] };
+const empty: ModelExtraction = {
+  hasPlan: false,
+  discharge: null,
+  conditions: [],
+  medications: [],
+  planItems: [],
+};
 
 function plan(item: Partial<ModelPlanItem>): ModelPlanItem {
   return {
@@ -51,6 +58,7 @@ describe('postProcessExtraction', () => {
     const result = postProcessExtraction(
       {
         hasPlan: true,
+        discharge: null,
         conditions: [
           { icd10: 'e11.9', display: 'Type 2 diabetes', confidence: 0.95, evidenceQuote: 'dm2' },
         ],
@@ -68,7 +76,7 @@ describe('postProcessExtraction', () => {
     expect(result.conditions).toEqual([
       {
         code: { system: ICD10_SYSTEM, code: 'E11.9', display: 'Type 2 diabetes' },
-        confidence: 0.95,
+        confidence: 0.9,
         evidenceQuote: 'DM2',
       },
     ]);
@@ -96,6 +104,7 @@ describe('postProcessExtraction', () => {
     const result = postProcessExtraction(
       {
         hasPlan: true,
+        discharge: null,
         conditions: [{ icd10: 'E78', display: '', confidence: 0.8, evidenceQuote: 'dislipidemia' }],
         medications: [
           { text: 'atorvastatina 20 mg', duration: null, evidenceQuote: 'atorvastatina 20 mg' },
@@ -127,7 +136,7 @@ describe('postProcessExtraction', () => {
       },
       note,
     );
-    expect(result.conditions[0]?.confidence).toBe(1);
+    expect(result.conditions[0]?.confidence).toBe(MAX_ITEM_CONFIDENCE);
     expect(result.conditions[0]?.code).toEqual({ system: ICD10_SYSTEM, code: 'I10' });
     expect(result.planItems[0]?.confidence).toBe(0);
     expect(result.rejected).toEqual([
@@ -139,6 +148,7 @@ describe('postProcessExtraction', () => {
     const result = postProcessExtraction(
       {
         hasPlan: true,
+        discharge: null,
         conditions: [
           { icd10: 'E11', display: '', confidence: 0.6, evidenceQuote: 'DM2' },
           { icd10: 'E11', display: 'T2DM', confidence: 0.9, evidenceQuote: 'DM2' },
@@ -163,6 +173,7 @@ describe('postProcessExtraction', () => {
     const result = postProcessExtraction(
       {
         hasPlan: true,
+        discharge: null,
         conditions: [],
         medications: [],
         planItems: [
@@ -183,7 +194,7 @@ describe('postProcessExtraction', () => {
       ['follow_up_visit', '2025-06-10T12:00:00.000Z'],
     ]);
     expect(result.rejected).toEqual([
-      { field: 'planItem', reason: 'no_due_date', evidenceQuote: 'Plan:' },
+      { field: 'planItem', reason: 'quote_unrelated', evidenceQuote: 'Plan:' },
     ]);
   });
 
@@ -192,6 +203,7 @@ describe('postProcessExtraction', () => {
       {
         ...empty,
         hasPlan: true,
+        discharge: null,
         planItems: [plan({ kind: 'lab', timing: null, evidenceQuote: 'HbA1c' })],
       },
       note,

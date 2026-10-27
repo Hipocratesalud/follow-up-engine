@@ -36,7 +36,11 @@ export {
   type StructuredLlmProvider,
   type StructuredOutputMode,
 } from './providers/chat-completions.ts';
-export { extractJsonText, parseStructuredOutput } from './providers/structured-output.ts';
+export {
+  extractJsonText,
+  issueSummary,
+  parseStructuredOutput,
+} from './providers/structured-output.ts';
 export {
   META_API_BASE_URL,
   META_DEFAULT_MODEL,
@@ -86,15 +90,30 @@ export {
   NOTE_EXTRACTION_SYSTEM_PROMPT,
   NOTE_EXTRACTION_TASK,
   buildExtractionMessages,
+  sanitizeSpecialty,
 } from './extraction/prompt.ts';
+export {
+  MAX_NOTE_CHARS,
+  REDACTION_PLACEHOLDER,
+  prepareNote,
+  type PreparedNote,
+} from './extraction/prepare.ts';
+export { DEFAULT_CONDITION_TERMS, type ConditionTermTable } from './extraction/condition-terms.ts';
 export {
   EXTRACTION_OUTPUT_NAME,
   ModelExtractionSchema,
   type ModelExtraction,
 } from './extraction/schema.ts';
-export { LOINC_SYSTEM, isValidLoinc, postProcessExtraction } from './extraction/post-process.ts';
+export {
+  LOINC_SYSTEM,
+  MAX_ITEM_CONFIDENCE,
+  isValidLoinc,
+  postProcessExtraction,
+  type PostProcessNote,
+  type PostProcessOptions,
+} from './extraction/post-process.ts';
 export { addInterval, resolveDueAt } from './extraction/due-date.ts';
-export { locateQuote, normalizeForMatch } from './extraction/quote.ts';
+export { createQuoteIndex, locateQuote, normalizeForMatch } from './extraction/quote.ts';
 export {
   ExpectedExtractionSchema,
   ExtractionFixtureSchema,
@@ -111,6 +130,7 @@ export type {
   DetailedNoteExtraction,
   ExtractedCondition,
   ExtractedMedication,
+  ExtractionWarning,
   NoteExtraction,
   NoteExtractionInput,
   NoteExtractor,
