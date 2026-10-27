@@ -37,6 +37,7 @@ import {
   MemorySuppressionRepository,
 } from './repositories/contact-repository.ts';
 import { MemoryExpectationRepository } from './repositories/expectation-repository.ts';
+import { MemoryPlanItemReviewLog } from './repositories/plan-item-review-log.ts';
 import {
   MemoryAuditLog,
   MemoryConditionRepository,
@@ -58,6 +59,7 @@ export interface MemoryStores extends TransactionalStores {
   readonly clinicalFindings: MemoryClinicalFindingRepository;
   readonly reviewRuns: MemoryClinicalReviewRunRepository;
   readonly findingFlags: MemoryFindingFlagRepository;
+  readonly planItemReviews: MemoryPlanItemReviewLog;
 }
 
 /** Builds every memory store over one database. */
@@ -78,6 +80,7 @@ export function createMemoryStores(db: MemoryDatabase, clock: Clock): MemoryStor
     clinicalFindings: new MemoryClinicalFindingRepository(db),
     reviewRuns: new MemoryClinicalReviewRunRepository(db),
     findingFlags: new MemoryFindingFlagRepository(db),
+    planItemReviews: new MemoryPlanItemReviewLog(db),
   };
 }
 

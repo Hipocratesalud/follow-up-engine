@@ -2,6 +2,7 @@ import type { Origin } from './common.ts';
 import type { DismissReason } from './contact.ts';
 import type { CaseId, ClinicId, ExpectationId, FeedbackId, PatientId } from './ids.ts';
 import type { JsonObject } from '../shared/json.ts';
+import type { PlanItemReviewType } from './plan-item-review.ts';
 
 export const CASE_STATUSES = [
   'open',
@@ -94,7 +95,8 @@ export type CaseEventType =
   | 'dismissed'
   | 'reopened'
   | 'lost_to_follow_up'
-  | 'feedback_recorded';
+  | 'feedback_recorded'
+  | PlanItemReviewType;
 
 /** Who caused a case event. `id` is a rule id, host user id or patient id. */
 export interface CaseEventActor {

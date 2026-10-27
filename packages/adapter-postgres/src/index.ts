@@ -54,6 +54,7 @@ export {
   type ClinicRegistration,
 } from './clinic-directory.ts';
 export { PostgresLlmUsageLog } from './llm-usage-log.ts';
+export { PostgresPlanItemReviewLog } from './plan-item-review-log.ts';
 export {
   PostgresClinicalFindingRepository,
   PostgresClinicalReviewRunRepository,

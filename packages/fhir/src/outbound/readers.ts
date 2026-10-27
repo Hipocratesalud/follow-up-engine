@@ -113,6 +113,11 @@ export function taskToExpectation(task: Task, clinicId: ClinicId | string): Expe
     codeIn(task.reasonCode, ENGINE_CODE_SYSTEMS.reason),
     'Task.reasonCode',
   );
+  const confirmedBy = stringExt(ext, ENGINE_EXTENSIONS.confirmedBy);
+  const confirmedAt = optionalDate(
+    findExtension(ext, ENGINE_EXTENSIONS.confirmedAt)?.valueDateTime,
+  );
+  const correctionOf = findExtension(ext, ENGINE_EXTENSIONS.correctionOf)?.valueReference;
   return {
     id: toExpectationId(required(task.id, 'Task.id')),
     clinicId: toClinicId(clinicId),
@@ -147,6 +152,11 @@ export function taskToExpectation(task: Task, clinicId: ClinicId | string): Expe
     ...(protocolVersion === undefined ? {} : { protocolVersion }),
     reason: { code: reasonCode, label: required(task.reasonCode?.text, 'Task.reasonCode.text') },
     ...(evidence === undefined ? {} : { evidence }),
+    ...(confirmedBy === undefined ? {} : { confirmedBy }),
+    ...(confirmedAt === undefined ? {} : { confirmedAt }),
+    ...(correctionOf === undefined
+      ? {}
+      : { correctionOf: toExpectationId(refOf(correctionOf, 'Task.extension:correctionOf').id) }),
     createdAt: date(task.authoredOn, 'Task.authoredOn'),
     updatedAt: date(task.lastModified, 'Task.lastModified'),
   };

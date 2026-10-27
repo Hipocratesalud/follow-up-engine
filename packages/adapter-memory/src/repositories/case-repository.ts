@@ -1,5 +1,7 @@
 import {
   ACTIVE_CASE_STATUSES,
+  type CaseCount,
+  type CaseFilter,
   type CaseId,
   type CaseListQuery,
   type CasePage,
@@ -10,6 +12,9 @@ import {
   InvalidCursorError,
   type FollowUpCase,
   NotFoundError,
+  type PatientCasePage,
+  type PatientCases,
+  type PatientQueueQuery,
   TenantMismatchError,
 } from '@follow-up-engine/core';
 import { type MemoryDatabase, tenantKey } from '../memory-database.ts';
@@ -45,6 +50,34 @@ function comparator(
         a.createdAt.getTime() - b.createdAt.getTime() ||
         a.id.localeCompare(b.id);
   }
+}
+
+function parseOffset(cursor: string | undefined): number {
+  if (cursor === undefined) {
+    return 0;
+  }
+  if (!/^\d{1,9}$/.test(cursor)) {
+    throw new InvalidCursorError();
+  }
+  return Number(cursor);
+}
+
+function oldest(cases: readonly FollowUpCase[]): number {
+  return Math.min(...cases.map((followUpCase) => followUpCase.createdAt.getTime()));
+}
+
+/** Patient order of the queue, the same as the Postgres adapter's keyset order. */
+function patientComparator(
+  orderBy: PatientQueueQuery['orderBy'],
+): (a: PatientCases, b: PatientCases) => number {
+  const byId = (a: PatientCases, b: PatientCases): number =>
+    a.patientId < b.patientId ? -1 : a.patientId > b.patientId ? 1 : 0;
+  if (orderBy === 'created_at') {
+    return (a, b) => oldest(a.cases) - oldest(b.cases) || byId(a, b);
+  }
+  const top = (item: PatientCases): number =>
+    Math.max(...item.cases.map((followUpCase) => followUpCase.priority));
+  return (a, b) => top(b) - top(a) || oldest(a.cases) - oldest(b.cases) || byId(a, b);
 }
 
 /** In-memory {@link CaseRepository}. Cursors are opaque offsets. */
@@ -107,29 +140,67 @@ export class MemoryCaseRepository implements CaseRepository {
   }
 
   list(clinicId: ClinicId, query: CaseListQuery): Promise<CasePage> {
-    const matching = this.#all(clinicId)
-      .filter(
-        (followUpCase) =>
-          (query.statuses === undefined || query.statuses.includes(followUpCase.status)) &&
-          (query.patientId === undefined || followUpCase.patientId === query.patientId) &&
-          (query.assignee === undefined || followUpCase.assignee === query.assignee) &&
-          (query.origin === undefined || followUpCase.origin === query.origin) &&
-          (query.releasedAsOf === undefined ||
-            followUpCase.releaseAt === undefined ||
-            followUpCase.releaseAt.getTime() <= query.releasedAsOf.getTime()) &&
-          (query.unreleasedAsOf === undefined ||
-            (followUpCase.releaseAt !== undefined &&
-              followUpCase.releaseAt.getTime() > query.unreleasedAsOf.getTime())),
-      )
-      .sort(comparator(query.orderBy));
-    if (query.cursor !== undefined && !/^\d{1,9}$/.test(query.cursor)) {
-      throw new InvalidCursorError();
-    }
-    const offset = query.cursor === undefined ? 0 : Number(query.cursor);
+    const matching = this.#matching(clinicId, {
+      ...query,
+      ...(query.patientId === undefined ? {} : { patientIds: [query.patientId] }),
+    }).sort(comparator(query.orderBy));
+    const offset = parseOffset(query.cursor);
     const items = matching.slice(offset, offset + query.limit);
     const next = offset + items.length;
     return Promise.resolve(
       next < matching.length ? { items, nextCursor: String(next) } : { items },
+    );
+  }
+
+  listPatients(clinicId: ClinicId, query: PatientQueueQuery): Promise<PatientCasePage> {
+    try {
+      return Promise.resolve(this.#patientPage(clinicId, query));
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  #patientPage(clinicId: ClinicId, query: PatientQueueQuery): PatientCasePage {
+    const order = query.orderBy ?? 'priority';
+    const byPatient = new Map<string, FollowUpCase[]>();
+    for (const followUpCase of this.#matching(clinicId, query).sort(comparator(order))) {
+      const cases = byPatient.get(followUpCase.patientId) ?? [];
+      cases.push(followUpCase);
+      byPatient.set(followUpCase.patientId, cases);
+    }
+    const patients: PatientCases[] = [...byPatient.values()].map((cases) => ({
+      patientId: cases[0]?.patientId ?? ('' as FollowUpCase['patientId']),
+      cases,
+    }));
+    patients.sort(patientComparator(order));
+    const offset = parseOffset(query.cursor);
+    const items = patients.slice(offset, offset + query.limit);
+    const next = offset + items.length;
+    return next < patients.length ? { items, nextCursor: String(next) } : { items };
+  }
+
+  count(clinicId: ClinicId, filter: CaseFilter): Promise<CaseCount> {
+    const matching = this.#matching(clinicId, filter);
+    return Promise.resolve({
+      cases: matching.length,
+      patients: new Set(matching.map((followUpCase) => followUpCase.patientId)).size,
+    });
+  }
+
+  #matching(clinicId: ClinicId, query: CaseFilter): FollowUpCase[] {
+    const patientIds = query.patientIds === undefined ? undefined : new Set(query.patientIds);
+    return this.#all(clinicId).filter(
+      (followUpCase) =>
+        (query.statuses === undefined || query.statuses.includes(followUpCase.status)) &&
+        (patientIds === undefined || patientIds.has(followUpCase.patientId)) &&
+        (query.assignee === undefined || followUpCase.assignee === query.assignee) &&
+        (query.origin === undefined || followUpCase.origin === query.origin) &&
+        (query.releasedAsOf === undefined ||
+          followUpCase.releaseAt === undefined ||
+          followUpCase.releaseAt.getTime() <= query.releasedAsOf.getTime()) &&
+        (query.unreleasedAsOf === undefined ||
+          (followUpCase.releaseAt !== undefined &&
+            followUpCase.releaseAt.getTime() > query.unreleasedAsOf.getTime())),
     );
   }
 

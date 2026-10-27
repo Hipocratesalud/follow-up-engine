@@ -20,6 +20,7 @@ import type {
   LlmCallRecord,
   PatientCondition,
   PatientId,
+  PlanItemReview,
   QualityFinding,
 } from '@follow-up-engine/core';
 
@@ -80,6 +81,7 @@ export interface MemoryState {
   readonly clinicalFindings: Map<string, ClinicalFinding>;
   readonly reviewRuns: Map<string, ClinicalReviewRun>;
   readonly findingFlags: Map<string, FindingFlag>;
+  readonly planItemReviews: PlanItemReview[];
   sequence: number;
 }
 
@@ -106,6 +108,7 @@ function emptyState(): MemoryState {
     clinicalFindings: new Map(),
     reviewRuns: new Map(),
     findingFlags: new Map(),
+    planItemReviews: [],
     sequence: 0,
   };
 }

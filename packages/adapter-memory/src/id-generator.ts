@@ -12,6 +12,7 @@ const PREFIXES: Readonly<Record<IdKind, string>> = {
   suppression: 'sup',
   clinical_finding: 'cf',
   review_run: 'rr',
+  plan_item_review: 'pir',
 };
 
 /** Deterministic ids (`case-1`, `exp-2`, ...) for tests and reproducible demos. */

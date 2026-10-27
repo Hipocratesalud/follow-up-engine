@@ -113,8 +113,18 @@ export const ENGINE_EXTENSIONS = {
   confidence: structureDefinition('follow-up-confidence'),
   /** Condition, `valueCode`: how the engine learned about it (`ConditionSourceType`). */
   conditionSource: structureDefinition('follow-up-condition-source'),
-  /** Condition, `valueString`: host user id of the clinician who confirmed it. */
+  /**
+   * Condition and Task (expectation), `valueString`: host user id of the
+   * clinician who confirmed it (a plan item the AI read, or its correction).
+   */
   confirmedBy: structureDefinition('follow-up-confirmed-by'),
+  /** Task (expectation), `valueDateTime`: when the clinician confirmed the plan item. */
+  confirmedAt: structureDefinition('follow-up-confirmed-at'),
+  /**
+   * Task (expectation), `valueReference` to the expectation Task this one
+   * corrected (that one is `cancelled`, `statusReason` `corrected_by_clinician`).
+   */
+  correctionOf: structureDefinition('follow-up-correction-of'),
   /** Condition (`refuted`), `valueString`: host user id of the clinician who rejected it. */
   refutedBy: structureDefinition('follow-up-refuted-by'),
   /** DetectedIssue (clinical finding), `valueCode`: `shadow` | `live`. */

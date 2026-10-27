@@ -13,6 +13,7 @@ import type {
   PlanItemKind,
   QualityFindingKind,
 } from '@follow-up-engine/core';
+import { patientQueueTimelineLabel, reviewClosedReasonLabel } from './patient-queue-labels.ts';
 
 /*
  * Spanish UI copy the API returns to the clinic inbox (neutral Spanish, "tú").
@@ -192,7 +193,9 @@ const CLOSED_REASON_LABELS: Readonly<Record<string, string>> = {
 
 /** Spanish reason an expectation closed, or `undefined` for a code without copy. */
 export function closedReasonLabel(reason: string | undefined): string | undefined {
-  return reason === undefined ? undefined : CLOSED_REASON_LABELS[reason];
+  return reason === undefined
+    ? undefined
+    : (CLOSED_REASON_LABELS[reason] ?? reviewClosedReasonLabel(reason));
 }
 
 /** One step of an escalation policy, as the inbox's escalation meter names it. */
@@ -301,7 +304,15 @@ export function timelineLabel(
       ...(ruleId === undefined ? {} : { ruleId }),
     });
   };
+  const patientQueue = patientQueueTimelineLabel(event);
+  if (patientQueue !== undefined) {
+    return patientQueue;
+  }
   switch (event.type) {
+    case 'plan_item_confirmed':
+    case 'plan_item_corrected':
+    case 'plan_item_rejected':
+      return reason();
     case 'opened':
       return `Caso abierto: ${reason()}`;
     case 'reason_added':

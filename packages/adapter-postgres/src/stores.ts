@@ -18,6 +18,7 @@ import { PostgresExpectationRepository } from './expectation-repository.ts';
 import { PostgresJobQueue } from './job-queue.ts';
 import { PostgresLlmUsageLog } from './llm-usage-log.ts';
 import { PostgresOutbox } from './outbox.ts';
+import { PostgresPlanItemReviewLog } from './plan-item-review-log.ts';
 import type { Queryable, Tables } from './sql.ts';
 
 /** Every Postgres store: the `TransactionalStores` of the port plus the registry, LLM accounting and backfill progress. */
@@ -39,6 +40,7 @@ export interface PostgresStores extends TransactionalStores {
   readonly clinicalFindings: PostgresClinicalFindingRepository;
   readonly reviewRuns: PostgresClinicalReviewRunRepository;
   readonly findingFlags: PostgresFindingFlagRepository;
+  readonly planItemReviews: PostgresPlanItemReviewLog;
 }
 
 export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): PostgresStores {
@@ -61,5 +63,6 @@ export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): P
     clinicalFindings: new PostgresClinicalFindingRepository(ctx),
     reviewRuns: new PostgresClinicalReviewRunRepository(ctx),
     findingFlags: new PostgresFindingFlagRepository(ctx),
+    planItemReviews: new PostgresPlanItemReviewLog(ctx),
   };
 }

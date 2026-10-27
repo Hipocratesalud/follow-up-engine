@@ -3,6 +3,8 @@ import {
   InvalidCursorError,
   NotFoundError,
   TenantMismatchError,
+  type CaseCount,
+  type CaseFilter,
   type CaseId,
   type CaseListQuery,
   type CasePage,
@@ -14,7 +16,10 @@ import {
   type ClinicId,
   type FollowUpCase,
   type Origin,
+  type PatientCasePage,
+  type PatientCases,
   type PatientId,
+  type PatientQueueQuery,
 } from '@follow-up-engine/core';
 import { reviveDate } from './codec.ts';
 import {
@@ -110,6 +115,7 @@ function toParams(value: FollowUpCase): unknown[] {
 export { InvalidCursorError };
 
 type CaseOrder = NonNullable<CaseListQuery['orderBy']>;
+type PatientOrder = `patients_${NonNullable<PatientQueueQuery['orderBy']>}`;
 
 /**
  * Keyset pagination: every ordering is expressed as an ascending tuple of
@@ -141,7 +147,53 @@ const ORDERS: Readonly<Record<CaseOrder, OrderSpec>> = {
   },
 };
 
-function encodeCursor(order: CaseOrder, values: readonly (string | number)[]): string {
+/**
+ * Keyset orders of the patient queue, over the per-patient aggregates of the
+ * matching cases (`top_priority`, `first_created_at`). `COLLATE "C"`: the
+ * same byte order as the memory adapter.
+ */
+interface PatientOrderSpec {
+  readonly keys: readonly string[];
+  /** The same keys, qualified by the `page` CTE. */
+  readonly pageKeys: string;
+  readonly casts: readonly string[];
+  readonly cursorOf: (row: PatientKeyRow) => readonly (string | number)[];
+}
+
+interface PatientKeyRow {
+  readonly patient_id: string;
+  readonly top_priority: number;
+  readonly first_created_at: Date;
+}
+
+const PATIENT_ORDERS: Readonly<Record<PatientOrder, PatientOrderSpec>> = {
+  patients_priority: {
+    keys: ['-top_priority', 'first_created_at', 'patient_id COLLATE "C"'],
+    pageKeys: '-page.top_priority, page.first_created_at, page.patient_id COLLATE "C"',
+    casts: ['integer', 'timestamptz', 'text'],
+    cursorOf: (row) => [-row.top_priority, row.first_created_at.toISOString(), row.patient_id],
+  },
+  patients_created_at: {
+    keys: ['first_created_at', 'patient_id COLLATE "C"'],
+    pageKeys: 'page.first_created_at, page.patient_id COLLATE "C"',
+    casts: ['timestamptz', 'text'],
+    cursorOf: (row) => [row.first_created_at.toISOString(), row.patient_id],
+  },
+};
+
+function orderSpec(order: CaseOrder | PatientOrder): {
+  readonly keys: readonly string[];
+  readonly casts: readonly string[];
+} {
+  return order in PATIENT_ORDERS
+    ? PATIENT_ORDERS[order as PatientOrder]
+    : ORDERS[order as CaseOrder];
+}
+
+function encodeCursor(
+  order: CaseOrder | PatientOrder,
+  values: readonly (string | number)[],
+): string {
   return Buffer.from(JSON.stringify([order, ...values])).toString('base64url');
 }
 
@@ -161,14 +213,17 @@ function fitsCast(value: unknown, cast: string): boolean {
   }
 }
 
-function decodeCursor(order: CaseOrder, cursor: string): readonly (string | number)[] {
+function decodeCursor(
+  order: CaseOrder | PatientOrder,
+  cursor: string,
+): readonly (string | number)[] {
   let decoded: unknown;
   try {
     decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
   } catch {
     throw new InvalidCursorError();
   }
-  const spec = ORDERS[order];
+  const spec = orderSpec(order);
   if (
     !Array.isArray(decoded) ||
     decoded[0] !== order ||
@@ -178,6 +233,51 @@ function decodeCursor(order: CaseOrder, cursor: string): readonly (string | numb
     throw new InvalidCursorError();
   }
   return decoded.slice(1) as (string | number)[];
+}
+
+/** `AND ...` conditions of a case filter; values are appended to `params`. */
+function filterClause(filter: CaseFilter, params: unknown[]): string {
+  const conditions: string[] = [];
+  const add = (value: unknown, cast: string, condition: (placeholder: string) => string) => {
+    params.push(value);
+    conditions.push(condition(`$${String(params.length)}::${cast}`));
+  };
+  if (filter.statuses !== undefined) {
+    add(filter.statuses, 'text[]', (p) => `status = ANY(${p})`);
+  }
+  if (filter.patientIds !== undefined) {
+    add(filter.patientIds, 'text[]', (p) => `patient_id = ANY(${p})`);
+  }
+  if (filter.assignee !== undefined) {
+    add(filter.assignee, 'text', (p) => `assignee = ${p}`);
+  }
+  if (filter.origin !== undefined) {
+    add(filter.origin, 'text', (p) => `origin = ${p}`);
+  }
+  if (filter.releasedAsOf !== undefined) {
+    add(filter.releasedAsOf, 'timestamptz', (p) => `(release_at IS NULL OR release_at <= ${p})`);
+  }
+  if (filter.unreleasedAsOf !== undefined) {
+    add(filter.unreleasedAsOf, 'timestamptz', (p) => `release_at > ${p}`);
+  }
+  return conditions.map((condition) => `AND ${condition}`).join(' ');
+}
+
+/** `AND (keys) > (cursor)` for the next page, or nothing for the first one. */
+function keysetClause(
+  order: CaseOrder | PatientOrder,
+  spec: { readonly keys: readonly string[]; readonly casts: readonly string[] },
+  cursor: string | undefined,
+  params: unknown[],
+): string {
+  if (cursor === undefined) {
+    return '';
+  }
+  const placeholders = decodeCursor(order, cursor).map((value, index) => {
+    params.push(value);
+    return `$${String(params.length)}::${spec.casts[index] ?? 'text'}`;
+  });
+  return `AND (${spec.keys.join(', ')}) > (${placeholders.join(', ')})`;
 }
 
 export class PostgresCaseRepository implements CaseRepository {
@@ -265,35 +365,19 @@ export class PostgresCaseRepository implements CaseRepository {
   async list(clinicId: ClinicId, query: CaseListQuery): Promise<CasePage> {
     const order = query.orderBy ?? 'priority';
     const spec = ORDERS[order];
-    const params: unknown[] = [
-      clinicId,
-      query.statuses ?? null,
-      query.patientId ?? null,
-      query.assignee ?? null,
-      query.origin ?? null,
-      query.releasedAsOf ?? null,
-      query.unreleasedAsOf ?? null,
-    ];
-    let keyset = '';
-    if (query.cursor !== undefined) {
-      const values = decodeCursor(order, query.cursor);
-      const placeholders = values.map((value, index) => {
-        params.push(value);
-        return `$${String(params.length)}::${spec.casts[index] ?? 'text'}`;
-      });
-      keyset = `AND (${spec.keys.join(', ')}) > (${placeholders.join(', ')})`;
-    }
+    const params: unknown[] = [clinicId];
+    const where = filterClause(
+      {
+        ...query,
+        ...(query.patientId === undefined ? {} : { patientIds: [query.patientId] }),
+      },
+      params,
+    );
+    const keyset = keysetClause(order, spec, query.cursor, params);
     params.push(query.limit + 1);
     const { rows } = await this.#ctx.db().query<CaseRow>(
       `SELECT ${COLUMNS} FROM ${this.#ctx.tables.follow_up_cases}
-       WHERE clinic_id = $1
-         AND ($2::text[] IS NULL OR status = ANY($2::text[]))
-         AND ($3::text IS NULL OR patient_id = $3)
-         AND ($4::text IS NULL OR assignee = $4)
-         AND ($5::text IS NULL OR origin = $5)
-         AND ($6::timestamptz IS NULL OR release_at IS NULL OR release_at <= $6)
-         AND ($7::timestamptz IS NULL OR release_at > $7)
-         ${keyset}
+       WHERE clinic_id = $1 ${where} ${keyset}
        ORDER BY ${spec.keys.join(', ')}
        LIMIT $${String(params.length)}`,
       params,
@@ -304,6 +388,68 @@ export class PostgresCaseRepository implements CaseRepository {
     return rows.length > query.limit && last !== undefined
       ? { items, nextCursor: encodeCursor(order, spec.cursorOf(last)) }
       : { items };
+  }
+
+  async listPatients(clinicId: ClinicId, query: PatientQueueQuery): Promise<PatientCasePage> {
+    const order: PatientOrder = `patients_${query.orderBy ?? 'priority'}`;
+    const spec = PATIENT_ORDERS[order];
+    const params: unknown[] = [clinicId];
+    const where = filterClause(query, params);
+    const keyset = keysetClause(order, spec, query.cursor, params);
+    params.push(query.limit + 1);
+    const caseOrder =
+      order === 'patients_priority' ? 'm.priority DESC, m.created_at, m.id' : 'm.created_at, m.id';
+    // One page of patients (limit + 1 to know whether another page follows),
+    // ranked on the aggregates of their matching cases, then those cases.
+    const { rows } = await this.#ctx.db().query<CaseRow & PatientKeyRow>(
+      `WITH matching AS (
+         SELECT ${COLUMNS} FROM ${this.#ctx.tables.follow_up_cases}
+         WHERE clinic_id = $1 ${where}
+       ),
+       patients AS (
+         SELECT patient_id, max(priority)::integer AS top_priority,
+                min(created_at) AS first_created_at
+         FROM matching GROUP BY patient_id
+       ),
+       page AS (
+         SELECT * FROM patients WHERE true ${keyset}
+         ORDER BY ${spec.keys.join(', ')}
+         LIMIT $${String(params.length)}
+       )
+       SELECT m.*, page.top_priority, page.first_created_at
+       FROM page JOIN matching m ON m.patient_id = page.patient_id
+       ORDER BY ${spec.pageKeys}, ${caseOrder}`,
+      params,
+    );
+    const patients: { key: PatientKeyRow; cases: FollowUpCase[] }[] = [];
+    for (const row of rows) {
+      const current = patients.at(-1);
+      if (current?.key.patient_id === row.patient_id) {
+        current.cases.push(toCase(row));
+      } else {
+        patients.push({ key: row, cases: [toCase(row)] });
+      }
+    }
+    const page = patients.slice(0, query.limit);
+    const items: PatientCases[] = page.map((patient) => ({
+      patientId: patient.key.patient_id as PatientId,
+      cases: patient.cases,
+    }));
+    const last = page.at(-1);
+    return patients.length > query.limit && last !== undefined
+      ? { items, nextCursor: encodeCursor(order, spec.cursorOf(last.key)) }
+      : { items };
+  }
+
+  async count(clinicId: ClinicId, filter: CaseFilter): Promise<CaseCount> {
+    const params: unknown[] = [clinicId];
+    const where = filterClause(filter, params);
+    const { rows } = await this.#ctx.db().query<{ patients: number; cases: number }>(
+      `SELECT count(DISTINCT patient_id)::integer AS patients, count(*)::integer AS cases
+       FROM ${this.#ctx.tables.follow_up_cases} WHERE clinic_id = $1 ${where}`,
+      params,
+    );
+    return { patients: rows[0]?.patients ?? 0, cases: rows[0]?.cases ?? 0 };
   }
 
   async findDueForAction(

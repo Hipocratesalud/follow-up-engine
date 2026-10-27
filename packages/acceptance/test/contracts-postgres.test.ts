@@ -15,6 +15,7 @@ import {
   describeJobQueueContract,
   describeLlmUsageLogContract,
   describeOutboxContract,
+  describePlanItemReviewLogContract,
   describeQualityFindingRepositoryContract,
   describeSuppressionRepositoryContract,
   describeUnitOfWorkContract,
@@ -88,6 +89,10 @@ describe.skipIf(!POSTGRES_ENABLED)(postgresTitle('contract suites'), () => {
   describeFindingFlagRepositoryContract(
     NAME,
     store((s) => s.findingFlags),
+  );
+  describePlanItemReviewLogContract(
+    NAME,
+    store((s) => s.planItemReviews),
   );
 
   describeOutboxContract(NAME, () => {

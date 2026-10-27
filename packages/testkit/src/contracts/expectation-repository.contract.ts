@@ -1,4 +1,9 @@
-import { caseId, type ExpectationRepository, patientId } from '@follow-up-engine/core';
+import {
+  caseId,
+  expectationId,
+  type ExpectationRepository,
+  patientId,
+} from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import { anExpectation } from './builders.ts';
 import {
@@ -89,9 +94,21 @@ export function describeExpectationRepositoryContract(
         evidence: { quote: 'ctrl en 3 meses', sourceDocumentId: 'doc-1' },
         recheckAt: at(12),
         severity: 'critical',
+        confirmedBy: 'dra-mora',
+        confirmedAt: at(2),
+        correctionOf: expectationId('exp-read-by-the-ai'),
       });
       await repo().upsertByIdempotencyKey(a, full);
       expect(await repo().get(a, full.id)).toEqual(full);
+    });
+
+    it('records a clinician confirmation on update (HIP-141)', async () => {
+      const { a } = freshClinics();
+      const item = anExpectation(a, { layer: 'doctor_plan' });
+      await repo().upsertByIdempotencyKey(a, item);
+      const confirmed = { ...item, confirmedBy: 'dr-rivas', confirmedAt: at(1), updatedAt: at(1) };
+      await repo().update(a, confirmed);
+      expect(await repo().get(a, item.id)).toEqual(confirmed);
     });
 
     it('finds fulfilled expectations to recheck by recheckAt, honouring the limit', async () => {

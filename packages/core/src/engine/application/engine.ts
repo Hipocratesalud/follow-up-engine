@@ -52,6 +52,7 @@ import {
 import { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from '../settings.ts';
 import { runWatcher, type WatcherReport } from '../watcher/watcher.ts';
 import { type ConditionCommands, createConditionCommands } from './condition-commands.ts';
+import { createPlanItemCommands, type PlanItemCommands } from './plan-item-commands.ts';
 import { ingest, type IngestReport, runNoteExtractionJob } from './ingest.ts';
 
 /** The ports the engine runs on. Apps wire adapters (Postgres, memory, LLM) into them. */
@@ -152,6 +153,8 @@ export interface FollowUpEngine {
   ): Promise<IngestReport>;
   readonly cases: CaseCommands;
   readonly conditions: ConditionCommands;
+  /** Clinician review of AI-read plan items: confirm, correct, reject (HIP-141). */
+  readonly planItems: PlanItemCommands;
   readonly backfill: BackfillCommands;
   readonly contacts: ContactCommands;
   readonly suppressions: SuppressionCommands;
@@ -221,6 +224,7 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
         planBackfillRelease({ ...shared, clinics: deps.clinics }, clinicId, now),
     },
     conditions: createConditionCommands({ ...shared, clock: deps.clock }),
+    planItems: createPlanItemCommands({ ...shared, clock: deps.clock }),
     contacts: {
       recordCommunication: (clinicId, input) =>
         recordCommunication(

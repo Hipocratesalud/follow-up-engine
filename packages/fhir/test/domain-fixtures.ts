@@ -306,3 +306,58 @@ export const revokedSuppression: RuleSuppression = {
   revokedBy: 'user-doctor-7',
   revokedAt: new Date('2026-05-02T09:00:00Z'),
 };
+
+/**
+ * HIP-141: plan items a clinician reviewed. The AI read "control en 3 meses"
+ * as due on April 5; the clinician confirmed one reading, corrected another
+ * (the replacement points at it) and rejected a third.
+ */
+const readPlanItem: Expectation = {
+  ...openExpectation,
+  id: expectationId('exp-plan-0003'),
+  idempotencyKey: 'DocumentReference/note-1#doctor_plan_followup#visit@2026-04-05',
+  ruleId: 'doctor_plan_followup',
+  layer: 'doctor_plan',
+  source: { resourceType: 'DocumentReference', id: 'note-1' },
+  matchKey: 'visit',
+  dueAt: new Date('2026-04-05T12:00:00Z'),
+  reason: { code: 'doctor_plan_followup', label: 'Seguimiento indicado por el médico' },
+  evidence: { quote: 'Control en 3 meses con resultados.', sourceDocumentId: 'note-1' },
+};
+
+export const confirmedPlanExpectation: Expectation = {
+  ...readPlanItem,
+  confirmedBy: 'dra-mora',
+  confirmedAt: new Date('2026-01-06T10:00:00Z'),
+  updatedAt: new Date('2026-01-06T10:00:00Z'),
+};
+
+export const correctedPlanExpectation: Expectation = {
+  ...readPlanItem,
+  id: expectationId('exp-plan-0004'),
+  idempotencyKey: 'DocumentReference/note-1#doctor_plan_followup#visit@2026-04-06',
+  status: 'superseded',
+  closedReason: 'corrected_by_clinician',
+  closedAt: new Date('2026-01-06T10:00:00Z'),
+  updatedAt: new Date('2026-01-06T10:00:00Z'),
+};
+
+export const correctionExpectation: Expectation = {
+  ...confirmedPlanExpectation,
+  id: expectationId('exp-plan-0005'),
+  idempotencyKey: `${correctedPlanExpectation.idempotencyKey}#corrected:exp-plan-0004`,
+  dueAt: new Date('2026-07-05T12:00:00Z'),
+  correctionOf: correctedPlanExpectation.id,
+  createdAt: new Date('2026-01-06T10:00:00Z'),
+};
+
+export const rejectedPlanExpectation: Expectation = {
+  ...readPlanItem,
+  id: expectationId('exp-plan-0006'),
+  idempotencyKey: 'DocumentReference/note-1#doctor_plan_followup#lab@2026-04-05',
+  matchKey: 'lab',
+  status: 'cancelled',
+  closedReason: 'rejected_by_clinician',
+  closedAt: new Date('2026-01-06T10:00:00Z'),
+  updatedAt: new Date('2026-01-06T10:00:00Z'),
+};

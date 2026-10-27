@@ -104,6 +104,10 @@ export {
 export type { ContractSubject, MakeSubject } from './contracts/harness.ts';
 export { describeBackfillProgressStoreContract } from './contracts/backfill-progress.contract.ts';
 export {
+  aPlanItemReview,
+  describePlanItemReviewLogContract,
+} from './contracts/plan-item-review-log.contract.ts';
+export {
   aClinicalFinding,
   aReviewRun,
   describeClinicalFindingRepositoryContract,
