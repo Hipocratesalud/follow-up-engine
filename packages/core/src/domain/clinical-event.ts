@@ -18,6 +18,7 @@ export const CLINICAL_EVENT_TYPES = [
   'note.received',
   'plan.extracted',
   'patient.opted_out',
+  'patient.language_recorded',
   'record.withdrawn',
 ] as const;
 
@@ -152,6 +153,12 @@ export interface NoteReceivedEvent extends ClinicalEventBase {
   readonly specialty?: string;
   readonly authoredAt: Date;
   /**
+   * BCP-47 language the host says the note is written in (FHIR
+   * `DocumentReference.language` or its attachment's `language`,
+   * `Composition.language`). Absent: the extractor detects it.
+   */
+  readonly language?: string;
+  /**
    * Notes this one replaces (FHIR `relatesTo.code = replaces`): their plan
    * gives way to this note's. A new version of the same note replaces the
    * previous version without saying so.
@@ -182,6 +189,11 @@ export interface PlanExtractedEvent extends ClinicalEventBase {
   readonly discharged?: boolean;
   /** Which model and prompt produced the items, for provenance. */
   readonly extractor: { readonly model: string; readonly promptVersion: string };
+  /**
+   * BCP-47 language the note was read as (the host's, else detected). Quotes
+   * stay in it; it picks the lexicons of the deterministic checks.
+   */
+  readonly noteLanguage?: string;
   /** The note's `replacesDocumentIds`: their plan items give way to these. */
   readonly replacesDocumentIds?: readonly string[];
 }
@@ -193,6 +205,18 @@ export interface PlanExtractedEvent extends ClinicalEventBase {
  */
 export interface PatientOptedOutEvent extends ClinicalEventBase {
   readonly type: 'patient.opted_out';
+}
+
+/**
+ * The patient's preferred language for communication, as the host recorded
+ * it (FHIR `Patient.communication`, the `preferred` one first): a BCP-47
+ * tag. Absent: the host's Patient no longer states one. The latest event
+ * wins. The engine forwards it on every contact request so the host writes
+ * its message in that language; it never writes the message itself.
+ */
+export interface PatientLanguageRecordedEvent extends ClinicalEventBase {
+  readonly type: 'patient.language_recorded';
+  readonly language?: string;
 }
 
 /**
@@ -243,6 +267,7 @@ export type ClinicalEvent =
   | NoteReceivedEvent
   | PlanExtractedEvent
   | PatientOptedOutEvent
+  | PatientLanguageRecordedEvent
   | RecordWithdrawnEvent;
 
 /** The event variant with the given `type`. */

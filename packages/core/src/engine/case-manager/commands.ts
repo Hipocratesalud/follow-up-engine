@@ -18,7 +18,7 @@ import {
   withNextActionAt,
 } from '../escalation/schedule.ts';
 import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
-import { hasOptedOut, lastPatientContactAt } from '../patient-contact/history.ts';
+import { hasOptedOut, lastPatientContactAt, patientLanguage } from '../patient-contact/history.ts';
 import { decidePatientContact, PatientContactNotAllowedError } from '../patient-contact/policy.ts';
 import type { EngineSettings } from '../settings.ts';
 import { addDays } from '../support/time.ts';
@@ -271,6 +271,7 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
           ? undefined
           : catalog.definition(first.ruleId)?.suggestedAction.patientContactPurpose) ??
         'schedule_follow_up';
+      const language = await patientLanguage(stores, clinicId, current.patientId);
       const writer = new CaseWriter(stores, deps.ids, clinicId);
       await writer.audit(current, 'patient_contact_requested', actor, now, {
         purpose,
@@ -281,6 +282,7 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
         patientId: current.patientId,
         purpose,
         dueBy: addDays(now, deps.settings.patientContactDueInDays),
+        ...(language === undefined ? {} : { language }),
       });
       return current;
     });

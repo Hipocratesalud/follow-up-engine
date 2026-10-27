@@ -55,6 +55,12 @@ export interface PatientContactRequestedPayload {
   readonly patientId: PatientId;
   readonly purpose: PatientContactPurpose;
   readonly dueBy?: Date;
+  /**
+   * The patient's preferred language (BCP-47, from `Patient.communication`):
+   * the host writes its message in it. Absent: the host did not state one
+   * (the host falls back to the clinic's language).
+   */
+  readonly language?: string;
 }
 
 /** The initial backfill finished: every counter of the run. */

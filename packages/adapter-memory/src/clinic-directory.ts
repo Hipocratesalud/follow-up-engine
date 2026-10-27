@@ -7,6 +7,7 @@ import type {
   LlmUsageLog,
   LlmUsageSummary,
 } from '@follow-up-engine/core';
+import { DEFAULT_CLINIC_LOCALE } from '@follow-up-engine/core';
 import type { MemoryDatabase } from './memory-database.ts';
 
 /** Settings of a new clinic unless overridden (PRD defaults). */
@@ -16,6 +17,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   backfillNotifyMaxAgeDays: 730,
   llmMonthlyBudgetUsd: 50,
   timezone: 'America/Caracas',
+  locale: DEFAULT_CLINIC_LOCALE,
 };
 
 /** In-memory {@link ClinicDirectory}. */

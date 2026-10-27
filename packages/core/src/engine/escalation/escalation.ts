@@ -17,6 +17,7 @@ import {
   hasOptedOut,
   lastPatientContactAt,
   patientContactRequestTimes,
+  patientLanguage,
 } from '../patient-contact/history.ts';
 import {
   decidePatientContact,
@@ -398,6 +399,7 @@ class CaseEscalator {
         : catalog.definition(first.ruleId)?.suggestedAction.patientContactPurpose) ??
       'schedule_follow_up';
     const dueBy = addDays(now, deps.settings.patientContactDueInDays);
+    const language = await patientLanguage(stores, clinicId, current.patientId);
     await this.#writer.audit(current, 'patient_contact_requested', actor, now, {
       ...payload,
       purpose,
@@ -407,6 +409,7 @@ class CaseEscalator {
       patientId: current.patientId,
       purpose,
       dueBy,
+      ...(language === undefined ? {} : { language }),
     });
     report.contactsRequested.push(current.id);
     return decision;

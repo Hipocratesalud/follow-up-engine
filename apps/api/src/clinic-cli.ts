@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util';
-import { clinicId as toClinicId } from '@follow-up-engine/core';
+import { normalizeLanguageTag, clinicId as toClinicId } from '@follow-up-engine/core';
 import {
   API_KEY_SCOPES,
   type ApiKeyScope,
@@ -22,6 +22,9 @@ Registers a clinic (or updates one) and issues a scoped API key, printed once.
                              (demo:clock moves the shared fake clock of every clinic)
   --allow-patient-contact    Enable patient contact requests for a new clinic (default: off)
   --timezone <iana>          Clinic time zone for a new clinic (default: UTC)
+  --locale <bcp47>           Clinic locale, the language of API labels when the user's
+                             Accept-Language names none the engine has (default: en-US);
+                             also updates an existing clinic
   --help                     This help
 
 Needs DATABASE_URL (the same database the API uses).`;
@@ -71,6 +74,7 @@ export async function runClinicCommand(
         'allow-patient-contact': { type: 'boolean' },
         'allow-demo': { type: 'boolean' },
         timezone: { type: 'string' },
+        locale: { type: 'string' },
         help: { type: 'boolean' },
       },
       strict: true,
@@ -118,11 +122,21 @@ export async function runClinicCommand(
         'gets them, unless you pass --allow-demo.',
     );
   }
+  const locale = values.locale === undefined ? undefined : normalizeLanguageTag(values.locale);
+  if (values.locale !== undefined && locale === undefined) {
+    return fail(
+      `--locale ${values.locale} is not a BCP-47 language tag (for example en-US, es-VE).`,
+    );
+  }
   if (existing === undefined && values.name === undefined) {
     return fail(`Clinic ${id} does not exist: give --name to create it.`);
   }
   let action = 'unchanged';
-  if (existing === undefined || (values.name !== undefined && values.name !== existing.name)) {
+  const renamed =
+    existing !== undefined && values.name !== undefined && values.name !== existing.name;
+  const relocalized =
+    existing !== undefined && locale !== undefined && locale !== existing.settings.locale;
+  if (existing === undefined || renamed || relocalized) {
     await runtime.storage.registerClinic({
       id: toClinicId(id),
       name: values.name ?? existing?.name ?? id,
@@ -131,11 +145,20 @@ export async function runClinicCommand(
             settings: {
               allowPatientContact: values['allow-patient-contact'] === true,
               ...(values.timezone === undefined ? {} : { timezone: values.timezone }),
+              ...(locale === undefined ? {} : { locale }),
             },
           }
-        : { settings: existing.settings, active: existing.active }),
+        : {
+            settings: { ...existing.settings, ...(locale === undefined ? {} : { locale }) },
+            active: existing.active,
+          }),
     });
-    action = existing === undefined ? 'created' : 'renamed';
+    action =
+      existing === undefined
+        ? 'created'
+        : [renamed ? 'renamed' : '', relocalized ? `locale ${String(locale)}` : '']
+            .filter((part) => part !== '')
+            .join(', ');
   }
   const label = values.label ?? 'integration';
   const issued = await runtime.issueApiKey({

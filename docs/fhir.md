@@ -607,6 +607,7 @@ The host saves a consultation and sends this `transaction` (synthetic data; `pac
       "text": "Paciente femenina de 58 años con DM2 diagnosticada hace 6 años. Refiere buena adherencia a metformina.\nGlucemia en ayunas 168 mg/dL. PA 128/82 mmHg, IMC 31.\nImpresión: DM2 no controlada.\nPlan: continuar metformina 850 mg c/12h. Solicito HbA1c y perfil lipídico. Control en 3 meses con resultados.",
       "authoredAt": "2026-01-05T18:30:00.000Z",
       "specialty": "diabetology",
+      "language": "es",
       "clinicId": "clinic-demo",
       "patientId": "5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e01",
       "encounterId": "5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e03"

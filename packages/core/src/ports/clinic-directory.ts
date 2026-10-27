@@ -10,6 +10,13 @@ export interface ClinicSettings {
   readonly llmMonthlyBudgetUsd: number;
   /** IANA time zone. */
   readonly timezone: string;
+  /**
+   * BCP-47 locale of the clinic (default `en-US`): the language of the labels
+   * the API returns when the inbox user's `Accept-Language` names none the
+   * engine has, and of the clinical reviewer's findings. Independent of the
+   * language of its notes and of each patient's language (docs/adr/0006).
+   */
+  readonly locale: string;
 }
 
 /** A tenant of the engine. */

@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto';
-import type { Clinic, ClinicDirectory, ClinicId, ClinicSettings } from '@follow-up-engine/core';
+import {
+  DEFAULT_CLINIC_LOCALE,
+  type Clinic,
+  type ClinicDirectory,
+  type ClinicId,
+  type ClinicSettings,
+} from '@follow-up-engine/core';
 import { jsonParam, type RepositoryContext } from './sql.ts';
 
 /** Settings a clinic gets for every key it does not override. */
@@ -10,6 +16,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   backfillNotifyMaxAgeDays: 730,
   llmMonthlyBudgetUsd: 50,
   timezone: 'UTC',
+  locale: DEFAULT_CLINIC_LOCALE,
 };
 
 interface ClinicRow {
