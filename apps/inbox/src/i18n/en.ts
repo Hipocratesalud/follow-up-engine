@@ -1013,8 +1013,8 @@ const metrics: MetricsCopy = {
     version: (version) => `version ${version}`,
   },
   hours: (hours) => {
-    // Number(): the value may arrive as any numeric-like (tests pass a sample string).
-    const value = Number(hours);
+    // Intl, not toFixed: arithmetic and formatting only (the catalog test passes a boxed sample).
+    const value = hours;
     const one = new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
