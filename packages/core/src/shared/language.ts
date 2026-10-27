@@ -7,12 +7,18 @@
  * Spanish-speaking patients from Spanish notes.
  */
 
-/** Canonical form of a BCP-47 tag (`EN-us` → `en-US`), or `undefined` when it is not one. */
+/**
+ * Canonical form of a BCP-47 tag (`EN-us` → `en-US`), or `undefined` when it
+ * is not one. The primary language must be an ISO 639 code (2 or 3
+ * letters): BCP-47 syntax also admits 5 to 8 letters, which would read a
+ * word such as "Spanish" as a tag.
+ */
 export function normalizeLanguageTag(tag: string | undefined): string | undefined {
   const trimmed = tag?.trim().replaceAll('_', '-');
   if (trimmed === undefined || trimmed === '') return undefined;
   try {
-    return Intl.getCanonicalLocales(trimmed)[0];
+    const canonical = Intl.getCanonicalLocales(trimmed)[0];
+    return canonical !== undefined && /^[a-z]{2,3}(-|$)/.test(canonical) ? canonical : undefined;
   } catch {
     return undefined;
   }

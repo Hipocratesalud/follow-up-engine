@@ -14,6 +14,8 @@ describe('language tags', () => {
     expect(normalizeLanguageTag('')).toBeUndefined();
     expect(normalizeLanguageTag('Spanish please')).toBeUndefined();
     expect(normalizeLanguageTag('e')).toBeUndefined();
+    // Valid BCP-47 syntax, but a word, not an ISO 639 language.
+    expect(normalizeLanguageTag('Spanish')).toBeUndefined();
   });
 
   it('extracts the primary language', () => {
