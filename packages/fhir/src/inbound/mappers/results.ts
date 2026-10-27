@@ -4,6 +4,7 @@ import type {
   ResourceRef,
   ResultInterpretation,
   ResultReceivedEvent,
+  ResultSeverity,
 } from '@follow-up-engine/core';
 import { TERMINOLOGY } from '../../terminology.ts';
 import { firstDate } from '../../support/datetime.ts';
@@ -30,14 +31,62 @@ const WITHDRAWN_RESULT_STATUSES: Readonly<Record<string, RecordWithdrawalReason>
 /** v3 ObservationInterpretation codes read as abnormal (high, low, critical, abnormal). */
 const ABNORMAL_CODES = ['A', 'AA', 'H', 'HH', 'HU', 'L', 'LL', 'LU'] as const;
 const NORMAL_CODES = ['N'] as const;
+/** v3 ObservationInterpretation codes of a critical (panic) value. */
+const CRITICAL_CODES = ['AA', 'HH', 'LL'] as const;
+/** Wording of a critical value in an interpretation's text or display. */
+const CRITICAL_WORDING = /\b(?:critic[oa]|critical|panic|panico)\b/;
 
-/** Interpretation of an Observation from its v3 ObservationInterpretation codes. */
+function readsCritical(label: string): boolean {
+  return CRITICAL_WORDING.test(
+    label
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase(),
+  );
+}
+
+/**
+ * Severity of an abnormal result: `critical` when an interpretation is a v3
+ * critical code (`AA`, `HH`, `LL`) or reads critical / panic, else `mild`.
+ * `undefined` when the result is not abnormal.
+ */
+export function severityOf(
+  interpretations: readonly ConceptInput[] | undefined,
+): ResultSeverity | undefined {
+  const all = interpretations ?? [];
+  if (all.some(isCritical)) {
+    return 'critical';
+  }
+  return interpretationOf(all) === 'abnormal' ? 'mild' : undefined;
+}
+
+/** A v3 critical code, or an interpretation that reads critical / panic. */
+function isCritical(concept: ConceptInput): boolean {
+  return (
+    hasCode(concept, CRITICAL_CODES, TERMINOLOGY.observationInterpretation) ||
+    [concept.text, ...(concept.coding ?? []).map((coding) => coding.display ?? coding.code)].some(
+      (label) => label !== undefined && readsCritical(label),
+    )
+  );
+}
+
+/** The worst severity of several results. */
+function worstSeverity(
+  severities: readonly (ResultSeverity | undefined)[],
+): ResultSeverity | undefined {
+  if (severities.includes('critical')) {
+    return 'critical';
+  }
+  return severities.includes('mild') ? 'mild' : undefined;
+}
+
+/** Interpretation of an Observation from its v3 ObservationInterpretation codes (a critical value is abnormal). */
 export function interpretationOf(
   interpretations: readonly ConceptInput[] | undefined,
 ): ResultInterpretation {
   const all = interpretations ?? [];
   const system = TERMINOLOGY.observationInterpretation;
-  if (all.some((concept) => hasCode(concept, ABNORMAL_CODES, system))) {
+  if (all.some((concept) => hasCode(concept, ABNORMAL_CODES, system) || isCritical(concept))) {
     return 'abnormal';
   }
   if (all.some((concept) => hasCode(concept, NORMAL_CODES, system))) {
@@ -104,6 +153,47 @@ function parentReports(
   });
 }
 
+function optionalSeverity(severity: ResultSeverity | undefined): {
+  readonly severity?: ResultSeverity;
+} {
+  return severity === undefined ? {} : { severity };
+}
+
+/**
+ * A report entered in error (or cancelled) withdraws itself and the
+ * Observations it lists: the report's status applies to it as a whole, so
+ * its results no longer stand even when the host does not re-send each one
+ * (what they fulfilled is open again).
+ */
+function withdrawReport(
+  report: ParsedResourceOf<'DiagnosticReport'>,
+  ctx: EntryContext,
+  scope: { readonly patientId: string; readonly encounterId?: string },
+  reason: RecordWithdrawalReason,
+): MappedResource {
+  const own = withdrawal(ctx, scope, reason, report.meta?.lastUpdated);
+  const [event] = own.events;
+  if (event === undefined) {
+    return own;
+  }
+  const members = (report.result ?? []).flatMap((result) => {
+    const target =
+      result.reference === undefined ? undefined : ctx.bundle.resolve(result.reference);
+    return target?.resourceType === 'Observation' ? [target] : [];
+  });
+  return {
+    ...own,
+    events: [
+      event,
+      ...members.map((member) => ({
+        ...event,
+        source: { resourceType: member.resourceType, id: member.id },
+        idempotencyKey: `${event.idempotencyKey}:${member.resourceType}/${member.id}`,
+      })),
+    ],
+  };
+}
+
 /**
  * DiagnosticReport (final) → `result.received`. Its interpretation combines
  * the Observations it lists that are in the same bundle.
@@ -123,7 +213,7 @@ export function mapDiagnosticReport(
   };
   const withdrawn = WITHDRAWN_RESULT_STATUSES[report.status];
   if (withdrawn !== undefined) {
-    return withdrawal(ctx, scope, withdrawn, report.meta?.lastUpdated);
+    return withdrawReport(report, ctx, scope, withdrawn);
   }
   if (!RESULT_STATUSES.includes(report.status)) {
     ctx.report(
@@ -168,6 +258,9 @@ export function mapDiagnosticReport(
         code,
         interpretation: combine(
           members.map((observation) => interpretationOf(observation.interpretation)),
+        ),
+        ...optionalSeverity(
+          worstSeverity(members.map((observation) => severityOf(observation.interpretation))),
         ),
         ...(orderId === undefined ? {} : { basedOnOrderId: orderId }),
         ...(value === undefined ? {} : { value }),
@@ -235,6 +328,7 @@ export function mapObservation(
         ),
         code,
         interpretation: interpretationOf(observation.interpretation),
+        ...optionalSeverity(severityOf(observation.interpretation)),
         ...(orderId === undefined ? {} : { basedOnOrderId: orderId }),
         ...(value === undefined ? {} : { value }),
       },

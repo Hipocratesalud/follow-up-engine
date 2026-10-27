@@ -152,5 +152,6 @@ export function asOpen(expectation: Expectation): Expectation {
   delete open.closedReason;
   delete open.closedBy;
   delete open.caseId;
+  delete open.recheckAt;
   return open;
 }

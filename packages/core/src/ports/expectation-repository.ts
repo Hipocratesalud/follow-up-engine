@@ -36,6 +36,12 @@ export interface ExpectationRepository {
   /** Open expectations with `dueAt <= now`, by `dueAt` ascending. */
   findDue(clinicId: ClinicId, now: Date, limit: number): Promise<readonly Expectation[]>;
 
+  /**
+   * Fulfilled expectations with `recheckAt <= now` (fulfilled by a booking
+   * whose date and grace days passed), by `recheckAt` ascending then id.
+   */
+  findDueForRecheck(clinicId: ClinicId, now: Date, limit: number): Promise<readonly Expectation[]>;
+
   /** Replaces a stored expectation. Throws `NotFoundError` if it does not exist. */
   update(clinicId: ClinicId, expectation: Expectation): Promise<void>;
 }

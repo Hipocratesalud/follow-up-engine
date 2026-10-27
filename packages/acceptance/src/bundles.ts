@@ -108,13 +108,14 @@ export function encounterResource(
     readonly patientId: string;
     readonly specialty: string;
     readonly practitionerId?: string;
+    readonly status?: 'finished' | 'entered-in-error' | 'cancelled';
   },
 ): TestResource {
   return {
     resourceType: 'Encounter',
     id: input.id,
     meta: meta(input),
-    status: 'finished',
+    status: input.status ?? 'finished',
     class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
     serviceType: { coding: [{ system: SPECIALTY_SYSTEM, code: input.specialty }] },
     subject: { reference: `Patient/${input.patientId}` },
@@ -259,6 +260,33 @@ export function observationResource(
             },
           ],
         }),
+  };
+}
+
+/** A lab report (DiagnosticReport) listing Observations by id, answering an order. */
+export function diagnosticReportResource(
+  input: Versioned & {
+    readonly id: string;
+    readonly patientId: string;
+    readonly loinc: string;
+    readonly resultIds: readonly string[];
+    readonly basedOn?: string;
+    readonly status?: 'final' | 'entered-in-error' | 'cancelled';
+  },
+): TestResource {
+  return {
+    resourceType: 'DiagnosticReport',
+    id: input.id,
+    meta: meta(input),
+    status: input.status ?? 'final',
+    code: { coding: [{ system: LOINC, code: input.loinc }] },
+    subject: { reference: `Patient/${input.patientId}` },
+    ...(input.basedOn === undefined
+      ? {}
+      : { basedOn: [{ reference: `ServiceRequest/${input.basedOn}` }] }),
+    effectiveDateTime: input.at.toISOString(),
+    issued: input.at.toISOString(),
+    result: input.resultIds.map((id) => ({ reference: `Observation/${id}` })),
   };
 }
 

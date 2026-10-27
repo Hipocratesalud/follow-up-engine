@@ -82,10 +82,18 @@ export const MATCH_STRATEGIES = ['same_order', 'same_code', 'same_specialty', 'a
 export type MatchStrategy = (typeof MATCH_STRATEGIES)[number];
 
 /**
- * Days a booked appointment may fall after the due date and still fulfill
- * the expectation, unless the correlation says otherwise (`toleranceDays`).
+ * Minimum days a booked appointment may fall after the due date and still
+ * fulfill the expectation, unless the correlation says otherwise
+ * (`toleranceDays`).
  */
 export const DEFAULT_BOOKING_TOLERANCE_DAYS = 3;
+
+/**
+ * Share of the expectation's interval (trigger to due date) a booked
+ * appointment may fall after the due date, when that is more than
+ * `toleranceDays`: 14 days on a 3-month control, 27 on a 6-month one.
+ */
+export const DEFAULT_BOOKING_TOLERANCE_FRACTION = 0.15;
 
 export const EventCorrelationSchema = z.strictObject({
   event: z.enum(CLINICAL_EVENT_TYPES),
@@ -97,11 +105,18 @@ export const EventCorrelationSchema = z.strictObject({
    */
   forKinds: z.array(z.enum(PLAN_ITEM_KINDS)).min(1).optional(),
   /**
-   * For `appointment.booked`: how many days after the expectation's due date
-   * the appointment may be scheduled and still count. Defaults to
+   * For `appointment.booked`: at least how many days after the expectation's
+   * due date the appointment may be scheduled and still count. Defaults to
    * {@link DEFAULT_BOOKING_TOLERANCE_DAYS}.
    */
   toleranceDays: z.number().int().nonnegative().optional(),
+  /**
+   * For `appointment.booked`: the share of the expectation's interval the
+   * appointment may fall after the due date, when larger than
+   * `toleranceDays` (`0` keeps the tolerance fixed). Defaults to
+   * {@link DEFAULT_BOOKING_TOLERANCE_FRACTION}.
+   */
+  toleranceFraction: z.number().min(0).max(1).optional(),
 });
 export type EventCorrelation = z.infer<typeof EventCorrelationSchema>;
 

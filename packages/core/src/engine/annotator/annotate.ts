@@ -7,6 +7,7 @@ import { closeExpectation, resolveSatisfiedCases } from '../case-manager/reconci
 import {
   findFulfillment,
   fulfillmentReason,
+  type MatchContext,
   supersedes,
   toCorrelationTarget,
 } from '../matching/correlation.ts';
@@ -19,11 +20,12 @@ import {
 import { type PatientTimeline, refKey } from '../timeline.ts';
 import { conditionCandidates, mergeCondition } from './conditions.ts';
 import type { AnnotationContext, AnnotationHints, ClosedExpectation } from './context.ts';
-import { type ExpectationDraft, materializeExpectation } from './draft.ts';
+import { type ExpectationDraft, materializeExpectation, movedIdempotencyKey } from './draft.ts';
 import { cadenceDrafts } from './layers/cadence.ts';
 import { doctorPlanDrafts } from './layers/doctor-plan.ts';
 import { protocolDrafts } from './layers/protocol.ts';
 import { plannedItems, universalDrafts } from './layers/universal.ts';
+import { recheckAtFor, recheckFulfilled } from './recheck.ts';
 import { retractByLaterInformation } from './retract.ts';
 import {
   cancelWithdrawn,
@@ -37,7 +39,11 @@ export type { AnnotationContext, AnnotationHints, ClosedExpectation } from './co
 export interface AnnotationResult {
   readonly expectationsCreated: readonly Expectation[];
   readonly expectationsClosed: readonly ClosedExpectation[];
-  /** Fulfilled by an appointment that was then cancelled: open again (or expired, for the watcher). */
+  /**
+   * Fulfilled by something the batch withdrew or changed (a booking
+   * cancelled or rescheduled, a visit or result withdrawn): open again (or
+   * expired, for the watcher).
+   */
   readonly expectationsReopened: readonly Expectation[];
   readonly casesResolved: readonly CaseId[];
   readonly conditionsUpserted: readonly PatientCondition[];
@@ -100,7 +106,7 @@ export async function annotate(
   closed.push(...(await cancelWithdrawn(context, state, ordered)));
   const unenrolled = await withdrawConditions(context, state, ordered, conditions.all);
   closed.push(...unenrolled.closed);
-  const reopened = await reopenCancelled(context, state, ordered);
+  const reopened = await recheckTouched(context, state, ordered);
   // Information that arrives after what it decides (a discharge or a
   // conditional return in a later note, the doctor's own control, an order
   // of the test a protocol expected) withdraws it, as if it came together.
@@ -241,7 +247,7 @@ async function createExpectations(
       // patient gets an expectation of its own.
       result = await context.stores.expectations.upsertByIdempotencyKey(context.clinicId, {
         ...candidate,
-        idempotencyKey: `${draft.idempotencyKey}@${context.patientId}`,
+        idempotencyKey: movedIdempotencyKey(draft.idempotencyKey, context.patientId),
       });
     }
     if (result.created) {
@@ -274,7 +280,7 @@ async function applyFulfillment(
       if (definition === undefined) {
         continue;
       }
-      const target = toCorrelationTarget(expectation, definition, timeline);
+      const target = toCorrelationTarget(expectation, definition, timeline, matchContext(context));
       let next: Expectation | undefined;
       if (supersedes(event, target, timeline)) {
         next = await closeExpectation(
@@ -293,6 +299,7 @@ async function applyFulfillment(
           fulfillmentReason(event),
           context.now,
           event.source,
+          recheckAtFor(event, context.settings.bookingVisitGraceDays),
         );
       }
       if (next !== undefined) {
@@ -304,19 +311,41 @@ async function applyFulfillment(
   return closed;
 }
 
+/** What a match needs from the annotation: its "now" and the booking grace days. */
+function matchContext(context: AnnotationContext): MatchContext {
+  return { now: context.now, bookingGraceDays: context.settings.bookingVisitGraceDays };
+}
+
 /**
- * A cancelled appointment (or a withdrawn result) fulfills nothing: what it
- * fulfilled is open again, unless something else in the record (a visit, a
- * new booking, another result) still fulfills it. A reopened expectation that is already due expires into
- * a case at the next watcher run, like any other.
+ * Resources the batch changes the standing of: withdrawn (a cancelled,
+ * no-show or erroneous booking, any `record.withdrawn`) or replaced by a
+ * new version (a rescheduled booking).
  */
-async function reopenCancelled(
+function touchedSources(events: readonly ClinicalEvent[]): Set<string> {
+  const touched = new Set(withdrawnSources(events).keys());
+  for (const event of events) {
+    if (event.type === 'appointment.booked') {
+      touched.add(refKey(event.source));
+    }
+  }
+  return touched;
+}
+
+/**
+ * What a withdrawn or changed resource fulfilled is decided again against
+ * the record: a cancelled booking, a booking rescheduled past the due date,
+ * a visit or result withdrawn fulfill nothing, so the expectation is open
+ * again unless something else in the record (a visit, a new booking,
+ * another result) still fulfills it. A reopened expectation that is already
+ * due expires into a case at the next watcher run, like any other.
+ */
+async function recheckTouched(
   context: AnnotationContext,
   state: PatientState,
   events: readonly ClinicalEvent[],
 ): Promise<Expectation[]> {
-  const cancelled = new Set(withdrawnSources(events).keys());
-  if (cancelled.size === 0) {
+  const touched = touchedSources(events);
+  if (touched.size === 0) {
     return [];
   }
   const fulfilled = await context.stores.expectations.listByPatient(
@@ -326,33 +355,21 @@ async function reopenCancelled(
   );
   const reopened: Expectation[] = [];
   for (const expectation of fulfilled) {
-    const definition = context.catalog.definition(expectation.ruleId);
-    if (
-      expectation.closedBy === undefined ||
-      !cancelled.has(refKey(expectation.closedBy)) ||
-      definition === undefined
-    ) {
+    if (expectation.closedBy === undefined || !touched.has(refKey(expectation.closedBy))) {
       continue;
     }
-    const target = toCorrelationTarget(expectation, definition, state.timeline);
-    const stillFulfilled = state.timeline.events.some(
-      (event) => findFulfillment(event, target, state.timeline) !== undefined,
-    );
-    if (stillFulfilled) {
-      continue;
+    const outcome = await recheckFulfilled({
+      stores: context.stores,
+      catalog: context.catalog,
+      timeline: state.timeline,
+      expectation,
+      now: context.now,
+      graceDays: context.settings.bookingVisitGraceDays,
+    });
+    if (outcome.kind === 'reopened') {
+      state.live.put(outcome.expectation);
+      reopened.push(outcome.expectation);
     }
-    const open: { -readonly [K in keyof Expectation]: Expectation[K] } = {
-      ...expectation,
-      status: 'open',
-      updatedAt: context.now,
-    };
-    delete open.closedAt;
-    delete open.closedReason;
-    delete open.closedBy;
-    delete open.caseId;
-    await context.stores.expectations.update(context.clinicId, open);
-    state.live.put(open);
-    reopened.push(open);
   }
   return reopened;
 }
@@ -377,7 +394,12 @@ async function fulfillFromRecord(
     if (definition === undefined) {
       continue;
     }
-    const target = toCorrelationTarget(expectation, definition, state.timeline);
+    const target = toCorrelationTarget(
+      expectation,
+      definition,
+      state.timeline,
+      matchContext(context),
+    );
     const event = record.find(
       (candidate) => findFulfillment(candidate, target, state.timeline) !== undefined,
     );
@@ -389,6 +411,7 @@ async function fulfillFromRecord(
         fulfillmentReason(event),
         context.now,
         event.source,
+        recheckAtFor(event, context.settings.bookingVisitGraceDays),
       );
       state.live.put(next);
       closed.push({ expectation: next, closedBy: event.type });

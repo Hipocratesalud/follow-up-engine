@@ -38,10 +38,24 @@ export interface ClinicalEventBase {
    * idempotent. Convention: `<resourceType>/<id>/<versionId>#<event type>`.
    */
   readonly idempotencyKey: string;
+  /**
+   * When the host recorded the version of `source` the event was derived
+   * from (FHIR `meta.lastUpdated`), if known. Orders the versions of one
+   * resource where the clinical time cannot: a rescheduled Appointment keeps
+   * its original `created`.
+   */
+  readonly recordedAt?: Date;
 }
 
 export type ServiceCategory = 'laboratory' | 'imaging' | 'other';
 export type ResultInterpretation = 'normal' | 'abnormal' | 'unknown';
+/**
+ * How far an abnormal result is from normal: `critical` for a panic value
+ * (FHIR interpretation `HH`, `LL`, `AA`, or one labelled critical / panic),
+ * `mild` for any other abnormal flag.
+ */
+export const RESULT_SEVERITIES = ['mild', 'critical'] as const;
+export type ResultSeverity = (typeof RESULT_SEVERITIES)[number];
 export type ConditionVerification = 'confirmed' | 'provisional';
 export const PLAN_ITEM_KINDS = ['follow_up_visit', 'lab', 'imaging', 'session', 'other'] as const;
 export type PlanItemKind = (typeof PLAN_ITEM_KINDS)[number];
@@ -92,6 +106,8 @@ export interface ResultReceivedEvent extends ClinicalEventBase {
   readonly basedOnOrderId?: string;
   readonly code: Coding;
   readonly interpretation: ResultInterpretation;
+  /** Present for abnormal results: `critical` for a panic value, else `mild`. */
+  readonly severity?: ResultSeverity;
   /** Numeric value (FHIR `Observation.valueQuantity`), when the result has one. */
   readonly value?: { readonly value: number; readonly unit?: string };
 }

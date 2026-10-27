@@ -13,6 +13,8 @@ export interface ExpectationDraft {
   readonly dueAt: Date;
   readonly idempotencyKey: string;
   readonly evidence?: Evidence;
+  /** `critical`: triggered by a panic result. */
+  readonly severity?: 'critical';
 }
 
 /**
@@ -26,6 +28,16 @@ export function expectationIdempotencyKey(
 ): string {
   const base = `${refKey(source)}#${ruleId}`;
   return discriminator === undefined ? base : `${base}#${discriminator}`;
+}
+
+/**
+ * The idempotency key of an expectation created for `patientId` when the
+ * resource that triggers it was first sent for another patient (its subject
+ * was corrected since): the original key belongs to that patient's
+ * withdrawn expectation.
+ */
+export function movedIdempotencyKey(idempotencyKey: string, patientId: string): string {
+  return `${idempotencyKey}@${patientId}`;
 }
 
 export interface MaterializeContext {
@@ -59,6 +71,7 @@ export function materializeExpectation(
       : { protocolId: definition.protocol.id, protocolVersion: definition.protocol.version }),
     reason: definition.reason,
     ...(draft.evidence === undefined ? {} : { evidence: draft.evidence }),
+    ...(draft.severity === undefined ? {} : { severity: draft.severity }),
     createdAt: context.now,
     updatedAt: context.now,
   };

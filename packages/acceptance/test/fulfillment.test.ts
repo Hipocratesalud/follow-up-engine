@@ -140,7 +140,7 @@ function fulfillment(makeHarness: (options: HarnessOptions) => Promise<EngineHar
           loinc: '2823-3',
           value: 6.4,
           unit: 'mmol/L',
-          interpretation: 'HH',
+          interpretation: 'H',
           encounterId: 'ot-e1',
           at: dayToDate(0),
         }),
@@ -163,6 +163,10 @@ function fulfillment(makeHarness: (options: HarnessOptions) => Promise<EngineHar
       status: 'fulfilled',
       closedBy: { resourceType: 'Appointment', id: 'ot-ap1' },
     });
+    // The patient keeps the appointment.
+    await day(harness, 6, [
+      consultation({ patient, id: 'ot-e2', at: 6, specialty: 'internal_medicine' }),
+    ]);
 
     // A second abnormal result, nobody books: the case opens at day 17.
     await day(harness, 10, [
@@ -173,7 +177,7 @@ function fulfillment(makeHarness: (options: HarnessOptions) => Promise<EngineHar
           loinc: '2823-3',
           value: 6.6,
           unit: 'mmol/L',
-          interpretation: 'HH',
+          interpretation: 'H',
           encounterId: 'ot-e1',
           at: dayToDate(10),
         }),
