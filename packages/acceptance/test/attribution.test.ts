@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import {
   appointmentResource,
   encounterResource,
+  labOrderResource,
   noteResource,
   transactionOf,
 } from '../src/bundles.ts';
@@ -272,6 +273,67 @@ function attribution(makeHarness: (options: HarnessOptions) => Promise<EngineHar
     });
     // The contact request was the first action, the day the case opened.
     expect(metrics.timeToFirstAction).toMatchObject({ measured: 1, pending: 0, medianHours: 0 });
+  });
+
+  it('a booking that answers the patient card contact request is attributed on every case it covered', async () => {
+    const harness = await makeHarness(options('patient-card'));
+    const patient = 'p-card';
+    // The plan visit (case on day 20) and an HbA1c with no result (an earlier case).
+    await day(harness, 1, [
+      consultation(patient),
+      transactionOf(
+        labOrderResource({
+          id: `sr-${patient}`,
+          patientId: patient,
+          loinc: '4548-4',
+          authoredOn: dayToDate(1),
+          version: 1,
+          at: dayToDate(1),
+        }),
+      ),
+    ]);
+    await days(harness, 2, OPENED);
+    const { cases } = await snapshotPatient(harness, patientId(patient));
+    expect(cases).toHaveLength(2);
+    // One request for the patient from the inbox card: the other case shares it.
+    const { request, primaryCaseId } = await harness.engine.cases.requestPatientContactForPatient(
+      harness.clinicId,
+      patientId(patient),
+      USER,
+    );
+    await bookAndVisit(
+      harness,
+      patient,
+      booking(patient, { basedOn: [`CommunicationRequest/${request.id}`] }),
+    );
+
+    expect(await storedBooking(harness, patient)).toMatchObject({
+      origin: { type: 'patient_contact', caseId: primaryCaseId, contactRequestId: request.id },
+    });
+    for (const followUpCase of cases) {
+      const events = await trail(harness, followUpCase);
+      expect(
+        events.find((event) => event.type === 'appointment_booked')?.payload,
+        followUpCase.dedupKey,
+      ).toMatchObject({ originType: 'patient_contact', contactRequestId: request.id });
+    }
+    // The plan visit case is the one the booking fulfills and the visit keeps.
+    const planCase = cases.find((item) => item.dedupKey.endsWith(':follow_up'));
+    if (planCase === undefined) throw new Error('expected the plan visit case');
+    const planEvents = await trail(harness, planCase);
+    expect(planEvents.find((event) => event.type === 'resolved')?.payload).toMatchObject({
+      appointmentOrigin: 'patient_contact',
+    });
+    expect(
+      planEvents.find((event) => event.type === 'appointment_attended')?.payload,
+    ).toMatchObject({ originType: 'patient_contact' });
+
+    const metrics = await harness.engine.metrics(harness.clinicId);
+    expect(metrics.bookings).toMatchObject({
+      booked: { total: 2, followUpCase: 0, patientContact: 2, organic: 0 },
+      attended: { total: 1, patientContact: 1, organic: 0 },
+      resolvedByBooking: { total: 1, patientContact: 1, organic: 0 },
+    });
   });
 
   it('a claim the engine cannot verify is stored as organic, unverified', async () => {

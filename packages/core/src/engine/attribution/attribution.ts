@@ -7,7 +7,7 @@ import type {
 import type { CaseEvent, CaseEventActor } from '../../domain/case.ts';
 import type { AppointmentBookedEvent, ClinicalEvent } from '../../domain/clinical-event.ts';
 import type { Expectation } from '../../domain/expectation.ts';
-import type { CaseId, ClinicId } from '../../domain/ids.ts';
+import type { CaseId, ClinicId, ContactRequestId, PatientId } from '../../domain/ids.ts';
 import type { ResourceRef } from '../../domain/resource.ts';
 import type { TransactionalStores } from '../../ports/unit-of-work.ts';
 import { type PatientTimeline, refKey } from '../timeline.ts';
@@ -72,10 +72,78 @@ export function originTypeOf(event: AppointmentBookedEvent | undefined): Appoint
   return event?.origin?.type ?? 'organic';
 }
 
+/** Whether a case's trail records the contact attempt (its own, or shared from the patient card). */
+function sharesContactRequest(trail: readonly CaseEvent[], requestId: string): boolean {
+  return trail.some(
+    (entry) =>
+      entry.type === 'patient_contact_requested' && entry.payload['requestId'] === requestId,
+  );
+}
+
+/**
+ * The patient's cases that recorded a contact attempt made once for the
+ * patient from the inbox card (`requestPatientContactForPatient`): the
+ * attempt names its primary case, every other case records it with
+ * `sharedFromCaseId`. A booking that answers it answers all of them.
+ */
+async function casesSharingRequest(
+  stores: TransactionalStores,
+  clinicId: ClinicId,
+  patientId: PatientId,
+  requestId: ContactRequestId,
+): Promise<CaseId[]> {
+  const sharing: CaseId[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await stores.cases.list(clinicId, {
+      patientId,
+      limit: 100,
+      ...(cursor === undefined ? {} : { cursor }),
+    });
+    for (const followUpCase of page.items) {
+      const trail = await stores.audit.listForCase(clinicId, followUpCase.id);
+      if (sharesContactRequest(trail, requestId)) {
+        sharing.push(followUpCase.id);
+      }
+    }
+    cursor = page.nextCursor;
+  } while (cursor !== undefined);
+  return sharing;
+}
+
+/**
+ * The cases a verified booking origin is attributed to: the case it names
+ * and, for a patient contact made from the patient card, every case that
+ * shared that contact attempt.
+ */
+async function attributedCases(
+  stores: TransactionalStores,
+  clinicId: ClinicId,
+  event: AppointmentBookedEvent,
+): Promise<ReadonlySet<CaseId>> {
+  const origin = event.origin;
+  if (origin === undefined || origin.type === 'organic' || origin.caseId === undefined) {
+    return new Set();
+  }
+  const cases = new Set<CaseId>([origin.caseId]);
+  if (origin.type === 'patient_contact' && origin.contactRequestId !== undefined) {
+    for (const caseId of await casesSharingRequest(
+      stores,
+      clinicId,
+      event.patientId,
+      origin.contactRequestId,
+    )) {
+      cases.add(caseId);
+    }
+  }
+  return cases;
+}
+
 /**
  * Records on each case the bookings of a batch that concern it: a booking
- * attributed to the case, and any booking that fulfilled one of its reasons
- * (attributed or not: an unattributed one is an `organic` resolution).
+ * attributed to the case (or to a contact attempt the case shared), and any
+ * booking that fulfilled one of its reasons (attributed or not: an
+ * unattributed one is an `organic` resolution).
  * Audited once per case, appointment and date (a re-delivery adds nothing;
  * a reschedule is a new booking). Called before resolving the cases, so
  * the trail reads "booked", then "resolved".
@@ -104,9 +172,11 @@ export async function recordCaseBookings(input: {
         fulfilled.set(expectation.caseId, (fulfilled.get(expectation.caseId) ?? 0) + 1);
       }
     }
-    const attributedCase = event.origin?.type === 'organic' ? undefined : event.origin?.caseId;
-    if (attributedCase !== undefined && !fulfilled.has(attributedCase)) {
-      fulfilled.set(attributedCase, 0);
+    const attributed = await attributedCases(stores, clinicId, event);
+    for (const caseId of attributed) {
+      if (!fulfilled.has(caseId)) {
+        fulfilled.set(caseId, 0);
+      }
     }
     for (const [caseId, fulfilledReasons] of fulfilled) {
       const followUpCase = await stores.cases.get(clinicId, caseId);
@@ -114,7 +184,7 @@ export async function recordCaseBookings(input: {
         continue;
       }
       // An organic booking recorded on a case it does not fulfill says nothing.
-      const originType = caseId === attributedCase ? originTypeOf(event) : 'organic';
+      const originType = attributed.has(caseId) ? originTypeOf(event) : 'organic';
       const payload: AppointmentBookedCasePayload = {
         appointmentId: event.source.id,
         originType,
@@ -183,13 +253,20 @@ export async function recordAttendance(input: {
         candidate.type === 'appointment.booked' && refKey(candidate.source) === appointmentKey,
     )
     .at(-1);
+  const trail = await stores.audit.listForCase(expectation.clinicId, caseId);
+  const contactRequestId = booking?.origin?.contactRequestId;
+  // Attributed only to the case the booking was attributed to, or to a case
+  // that shared the contact attempt it answers.
+  const attributed =
+    booking?.origin?.caseId === caseId ||
+    (booking?.origin?.type === 'patient_contact' &&
+      contactRequestId !== undefined &&
+      sharesContactRequest(trail, contactRequestId));
   const payload: AppointmentAttendedCasePayload = {
     appointmentId: previous.id,
     encounterId: event.source.id,
-    // Attributed only to the case the booking was attributed to.
-    originType: booking?.origin?.caseId === caseId ? originTypeOf(booking) : 'organic',
+    originType: attributed ? originTypeOf(booking) : 'organic',
   };
-  const trail = await stores.audit.listForCase(expectation.clinicId, caseId);
   if (
     trail.some(
       (entry) =>

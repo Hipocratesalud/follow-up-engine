@@ -1,4 +1,4 @@
-import type { AppointmentOriginType } from '../../domain/attribution.ts';
+import { APPOINTMENT_ORIGIN_TYPES, type AppointmentOriginType } from '../../domain/attribution.ts';
 import type { CaseEventActor, CaseResolutionKind, FollowUpCase } from '../../domain/case.ts';
 import type { Expectation, ExpectationStatus } from '../../domain/expectation.ts';
 import type { CaseId, ClinicId } from '../../domain/ids.ts';
@@ -118,7 +118,7 @@ export async function resolveSatisfiedCases(input: {
       now: input.now,
       payload: {
         closedReasons: reasons.map((expectation) => expectation.closedReason ?? expectation.status),
-        ...resolvingBooking(followUpCase.id, reasons, input.bookingOrigins),
+        ...(await resolvingBooking(input.stores, followUpCase, reasons, input.bookingOrigins)),
       },
     });
     resolved.push(caseId);
@@ -128,16 +128,20 @@ export async function resolveSatisfiedCases(input: {
 
 /**
  * The booking of the batch that fulfilled one of the case's reasons, with
- * its origin as far as this case goes (attributed to another case: organic).
+ * its origin as far as this case goes: attributed to this case, or recorded
+ * on its trail as attributed (a contact attempt the case shared from the
+ * patient card, HIP-141); attributed to another case only: organic.
  */
-function resolvingBooking(
-  caseId: CaseId,
+async function resolvingBooking(
+  stores: TransactionalStores,
+  followUpCase: FollowUpCase,
   reasons: readonly Expectation[],
   bookingOrigins: ReadonlyMap<string, BookingOrigin> | undefined,
-): Record<string, string> {
+): Promise<Record<string, string>> {
   if (bookingOrigins === undefined) {
     return {};
   }
+  const caseId = followUpCase.id;
   for (const expectation of reasons) {
     const closedBy = expectation.closedBy;
     if (expectation.status !== 'fulfilled' || closedBy?.resourceType !== 'Appointment') {
@@ -145,9 +149,22 @@ function resolvingBooking(
     }
     const origin = bookingOrigins.get(`${closedBy.resourceType}/${closedBy.id}`);
     if (origin !== undefined) {
+      if (origin.caseId === caseId) {
+        return { appointmentId: closedBy.id, appointmentOrigin: origin.type };
+      }
+      // Recorded on this case before it resolves (`recordCaseBookings`).
+      const trail = await stores.audit.listForCase(followUpCase.clinicId, caseId);
+      const recorded = trail.findLast(
+        (entry) =>
+          entry.type === 'appointment_booked' && entry.payload['appointmentId'] === closedBy.id,
+      )?.payload['originType'];
       return {
         appointmentId: closedBy.id,
-        appointmentOrigin: origin.caseId === caseId ? origin.type : 'organic',
+        appointmentOrigin:
+          typeof recorded === 'string' &&
+          (APPOINTMENT_ORIGIN_TYPES as readonly string[]).includes(recorded)
+            ? recorded
+            : 'organic',
       };
     }
   }

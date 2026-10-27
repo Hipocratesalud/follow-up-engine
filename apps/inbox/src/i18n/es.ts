@@ -1043,7 +1043,7 @@ const metrics: MetricsCopy = {
     planItems: 'Ítems del plan',
     planItemsNone: 'No se revisó ningún ítem del plan en este período.',
     planItemsCounts: (confirmed, corrected, rejected) =>
-      `${String(confirmed)} confirmados · ${String(corrected)} corregidos · ${String(rejected)} rechazados`,
+      `${count(confirmed, 'confirmado', 'confirmados')} · ${count(corrected, 'corregido', 'corregidos')} · ${count(rejected, 'rechazado', 'rechazados')}`,
   },
   ai: {
     title: 'Costo de IA',
