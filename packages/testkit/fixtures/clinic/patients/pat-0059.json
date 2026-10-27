@@ -1,0 +1,399 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0059",
+  "name": "Rocío Yesenia Bracho González",
+  "gender": "female",
+  "birthDate": "2001-07-02",
+  "specialty": "internal_medicine",
+  "pattern": "short_treatment",
+  "entries": [
+    {
+      "at": "2025-03-24T17:08:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0059-bundle01",
+        "type": "transaction",
+        "timestamp": "2025-03-24T17:08:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:aeb0ca16-7922-5d4d-842b-979cec09e15a",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0059",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-12183"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Rocío Yesenia Bracho González",
+                  "family": "Bracho González",
+                  "given": ["Rocío", "Yesenia"]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "2001-07-02",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0059" }
+          },
+          {
+            "fullUrl": "urn:uuid:10885127-598e-5a76-b7e0-9bc6d99a1c5c",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0059-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta por morbilidad" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0059" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2025-03-24T16:45:00.000Z", "end": "2025-03-24T17:08:00.000Z" },
+              "reasonCode": [{ "text": "ITU" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0059-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:b83e789b-26e5-5954-be63-a8eb47c9cb47",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0059-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0059" },
+              "date": "2025-03-24T17:08:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGFjaWVudGUgZmVtZW5pbmEgZGUgMjMgYcOxb3MgY29uc3VsdGEgcG9yIGRpc3VyaWEgeSBwb2xhcXVpdXJpYSBkZSAyIGRpYXMgZGUgZXZvbHVjaW9uLiBBZmVicmlsLiBQUEwgbmVnYXRpdmEuCkR4OiBJVFUuCm5pdHJvZnVyYW50b2luYSAxMDAgbWcgVk8gYy8xMmggeCA3IGRpYXMuIHNpZ25vcyBkZSBhbGFybWEgZXhwbGljYWRvcy4gU2kgcGVyc2lzdGVuIHNpbnRvbWFzLCByZWNvbnN1bHRhci4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-03-24T17:08:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0059-enc01" }],
+                "period": {
+                  "start": "2025-03-24T16:45:00.000Z",
+                  "end": "2025-03-24T17:08:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0059-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:d6506f59-e3d2-5dbc-a34c-affcc6fb2f1a",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0059-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "J01XE01",
+                    "display": "nitrofurantoin"
+                  }
+                ],
+                "text": "Nitrofurantoína 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0059" },
+              "encounter": { "reference": "Encounter/pat-0059-enc01" },
+              "authoredOn": "2025-03-24T17:08:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 cáps VO c/12h x 7 días" }],
+              "dispenseRequest": {
+                "validityPeriod": { "start": "2025-03-24T17:08:00.000Z" },
+                "expectedSupplyDuration": {
+                  "value": 7,
+                  "unit": "días",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "d"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0059-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:b6f3f558-0b3b-56b8-a67c-d6efbfbbaff6",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0059-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "N39.0",
+                    "display": "Urinary tract infection, site not specified"
+                  }
+                ],
+                "text": "ITU"
+              },
+              "subject": { "reference": "Patient/pat-0059" },
+              "encounter": { "reference": "Encounter/pat-0059-enc01" },
+              "recordedDate": "2025-03-24T17:08:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0059-cond01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-12-31T19:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0059-bundle02",
+        "type": "transaction",
+        "timestamp": "2025-12-31T19:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:5040846c-fe40-5c64-81a3-b4d3feeba063",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0059-enc02",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta por morbilidad" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0059" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2025-12-31T19:15:00.000Z", "end": "2025-12-31T19:30:00.000Z" },
+              "reasonCode": [{ "text": "gastritis" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0059-enc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:1ff5383f-ca66-5c64-bb7e-50dc5ba5ba36",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0059-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0059" },
+              "date": "2025-12-31T19:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBkZSAyNCBhw7FvcyByZWZpZXJlIGVwaWdhc3RyYWxnaWEgdXJlbnRlIHBvc3RwcmFuZGlhbCBkZSAyIHNlbWFuYXMsIHBpcm9zaXMgb2Nhc2lvbmFsLiBBYmRvbWVuIGJsYW5kbywgZG9sb3IgbGV2ZSBhIGxhIHBhbHBhY2nDs24gZW4gZXBpZ2FzdHJpby4KRHg6IGdhc3RyaXRpcy4KUGxhbjogb21lcHJhem9sIDIwIG1nIFZPIGVuIGF5dW5hcyB4IDE0IGTDrWFzLiBhYnVuZGFudGVzIGzDrXF1aWRvcy4gUHLDs3hpbW8gY29udHJvbCBlbiAxMCBkw61hcy4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-12-31T19:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0059-enc02" }],
+                "period": {
+                  "start": "2025-12-31T19:15:00.000Z",
+                  "end": "2025-12-31T19:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0059-doc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:f2c99670-5734-50b8-97f6-b6c747e1517c",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0059-mr02",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A02BC01",
+                    "display": "omeprazole"
+                  }
+                ],
+                "text": "Omeprazol 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0059" },
+              "encounter": { "reference": "Encounter/pat-0059-enc02" },
+              "authoredOn": "2025-12-31T19:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 cáps VO en ayunas x 14 días" }],
+              "dispenseRequest": {
+                "validityPeriod": { "start": "2025-12-31T19:30:00.000Z" },
+                "expectedSupplyDuration": {
+                  "value": 14,
+                  "unit": "días",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "d"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0059-mr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:0df9d8cb-e250-58b9-bed2-1d9c4df86580",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0059-cond02",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "K29.7",
+                    "display": "Gastritis, unspecified"
+                  }
+                ],
+                "text": "gastritis"
+              },
+              "subject": { "reference": "Patient/pat-0059" },
+              "encounter": { "reference": "Encounter/pat-0059-enc02" },
+              "recordedDate": "2025-12-31T19:30:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0059-cond02" }
+          }
+        ]
+      }
+    }
+  ]
+}

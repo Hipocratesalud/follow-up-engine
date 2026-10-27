@@ -1,0 +1,45 @@
+{
+  "id": "gold-001",
+  "specialty": "diabetology",
+  "authoredAt": "2025-03-10",
+  "text": "Pcte fem 58a, DM2 de 10 años de evolución, HTA. En tto con metformina 850 mg c/12h y losartán 50 mg OD. Refiere buena adherencia. TA 130/80, peso 72 kg. Trae HbA1c 7.4%.\nDx: DM2 no controlada. HTA controlada.\nPlan: se agrega sitagliptina 100 mg OD. Continuar metformina 850 mg c/12h y losartán 50 mg OD. Ctrl en 3 meses con HbA1c.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [
+      {
+        "icd10": "E11",
+        "evidenceQuote": "DM2 no controlada"
+      },
+      {
+        "icd10": "I10",
+        "evidenceQuote": "HTA controlada"
+      }
+    ],
+    "medications": [
+      {
+        "text": "sitagliptina 100 mg OD",
+        "evidenceQuote": "sitagliptina 100 mg OD"
+      },
+      {
+        "text": "metformina 850 mg c/12h",
+        "evidenceQuote": "metformina 850 mg c/12h"
+      },
+      {
+        "text": "losartán 50 mg OD",
+        "evidenceQuote": "losartán 50 mg OD"
+      }
+    ],
+    "planItems": [
+      {
+        "kind": "follow_up_visit",
+        "dueInDays": 90,
+        "evidenceQuote": "Ctrl en 3 meses"
+      },
+      {
+        "kind": "lab",
+        "dueInDays": 90,
+        "evidenceQuote": "con HbA1c"
+      }
+    ]
+  }
+}

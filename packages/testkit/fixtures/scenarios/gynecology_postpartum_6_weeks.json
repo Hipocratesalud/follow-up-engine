@@ -1,0 +1,224 @@
+{
+  "name": "gynecology_postpartum_6_weeks",
+  "description": "Postpartum visit whose plan asks for a control in 6 weeks. The patient never books it: the doctor's plan expectation (day 42) expires into a case.",
+  "clinicId": "clinic-demo",
+  "patientId": "pat-scn-postpartum",
+  "specialty": "gynecology",
+  "steps": [
+    {
+      "day": 0,
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-scn-postpartum-bundle01",
+        "type": "transaction",
+        "timestamp": "2026-01-05T12:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:47119792-3792-5718-8b93-ad39872e34ca",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-scn-postpartum",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-SRTUM"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Yuliana Pacheco Marín",
+                  "family": "Pacheco Marín",
+                  "given": ["Yuliana"]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "1998-08-30",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-scn-postpartum" }
+          },
+          {
+            "fullUrl": "urn:uuid:cabe400c-a130-5f1a-a94d-e51d57823451",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-scn-postpartum-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control puerperal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-scn-postpartum" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-01" } }],
+              "period": { "start": "2026-01-05T11:30:00.000Z", "end": "2026-01-05T12:00:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-scn-postpartum-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:dace51de-d5be-5984-ad54-00c40d8c3e24",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-scn-postpartum-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-scn-postpartum" },
+              "date": "2026-01-05T12:00:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UHXDqXJwZXJhIGRlIDEwIGTDrWFzLCBwYXJ0byBldXTDs2NpY28gc2luIGNvbXBsaWNhY2lvbmVzLiBMYWN0YW5jaWEgbWF0ZXJuYSBleGNsdXNpdmEuClRBIDExMC83MC4gw5p0ZXJvIGludm9sdWNpb25hZG8sIGxvcXVpb3Mgbm9ybWFsZXMuIE1hbWFzIHNpbiBzaWdub3MgZGUgbWFzdGl0aXMuCkR4OiBwdWVycGVyaW8gbWVkaWF0byBub3JtYWwuClBsYW46IGNvbnRyb2wgcHVlcnBlcmFsIGVuIDYgc2VtYW5hcy4gQXNlc29yw61hIGFudGljb25jZXB0aXZhIGVuIGVzYSBjb25zdWx0YS4=",
+                    "title": "Nota de evolución",
+                    "creation": "2026-01-05T12:00:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-scn-postpartum-enc01" }],
+                "period": {
+                  "start": "2026-01-05T11:30:00.000Z",
+                  "end": "2026-01-05T12:00:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-scn-postpartum-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:306c1f14-28bc-563a-a4c7-94b21cd8595c",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-scn-postpartum-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z39.2",
+                    "display": "Routine postpartum follow-up"
+                  }
+                ],
+                "text": "puerperio"
+              },
+              "subject": { "reference": "Patient/pat-scn-postpartum" },
+              "encounter": { "reference": "Encounter/pat-scn-postpartum-enc01" },
+              "recordedDate": "2026-01-05T12:00:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-scn-postpartum-cond01" }
+          }
+        ]
+      }
+    }
+  ],
+  "llmFixture": {
+    "pat-scn-postpartum-doc01": {
+      "hasPlan": true,
+      "conditions": [
+        {
+          "code": {
+            "system": "http://hl7.org/fhir/sid/icd-10",
+            "code": "Z39",
+            "display": "Postpartum care and examination"
+          },
+          "confidence": 0.95,
+          "evidenceQuote": "puerperio mediato normal"
+        }
+      ],
+      "medications": [],
+      "planItems": [
+        {
+          "kind": "follow_up_visit",
+          "description": "postpartum control visit",
+          "dueAt": "2026-02-16T12:00:00.000Z",
+          "evidenceQuote": "control puerperal en 6 semanas",
+          "confidence": 0.9
+        }
+      ],
+      "model": "fixture",
+      "promptVersion": "fixture-1",
+      "costUsd": 0
+    }
+  },
+  "expect": [
+    {
+      "day": 1,
+      "openExpectations": [{ "ruleId": "doctor_plan_followup", "dueDay": 42 }],
+      "activeCases": [],
+      "qualityFindings": []
+    },
+    {
+      "day": 43,
+      "absentRuleIds": ["doctor_plan_followup"],
+      "activeCases": [{ "reasons": ["doctor_plan_followup"] }]
+    }
+  ]
+}

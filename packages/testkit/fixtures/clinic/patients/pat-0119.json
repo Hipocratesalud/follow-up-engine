@@ -1,0 +1,220 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0119",
+  "name": "Verónica Yesenia Silva Jiménez",
+  "gender": "female",
+  "birthDate": "1983-09-27",
+  "specialty": "gynecology",
+  "pattern": "acute_or_short",
+  "entries": [
+    {
+      "at": "2024-03-06T12:50:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0119-bundle01",
+        "type": "transaction",
+        "timestamp": "2024-03-06T12:50:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:05b0001e-ba3d-5b4d-b90b-3e3d1f25feb1",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0119",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-14403"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Verónica Yesenia Silva Jiménez",
+                  "family": "Silva Jiménez",
+                  "given": ["Verónica", "Yesenia"]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "1983-09-27",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0119" }
+          },
+          {
+            "fullUrl": "urn:uuid:434bde85-7a88-5048-82b6-e960d1084f71",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0119-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta por morbilidad" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0119" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "period": { "start": "2024-03-06T12:30:00.000Z", "end": "2024-03-06T12:50:00.000Z" },
+              "reasonCode": [{ "text": "vaginitis" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0119-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:7c0514d0-8713-57f6-906e-5af68dde0757",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0119-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0119" },
+              "date": "2024-03-06T12:50:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSA0MGEgY29uc3VsdGEgcG9yIGxldWNvcnJlYSB5IHBydXJpdG8gdnVsdmFyIGRlIDUgZGlhcy4gRzNQMi4KRXNwZWN1bG9zY29waWE6IGZsdWpvIGdyaXNhY2VvIGhvbW9nZW5lby4KRHg6IHZhZ2luaXRpcy4KUGxhbjogbWV0cm9uaWRhem9sIG92dWxvcyA1MDAgbWcgMSBvdnVsbyB2YWdpbmFsIEhTIHggNyBkaWFzLiBDdHJsIGVuIDE1IGRpYXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2024-03-06T12:50:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0119-enc01" }],
+                "period": {
+                  "start": "2024-03-06T12:30:00.000Z",
+                  "end": "2024-03-06T12:50:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0119-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:fd9bf5e8-195a-5940-9fbb-aa4a3357cf56",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0119-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "G01AF01",
+                    "display": "metronidazole"
+                  }
+                ],
+                "text": "Metronidazol óvulos 500 mg"
+              },
+              "subject": { "reference": "Patient/pat-0119" },
+              "encounter": { "reference": "Encounter/pat-0119-enc01" },
+              "authoredOn": "2024-03-06T12:50:00.000Z",
+              "requester": { "reference": "Practitioner/prac-gyn-02" },
+              "dosageInstruction": [{ "text": "1 óvulo vaginal HS x 7 días" }],
+              "dispenseRequest": {
+                "validityPeriod": { "start": "2024-03-06T12:50:00.000Z" },
+                "expectedSupplyDuration": {
+                  "value": 7,
+                  "unit": "días",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "d"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0119-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:cc48c976-33f5-562d-9367-f32e254c1a2f",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0119-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "N76.0",
+                    "display": "Acute vaginitis"
+                  }
+                ],
+                "text": "vaginitis"
+              },
+              "subject": { "reference": "Patient/pat-0119" },
+              "encounter": { "reference": "Encounter/pat-0119-enc01" },
+              "recordedDate": "2024-03-06T12:50:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0119-cond01" }
+          }
+        ]
+      }
+    }
+  ]
+}

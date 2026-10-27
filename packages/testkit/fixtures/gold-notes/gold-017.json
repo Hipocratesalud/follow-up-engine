@@ -1,0 +1,36 @@
+{
+  "id": "gold-017",
+  "specialty": "internal_medicine",
+  "authoredAt": "2025-06-23",
+  "text": "S: Pcte masc 38a con epigastralgia urente de 3 semanas, empeora con ayuno. Niega melena. Consumo frecuente de AINEs por lumbalgia.\nO: abdomen blando, dolor leve en epigastrio, sin signos de irritación peritoneal.\nA: gastritis aguda asociada a AINEs. Lumbalgia mecánica.\nP: omeprazol 20 mg VO OD en ayunas x 4 semanas. Suspender AINEs, paracetamol 500 mg c/8h PRN dolor. Ctrl en 4 semanas, si persiste se solicitará endoscopia.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [
+      {
+        "icd10": "K29",
+        "evidenceQuote": "gastritis aguda asociada a AINEs"
+      },
+      {
+        "icd10": "M54",
+        "evidenceQuote": "Lumbalgia mecánica"
+      }
+    ],
+    "medications": [
+      {
+        "text": "omeprazol 20 mg VO OD en ayunas x 4 semanas",
+        "evidenceQuote": "omeprazol 20 mg VO OD en ayunas x 4 semanas"
+      },
+      {
+        "text": "paracetamol 500 mg c/8h PRN dolor",
+        "evidenceQuote": "paracetamol 500 mg c/8h PRN dolor"
+      }
+    ],
+    "planItems": [
+      {
+        "kind": "follow_up_visit",
+        "dueInDays": 28,
+        "evidenceQuote": "Ctrl en 4 semanas"
+      }
+    ]
+  }
+}

@@ -1,0 +1,319 @@
+{
+  "name": "lab_order_repeated_same_test",
+  "description": "An HbA1c order on day 0 is re-issued on day 10 before any result. The new order supersedes the old expectation, so on day 16 there is one open lab expectation (due day 25) and no case; the case opens only after the second order expires.",
+  "clinicId": "clinic-demo",
+  "patientId": "pat-scn-lab-same",
+  "specialty": "internal_medicine",
+  "steps": [
+    {
+      "day": 0,
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-scn-lab-same-bundle01",
+        "type": "transaction",
+        "timestamp": "2026-01-05T12:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:2605d443-5e8a-5a71-84af-e694b6c0b649",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-scn-lab-same",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-SSAME"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Mercedes Arismendi Lugo",
+                  "family": "Arismendi Lugo",
+                  "given": ["Mercedes"]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "1978-09-12",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-scn-lab-same" }
+          },
+          {
+            "fullUrl": "urn:uuid:777d5ee1-02af-5da8-93d0-1ab593cb1f0e",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-scn-lab-same-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta por morbilidad" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-scn-lab-same" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2026-01-05T11:30:00.000Z", "end": "2026-01-05T12:00:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-scn-lab-same-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:17fef74e-4551-509d-8513-267ec6a365a6",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-scn-lab-same-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-scn-lab-same" },
+              "date": "2026-01-05T12:00:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBmZW0gNDdhLCBjb25zdWx0YSBwYXJhIGNoZXF1ZW8uIEFudGVjZWRlbnRlIGRlIGdsaWNlbWlhIGVuIGF5dW5hcyAxMDggbWcvZGwgaGFjZSA2IG1lc2VzLiBBc2ludG9tw6F0aWNhLiBJTUMgMjkuIFRBIDEyMi83Ni4KRHg6IHByZWRpYWJldGVzLgpQbGFuOiBkaWV0YSBiYWphIGVuIGF6w7pjYXJlcyBzaW1wbGVzLCBhY3RpdmlkYWQgZsOtc2ljYSAxNTAgbWluL3NlbWFuYS4gU2Ugc29saWNpdGEgSGJBMWMuIFRyYWVyIHJlc3VsdGFkb3Mu",
+                    "title": "Nota de evolución",
+                    "creation": "2026-01-05T12:00:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-scn-lab-same-enc01" }],
+                "period": {
+                  "start": "2026-01-05T11:30:00.000Z",
+                  "end": "2026-01-05T12:00:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-scn-lab-same-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:32790b6e-77d0-5d22-b9f6-73723dc3359f",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-scn-lab-same-sr01",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-scn-lab-same" },
+              "encounter": { "reference": "Encounter/pat-scn-lab-same-enc01" },
+              "authoredOn": "2026-01-05T12:00:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-scn-lab-same-sr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:4675929e-b64f-550c-94cc-20be72592692",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-scn-lab-same-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "R73.0",
+                    "display": "Abnormal glucose tolerance test"
+                  }
+                ],
+                "text": "prediabetes"
+              },
+              "subject": { "reference": "Patient/pat-scn-lab-same" },
+              "encounter": { "reference": "Encounter/pat-scn-lab-same-enc01" },
+              "recordedDate": "2026-01-05T12:00:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-scn-lab-same-cond01" }
+          }
+        ]
+      }
+    },
+    {
+      "day": 10,
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-scn-lab-same-bundle02",
+        "type": "transaction",
+        "timestamp": "2026-01-15T12:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:5afc05ce-9457-5bc4-9549-8e2e03783287",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-scn-lab-same-sr02",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-scn-lab-same" },
+              "authoredOn": "2026-01-15T12:00:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-scn-lab-same-sr02" }
+          }
+        ]
+      }
+    }
+  ],
+  "llmFixture": {
+    "pat-scn-lab-same-doc01": {
+      "hasPlan": true,
+      "conditions": [
+        {
+          "code": {
+            "system": "http://hl7.org/fhir/sid/icd-10",
+            "code": "R73",
+            "display": "Elevated blood glucose level"
+          },
+          "confidence": 0.95,
+          "evidenceQuote": "prediabetes"
+        }
+      ],
+      "medications": [],
+      "planItems": [],
+      "model": "fixture",
+      "promptVersion": "fixture-1",
+      "costUsd": 0
+    }
+  },
+  "expect": [
+    {
+      "day": 1,
+      "openExpectations": [
+        { "ruleId": "lab_order_result_pending", "matchKey": "loinc:4548-4", "dueDay": 15 }
+      ],
+      "activeCases": []
+    },
+    {
+      "day": 11,
+      "openExpectations": [
+        { "ruleId": "lab_order_result_pending", "matchKey": "loinc:4548-4", "dueDay": 25 }
+      ],
+      "activeCases": []
+    },
+    {
+      "day": 16,
+      "openExpectations": [
+        { "ruleId": "lab_order_result_pending", "matchKey": "loinc:4548-4", "dueDay": 25 }
+      ],
+      "closedExpectations": [
+        {
+          "ruleId": "lab_order_result_pending",
+          "matchKey": "loinc:4548-4",
+          "dueDay": 15,
+          "status": "superseded"
+        }
+      ],
+      "activeCases": []
+    },
+    {
+      "day": 26,
+      "absentRuleIds": ["lab_order_result_pending"],
+      "activeCases": [{ "reasons": ["lab_order_result_pending"] }]
+    }
+  ]
+}

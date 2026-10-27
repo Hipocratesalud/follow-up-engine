@@ -1,0 +1,466 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0103",
+  "name": "Mariana Yesenia Aguilar Figueroa",
+  "gender": "female",
+  "birthDate": "1994-03-20",
+  "specialty": "gynecology",
+  "pattern": "annual_control",
+  "entries": [
+    {
+      "at": "2024-10-07T20:10:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0103-bundle01",
+        "type": "transaction",
+        "timestamp": "2024-10-07T20:10:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:284347a6-ed5a-5dcd-ba94-cb999a5e3581",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0103",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-13811"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Mariana Yesenia Aguilar Figueroa",
+                  "family": "Aguilar Figueroa",
+                  "given": ["Mariana", "Yesenia"]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "1994-03-20",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0103" }
+          },
+          {
+            "fullUrl": "urn:uuid:860a21ea-ed80-594d-8778-17ae204aaf7c",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0103-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control ginecológico" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0103" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "period": { "start": "2024-10-07T19:45:00.000Z", "end": "2024-10-07T20:10:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0103-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:db70505e-d9bd-5927-baca-1d84f3b1478e",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0103-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0103" },
+              "date": "2024-10-07T20:10:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGN0ZSAzMGEsIEczUDIsIGFjdWRlIGEgY29udHJvbCBnaW5lY29sw7NnaWNvLiBSZWZpZXJlIGNpY2xvcyByZWd1bGFyZXMuCkVGOiBtYW1hcyBzaW3DqXRyaWNhcyBzaW4gbsOzZHVsb3MgcGFscGFibGVzLiBFc3BlY3Vsb3Njb3BpYTogY3VlbGxvIGRlIGFzcGVjdG8gc2Fubywgc2luIGxldWNvcnJlYSBwYXRvbMOzZ2ljYS4gVFY6IMO6dGVybyBlbiBBVkYsIGFuZXhvcyBubyBwYWxwYWJsZXMuCkR4OiBjb250cm9sIGdpbmVjb2zDs2dpY28gZGUgcnV0aW5hLgpQbGFuOiBzZSBzb2xpY2l0YSBjaXRvbG9nw61hLiBDaXRhIGNvbnRyb2wgZW4gMSBtZXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2024-10-07T20:10:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0103-enc01" }],
+                "period": {
+                  "start": "2024-10-07T19:45:00.000Z",
+                  "end": "2024-10-07T20:10:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0103-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:81db3990-40b8-58ef-a928-efdffe9a7f91",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0103-sr01",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "10524-7",
+                    "display": "Microscopic observation [Identifier] in Cervix by Cyto stain"
+                  }
+                ],
+                "text": "Citología cervicovaginal (Papanicolaou)"
+              },
+              "subject": { "reference": "Patient/pat-0103" },
+              "encounter": { "reference": "Encounter/pat-0103-enc01" },
+              "authoredOn": "2024-10-07T20:10:00.000Z",
+              "requester": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0103-sr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:8a76150c-480d-5ee3-9764-bcb74fc3ac90",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0103-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z01.4",
+                    "display": "Gynaecological examination (general)(routine)"
+                  }
+                ],
+                "text": "control ginecológico"
+              },
+              "subject": { "reference": "Patient/pat-0103" },
+              "encounter": { "reference": "Encounter/pat-0103-enc01" },
+              "recordedDate": "2024-10-07T20:10:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0103-cond01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-10-07T20:20:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0103-bundle03",
+        "type": "transaction",
+        "timestamp": "2024-10-07T20:20:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:2fcdef62-84c9-5217-bef0-cffd9d4a09ff",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0103-appt01",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              ],
+              "description": "Revisión de resultados",
+              "start": "2024-11-04T16:45:00.000Z",
+              "end": "2024-11-04T17:00:00.000Z",
+              "minutesDuration": 15,
+              "created": "2024-10-07T20:20:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0103" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-gyn-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0103-appt01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-10-15T21:28:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0103-bundle02",
+        "type": "transaction",
+        "timestamp": "2024-10-15T21:28:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:a4968d61-dbe3-54aa-8d93-f5d10c61114a",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0103-dr01",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0103-sr01" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "10524-7",
+                    "display": "Microscopic observation [Identifier] in Cervix by Cyto stain"
+                  }
+                ],
+                "text": "Citología cervicovaginal (Papanicolaou)"
+              },
+              "subject": { "reference": "Patient/pat-0103" },
+              "effectiveDateTime": "2024-10-13T21:28:00.000Z",
+              "issued": "2024-10-15T21:28:00.000Z",
+              "result": [{ "reference": "Observation/pat-0103-dr01-obs1" }],
+              "conclusion": "Negativo para lesión intraepitelial o malignidad (NILM).",
+              "conclusionCode": [
+                {
+                  "coding": [
+                    { "system": "http://snomed.info/sct", "code": "17621005", "display": "Normal" }
+                  ]
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0103-dr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:d7717570-3af3-5fc6-a7da-409e155a039d",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0103-dr01-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0103-sr01" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "10524-7",
+                    "display": "Microscopic observation [Identifier] in Cervix by Cyto stain"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0103" },
+              "effectiveDateTime": "2024-10-13T21:28:00.000Z",
+              "issued": "2024-10-15T21:28:00.000Z",
+              "valueString": "Negativo para lesión intraepitelial o malignidad (NILM).",
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0103-dr01-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-11-04T17:00:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0103-bundle04",
+        "type": "transaction",
+        "timestamp": "2024-11-04T17:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:84b29217-e00a-5bfb-b887-6addb8eecdf7",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0103-enc02",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Revisión de resultados" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0103" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0103-appt01" }],
+              "period": { "start": "2024-11-04T16:45:00.000Z", "end": "2024-11-04T17:00:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0103-enc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:09f5064e-e385-5562-b1c0-3af4ebd14a0c",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0103-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0103" },
+              "date": "2024-11-04T17:00:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSAzMGEgYWN1ZGUgY29uIHJlc3VsdGFkb3MuIEFzaW50b21hdGljYS4KU2UgcmV2aXNhbiByZXN1bHRhZG9zIGNvbiBsYSBwYWNpZW50ZSwgc2luIGhhbGxhemdvcyBkZSBpbXBvcnRhbmNpYS4KUGxhbjogY2l0YSBjb250cm9sIGVuIDEyIG1lc2VzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2024-11-04T17:00:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0103-enc02" }],
+                "period": {
+                  "start": "2024-11-04T16:45:00.000Z",
+                  "end": "2024-11-04T17:00:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0103-doc02" }
+          }
+        ]
+      }
+    }
+  ]
+}

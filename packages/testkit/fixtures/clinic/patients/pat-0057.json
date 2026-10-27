@@ -1,0 +1,351 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0057",
+  "name": "Mateo Rafael Flores Urdaneta",
+  "gender": "male",
+  "birthDate": "1957-08-06",
+  "specialty": "internal_medicine",
+  "pattern": "short_treatment",
+  "entries": [
+    {
+      "at": "2024-04-24T18:07:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0057-bundle01",
+        "type": "transaction",
+        "timestamp": "2024-04-24T18:07:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:c0949ecd-b6a2-52cb-8eb6-70f9d3c6570e",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0057",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-12109"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Mateo Rafael Flores Urdaneta",
+                  "family": "Flores Urdaneta",
+                  "given": ["Mateo", "Rafael"]
+                }
+              ],
+              "gender": "male",
+              "birthDate": "1957-08-06",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0057" }
+          },
+          {
+            "fullUrl": "urn:uuid:eb001acc-4a85-5c34-a2cc-7c9f9c8b5f59",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0057-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta por morbilidad" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0057" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2024-04-24T17:45:00.000Z", "end": "2024-04-24T18:07:00.000Z" },
+              "reasonCode": [{ "text": "ITU" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0057-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:185837a8-3c89-57fb-88a6-7b75794c1c3a",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0057-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0057" },
+              "date": "2024-04-24T18:07:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGFjaWVudGUgbWFzY3VsaW5vIGRlIDY2IGHDsW9zIHJlZmllcmUgYXJkb3IgYWwgb3JpbmFyIHkgdXJnZW5jaWEgbWljY2lvbmFsIGRlc2RlIGhhY2UgMyBkw61hcy4gTmllZ2EgZmllYnJlLgpEeDogSVRVLgpQbGFuOiBuaXRyb2Z1cmFudG/DrW5hIDEwMCBtZyBWTyBjLzEyaCB4IDcgZMOtYXMuIHNlIHNvbGljaXRhIGV4YW1lbiBkZSBvcmluYS4gc2lnbm9zIGRlIGFsYXJtYSBleHBsaWNhZG9zLiBjdHJsIGVuIDcgZMOtYXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2024-04-24T18:07:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0057-enc01" }],
+                "period": {
+                  "start": "2024-04-24T17:45:00.000Z",
+                  "end": "2024-04-24T18:07:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0057-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:e5c5b7d8-4295-5781-a01f-bba07cbfba09",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0057-sr01",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "24357-6",
+                    "display": "Urinalysis macro (dipstick) panel - Urine"
+                  }
+                ],
+                "text": "Examen de orina"
+              },
+              "subject": { "reference": "Patient/pat-0057" },
+              "encounter": { "reference": "Encounter/pat-0057-enc01" },
+              "authoredOn": "2024-04-24T18:07:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0057-sr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:063aef2a-b612-5518-80c3-5fd039a09ad9",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0057-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "J01XE01",
+                    "display": "nitrofurantoin"
+                  }
+                ],
+                "text": "Nitrofurantoína 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0057" },
+              "encounter": { "reference": "Encounter/pat-0057-enc01" },
+              "authoredOn": "2024-04-24T18:07:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 cáps VO c/12h x 7 días" }],
+              "dispenseRequest": {
+                "validityPeriod": { "start": "2024-04-24T18:07:00.000Z" },
+                "expectedSupplyDuration": {
+                  "value": 7,
+                  "unit": "días",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "d"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0057-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:49a212be-1142-5cb6-9c5f-b963a9b47c42",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0057-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "N39.0",
+                    "display": "Urinary tract infection, site not specified"
+                  }
+                ],
+                "text": "ITU"
+              },
+              "subject": { "reference": "Patient/pat-0057" },
+              "encounter": { "reference": "Encounter/pat-0057-enc01" },
+              "recordedDate": "2024-04-24T18:07:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0057-cond01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-05-01T14:45:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0057-bundle02",
+        "type": "transaction",
+        "timestamp": "2024-05-01T14:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:c8903ceb-00f5-541b-b201-ce9d7c3fa548",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0057-enc02",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0057" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2024-05-01T14:30:00.000Z", "end": "2024-05-01T14:45:00.000Z" },
+              "reasonCode": [{ "text": "Control post tratamiento: ITU" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0057-enc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:5eff1faa-58f3-5d4f-8d06-93d21a7438d8",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0057-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0057" },
+              "date": "2024-05-01T14:45:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBhY3VkZSBhIGNvbnRyb2wgcG9zdCB0dG8gcG9yIElUVS4gQ29tcGxldMOzIHRyYXRhbWllbnRvLiBBc2ludG9tw6F0aWNvLiBTZSBkYSBkZSBhbHRhLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2024-05-01T14:45:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0057-enc02" }],
+                "period": {
+                  "start": "2024-05-01T14:30:00.000Z",
+                  "end": "2024-05-01T14:45:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0057-doc02" }
+          }
+        ]
+      }
+    }
+  ]
+}

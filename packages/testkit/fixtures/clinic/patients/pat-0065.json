@@ -1,0 +1,3262 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0065",
+  "name": "Alejandro Orlando Moreno Bracho",
+  "gender": "male",
+  "birthDate": "1947-12-22",
+  "specialty": "internal_medicine",
+  "pattern": "abnormal_result",
+  "entries": [
+    {
+      "at": "2024-02-19T14:26:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle01",
+        "type": "transaction",
+        "timestamp": "2024-02-19T14:26:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:6b0a6dd3-c1e0-54a4-9374-5cb78584b548",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0065",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-12405"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Alejandro Orlando Moreno Bracho",
+                  "family": "Moreno Bracho",
+                  "given": ["Alejandro", "Orlando"]
+                }
+              ],
+              "gender": "male",
+              "birthDate": "1947-12-22",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0065" }
+          },
+          {
+            "fullUrl": "urn:uuid:aaa0e635-9c09-58c9-8eed-e520bf390c72",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0065-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Primera consulta" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2024-02-19T14:00:00.000Z", "end": "2024-02-19T14:26:00.000Z" },
+              "reasonCode": [{ "text": "Control de hipertensión arterial" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0065-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:3da05f2f-1425-564a-9ce4-6f7a2c9008ab",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0065-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "date": "2024-02-19T14:26:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UzogUGFjaWVudGUgbWFzY3VsaW5vIGRlIDc2IGHDsW9zLCBwcmltZXJhIGNvbnN1bHRhIHBvciBIVEEuIFNpbiBzaW50b21hcy4gTzogVEEgMTMwLzcxLCBGQyA3OSwgcGVzbyA3NSBrZy4gQTogSFRBIGNvbnRyb2xhZGEsIGRpc2xpcGlkZW1pYSB5IEVSQyBlc3RhZGlvIDMuIFA6IGVuYWxhcHJpbCAxMCBtZyBWTyBjLzEyaCB5IGF0b3J2YXN0YXRpbmEgMjAgbWcgVk8gSFMuIHNlIHNvbGljaXRhIGNyZWF0aW5pbmEsIEsrLCBwZXJmaWwgbGlwaWRpY28geSBFQ0cuIGRpZXRhIGhpcG9zb2RpY2EuIEN0cmwgZW4gNCBtZXNlcy4=",
+                    "title": "Nota de evolución",
+                    "creation": "2024-02-19T14:26:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0065-enc01" }],
+                "period": {
+                  "start": "2024-02-19T14:00:00.000Z",
+                  "end": "2024-02-19T14:26:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0065-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:68245fff-8718-5aac-b84a-acd139f45662",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0065-sr01",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc01" },
+              "authoredOn": "2024-02-19T14:26:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0065-sr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:0d2630ec-551b-53da-9374-12a902fb8ed1",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0065-sr02",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2823-3",
+                    "display": "Potassium [Moles/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Potasio sérico"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc01" },
+              "authoredOn": "2024-02-19T14:26:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0065-sr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:35e1013d-1ac9-5d6a-b18f-0b5c131a2ba2",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0065-sr03",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "57698-3",
+                    "display": "Lipid panel with direct LDL - Serum or Plasma"
+                  }
+                ],
+                "text": "Perfil lipídico"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc01" },
+              "authoredOn": "2024-02-19T14:26:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0065-sr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:79e7d429-d642-54e6-af62-643d49504ef0",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0065-sr04",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "363679005",
+                      "display": "Imaging"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11524-6", "display": "EKG study" }
+                ],
+                "text": "Electrocardiograma"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc01" },
+              "authoredOn": "2024-02-19T14:26:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0065-sr04" }
+          },
+          {
+            "fullUrl": "urn:uuid:daea1f59-753c-5841-bf10-3a0826b45313",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0065-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "C09AA02", "display": "enalapril" }
+                ],
+                "text": "Enalapril 10 mg"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc01" },
+              "authoredOn": "2024-02-19T14:26:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0065-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:41332392-2e42-5138-aaf4-ff52cbd2c8e2",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0065-mr02",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc01" },
+              "authoredOn": "2024-02-19T14:26:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0065-mr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:28f82477-c542-5129-8a6b-af1f869cfa79",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "I10",
+                    "display": "Essential (primary) hypertension"
+                  }
+                ],
+                "text": "HTA"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc01" },
+              "recordedDate": "2024-02-19T14:26:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond01" }
+          },
+          {
+            "fullUrl": "urn:uuid:a6a10278-3ed5-5594-a62d-243b70f7b7ad",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond02",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc01" },
+              "recordedDate": "2024-02-19T14:26:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond02" }
+          },
+          {
+            "fullUrl": "urn:uuid:98532230-631a-5f6b-b370-38b762e2a8e2",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond03",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "N18.3",
+                    "display": "Chronic kidney disease, stage 3"
+                  }
+                ],
+                "text": "ERC estadio 3"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc01" },
+              "recordedDate": "2024-02-19T14:26:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond03" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-02-21T15:52:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle03",
+        "type": "transaction",
+        "timestamp": "2024-02-21T15:52:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:7c3d8328-7a50-5769-a145-3ac5d11bc0f4",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0065-dr02",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr02" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2823-3",
+                    "display": "Potassium [Moles/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Potasio sérico"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2024-02-20T15:52:00.000Z",
+              "issued": "2024-02-21T15:52:00.000Z",
+              "result": [{ "reference": "Observation/pat-0065-dr02-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0065-dr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:256ed075-33b2-5ccb-ab07-7d94f493becf",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr02-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr02" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2823-3",
+                    "display": "Potassium [Moles/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2024-02-20T15:52:00.000Z",
+              "issued": "2024-02-21T15:52:00.000Z",
+              "valueQuantity": {
+                "value": 4.7,
+                "unit": "mmol/L",
+                "system": "http://unitsofmeasure.org",
+                "code": "mmol/L"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 3.5,
+                    "unit": "mmol/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mmol/L"
+                  },
+                  "high": {
+                    "value": 5.1,
+                    "unit": "mmol/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mmol/L"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr02-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-02-26T15:28:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle05",
+        "type": "transaction",
+        "timestamp": "2024-02-26T15:28:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:cf214905-2aa1-5387-8c7b-18c783783fca",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0065-dr04",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr04" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "RAD",
+                      "display": "Radiology"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11524-6", "display": "EKG study" }
+                ],
+                "text": "Electrocardiograma"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2024-02-25T15:28:00.000Z",
+              "issued": "2024-02-26T15:28:00.000Z",
+              "conclusion": "Ritmo sinusal, FC 72 lpm. Sin alteraciones agudas de la repolarización.",
+              "conclusionCode": [
+                {
+                  "coding": [
+                    { "system": "http://snomed.info/sct", "code": "17621005", "display": "Normal" }
+                  ]
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0065-dr04" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-02-26T15:32:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle04",
+        "type": "transaction",
+        "timestamp": "2024-02-26T15:32:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:04826ce1-bf15-5c20-9a7c-eaf4a472852f",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0065-dr03",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr03" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "57698-3",
+                    "display": "Lipid panel with direct LDL - Serum or Plasma"
+                  }
+                ],
+                "text": "Perfil lipídico"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2024-02-25T15:32:00.000Z",
+              "issued": "2024-02-26T15:32:00.000Z",
+              "result": [
+                { "reference": "Observation/pat-0065-dr03-obs1" },
+                { "reference": "Observation/pat-0065-dr03-obs2" },
+                { "reference": "Observation/pat-0065-dr03-obs3" },
+                { "reference": "Observation/pat-0065-dr03-obs4" }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0065-dr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:3dc1aebd-0a82-5c5e-bb76-cfc23aebc219",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr03-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr03" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2093-3",
+                    "display": "Cholesterol [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2024-02-25T15:32:00.000Z",
+              "issued": "2024-02-26T15:32:00.000Z",
+              "valueQuantity": {
+                "value": 161,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 200,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr03-obs1" }
+          },
+          {
+            "fullUrl": "urn:uuid:e99cd42e-8dcd-5478-91ce-d1b34705a621",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr03-obs2",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr03" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2571-8",
+                    "display": "Triglyceride [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2024-02-25T15:32:00.000Z",
+              "issued": "2024-02-26T15:32:00.000Z",
+              "valueQuantity": {
+                "value": 115,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 150,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr03-obs2" }
+          },
+          {
+            "fullUrl": "urn:uuid:56a789c0-9c14-544e-869f-aefe39aca93e",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr03-obs3",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr03" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2085-9",
+                    "display": "Cholesterol in HDL [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2024-02-25T15:32:00.000Z",
+              "issued": "2024-02-26T15:32:00.000Z",
+              "valueQuantity": {
+                "value": 61,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 40,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr03-obs3" }
+          },
+          {
+            "fullUrl": "urn:uuid:78cc2fdd-0fb4-5142-9657-983b4c979f58",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr03-obs4",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr03" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "18262-6",
+                    "display": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by Direct assay"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2024-02-25T15:32:00.000Z",
+              "issued": "2024-02-26T15:32:00.000Z",
+              "valueQuantity": {
+                "value": 116,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 130,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr03-obs4" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-02-29T13:53:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle06",
+        "type": "transaction",
+        "timestamp": "2024-02-29T13:53:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:71e47996-7c8c-514a-a5c0-db10021ae68b",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0065-enc02",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2024-02-29T13:30:00.000Z", "end": "2024-02-29T13:53:00.000Z" },
+              "reasonCode": [{ "text": "Control de hipertensión arterial" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0065-enc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:419afa5a-5add-549a-a944-71f16d153be6",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0065-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "date": "2024-02-29T13:53:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGN0ZSBkZSA3NiBhw7FvcywgaHRhIGNvbnRyb2xhZGEsIHRhIDEyMC84NC4gdG9tYSBlbmFsYXByaWwgMTAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLiBlbmFsYXByaWwgMTAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLCBkaWV0YSBoaXBvc29kaWNhLiBjaXRhIGNvbnRyb2wgZW4gNCBtZXNlcw==",
+                    "title": "Nota de evolución",
+                    "creation": "2024-02-29T13:53:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0065-enc02" }],
+                "period": {
+                  "start": "2024-02-29T13:30:00.000Z",
+                  "end": "2024-02-29T13:53:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0065-doc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:430ffacb-e996-56a4-aa81-969bfe05507b",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0065-mr03",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "C09AA02", "display": "enalapril" }
+                ],
+                "text": "Enalapril 10 mg"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc02" },
+              "authoredOn": "2024-02-29T13:53:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0065-mr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:6d90b945-11c5-5e1e-a6fa-3a9f5e508599",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0065-mr04",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc02" },
+              "authoredOn": "2024-02-29T13:53:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0065-mr04" }
+          },
+          {
+            "fullUrl": "urn:uuid:8979a17c-422c-5378-a916-cd4fd936942f",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond04",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "I10",
+                    "display": "Essential (primary) hypertension"
+                  }
+                ],
+                "text": "HTA"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc02" },
+              "recordedDate": "2024-02-29T13:53:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond04" }
+          },
+          {
+            "fullUrl": "urn:uuid:d33c4416-318c-5be6-8813-d33d7de22ae5",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond05",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc02" },
+              "recordedDate": "2024-02-29T13:53:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond05" }
+          },
+          {
+            "fullUrl": "urn:uuid:5a03b5c2-15bc-5167-aa15-e86198c4b13a",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond06",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "N18.3",
+                    "display": "Chronic kidney disease, stage 3"
+                  }
+                ],
+                "text": "ERC estadio 3"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc02" },
+              "recordedDate": "2024-02-29T13:53:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond06" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-02-29T14:03:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle07",
+        "type": "transaction",
+        "timestamp": "2024-02-29T14:03:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:15cde653-f1a9-58c6-a712-9c1a0387dd7a",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0065-appt01",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control de HTA",
+              "start": "2024-07-10T16:15:00.000Z",
+              "end": "2024-07-10T16:45:00.000Z",
+              "minutesDuration": 30,
+              "created": "2024-02-29T14:03:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0065" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0065-appt01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-02-29T14:40:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle02",
+        "type": "transaction",
+        "timestamp": "2024-02-29T14:40:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:4525e8ba-89ef-55fe-87d5-9aa4b57446b7",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0065-dr01",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr01" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2024-02-25T14:40:00.000Z",
+              "issued": "2024-02-29T14:40:00.000Z",
+              "result": [{ "reference": "Observation/pat-0065-dr01-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0065-dr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:bbd4508b-2c09-5b78-8f16-e0ecdc6de72b",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr01-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr01" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2024-02-25T14:40:00.000Z",
+              "issued": "2024-02-29T14:40:00.000Z",
+              "valueQuantity": {
+                "value": 1.65,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "H",
+                      "display": "High"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.5,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  },
+                  "high": {
+                    "value": 1.2,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr01-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-07-10T16:36:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle08",
+        "type": "transaction",
+        "timestamp": "2024-07-10T16:36:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:d8057adb-666c-5a3b-b991-9c909bbaf9d7",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0065-enc03",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0065-appt01" }],
+              "period": { "start": "2024-07-10T16:15:00.000Z", "end": "2024-07-10T16:36:00.000Z" },
+              "reasonCode": [{ "text": "Control de hipertensión arterial" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0065-enc03" }
+          },
+          {
+            "fullUrl": "urn:uuid:0b7e8871-3dae-55c6-9f38-8546c13794a3",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0065-doc03",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "date": "2024-07-10T16:36:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGN0ZSBkZSA3NiBhw7FvcywgaHRhIGNvbnRyb2xhZGEsIHRhIDEzMi83Ny4gdG9tYSBlbmFsYXByaWwgMTAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLiBlbmFsYXByaWwgMTAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLCByZWR1Y2lyIHNhbCB5IHVsdHJhcHJvY2VzYWRvcy4gdm9sdmVyIGEgY29uc3VsdGEgZW4gNiBtZXNlcw==",
+                    "title": "Nota de evolución",
+                    "creation": "2024-07-10T16:36:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0065-enc03" }],
+                "period": {
+                  "start": "2024-07-10T16:15:00.000Z",
+                  "end": "2024-07-10T16:36:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0065-doc03" }
+          },
+          {
+            "fullUrl": "urn:uuid:f97db73a-06cf-5b49-aba2-17869d029f01",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0065-mr05",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "C09AA02", "display": "enalapril" }
+                ],
+                "text": "Enalapril 10 mg"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc03" },
+              "authoredOn": "2024-07-10T16:36:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0065-mr05" }
+          },
+          {
+            "fullUrl": "urn:uuid:bd30017c-6a12-58db-9831-53300aec4993",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0065-mr06",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc03" },
+              "authoredOn": "2024-07-10T16:36:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0065-mr06" }
+          },
+          {
+            "fullUrl": "urn:uuid:c7bc2e09-00e8-5e74-bb9f-6fd7a0f7d5d4",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond07",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "I10",
+                    "display": "Essential (primary) hypertension"
+                  }
+                ],
+                "text": "HTA"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc03" },
+              "recordedDate": "2024-07-10T16:36:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond07" }
+          },
+          {
+            "fullUrl": "urn:uuid:7fa9c503-6daa-525e-9677-3edf3ae5809a",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond08",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc03" },
+              "recordedDate": "2024-07-10T16:36:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond08" }
+          },
+          {
+            "fullUrl": "urn:uuid:ff5b0f6a-08cf-5157-9f9c-460a6dbef430",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond09",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "N18.3",
+                    "display": "Chronic kidney disease, stage 3"
+                  }
+                ],
+                "text": "ERC estadio 3"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc03" },
+              "recordedDate": "2024-07-10T16:36:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond09" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-07-10T16:46:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle09",
+        "type": "transaction",
+        "timestamp": "2024-07-10T16:46:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:f0873f87-d673-5f61-8e22-54ab6813dcc7",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0065-appt02",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control de HTA",
+              "start": "2024-12-30T19:00:00.000Z",
+              "end": "2024-12-30T19:30:00.000Z",
+              "minutesDuration": 30,
+              "created": "2024-07-10T16:46:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0065" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0065-appt02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-12-30T19:25:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle10",
+        "type": "transaction",
+        "timestamp": "2024-12-30T19:25:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:e272eff0-e973-5470-8d10-cd77779a701c",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0065-enc04",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0065-appt02" }],
+              "period": { "start": "2024-12-30T19:00:00.000Z", "end": "2024-12-30T19:25:00.000Z" },
+              "reasonCode": [{ "text": "Control de hipertensión arterial" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0065-enc04" }
+          },
+          {
+            "fullUrl": "urn:uuid:0dadb965-140a-5d29-9382-27510a8aaadf",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0065-doc04",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "date": "2024-12-30T19:25:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "bWFzYyA3NyBhw7FvcywgaHRhIGNvbnRyb2xhZGEsIHRhIDExNS83My4gdG9tYSBlbmFsYXByaWwgMTAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLiBlbmFsYXByaWwgMTAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLCBzZSBzb2xpY2l0YSBjcmVhdGluaW5hIHkgSyssIGRpZXRhIGhpcG9zw7NkaWNhLiBjdHJsIGVuIDYgbWVzZXM=",
+                    "title": "Nota de evolución",
+                    "creation": "2024-12-30T19:25:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0065-enc04" }],
+                "period": {
+                  "start": "2024-12-30T19:00:00.000Z",
+                  "end": "2024-12-30T19:25:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0065-doc04" }
+          },
+          {
+            "fullUrl": "urn:uuid:35d92d3c-169f-5a2b-b789-c2a8667b181f",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0065-sr05",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc04" },
+              "authoredOn": "2024-12-30T19:25:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0065-sr05" }
+          },
+          {
+            "fullUrl": "urn:uuid:62a0fbfd-c58d-528f-a738-109729953bcf",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0065-sr06",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2823-3",
+                    "display": "Potassium [Moles/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Potasio sérico"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc04" },
+              "authoredOn": "2024-12-30T19:25:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0065-sr06" }
+          },
+          {
+            "fullUrl": "urn:uuid:bb9c749a-a801-553c-be15-baf14df73e48",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0065-mr07",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "C09AA02", "display": "enalapril" }
+                ],
+                "text": "Enalapril 10 mg"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc04" },
+              "authoredOn": "2024-12-30T19:25:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0065-mr07" }
+          },
+          {
+            "fullUrl": "urn:uuid:6cfb7db5-a718-5458-b0c3-9812b11ae011",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0065-mr08",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc04" },
+              "authoredOn": "2024-12-30T19:25:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0065-mr08" }
+          },
+          {
+            "fullUrl": "urn:uuid:ee7e277f-5697-59c8-b2ab-5560051f1874",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond10",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "I10",
+                    "display": "Essential (primary) hypertension"
+                  }
+                ],
+                "text": "HTA"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc04" },
+              "recordedDate": "2024-12-30T19:25:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond10" }
+          },
+          {
+            "fullUrl": "urn:uuid:303afbde-7bdc-56b9-9aa1-f6486850666a",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond11",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc04" },
+              "recordedDate": "2024-12-30T19:25:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond11" }
+          },
+          {
+            "fullUrl": "urn:uuid:d3df5a32-85a7-50be-b15d-7e7eb36d62df",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond12",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "N18.3",
+                    "display": "Chronic kidney disease, stage 3"
+                  }
+                ],
+                "text": "ERC estadio 3"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc04" },
+              "recordedDate": "2024-12-30T19:25:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond12" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-12-30T19:35:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle13",
+        "type": "transaction",
+        "timestamp": "2024-12-30T19:35:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:0a8b2108-3eb4-5572-90f2-11e75ce05840",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0065-appt03",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control de HTA",
+              "start": "2025-06-30T14:15:00.000Z",
+              "end": "2025-06-30T14:45:00.000Z",
+              "minutesDuration": 30,
+              "created": "2024-12-30T19:35:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0065" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0065-appt03" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-01-06T20:33:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle11",
+        "type": "transaction",
+        "timestamp": "2025-01-06T20:33:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:d9edd6a5-b918-587f-8d88-98fb388807aa",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0065-dr05",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr05" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-01-02T20:33:00.000Z",
+              "issued": "2025-01-06T20:33:00.000Z",
+              "result": [{ "reference": "Observation/pat-0065-dr05-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0065-dr05" }
+          },
+          {
+            "fullUrl": "urn:uuid:7768a491-50ac-5e88-9061-04925b73ca2a",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr05-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr05" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-01-02T20:33:00.000Z",
+              "issued": "2025-01-06T20:33:00.000Z",
+              "valueQuantity": {
+                "value": 0.85,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.5,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  },
+                  "high": {
+                    "value": 1.2,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr05-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-01-07T20:19:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle12",
+        "type": "transaction",
+        "timestamp": "2025-01-07T20:19:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:28501289-35bd-5880-b4b8-a287de776c31",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0065-dr06",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr06" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2823-3",
+                    "display": "Potassium [Moles/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Potasio sérico"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-01-05T20:19:00.000Z",
+              "issued": "2025-01-07T20:19:00.000Z",
+              "result": [{ "reference": "Observation/pat-0065-dr06-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0065-dr06" }
+          },
+          {
+            "fullUrl": "urn:uuid:4757c1cb-1b24-58d0-bf20-79d9a59c2725",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr06-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr06" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2823-3",
+                    "display": "Potassium [Moles/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-01-05T20:19:00.000Z",
+              "issued": "2025-01-07T20:19:00.000Z",
+              "valueQuantity": {
+                "value": 4.7,
+                "unit": "mmol/L",
+                "system": "http://unitsofmeasure.org",
+                "code": "mmol/L"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 3.5,
+                    "unit": "mmol/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mmol/L"
+                  },
+                  "high": {
+                    "value": 5.1,
+                    "unit": "mmol/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mmol/L"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr06-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-06-30T14:35:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle14",
+        "type": "transaction",
+        "timestamp": "2025-06-30T14:35:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:409cf42d-d0c9-5c1e-a2e0-0e5e4023eed3",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0065-enc05",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0065-appt03" }],
+              "period": { "start": "2025-06-30T14:15:00.000Z", "end": "2025-06-30T14:35:00.000Z" },
+              "reasonCode": [{ "text": "Control de hipertensión arterial" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0065-enc05" }
+          },
+          {
+            "fullUrl": "urn:uuid:c98d0ced-0a9c-5e5e-ad70-d842101a06ba",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0065-doc05",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "date": "2025-06-30T14:35:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UzogTWFzYyA3NyBhw7FvcywgY29udHJvbCBwb3IgSFRBLiBUb21hIGxhIG1lZGljYWNpw7NuIGRlIGZvcm1hIGlycmVndWxhci4KTzogVEEgMTI3Lzc5LCBGQyA4NSwgcGVzbyA3NSBrZy4KQTogSFRBIGNvbnRyb2xhZGEsIGRpc2xpcGlkZW1pYSB5IEVSQyBlc3RhZGlvIDMuClA6IG1pc21hIGNvbmR1Y3RhLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-06-30T14:35:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0065-enc05" }],
+                "period": {
+                  "start": "2025-06-30T14:15:00.000Z",
+                  "end": "2025-06-30T14:35:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0065-doc05" }
+          },
+          {
+            "fullUrl": "urn:uuid:1c33c12c-fda0-5992-818e-0067a604abb3",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0065-sr07",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc05" },
+              "authoredOn": "2025-06-30T14:35:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0065-sr07" }
+          },
+          {
+            "fullUrl": "urn:uuid:9e7df086-1ccb-5f13-9b35-9e8bb970bb6f",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0065-sr08",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2823-3",
+                    "display": "Potassium [Moles/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Potasio sérico"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc05" },
+              "authoredOn": "2025-06-30T14:35:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0065-sr08" }
+          },
+          {
+            "fullUrl": "urn:uuid:e18311ac-5b73-5968-9dd4-055f2f45c083",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0065-sr09",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "57698-3",
+                    "display": "Lipid panel with direct LDL - Serum or Plasma"
+                  }
+                ],
+                "text": "Perfil lipídico"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc05" },
+              "authoredOn": "2025-06-30T14:35:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0065-sr09" }
+          },
+          {
+            "fullUrl": "urn:uuid:3961ad68-418c-5b24-9a23-b9fe443b6e2e",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0065-mr09",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "C09AA02", "display": "enalapril" }
+                ],
+                "text": "Enalapril 10 mg"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc05" },
+              "authoredOn": "2025-06-30T14:35:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0065-mr09" }
+          },
+          {
+            "fullUrl": "urn:uuid:4fc0b641-9bf2-5fd3-9a74-a35367045bc8",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0065-mr10",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc05" },
+              "authoredOn": "2025-06-30T14:35:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0065-mr10" }
+          },
+          {
+            "fullUrl": "urn:uuid:cb156241-f571-59c8-93f1-7b7bcf798ff7",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond13",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "I10",
+                    "display": "Essential (primary) hypertension"
+                  }
+                ],
+                "text": "HTA"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc05" },
+              "recordedDate": "2025-06-30T14:35:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond13" }
+          },
+          {
+            "fullUrl": "urn:uuid:24073abe-f3bb-5b69-bab0-d2a8fcab71ee",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond14",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc05" },
+              "recordedDate": "2025-06-30T14:35:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond14" }
+          },
+          {
+            "fullUrl": "urn:uuid:62a71de8-f888-5f9b-8bcc-c40169b67c29",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0065-cond15",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "N18.3",
+                    "display": "Chronic kidney disease, stage 3"
+                  }
+                ],
+                "text": "ERC estadio 3"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc05" },
+              "recordedDate": "2025-06-30T14:35:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0065-cond15" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-04T14:57:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle15",
+        "type": "transaction",
+        "timestamp": "2025-07-04T14:57:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:075e8b9f-a0d5-5513-a3a5-a6410de59ea8",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0065-dr07",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr07" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-07-02T14:57:00.000Z",
+              "issued": "2025-07-04T14:57:00.000Z",
+              "result": [{ "reference": "Observation/pat-0065-dr07-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0065-dr07" }
+          },
+          {
+            "fullUrl": "urn:uuid:d2edcbdf-e4e5-58e7-91a4-f5e318337485",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr07-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr07" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-07-02T14:57:00.000Z",
+              "issued": "2025-07-04T14:57:00.000Z",
+              "valueQuantity": {
+                "value": 0.74,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.5,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  },
+                  "high": {
+                    "value": 1.2,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr07-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-04T16:32:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle16",
+        "type": "transaction",
+        "timestamp": "2025-07-04T16:32:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:7ab95fed-e4ef-591e-8389-75dcd16f6dbd",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0065-dr08",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr08" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2823-3",
+                    "display": "Potassium [Moles/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Potasio sérico"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-07-01T16:32:00.000Z",
+              "issued": "2025-07-04T16:32:00.000Z",
+              "result": [{ "reference": "Observation/pat-0065-dr08-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0065-dr08" }
+          },
+          {
+            "fullUrl": "urn:uuid:2a5ceba4-634d-563b-8389-7feb8b6d6567",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr08-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr08" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2823-3",
+                    "display": "Potassium [Moles/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-07-01T16:32:00.000Z",
+              "issued": "2025-07-04T16:32:00.000Z",
+              "valueQuantity": {
+                "value": 4.7,
+                "unit": "mmol/L",
+                "system": "http://unitsofmeasure.org",
+                "code": "mmol/L"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 3.5,
+                    "unit": "mmol/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mmol/L"
+                  },
+                  "high": {
+                    "value": 5.1,
+                    "unit": "mmol/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mmol/L"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr08-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-09T15:25:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-bundle17",
+        "type": "transaction",
+        "timestamp": "2025-07-09T15:25:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:49ce2f05-1bfd-523e-8628-aec66b25d842",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0065-dr09",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr09" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "57698-3",
+                    "display": "Lipid panel with direct LDL - Serum or Plasma"
+                  }
+                ],
+                "text": "Perfil lipídico"
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-07-05T15:25:00.000Z",
+              "issued": "2025-07-09T15:25:00.000Z",
+              "result": [
+                { "reference": "Observation/pat-0065-dr09-obs1" },
+                { "reference": "Observation/pat-0065-dr09-obs2" },
+                { "reference": "Observation/pat-0065-dr09-obs3" },
+                { "reference": "Observation/pat-0065-dr09-obs4" }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0065-dr09" }
+          },
+          {
+            "fullUrl": "urn:uuid:5af10efe-3e49-5e19-91af-04c49e956f9d",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr09-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr09" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2093-3",
+                    "display": "Cholesterol [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-07-05T15:25:00.000Z",
+              "issued": "2025-07-09T15:25:00.000Z",
+              "valueQuantity": {
+                "value": 181,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 200,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr09-obs1" }
+          },
+          {
+            "fullUrl": "urn:uuid:8735ecb3-d561-5502-83ce-642f1c68fc60",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr09-obs2",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr09" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2571-8",
+                    "display": "Triglyceride [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-07-05T15:25:00.000Z",
+              "issued": "2025-07-09T15:25:00.000Z",
+              "valueQuantity": {
+                "value": 114,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 150,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr09-obs2" }
+          },
+          {
+            "fullUrl": "urn:uuid:01f3b86f-0490-56b7-907e-6f804c01967d",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr09-obs3",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr09" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2085-9",
+                    "display": "Cholesterol in HDL [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-07-05T15:25:00.000Z",
+              "issued": "2025-07-09T15:25:00.000Z",
+              "valueQuantity": {
+                "value": 64,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 40,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr09-obs3" }
+          },
+          {
+            "fullUrl": "urn:uuid:e7eca604-7553-5ad1-9f1e-8be986e4943f",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0065-dr09-obs4",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0065-sr09" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "18262-6",
+                    "display": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by Direct assay"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0065" },
+              "effectiveDateTime": "2025-07-05T15:25:00.000Z",
+              "issued": "2025-07-09T15:25:00.000Z",
+              "valueQuantity": {
+                "value": 93,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 130,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0065-dr09-obs4" }
+          }
+        ]
+      }
+    }
+  ]
+}

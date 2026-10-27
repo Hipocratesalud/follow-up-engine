@@ -1,0 +1,471 @@
+{
+  "name": "diabetic_6_months_no_plan",
+  "description": "Diabetic patient seen once, with a note that has no plan. She keeps doing HbA1c every ~3 months (each result fulfills the HbA1c protocol and restarts it) but never comes back: at 6 months the diabetes visit protocol expires and opens a case. The note without a plan is a quality finding.",
+  "clinicId": "clinic-demo",
+  "patientId": "pat-scn-dm-noplan",
+  "specialty": "diabetology",
+  "steps": [
+    {
+      "day": 0,
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-scn-dm-noplan-bundle01",
+        "type": "transaction",
+        "timestamp": "2026-01-05T12:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:cf523209-f432-5f92-b5dd-83d69bcd91d5",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-scn-dm-noplan",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-SPLAN"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Rosa Elena Briceño Salas",
+                  "family": "Briceño Salas",
+                  "given": ["Rosa", "Elena"]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "1964-07-19",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-scn-dm-noplan" }
+          },
+          {
+            "fullUrl": "urn:uuid:4567638f-4926-57e9-ab4b-e15065af26bd",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-scn-dm-noplan-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/pat-scn-dm-noplan" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
+              "period": { "start": "2026-01-05T11:30:00.000Z", "end": "2026-01-05T12:00:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-scn-dm-noplan-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:6b58fa1d-cbfc-579f-9e1b-3c3d269c792f",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-scn-dm-noplan-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-scn-dm-noplan" },
+              "date": "2026-01-05T12:00:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBmZW0gNjFhLCBjb25vY2lkYSBETTIgZGVzZGUgaGFjZSA4IGHDsW9zLCBlbiB0dG8gY29uIG1ldGZvcm1pbmEgODUwIG1nIGMvMTJoLiBBY3VkZSBhIGN0cmwuClJlZmllcmUgYnVlbmEgYWRoZXJlbmNpYSwgbmllZ2EgaGlwb2dsaWNlbWlhcy4KRUY6IFRBIDEyOC83OCBtbUhnLCBGQyA3NiBscG0sIHBlc28gNzEga2cuIEdsaWNlbWlhIGNhcGlsYXIgMTMyIG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcy4KRHg6IERNMiBlbiBtZXRhcy4KU2UgZXhwbGljYSBjb25kaWNpw7NuIHkgc2UgcmVmdWVyemEgZGlldGEu",
+                    "title": "Nota de evolución",
+                    "creation": "2026-01-05T12:00:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-scn-dm-noplan-enc01" }],
+                "period": {
+                  "start": "2026-01-05T11:30:00.000Z",
+                  "end": "2026-01-05T12:00:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-scn-dm-noplan-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:fe000c16-39fd-54a5-9044-ff5e2394d5bd",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-scn-dm-noplan-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 850 mg"
+              },
+              "subject": { "reference": "Patient/pat-scn-dm-noplan" },
+              "encounter": { "reference": "Encounter/pat-scn-dm-noplan-enc01" },
+              "authoredOn": "2026-01-05T12:00:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-scn-dm-noplan-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:4f511a86-7f81-50ad-9d21-dbfe81540f4a",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-scn-dm-noplan-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E11.9",
+                    "display": "Type 2 diabetes mellitus without complications"
+                  }
+                ],
+                "text": "DM2"
+              },
+              "subject": { "reference": "Patient/pat-scn-dm-noplan" },
+              "encounter": { "reference": "Encounter/pat-scn-dm-noplan-enc01" },
+              "recordedDate": "2026-01-05T12:00:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-scn-dm-noplan-cond01" }
+          }
+        ]
+      }
+    },
+    {
+      "day": 85,
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-scn-dm-noplan-bundle02",
+        "type": "transaction",
+        "timestamp": "2026-03-31T12:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:463e5c5e-c10c-5933-bd5e-3f99c60c6f65",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-scn-dm-noplan-dr01",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-scn-dm-noplan" },
+              "effectiveDateTime": "2026-03-31T12:00:00.000Z",
+              "issued": "2026-03-31T12:00:00.000Z",
+              "result": [{ "reference": "Observation/pat-scn-dm-noplan-dr01-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-scn-dm-noplan-dr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:26143118-bef6-57c9-99c5-0790beda0b72",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-scn-dm-noplan-dr01-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-scn-dm-noplan" },
+              "effectiveDateTime": "2026-03-31T12:00:00.000Z",
+              "issued": "2026-03-31T12:00:00.000Z",
+              "valueQuantity": {
+                "value": 5.6,
+                "unit": "%",
+                "system": "http://unitsofmeasure.org",
+                "code": "%"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 5.7,
+                    "unit": "%",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "%"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-scn-dm-noplan-dr01-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "day": 170,
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-scn-dm-noplan-bundle03",
+        "type": "transaction",
+        "timestamp": "2026-06-24T12:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:4d261f5a-edf4-5f59-a753-02270c8d53ba",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-scn-dm-noplan-dr02",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-scn-dm-noplan" },
+              "effectiveDateTime": "2026-06-24T12:00:00.000Z",
+              "issued": "2026-06-24T12:00:00.000Z",
+              "result": [{ "reference": "Observation/pat-scn-dm-noplan-dr02-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-scn-dm-noplan-dr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:5d9c2f69-3e27-50eb-8622-d62e3dca5dd8",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-scn-dm-noplan-dr02-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-scn-dm-noplan" },
+              "effectiveDateTime": "2026-06-24T12:00:00.000Z",
+              "issued": "2026-06-24T12:00:00.000Z",
+              "valueQuantity": {
+                "value": 5.5,
+                "unit": "%",
+                "system": "http://unitsofmeasure.org",
+                "code": "%"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 5.7,
+                    "unit": "%",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "%"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-scn-dm-noplan-dr02-obs1" }
+          }
+        ]
+      }
+    }
+  ],
+  "llmFixture": {
+    "pat-scn-dm-noplan-doc01": {
+      "hasPlan": false,
+      "conditions": [
+        {
+          "code": {
+            "system": "http://hl7.org/fhir/sid/icd-10",
+            "code": "E11",
+            "display": "Type 2 diabetes mellitus"
+          },
+          "confidence": 0.95,
+          "evidenceQuote": "DM2"
+        }
+      ],
+      "medications": [
+        { "text": "metformina 850 mg c/12h", "evidenceQuote": "metformina 850 mg c/12h" }
+      ],
+      "planItems": [],
+      "model": "fixture",
+      "promptVersion": "fixture-1",
+      "costUsd": 0
+    }
+  },
+  "expect": [
+    {
+      "day": 1,
+      "openExpectations": [
+        { "ruleId": "protocol_diabetes_visit", "dueDay": 180 },
+        { "ruleId": "protocol_diabetes_hba1c", "dueDay": 90 }
+      ],
+      "absentRuleIds": ["doctor_plan_followup", "cadence_break"],
+      "activeCases": [],
+      "qualityFindings": ["note_without_plan"]
+    },
+    {
+      "day": 86,
+      "openExpectations": [
+        { "ruleId": "protocol_diabetes_visit", "dueDay": 180 },
+        { "ruleId": "protocol_diabetes_hba1c", "dueDay": 175 }
+      ],
+      "closedExpectations": [
+        { "ruleId": "protocol_diabetes_hba1c", "dueDay": 90, "status": "fulfilled" }
+      ],
+      "activeCases": []
+    },
+    {
+      "day": 171,
+      "openExpectations": [
+        { "ruleId": "protocol_diabetes_visit", "dueDay": 180 },
+        { "ruleId": "protocol_diabetes_hba1c", "dueDay": 260 }
+      ],
+      "activeCases": []
+    },
+    {
+      "day": 181,
+      "openExpectations": [{ "ruleId": "protocol_diabetes_hba1c", "dueDay": 260 }],
+      "absentRuleIds": ["protocol_diabetes_visit"],
+      "activeCases": [{ "reasons": ["protocol_diabetes_visit"] }]
+    }
+  ]
+}

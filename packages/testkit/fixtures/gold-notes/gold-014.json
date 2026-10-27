@@ -1,0 +1,41 @@
+{
+  "id": "gold-014",
+  "specialty": "internal_medicine",
+  "authoredAt": "2025-03-03",
+  "text": "Pcte masc 70a, HTA + ERC estadio 3, en tto con enalapril 10 mg c/12h. Acude por resultado de laboratorio: K+ 5.8 mmol/L, creatinina 1.9 mg/dl.\nDx: hiperpotasemia leve. ERC estadio 3. HTA.\nPlan: se suspende enalapril, se indica amlodipino 5 mg OD. Dieta baja en potasio. Repetir K+ y creatinina en 7 días. Ctrl en 2 semanas.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [
+      {
+        "icd10": "E87",
+        "evidenceQuote": "hiperpotasemia leve"
+      },
+      {
+        "icd10": "N18",
+        "evidenceQuote": "ERC estadio 3"
+      },
+      {
+        "icd10": "I10",
+        "evidenceQuote": "HTA + ERC"
+      }
+    ],
+    "medications": [
+      {
+        "text": "amlodipino 5 mg OD",
+        "evidenceQuote": "amlodipino 5 mg OD"
+      }
+    ],
+    "planItems": [
+      {
+        "kind": "lab",
+        "dueInDays": 7,
+        "evidenceQuote": "Repetir K+ y creatinina en 7 días"
+      },
+      {
+        "kind": "follow_up_visit",
+        "dueInDays": 14,
+        "evidenceQuote": "Ctrl en 2 semanas"
+      }
+    ]
+  }
+}

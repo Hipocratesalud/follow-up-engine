@@ -1,0 +1,346 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0054",
+  "name": "Yuliana Ana Peña Martínez",
+  "gender": "female",
+  "birthDate": "1995-09-09",
+  "specialty": "internal_medicine",
+  "pattern": "short_treatment",
+  "entries": [
+    {
+      "at": "2025-02-07T13:04:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0054-bundle01",
+        "type": "transaction",
+        "timestamp": "2025-02-07T13:04:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:ba121595-ad78-592f-9bc7-aaeeb9bb0801",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0054",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-11998"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Yuliana Ana Peña Martínez",
+                  "family": "Peña Martínez",
+                  "given": ["Yuliana", "Ana"]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "1995-09-09",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0054" }
+          },
+          {
+            "fullUrl": "urn:uuid:8a85546f-860d-5466-81f1-a354e044585f",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0054-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta por morbilidad" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0054" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "period": { "start": "2025-02-07T12:45:00.000Z", "end": "2025-02-07T13:04:00.000Z" },
+              "reasonCode": [{ "text": "faringoamigdalitis" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0054-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:326ed999-f30a-59cf-847e-47f3a71e077d",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0054-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0054" },
+              "date": "2025-02-07T13:04:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBmZW1lbmluYSAyOWEgb2Rpbm9mYWdpYSBpbnRlbnNhIHkgZmllYnJlIGRlIDM4LjUgwrBDIGRlIDIgZMOtYXMuIEFtw61nZGFsYXMgaGlwZXJ0csOzZmljYXMgY29uIGV4dWRhZG8uIER4OiBmYXJpbmdvYW1pZ2RhbGl0aXMuIFR0bzogYW1veGljaWxpbmEgNTAwIG1nIFZPIGMvOGggeCA3IGTDrWFzLCBpYnVwcm9mZW5vIDQwMCBtZyBWTyBjLzhoIFBSTiBkb2xvciB4IDUgZMOtYXMsIGFidW5kYW50ZXMgbMOtcXVpZG9zLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-02-07T13:04:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0054-enc01" }],
+                "period": {
+                  "start": "2025-02-07T12:45:00.000Z",
+                  "end": "2025-02-07T13:04:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0054-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:a6decde7-95ac-5c8e-ace2-d8ac6a4f024d",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0054-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "J01CA04",
+                    "display": "amoxicillin"
+                  }
+                ],
+                "text": "Amoxicilina 500 mg"
+              },
+              "subject": { "reference": "Patient/pat-0054" },
+              "encounter": { "reference": "Encounter/pat-0054-enc01" },
+              "authoredOn": "2025-02-07T13:04:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 cáps VO c/8h x 7 días" }],
+              "dispenseRequest": {
+                "validityPeriod": { "start": "2025-02-07T13:04:00.000Z" },
+                "expectedSupplyDuration": {
+                  "value": 7,
+                  "unit": "días",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "d"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0054-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:7aae63bb-1ebc-5e5c-9346-b1ec6f153f0d",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0054-mr02",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "M01AE01", "display": "ibuprofen" }
+                ],
+                "text": "Ibuprofeno 400 mg"
+              },
+              "subject": { "reference": "Patient/pat-0054" },
+              "encounter": { "reference": "Encounter/pat-0054-enc01" },
+              "authoredOn": "2025-02-07T13:04:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/8h PRN dolor x 5 días" }],
+              "dispenseRequest": {
+                "validityPeriod": { "start": "2025-02-07T13:04:00.000Z" },
+                "expectedSupplyDuration": {
+                  "value": 5,
+                  "unit": "días",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "d"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0054-mr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:232ca208-8241-5e32-9301-1cf7e2ab285f",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0054-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "J02.9",
+                    "display": "Acute pharyngitis, unspecified"
+                  }
+                ],
+                "text": "faringoamigdalitis"
+              },
+              "subject": { "reference": "Patient/pat-0054" },
+              "encounter": { "reference": "Encounter/pat-0054-enc01" },
+              "recordedDate": "2025-02-07T13:04:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0054-cond01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-02-17T19:45:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0054-bundle02",
+        "type": "transaction",
+        "timestamp": "2025-02-17T19:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:56228689-51ab-5182-8b27-0e4468950f31",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0054-enc02",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0054" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "period": { "start": "2025-02-17T19:30:00.000Z", "end": "2025-02-17T19:45:00.000Z" },
+              "reasonCode": [{ "text": "Control post tratamiento: faringoamigdalitis" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0054-enc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:18158422-10a2-5355-8f41-aec4dd59ffcb",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0054-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0054" },
+              "date": "2025-02-17T19:45:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBhY3VkZSBhIGNvbnRyb2wgcG9zdCB0dG8gcG9yIGZhcmluZ29hbWlnZGFsaXRpcy4gQ29tcGxldMOzIHRyYXRhbWllbnRvLiBBc2ludG9tw6F0aWNhLiBTZSBkYSBkZSBhbHRhLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-02-17T19:45:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0054-enc02" }],
+                "period": {
+                  "start": "2025-02-17T19:30:00.000Z",
+                  "end": "2025-02-17T19:45:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0054-doc02" }
+          }
+        ]
+      }
+    }
+  ]
+}
