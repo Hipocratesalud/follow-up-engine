@@ -569,7 +569,7 @@ A case entered the clinic's inbox (one per patient and reason group; later reaso
 
 ### `case.escalated`
 
-The case moved along its escalation policy (`default_v1`: notify the owner at day 0, raise priority and ask for patient contact at day 14, escalate to coordination at day 21, lost to follow-up at day 35 only if the patient was asked to come back and did not; otherwise the case stays with the coordinator).
+The case moved along its escalation policy (`default_v1`: notify the owner at day 0, raise priority and ask for patient contact at day 14, escalate to coordination at day 21, lost to follow-up at day 35 only if the patient was asked to come back and did not answer by the request's `dueBy`, waiting for it when it is later; otherwise the case stays with the coordinator).
 
 ```json
 {

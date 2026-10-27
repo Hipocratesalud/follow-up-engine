@@ -13,7 +13,11 @@ import { priorityOfCase } from '../case-manager/case-priority.ts';
 import { CaseWriter, withoutKey } from '../case-manager/case-writer.ts';
 import { isActiveCaseStatus } from '../case-manager/state-machine.ts';
 import type { Catalog } from '../catalog.ts';
-import { hasOptedOut, lastPatientContactAt } from '../patient-contact/history.ts';
+import {
+  hasOptedOut,
+  lastPatientContactAt,
+  patientContactRequestTimes,
+} from '../patient-contact/history.ts';
 import {
   decidePatientContact,
   isLowConfidenceCase,
@@ -125,6 +129,14 @@ interface EscalatorInput {
   readonly report: MutableReport;
 }
 
+interface StepOutcome {
+  readonly followUpCase: FollowUpCase;
+  /** Run the next step right away (the step could not happen, e.g. an opted-out patient). */
+  readonly continueNow: boolean;
+  /** The step cannot run yet: run it again at this time. */
+  readonly retryAt?: Date | undefined;
+}
+
 class CaseEscalator {
   readonly #input: EscalatorInput;
   readonly #writer: CaseWriter;
@@ -157,6 +169,13 @@ class CaseEscalator {
       if (step !== undefined) {
         const outcome = await this.#execute(current, policy, index, step);
         current = outcome.followUpCase;
+        if (outcome.retryAt !== undefined) {
+          // The step cannot run yet (a contact request is still within its
+          // answer window): it runs again, same step, once it can.
+          current = withNextActionAt(current, outcome.retryAt);
+          await stores.cases.update(clinicId, current);
+          continue;
+        }
         continueNow = outcome.continueNow;
         this.#input.report.steps.push({ caseId: current.id, step: index, action: step.action });
       }
@@ -210,7 +229,7 @@ class CaseEscalator {
     policy: EscalationPolicy,
     index: number,
     step: EscalationPolicy['steps'][number],
-  ): Promise<{ readonly followUpCase: FollowUpCase; readonly continueNow: boolean }> {
+  ): Promise<StepOutcome> {
     if (step.action === 'request_patient_contact') {
       const decision = await this.#requestPatientContact(current, this.#actor(policy), {
         step: index,
@@ -220,6 +239,9 @@ class CaseEscalator {
         followUpCase: current,
         continueNow: !decision.allowed && decision.reason === 'patient_opted_out',
       };
+    }
+    if (step.action === 'mark_lost_to_follow_up') {
+      return this.#markLost(current, this.#actor(policy), { step: index, action: step.action });
     }
     return { followUpCase: await this.#run(current, policy, index, step), continueNow: false };
   }
@@ -274,7 +296,7 @@ class CaseEscalator {
         return escalated;
       }
       case 'mark_lost_to_follow_up':
-        return this.#markLost(current, actor, payload);
+        return current;
     }
   }
 
@@ -289,22 +311,33 @@ class CaseEscalator {
   /**
    * Lost to follow-up means the patient was asked to come back and did not:
    * only when a contact request went out for the patient since the case
-   * opened (automatic or by a user, from any of their cases). Otherwise
-   * nobody tried (the clinic does not contact patients, the patient opted
-   * out, the case rests on a probable condition or comes from the backfill)
-   * and the case stays with the team until someone resolves or dismisses it.
-   * A patient who opted out after being contacted declined.
+   * opened (automatic or by a user, from any of their cases) and its answer
+   * window (`patientContactDueInDays`, the request's `dueBy`) is over. While
+   * the only requests are still within that window, the step waits for the
+   * earliest one to end. With no request at all nobody tried (the clinic
+   * does not contact patients, the patient opted out, the case rests on a
+   * probable condition or comes from the backfill) and the case stays with
+   * the team until someone resolves or dismisses it. A patient who opted out
+   * after being contacted declined.
    */
   async #markLost(
     current: FollowUpCase,
     actor: CaseEventActor,
     payload: { readonly step: number; readonly action: EscalationAction },
-  ): Promise<FollowUpCase> {
-    const { stores, clinicId, now, report } = this.#input;
-    const lastContactAt = await lastPatientContactAt(stores, clinicId, current.patientId);
-    if (lastContactAt === undefined || lastContactAt.getTime() < current.createdAt.getTime()) {
+  ): Promise<StepOutcome> {
+    const { stores, clinicId, now, report, deps } = this.#input;
+    const requests = (await patientContactRequestTimes(stores, clinicId, current.patientId)).filter(
+      (at) => at.getTime() >= current.createdAt.getTime(),
+    );
+    if (requests.length === 0) {
       report.lostToFollowUpSkipped.push(current.id);
-      return current;
+      return { followUpCase: current, continueNow: false };
+    }
+    const answerDeadlines = requests.map((at) =>
+      addDays(at, deps.settings.patientContactDueInDays),
+    );
+    if (answerDeadlines.every((dueBy) => dueBy.getTime() > now.getTime())) {
+      return { followUpCase: current, continueNow: false, retryAt: answerDeadlines[0] };
     }
     const kind = (await hasOptedOut(stores, clinicId, current.patientId))
       ? 'patient_declined'
@@ -322,7 +355,7 @@ class CaseEscalator {
       patientId: lost.patientId,
       resolution: kind,
     });
-    return lost;
+    return { followUpCase: lost, continueNow: false };
   }
 
   async #emitEscalated(followUpCase: FollowUpCase, escalationStep: number): Promise<void> {

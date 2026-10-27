@@ -4,7 +4,9 @@ import { mapBundleToBatches } from '@follow-up-engine/fhir';
 import { BASE_DATE, dayToDate } from '@follow-up-engine/testkit';
 import { describe, expect, it } from 'vitest';
 import {
+  encounterResource,
   labOrderResource,
+  noteResource,
   observationResource,
   optOutBundle,
   transactionOf,
@@ -157,6 +159,54 @@ function lostToFollowUp(makeHarness: (options: HarnessOptions) => Promise<Engine
       { status: 'escalated', origin: 'backfill', assignee: 'coordinator' },
     ]);
     expect(await resolutions(harness)).toEqual([]);
+  });
+
+  it('a contact asked for another case counts only once its response window is over', async () => {
+    // HIP-135, QA round 3 clinical #0 (LW3): a backfill lab case, which never
+    // contacts the patient, reaches its last step on day 35. A live plan case
+    // of the same patient ("control en 19 dias" on day 1) asks for contact on
+    // day 34, due by day 41. The backfill case must wait until then.
+    const harness = await makeHarness(options('window', true));
+    const history = mapBundleToBatches(labOrder('p-window', -40), {
+      clinicId: harness.clinicId,
+      receivedAt: dayToDate(-40),
+    });
+    for (const batch of history.batches) {
+      await harness.engine.backfill.stage(batch);
+    }
+    await harness.engine.backfill.run(harness.clinicId);
+    await day(harness, 0);
+    await day(harness, 1, [
+      transactionOf(
+        encounterResource({
+          id: 'enc-window',
+          patientId: 'p-window',
+          specialty: 'internal_medicine',
+          at: dayToDate(1),
+        }),
+        noteResource({
+          id: 'note-window',
+          patientId: 'p-window',
+          encounterId: 'enc-window',
+          specialty: 'internal_medicine',
+          text: 'Paciente estable. Plan: control en 19 dias.',
+          at: dayToDate(1),
+        }),
+      ),
+    ]);
+    await days(harness, 2, 40);
+    const contacts = (await harness.pendingEvents()).flatMap((event) =>
+      event.type === 'patient_contact.requested' ? [event.payload] : [],
+    );
+    expect(contacts).toMatchObject([{ dueBy: dayToDate(41) }]);
+    const byOrigin = async () =>
+      Object.fromEntries((await casesOf(harness, 'p-window')).map((c) => [c.origin, c.status]));
+    expect(await byOrigin()).toEqual({ backfill: 'escalated', live: 'notified' });
+    expect(await resolutions(harness)).toEqual([]);
+    // The answer window is over and nobody came back: now it is lost.
+    await day(harness, 41);
+    expect(await byOrigin()).toEqual({ backfill: 'lost_to_follow_up', live: 'escalated' });
+    expect(await resolutions(harness)).toEqual(['patient_unreachable']);
   });
 }
 
