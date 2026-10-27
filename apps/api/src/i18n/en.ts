@@ -600,4 +600,14 @@ export const EN = {
       protocol: 'Protocol',
     },
   },
+  accessGate: {
+    title: 'Clinical follow-up',
+    heading: 'Clinical follow-up',
+    intro: 'This demo is private. Enter the access code you were given.',
+    codeLabel: 'Access code',
+    submit: 'Enter',
+    wrongCode: 'That code is not valid. Check it and try again.',
+    tooManyAttempts: 'Too many attempts. Wait a minute and try again.',
+    required: 'Enter the access code first.',
+  },
 } satisfies ApiMessages;

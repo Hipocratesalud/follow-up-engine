@@ -147,6 +147,32 @@ describe('language switch', () => {
     expect(getLocale()).toBe('en');
   });
 
+  it("starts in the deployment's default language until the viewer picks one", () => {
+    const meta = document.createElement('meta');
+    meta.name = 'inbox-default-locale';
+    meta.content = 'es';
+    document.head.append(meta);
+    try {
+      localStorage.removeItem(LOCALE_STORAGE_KEY);
+      resetLocale();
+      expect(getLocale()).toBe('es');
+      expect(document.documentElement.lang).toBe('es');
+      // The viewer's own choice wins over the deployment's default.
+      localStorage.setItem(LOCALE_STORAGE_KEY, 'en');
+      resetLocale();
+      expect(getLocale()).toBe('en');
+      // An unknown default falls back to English.
+      localStorage.removeItem(LOCALE_STORAGE_KEY);
+      meta.content = 'klingon';
+      resetLocale();
+      expect(getLocale()).toBe('en');
+    } finally {
+      meta.remove();
+      localStorage.removeItem(LOCALE_STORAGE_KEY);
+      resetLocale();
+    }
+  });
+
   it('still switches when the browser blocks storage', async () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('blocked');

@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <meta name="description" content="Clinical follow-up inbox" />
+    <!-- The UI language until the viewer picks one; a hosted deployment sets it (DEFAULT_UI_LOCALE). -->
+    <meta name="inbox-default-locale" content="en" />
     <title>Clinical follow-up</title>
     <script>
       // Resolve the theme before first paint to avoid a light flash in dark mode.
@@ -18,13 +20,18 @@
           // Storage can be blocked; the system preference still applies.
         }
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-        // The remembered UI language (src/i18n/locale.ts), before first paint.
+        // The remembered UI language, else the deployment's default (src/i18n/locale.ts), before first paint.
+        var locale = null;
         try {
-          var locale = window.localStorage.getItem('inbox-locale');
-          if (locale === 'en' || locale === 'es') document.documentElement.lang = locale;
+          locale = window.localStorage.getItem('inbox-locale');
         } catch (error) {
-          // Storage can be blocked; English stays.
+          // Storage can be blocked; the default applies.
         }
+        if (locale !== 'en' && locale !== 'es') {
+          var meta = document.querySelector('meta[name="inbox-default-locale"]');
+          locale = meta && meta.getAttribute('content');
+        }
+        if (locale === 'en' || locale === 'es') document.documentElement.lang = locale;
       })();
     </script>
   </head>

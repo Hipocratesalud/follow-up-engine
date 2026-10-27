@@ -15,6 +15,7 @@ import { registerJobRoutes } from './job-routes.ts';
 import { registerPatientQueueRoutes } from './patient-queue-routes.ts';
 import { registerReviewerDemoRoutes, registerReviewerRoutes } from './reviewer-routes.ts';
 import { docsPage, openApiDocument } from './openapi.ts';
+import { accessGate, inboxResponse, registerAccessGate, type SiteOptions } from './site.ts';
 import {
   clientAddress,
   DEFAULT_RATE_LIMITS,
@@ -38,6 +39,11 @@ export interface AppOptions {
   readonly maxBodyBytes?: number;
   /** Per-key request limits. Default {@link DEFAULT_RATE_LIMITS}. */
   readonly rateLimits?: RateLimits;
+  /**
+   * A hosted demo: the built inbox on the same origin and a shared access
+   * code in front of everything but the health probes (docs/deploy.md#hosted-demo).
+   */
+  readonly site?: SiteOptions;
 }
 
 /**
@@ -284,6 +290,11 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   app.use('*', accessLog(runtime));
   app.use('*', localize());
   app.use('*', securityHeaders());
+  const site = options.site;
+  if (site?.accessCode !== undefined) {
+    app.use('*', accessGate(site.accessCode));
+    registerAccessGate(app, site.accessCode, site.defaultLocale);
+  }
   app.use(
     '*',
     cors({
@@ -368,6 +379,8 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   }
 
   app.notFound((c) => {
+    const page = site?.inbox === undefined ? undefined : inboxResponse(c, site.inbox);
+    if (page !== undefined) return page;
     const error = new HttpError(404, 'not_found', c.var.t.errors.routeNotFound);
     return c.req.path.startsWith('/fhir') ? fhirErrorResponse(c, error) : errorResponse(c, error);
   });

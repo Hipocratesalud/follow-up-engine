@@ -8,6 +8,7 @@ import { MemoryDatabase, MemoryLlmUsageLog } from '@follow-up-engine/adapter-mem
 import { describe, expect, it } from 'vitest';
 import { loadRuntimeConfig } from './config.ts';
 import { createConfiguredExtractor } from './llm.ts';
+import { createRuntime, DEMO_CLINIC } from './runtime.ts';
 
 describe('which model reads the notes by default', () => {
   it('is Muse Spark on the Meta Model API when META_API_KEY is set', () => {
@@ -174,5 +175,26 @@ describe('a recorded Muse Spark snapshot', () => {
     });
     expect(configured.info.provider).toBe('fake');
     expect(configured.replay).toBeUndefined();
+  });
+});
+
+describe("the demo clinic's monthly LLM budget", () => {
+  it('is DEMO_LLM_MONTHLY_BUDGET_USD when set, the clinic default otherwise', async () => {
+    const base = { CLOCK: 'fake', LOG_LEVEL: 'silent', DEMO_API_KEY: 'budget-test-key' } as const;
+    const capped = await createRuntime(
+      loadRuntimeConfig({ ...base, DEMO_LLM_MONTHLY_BUDGET_USD: '10' }),
+    );
+    const defaulted = await createRuntime(loadRuntimeConfig(base));
+    try {
+      const id = clinicId(DEMO_CLINIC.id);
+      expect((await capped.storage.clinics.get(id))?.settings.llmMonthlyBudgetUsd).toBe(10);
+      expect((await defaulted.storage.clinics.get(id))?.settings.llmMonthlyBudgetUsd).toBe(50);
+    } finally {
+      await capped.close();
+      await defaulted.close();
+    }
+    expect(() => loadRuntimeConfig({ DEMO_LLM_MONTHLY_BUDGET_USD: '-1' })).toThrow(
+      /DEMO_LLM_MONTHLY_BUDGET_USD/,
+    );
   });
 });

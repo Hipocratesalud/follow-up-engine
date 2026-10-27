@@ -133,17 +133,20 @@ docker compose --profile demo up --build      # Postgres + the demo (API, worker
 docker compose --profile app up --build       # production-like split: API, worker and a webhook sink, system clock
 ```
 
-| Command           | What it does                                                     |
-| ----------------- | ---------------------------------------------------------------- |
-| `pnpm verify`     | Everything CI runs, in order                                     |
-| `pnpm lint`       | ESLint (typescript-eslint strict, type-checked) + Prettier check |
-| `pnpm typecheck`  | `tsc` in every package                                           |
-| `pnpm boundaries` | dependency-cruiser: hexagonal import rules, no cycles            |
-| `pnpm test`       | Vitest, every package as a project                               |
-| `pnpm e2e`        | End-to-end suite against `DATABASE_URL`                          |
-| `pnpm demo`       | API + embedded worker on a fake clock, synthetic clinic seeded   |
-| `pnpm inbox`      | The clinic inbox (Vite dev server)                               |
-| `pnpm format`     | Prettier write                                                   |
+To put the demo on a public URL (API and inbox on one origin, a shared access code, Spanish by default if you want it): [deploy.md](docs/deploy.md#hosted-demo).
+
+| Command            | What it does                                                        |
+| ------------------ | ------------------------------------------------------------------- |
+| `pnpm verify`      | Everything CI runs, in order                                        |
+| `pnpm lint`        | ESLint (typescript-eslint strict, type-checked) + Prettier check    |
+| `pnpm typecheck`   | `tsc` in every package                                              |
+| `pnpm boundaries`  | dependency-cruiser: hexagonal import rules, no cycles               |
+| `pnpm test`        | Vitest, every package as a project                                  |
+| `pnpm e2e`         | End-to-end suite against `DATABASE_URL`                             |
+| `pnpm demo`        | API + embedded worker on a fake clock, synthetic clinic seeded      |
+| `pnpm inbox`       | The clinic inbox (Vite dev server)                                  |
+| `pnpm deploy:demo` | Redeploys the hosted demo ([deploy.md](docs/deploy.md#hosted-demo)) |
+| `pnpm format`      | Prettier write                                                      |
 
 ## Architecture decisions
 

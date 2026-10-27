@@ -65,6 +65,9 @@ if (process.env['SEED'] !== 'false') {
   const report = await seedSyntheticClinic(runtime, {
     apiKey,
     inboxApiKey,
+    ...(config.demo?.llmMonthlyBudgetUsd === undefined
+      ? {}
+      : { llmMonthlyBudgetUsd: config.demo.llmMonthlyBudgetUsd }),
     ...(process.env['SEED_PATIENTS'] === undefined
       ? {}
       : { patients: Number(process.env['SEED_PATIENTS']) }),

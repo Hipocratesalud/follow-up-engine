@@ -32,6 +32,9 @@ try {
   const report = await seedSyntheticClinic(runtime, {
     apiKey: config.demo.apiKey,
     ...(config.demo.inboxApiKey === undefined ? {} : { inboxApiKey: config.demo.inboxApiKey }),
+    ...(config.demo.llmMonthlyBudgetUsd === undefined
+      ? {}
+      : { llmMonthlyBudgetUsd: config.demo.llmMonthlyBudgetUsd }),
     ...(patients === undefined ? {} : { patients: Number(patients) }),
     onProgress: (done, total) => {
       runtime.logger.info({ done, total }, 'seeding');

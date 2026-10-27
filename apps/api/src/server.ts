@@ -3,6 +3,8 @@ import { type EngineRuntime, Worker } from '@follow-up-engine/runtime';
 import type { ApiConfig } from './config.ts';
 import { type AppOptions, createApp } from './http/app.ts';
 import type { App } from './http/context.ts';
+import { loadInboxSite } from './http/site.ts';
+import { DEFAULT_API_LOCALE } from './i18n/index.ts';
 
 export interface ApiServer {
   readonly app: App;
@@ -25,10 +27,22 @@ export function createApiServer(
   appOptions: Partial<AppOptions> = {},
 ): ApiServer {
   const worker = config.embeddedWorker ? new Worker(runtime) : undefined;
+  const defaultLocale = config.defaultUiLocale ?? DEFAULT_API_LOCALE;
+  const site =
+    config.inboxDistDir === undefined && config.accessCode === undefined
+      ? undefined
+      : {
+          defaultLocale,
+          ...(config.inboxDistDir === undefined
+            ? {}
+            : { inbox: loadInboxSite(config.inboxDistDir, defaultLocale) }),
+          ...(config.accessCode === undefined ? {} : { accessCode: config.accessCode }),
+        };
   const app = createApp(runtime, {
     ...appOptions,
     corsOrigins: config.corsOrigins,
     ...(worker === undefined ? {} : { worker }),
+    ...(site === undefined ? {} : { site }),
   });
   let server: ServerType | undefined;
   return {

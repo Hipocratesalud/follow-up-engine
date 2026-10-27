@@ -242,6 +242,9 @@ export function securityHeaders(): MiddlewareHandler<AppEnv> {
     if (new URL(c.req.url).protocol === 'https:') {
       c.header('strict-transport-security', 'max-age=31536000; includeSubDomains');
     }
-    c.header('content-security-policy', c.req.path === '/docs' ? DOCS_CSP : API_CSP);
+    // A page that brings its own policy (the hosted inbox, the access code page) keeps it.
+    if (!c.res.headers.has('content-security-policy')) {
+      c.header('content-security-policy', c.req.path === '/docs' ? DOCS_CSP : API_CSP);
+    }
   };
 }

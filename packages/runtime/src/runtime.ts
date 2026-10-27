@@ -347,7 +347,12 @@ export async function createRuntime(
     );
   }
   if (config.demo !== undefined) {
-    await registerDemoClinic(runtime, config.demo.apiKey, config.demo.inboxApiKey);
+    await registerDemoClinic(
+      runtime,
+      config.demo.apiKey,
+      config.demo.inboxApiKey,
+      config.demo.llmMonthlyBudgetUsd,
+    );
     logger.info(
       { clinicId: DEMO_CLINIC.id, inboxKey: config.demo.inboxApiKey !== undefined },
       'demo clinic registered',
@@ -371,12 +376,14 @@ export async function createRuntime(
  * {@link DEMO_DAILY_CASE_CAP_PER_OWNER}; the escalation policy is
  * {@link DEMO_ESCALATION_POLICY}; every protocol of config/protocols is
  * enabled, drafts included; the nightly reconciliation runs without the
- * weekly full sweep.
+ * weekly full sweep; `llmMonthlyBudgetUsd` (`DEMO_LLM_MONTHLY_BUDGET_USD`)
+ * caps a hosted demo's model spend.
  */
 export async function registerDemoClinic(
   runtime: EngineRuntime,
   apiKey: string,
   inboxApiKey?: string,
+  llmMonthlyBudgetUsd?: number,
 ): Promise<Clinic> {
   const clinic = await runtime.registerClinic({
     id: DEMO_CLINIC.id,
@@ -399,6 +406,7 @@ export async function registerDemoClinic(
       // Nightly reconciliation of what changed, no weekly full sweep: the fake
       // clock crosses a week in seconds (a full sweep stays a CLI command).
       reconciliation: { fullSweepWeekday: null },
+      ...(llmMonthlyBudgetUsd === undefined ? {} : { llmMonthlyBudgetUsd }),
     },
   });
   if (inboxApiKey !== undefined) {

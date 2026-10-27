@@ -261,4 +261,19 @@ export interface ApiMessages {
   readonly validation: ValidationMessages;
   readonly reviewer: ReviewerMessages;
   readonly admin: AdminMessages;
+  /** The shared access code page in front of a hosted demo (`DEMO_ACCESS_CODE`). */
+  readonly accessGate: AccessGateMessages;
+}
+
+export interface AccessGateMessages {
+  /** The page's `<title>`. */
+  readonly title: string;
+  readonly heading: string;
+  readonly intro: string;
+  readonly codeLabel: string;
+  readonly submit: string;
+  readonly wrongCode: string;
+  readonly tooManyAttempts: string;
+  /** JSON error of an API call without the access cookie. */
+  readonly required: string;
 }

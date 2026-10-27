@@ -1,6 +1,7 @@
 /**
- * The inbox's active UI locale. English is the default; Spanish is the
- * second locale for Latin American hosts. The choice is remembered per
+ * The inbox's active UI locale. English is the default (a deployment can
+ * pick another, see {@link deploymentDefaultLocale}); Spanish is the second
+ * locale for Latin American hosts. The choice is remembered per
  * viewer (localStorage, which may be blocked: every access is guarded) and
  * mirrored on `<html lang>`. The locale also travels to the API on every
  * call (`Accept-Language`), so the labels the API writes come back in it.
@@ -26,6 +27,19 @@ export function isLocale(value: unknown): value is Locale {
   return typeof value === 'string' && (LOCALES as readonly string[]).includes(value);
 }
 
+/**
+ * The deployment's default UI language: `<meta name="inbox-default-locale">`
+ * in index.html, which the API rewrites when it serves the inbox
+ * (`DEFAULT_UI_LOCALE`). English when absent or unknown.
+ */
+export function deploymentDefaultLocale(): Locale {
+  if (typeof document === 'undefined') return DEFAULT_LOCALE;
+  const content = document
+    .querySelector('meta[name="inbox-default-locale"]')
+    ?.getAttribute('content');
+  return isLocale(content) ? content : DEFAULT_LOCALE;
+}
+
 function readStoredLocale(): Locale | undefined {
   try {
     const stored = globalThis.localStorage.getItem(LOCALE_STORAGE_KEY);
@@ -47,7 +61,7 @@ function syncDocument(locale: Locale): void {
   if (typeof document !== 'undefined') document.documentElement.lang = locale;
 }
 
-let current: Locale = readStoredLocale() ?? DEFAULT_LOCALE;
+let current: Locale = readStoredLocale() ?? deploymentDefaultLocale();
 const listeners = new Set<() => void>();
 syncDocument(current);
 
@@ -73,11 +87,12 @@ export function subscribeLocale(listener: () => void): () => void {
 }
 
 /**
- * Re-reads the remembered choice (default English when none): a fresh page
- * load does this at import; tests call it after clearing storage.
+ * Re-reads the remembered choice (the deployment's default when none,
+ * English unless configured): a fresh page load does this at import; tests
+ * call it after clearing storage.
  */
 export function resetLocale(): void {
-  const next = readStoredLocale() ?? DEFAULT_LOCALE;
+  const next = readStoredLocale() ?? deploymentDefaultLocale();
   syncDocument(next);
   if (next === current) return;
   current = next;
