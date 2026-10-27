@@ -368,12 +368,19 @@ is read with the Spanish lexicons anyway). The English rules were written while 
 English notes, so the English column overstates how well they generalize. The oracle scores 100% in
 both languages.
 
-First real Muse Spark run (`muse-spark-1.3`, reasoning `low`, 2026-10-27,
-[report](../../docs/evals/2026-10-27-meta-muse-spark-1.3.md)), on the 17 English notes plus five
-Spanish ones (gold-001, 026, 047, 062, 071): conditions F1 100% (25/0/0), medications 95.2%, plan items
-97.1%, hasPlan and discharge 100%, no hallucinated quote, language detected right on all 22; English
-alone: medications 93.3%, plan items 96.6%, the rest 100%. About 3,850 input and 350 to 1,600 output
-tokens per note (reasoning included), $0.0049 per note, $0.11 for the run, p50 3.3 s, p95 6.2 s.
+HIP-106 corrected four Spanish labels to one lab item per test (above), which moves the Spanish
+baseline's plan items to 96.3% (all 101 notes: conditions 84.3%, medications 81.1%, plan items
+97.2%, hasPlan 96.0%, discharge 99.0%).
+
+Muse Spark (`muse-spark-1.3`, reasoning `low`, prompt `note-extraction@5`, 2026-10-27,
+[report](../../docs/evals/2026-10-27-meta-muse-spark-1.3.md), [comparison](../../docs/evals/comparison.md))
+on all 101 gold notes: conditions F1 91.2%, medications 98.1%, plan items 92.8% (recall 99.2%),
+pregnancy outcome and dating 100%, hasPlan 98.0%, discharge 100%, 0 hallucinated quotes of 348
+items, no error. Spanish: conditions 89.3%, medications 100%, plan items 90.8%; English:
+conditions 100%, medications 90.3%, plan items 100%; language detected right on 100 of 101.
+3,837 input tokens per note (97% of them served from the prompt cache) and 982 output (78%
+reasoning), $0.0049 per note, $0.49 for the run, p50 3.4 s, p95 6.8 s. Every miss is explained, and
+the prompt changes it suggests are listed, in [docs/evals/README.md](../../docs/evals/README.md).
 
 Every Muse Spark number in `docs/evals` can be reproduced offline: the eval CLIs take
 `--snapshot <file>` (replay the replies recorded in it, record the rest live into it) and

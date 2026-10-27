@@ -320,6 +320,12 @@ describe('eval harness on the gold notes', () => {
     ]);
     expect(comparison).toContain('[`muse-spark-1.3`](2026-10-27-fake-fake-extractor.md)');
     expect(comparison.match(/^\| 2026-10-27/gm)).toHaveLength(2);
+    // Side by side per field, per specialty and what the post-checks dropped.
+    expect(comparison).toContain('## Per field (precision / recall)');
+    expect(comparison).toMatch(/\| Conditions \| [\d.]+% \/ [\d.]+% \| [\d.]+% \/ [\d.]+% \|/);
+    expect(comparison).toContain('## Plan items F1 by specialty');
+    expect(comparison).toContain('## Tokens, cost and latency');
+    expect(comparison).toContain('## Dropped by the post-checks');
   });
 
   it('scores a failing provider as misses instead of crashing', async () => {
