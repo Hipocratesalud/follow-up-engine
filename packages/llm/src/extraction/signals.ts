@@ -1,12 +1,18 @@
 import type { PlanItemKind } from '@follow-up-engine/core';
+import type { LexiconLanguage } from './language.ts';
 import type { TimeUnit } from './schema.ts';
 
 /**
- * Deterministic reading of Spanish clinical wording, shared by the
- * post-checks (which decide whether a model item is backed by the note) and
- * the rule-based baseline. Every function works on normalized text
+ * Deterministic reading of clinical wording, shared by the post-checks
+ * (which decide whether a model item is backed by the note) and the
+ * rule-based baseline. Every function works on normalized text
  * (`normalizeForMatch`: lowercase, no accents, single spaces) and is linear
- * in its input.
+ * in its input. Each one reads with the lexicon of the note's language
+ * (`lang`, see `language.ts`): Spanish as written in Latin American notes
+ * (the default, and what Portuguese notes fall back to), or English as
+ * written in US-style notes ("f/u in 3 months", "RTC 6 wks", "denies
+ * DM/HTN", "d/c'd from therapy", "PRN"). The Spanish patterns are the
+ * engine's original ones, unchanged; the English ones live in `EN` below.
  */
 
 const WORD_BEFORE = '(?<![a-z0-9])';
@@ -86,24 +92,211 @@ const PERIODIC =
 
 const NUMERIC_DATE = /(?<![0-9])(\d{1,2})\/(\d{1,2})\/(\d{4})(?![0-9])/g;
 
-/** Explicit `dd/mm/yyyy` dates written in `text`, as `YYYY-MM-DD`. */
-export function writtenDates(text: string): string[] {
-  return [...text.matchAll(NUMERIC_DATE)].map(
-    ([, d = '', m = '', y = '']) => `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`,
-  );
+/**
+ * Explicit numeric dates written in `text`, as `YYYY-MM-DD`: `dd/mm/yyyy`
+ * in Spanish notes, `mm/dd/yyyy` in English (US) ones.
+ */
+export function writtenDates(text: string, lang: LexiconLanguage = 'es'): string[] {
+  return [...text.matchAll(NUMERIC_DATE)].map(([, first = '', second = '', y = '']) => {
+    const [d, m] = lang === 'en' ? [second, first] : [first, second];
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  });
 }
+
+// English (US-style notes). Units include the shorthand of US notes ("wks",
+// "mos", "yrs"); intervals may be bare ("f/u 3 months", "RTC 6 wks") unless
+// they are a duration, an age or the past ("for 10 days", "x 3 months",
+// "45 years old", "2 weeks ago").
+const EN_NUMBER_WORDS: Readonly<Record<string, number>> = {
+  a: 1,
+  an: 1,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  twelve: 12,
+  fifteen: 15,
+  twenty: 20,
+  thirty: 30,
+};
+const EN_UNIT_WORDS: Readonly<Record<string, TimeUnit>> = {
+  day: 'day',
+  days: 'day',
+  d: 'day',
+  week: 'week',
+  weeks: 'week',
+  wk: 'week',
+  wks: 'week',
+  w: 'week',
+  month: 'month',
+  months: 'month',
+  mo: 'month',
+  mos: 'month',
+  mon: 'month',
+  m: 'month',
+  year: 'year',
+  years: 'year',
+  yr: 'year',
+  yrs: 'year',
+  y: 'year',
+};
+const EN_AMOUNT = String.raw`(\d+(?:\.\d+)?|${Object.keys(EN_NUMBER_WORDS).join('|')})`;
+const EN_LONG_UNIT = String.raw`(days|day|weeks|week|wks|wk|months|month|mos|mo|years|year|yrs|yr)`;
+const EN_ANY_UNIT = String.raw`(days|day|d|weeks|week|wks|wk|w|months|month|mos|mon|mo|m|years|year|yrs|yr|y)`;
+/** "in 3 months", "within 2 weeks", "every 6 months", "q3 months", "q6mo". */
+const EN_ANCHORED_INTERVAL = new RegExp(
+  String.raw`${WORD_BEFORE}(?:in|within|after|every|q)\s?${EN_AMOUNT}\s?-?\s?${EN_ANY_UNIT}${WORD_AFTER}`,
+  'g',
+);
+/** "3 months", "6 wks", "3-month": bare, unless a duration, an age or the past. */
+const EN_BARE_INTERVAL = new RegExp(
+  String.raw`${WORD_BEFORE}${EN_AMOUNT}\s?-?\s?${EN_LONG_UNIT}${WORD_AFTER}`,
+  'g',
+);
+const EN_NOT_FORWARD_BEFORE =
+  /(?:^|\s)(?:for|x|over|past|last|since|of|about|aged?|lasting|been|during|through|the)\s*$/;
+const EN_NOT_FORWARD_AFTER =
+  /^\s?(?:ago|old|prior|before|earlier|history|of (?:age|life))(?![a-z])/;
+const EN_MONTHS: Readonly<Record<string, number>> = {
+  january: 1,
+  jan: 1,
+  february: 2,
+  feb: 2,
+  march: 3,
+  mar: 3,
+  april: 4,
+  apr: 4,
+  may: 5,
+  june: 6,
+  jun: 6,
+  july: 7,
+  jul: 7,
+  august: 8,
+  aug: 8,
+  september: 9,
+  sept: 9,
+  sep: 9,
+  october: 10,
+  oct: 10,
+  november: 11,
+  nov: 11,
+  december: 12,
+  dec: 12,
+};
+const EN_MONTH_NAMES = Object.keys(EN_MONTHS).join('|');
+/** "March 15", "Mar. 15th, 2026", "15 March 2026". */
+const EN_NAMED_DAY = new RegExp(
+  String.raw`(?<![a-z0-9])(?:(${EN_MONTH_NAMES})\.? (\d{1,2})(?:st|nd|rd|th)?(?:,? (\d{4}))?|(\d{1,2})(?:st|nd|rd|th)? (?:of )?(${EN_MONTH_NAMES})\.?(?:,? (\d{4}))?)(?![a-z0-9])`,
+  'g',
+);
+/** "in April", "by April 2026", "early April" (no day). */
+const EN_NAMED_MONTH = new RegExp(
+  String.raw`(?<![a-z0-9])(?:in|by|for|until|during|early|mid|late|end of|beginning of|the month of) (january|february|march|april|may|june|july|august|september|october|november|december)(?:,? (\d{4}))?(?! \d)(?![a-z0-9])`,
+  'g',
+);
+/** "next month", "next week", "next year". */
+const EN_NEXT_PERIOD = /(?<![a-z0-9])next (week|month|year)(?![a-z])/g;
+/** "next visit", "before the next appointment": the next visit, whenever it is. */
+const EN_NEXT_VISIT =
+  /(?<![a-z0-9])next (?:visit|appointment|appt|f\/u|follow-up|follow up|followup|clinic visit|office visit|session|check-up|checkup)(?![a-z])/;
+const EN_NEXT_REFERENCE =
+  /(?<![a-z0-9])next (?:week|month|year|visit|appointment|appt|f\/u|follow-up|follow up|followup|session)(?![a-z])/;
+const EN_CALENDAR_DATE = new RegExp(
+  String.raw`(?<![0-9])\d{1,2}\/\d{1,2}(?:\/\d{2,4})?(?![0-9])|(?<![a-z0-9])(?:${EN_MONTH_NAMES})\.? \d{1,2}(?![0-9])`,
+);
+/** "at 28 weeks" (a target gestational age). */
+const EN_TARGET_AGE = new RegExp(
+  String.raw`${WORD_BEFORE}at ${EN_AMOUNT}\s?${EN_LONG_UNIT}(?: of gestation| gestation| ga)?${WORD_AFTER}`,
+);
+const EN_PERIODIC_DAYS: Readonly<Record<string, number>> = {
+  weekly: 7,
+  biweekly: 14,
+  fortnightly: 14,
+  monthly: 30,
+  bimonthly: 60,
+  quarterly: 90,
+  semiannual: 180,
+  semiannually: 180,
+  'semi-annual': 180,
+  'semi-annually': 180,
+  biannual: 180,
+  biannually: 180,
+  annual: 365,
+  annually: 365,
+  yearly: 365,
+};
+const EN_PERIODIC_WORDS = new RegExp(
+  String.raw`(?<![a-z-])(${Object.keys(EN_PERIODIC_DAYS)
+    .sort((a, b) => b.length - a.length)
+    .join('|')})(?![a-z-])`,
+  'g',
+);
 
 export interface Interval {
   readonly amount: number;
   readonly unit: TimeUnit;
 }
 
-export function parseAmount(raw: string): number {
+export function parseAmount(raw: string, lang: LexiconLanguage = 'es'): number {
+  if (lang === 'en') return EN_NUMBER_WORDS[raw] ?? Number(raw);
   return NUMBER_WORDS[raw] ?? Number(raw.replace(',', '.'));
 }
 
+/** The unit of a unit word ("meses", "wks"), in the note's language. */
+export function unitOf(word: string, lang: LexiconLanguage = 'es'): TimeUnit | undefined {
+  return (lang === 'en' ? EN_UNIT_WORDS : UNIT_WORDS)[word];
+}
+
+/** The number words of a language ("tres", "three"), for patterns built elsewhere. */
+export function numberWords(lang: LexiconLanguage = 'es'): readonly string[] {
+  return Object.keys(lang === 'en' ? EN_NUMBER_WORDS : NUMBER_WORDS);
+}
+
+/**
+ * Whether a bare English interval at `[start, end)` of `text` ("3 months")
+ * looks forward: not a duration ("for 3 months", "x 10 days"), an age
+ * ("45 years old") or the past ("2 weeks ago"), and not an article ("a week").
+ */
+export function isForwardEnglishInterval(text: string, start: number, end: number): boolean {
+  const amount = /^\s*(a|an)\s/.exec(text.slice(start, end));
+  if (amount) return false;
+  if (EN_NOT_FORWARD_BEFORE.test(text.slice(Math.max(0, start - 24), start))) return false;
+  return !EN_NOT_FORWARD_AFTER.test(text.slice(end, end + 24));
+}
+
+function englishForwardIntervals(text: string): Interval[] {
+  const out: Interval[] = [];
+  const seen = new Set<number>();
+  for (const match of text.matchAll(EN_ANCHORED_INTERVAL)) {
+    const unit = EN_UNIT_WORDS[match[2] ?? ''];
+    if (match[1] !== undefined && unit) {
+      out.push({ amount: parseAmount(match[1], 'en'), unit });
+      seen.add(match.index + match[0].length);
+    }
+  }
+  for (const match of text.matchAll(EN_BARE_INTERVAL)) {
+    const end = match.index + match[0].length;
+    if (seen.has(end)) continue;
+    if (EN_NOT_FORWARD_BEFORE.test(text.slice(Math.max(0, match.index - 24), match.index)))
+      continue;
+    if (EN_NOT_FORWARD_AFTER.test(text.slice(end, end + 24))) continue;
+    // "a"/"an" alone are articles, not amounts, without an anchor ("a month ago" is skipped above).
+    if (match[1] === 'a' || match[1] === 'an') continue;
+    const unit = EN_UNIT_WORDS[match[2] ?? ''];
+    if (match[1] !== undefined && unit) out.push({ amount: parseAmount(match[1], 'en'), unit });
+  }
+  return out;
+}
+
 /** Forward-looking intervals stated in `text` ("en 3 meses"; not "de 10 anos" nor "hace 2 meses"). */
-export function forwardIntervals(text: string): Interval[] {
+export function forwardIntervals(text: string, lang: LexiconLanguage = 'es'): Interval[] {
+  if (lang === 'en') return englishForwardIntervals(text);
   const out: Interval[] = [];
   const seen = new Set<number>();
   for (const match of text.matchAll(ANCHORED_INTERVAL)) {
@@ -215,7 +408,12 @@ function dayKey(noteDay: string, day: number, month: number, rawYear?: string): 
  * `YYYY-MM-DD`). Used to check that a model's due date or interval is the
  * one written where it quotes.
  */
-export function statedTiming(text: string, noteDay: string): StatedTiming {
+export function statedTiming(
+  text: string,
+  noteDay: string,
+  lang: LexiconLanguage = 'es',
+): StatedTiming {
+  if (lang === 'en') return englishStatedTiming(text, noteDay);
   const days = forwardIntervals(text).map(approxDays);
   for (const match of text.matchAll(NEXT_PERIOD)) {
     const unit = match[1] ?? match[2];
@@ -256,13 +454,68 @@ export function statedTiming(text: string, noteDay: string): StatedTiming {
   };
 }
 
+function englishStatedTiming(text: string, noteDay: string): StatedTiming {
+  const days = forwardIntervals(text, 'en').map(approxDays);
+  for (const match of text.matchAll(EN_NEXT_PERIOD)) {
+    const unit = match[1];
+    days.push(unit === 'week' ? 7 : unit === 'year' ? 365 : 30);
+  }
+  for (const match of text.matchAll(EN_PERIODIC_WORDS)) {
+    const value = EN_PERIODIC_DAYS[match[1] ?? ''];
+    if (value !== undefined) days.push(value);
+  }
+  const dates: string[] = [];
+  for (const match of text.matchAll(NUMERIC_DAY)) {
+    // US notes write the month first: "3/15/2026", "3/15".
+    const key = dayKey(noteDay, Number(match[2]), Number(match[1]), match[3]);
+    if (key) dates.push(key);
+  }
+  for (const match of text.matchAll(EN_NAMED_DAY)) {
+    const month = EN_MONTHS[match[1] ?? match[5] ?? ''];
+    const day = Number(match[2] ?? match[4]);
+    const key = month ? dayKey(noteDay, day, month, match[3] ?? match[6]) : undefined;
+    if (key) dates.push(key);
+  }
+  const months: string[] = [];
+  const noteMonth = noteDay.slice(0, 7);
+  for (const match of text.matchAll(EN_NAMED_MONTH)) {
+    const month = EN_MONTHS[match[1] ?? ''];
+    if (month === undefined) continue;
+    const year = match[2]
+      ? Number(match[2])
+      : `${noteDay.slice(0, 4)}-${pad(month)}` >= noteMonth
+        ? Number(noteDay.slice(0, 4))
+        : Number(noteDay.slice(0, 4)) + 1;
+    months.push(`${String(year)}-${pad(month)}`);
+  }
+  return {
+    days,
+    dates,
+    months,
+    nextVisit: EN_NEXT_VISIT.test(text),
+    targetAge: EN_TARGET_AGE.test(text),
+  };
+}
+
 /** Whether `timing` states anything the code can compare with a due date. */
 export function isVerifiable(timing: StatedTiming): boolean {
   return timing.days.length > 0 || timing.dates.length > 0 || timing.months.length > 0;
 }
 
 /** Whether `text` states when something will happen: an interval, a date, "proximo control", "mensual". */
-export function hasTimeExpression(text: string): boolean {
+export function hasTimeExpression(text: string, lang: LexiconLanguage = 'es'): boolean {
+  if (lang === 'en') {
+    EN_PERIODIC_WORDS.lastIndex = 0;
+    const periodic = EN_PERIODIC_WORDS.test(text);
+    EN_PERIODIC_WORDS.lastIndex = 0;
+    return (
+      forwardIntervals(text, 'en').length > 0 ||
+      EN_NEXT_REFERENCE.test(text) ||
+      EN_CALENDAR_DATE.test(text) ||
+      EN_TARGET_AGE.test(text) ||
+      periodic
+    );
+  }
   return (
     forwardIntervals(text).length > 0 ||
     NEXT_REFERENCE.test(text) ||
@@ -413,6 +666,146 @@ const KIND_TERMS: Readonly<Record<PlanItemKind, readonly string[]>> = {
   ],
 };
 
+/** The same kinds in English notes (US shorthand included: "f/u", "RTC", "A1c", "BMP", "CXR"). */
+const EN_KIND_TERMS: Readonly<Record<PlanItemKind, readonly string[]>> = {
+  lab: [
+    'a1c',
+    'hba1c',
+    'hb a1c',
+    'hemoglobin a1c',
+    'lab',
+    'labs',
+    'laboratory',
+    'bloodwork',
+    'blood work',
+    'blood test',
+    'blood tests',
+    'bmp',
+    'cmp',
+    'cbc',
+    'lipid panel',
+    'lipids',
+    'lipid profile',
+    'fasting lipids',
+    'cholesterol',
+    'tsh',
+    'free t4',
+    't4',
+    'thyroid panel',
+    'creatinine',
+    'bun',
+    'egfr',
+    'potassium',
+    'sodium',
+    'electrolytes',
+    'urinalysis',
+    'ua',
+    'urine',
+    'uacr',
+    'microalbumin',
+    'psa',
+    'ferritin',
+    'iron studies',
+    'vitamin d',
+    'b12',
+    'lfts',
+    'liver panel',
+    'pap',
+    'pap smear',
+    'hiv',
+    'glucose',
+    'culture',
+    'test',
+    'tests',
+    'results',
+  ],
+  imaging: [
+    'ultrasound',
+    'echo',
+    'echocardiogram',
+    'x-ray',
+    'xray',
+    'cxr',
+    'ct',
+    'ct scan',
+    'cat scan',
+    'mri',
+    'mammogram',
+    'mammography',
+    'dexa',
+    'dexa scan',
+    'bone density',
+    'doppler',
+    'imaging',
+    'scan',
+  ],
+  session: [
+    'session',
+    'sessions',
+    'therapy',
+    'psychotherapy',
+    'physical therapy',
+    'physiotherapy',
+    'cbt',
+    'counseling',
+    'counselling',
+    'rehab',
+    'rehabilitation',
+  ],
+  follow_up_visit: [
+    'follow-up',
+    'follow up',
+    'followup',
+    'f/u',
+    'fu',
+    'rtc',
+    'return',
+    'return to clinic',
+    'return visit',
+    'visit',
+    'appointment',
+    'appt',
+    'recheck',
+    're-check',
+    'revisit',
+    'reassess',
+    'reevaluate',
+    're-evaluate',
+    'check-in',
+    'check-up',
+    'checkup',
+    'see',
+    'clinic',
+  ],
+  other: [
+    'refer',
+    'referral',
+    'referred',
+    'consult',
+    'consultation',
+    'ophthalmology',
+    'optometry',
+    'cardiology',
+    'nephrology',
+    'endocrinology',
+    'psychiatry',
+    'dietitian',
+    'nutrition',
+    'podiatry',
+    'procedure',
+    'biopsy',
+    'colonoscopy',
+    'surgery',
+    'vaccine',
+    'vaccination',
+    'eye exam',
+    'dilated eye exam',
+    'retinal exam',
+    'fundus exam',
+    'foot exam',
+  ],
+};
+
 /** Every plan word of every kind, normalized (used to tell clinical words from names). */
 export function planVocabulary(): Iterable<string> {
   return Object.values(KIND_TERMS).flat();
@@ -422,6 +815,10 @@ const KIND_PATTERNS = Object.fromEntries(
   Object.entries(KIND_TERMS).map(([kind, terms]) => [kind, termsPattern(terms)]),
 ) as Readonly<Record<PlanItemKind, RegExp>>;
 const ANY_PLAN_PATTERN = termsPattern(Object.values(KIND_TERMS).flat());
+const EN_KIND_PATTERNS = Object.fromEntries(
+  Object.entries(EN_KIND_TERMS).map(([kind, terms]) => [kind, termsPattern(terms)]),
+) as Readonly<Record<PlanItemKind, RegExp>>;
+const EN_ANY_PLAN_PATTERN = termsPattern(Object.values(EN_KIND_TERMS).flat());
 
 function test(pattern: RegExp, text: string): boolean {
   pattern.lastIndex = 0;
@@ -431,8 +828,12 @@ function test(pattern: RegExp, text: string): boolean {
 }
 
 /** The first match of a kind's wording in `text`, if any. */
-export function findKindKeyword(kind: PlanItemKind, text: string): RegExpExecArray | null {
-  const pattern = KIND_PATTERNS[kind];
+export function findKindKeyword(
+  kind: PlanItemKind,
+  text: string,
+  lang: LexiconLanguage = 'es',
+): RegExpExecArray | null {
+  const pattern = (lang === 'en' ? EN_KIND_PATTERNS : KIND_PATTERNS)[kind];
   pattern.lastIndex = 0;
   const match = pattern.exec(text);
   pattern.lastIndex = 0;
@@ -444,8 +845,20 @@ export function findKindKeyword(kind: PlanItemKind, text: string): RegExpExecArr
  * lab, "eco" for imaging, "ctrl" for a visit). Items of kind `other` accept
  * any plan wording, since referrals and procedures are open-ended.
  */
-export function hasKindKeyword(kind: PlanItemKind, quote: string): boolean {
+export function hasKindKeyword(
+  kind: PlanItemKind,
+  quote: string,
+  lang: LexiconLanguage = 'es',
+): boolean {
+  if (lang === 'en') {
+    return test(kind === 'other' ? EN_ANY_PLAN_PATTERN : EN_KIND_PATTERNS[kind], quote);
+  }
   return test(kind === 'other' ? ANY_PLAN_PATTERN : KIND_PATTERNS[kind], quote);
+}
+
+/** A whole-word regex of a kind's wording in English notes (for the rule-based reader). */
+export function englishKindPattern(kind: PlanItemKind): RegExp {
+  return EN_KIND_PATTERNS[kind];
 }
 
 /** What follows a conditional "si" ("si no mejora", "si persiste", "si fiebre"). */
@@ -459,6 +872,17 @@ const CONDITION_FIRST = new RegExp(
 );
 const SCHEDULED_ANYWAY = /(?<![a-z])(?:o antes|antes si|antes de ser necesario)(?![a-z])/;
 
+/** What follows a conditional "if" in English ("if not better", "if symptoms persist", "if fever"). */
+const EN_IF_CONDITION = String.raw`if (?:no |not |there is no |there is |there are |any )?(?:better|improved|improving|improves|improvement|resolved|resolves|worse|worsens|worsening|persists|persist|persistent|persisting|continues|continue|recurs|recur|returns|symptoms|symptom|fever|pain|bleeding|needed|necessary|required|concerns|concerned|problems|issues|change|changes|new symptoms|complications|signs)`;
+const EN_CONDITIONAL = new RegExp(
+  String.raw`(?<![a-z])(?:(?:only|just) if|${EN_IF_CONDITION}|in case of|as needed|prn|p\.r\.n\.?|on demand|should (?:symptoms|signs|pain|fever|it|they|he|she) (?:persist|worsen|recur|return|continue|develop)|for any (?:concerns|worsening|new symptoms|problems)|call (?:us )?(?:if|with)|return precautions|(?:rtc|return|f\/u|follow up|follow-up|come back|call) if|with any concerns)(?![a-z])`,
+);
+/** A clause that opens with its condition ("If no better in 1 week, return"). */
+const EN_CONDITION_FIRST =
+  /^\s*(?:[a-z]{1,15}\s?:\s*)?(?:and |or |but )?(?:(?:only|just) if|if|in case of|should|unless)(?![a-z])/;
+const EN_SCHEDULED_ANYWAY =
+  /(?<![a-z])(?:or sooner|sooner if|or earlier|earlier if|or before)(?![a-z])/;
+
 /**
  * Whether a plan phrase only applies on a condition ("ctrl en 1 semana solo
  * si persisten los sintomas", "volver en caso de fiebre", "volver en 1 mes
@@ -467,7 +891,17 @@ const SCHEDULED_ANYWAY = /(?<![a-z])(?:o antes|antes si|antes de ser necesario)(
  * segment: a sentence that opens with its condition ("Si no mejora en 1
  * semana, reconsultar") makes every segment of it conditional.
  */
-export function isConditional(segment: string, clause?: string): boolean {
+export function isConditional(
+  segment: string,
+  clause?: string,
+  lang: LexiconLanguage = 'es',
+): boolean {
+  if (lang === 'en') {
+    if (EN_SCHEDULED_ANYWAY.test(segment)) return false;
+    return (
+      EN_CONDITIONAL.test(segment) || (clause !== undefined && EN_CONDITION_FIRST.test(clause))
+    );
+  }
   if (SCHEDULED_ANYWAY.test(segment)) return false;
   return CONDITIONAL.test(segment) || (clause !== undefined && CONDITION_FIRST.test(clause));
 }
@@ -484,14 +918,20 @@ const SUSPENDED =
  * the follow-up it names. Read per segment, so "se suspende metformina,
  * control en 3 meses" keeps the control.
  */
-export function statesSuspension(segment: string): boolean {
-  return SUSPENDED.test(segment);
+export function statesSuspension(segment: string, lang: LexiconLanguage = 'es'): boolean {
+  return (lang === 'en' ? EN_SUSPENDED : SUSPENDED).test(segment);
 }
+
+/** English: "cancel the 1-month f/u", "f/u canceled", "no f/u needed for now". */
+const EN_SUSPENDED =
+  /(?<![a-z])(?:cancel|cancels|cancell?ed|cancell?ing|call off|called off|no longer (?:needed|necessary|required|indicated)|not (?:needed|necessary|required) (?:at this time|for now)|on hold|hold off on|no (?:follow-up|follow up|f\/u|visit|appointment|appt) (?:needed )?(?:for now|at this time))(?![a-z])/;
 
 // ---------------------------------------------------------------- clauses
 
 const CLAUSE_BREAK = /[;\n]|\.(?!\d)|(?<![a-z])(?:pero|aunque|sin embargo)(?![a-z])/g;
 const SEGMENT_BREAK = /[;,\n]|\.(?!\d)|(?<![a-z])(?:y|pero|aunque)(?![a-z])/g;
+const EN_CLAUSE_BREAK = /[;\n]|\.(?!\d)|(?<![a-z])(?:but|although|however)(?![a-z])/g;
+const EN_SEGMENT_BREAK = /[;,\n]|\.(?!\d)|(?<![a-z])(?:and|but|although)(?![a-z])/g;
 
 function boundsAround(text: string, start: number, end: number, breaks: RegExp): [number, number] {
   let from = 0;
@@ -511,20 +951,40 @@ function boundsAround(text: string, start: number, end: number, breaks: RegExp):
 }
 
 /** The sentence-like clause of `text` that contains `[start, end)` (split at . ; newline, "pero"). */
-export function clauseAround(text: string, start: number, end: number): string {
-  const [from, to] = boundsAround(text, start, end, CLAUSE_BREAK);
+export function clauseAround(
+  text: string,
+  start: number,
+  end: number,
+  lang: LexiconLanguage = 'es',
+): string {
+  const [from, to] = boundsAround(text, start, end, lang === 'en' ? EN_CLAUSE_BREAK : CLAUSE_BREAK);
   return text.slice(from, to);
 }
 
 /** The narrower segment around `[start, end)` (also split at commas and "y"). */
-export function segmentAround(text: string, start: number, end: number): string {
-  const [from, to] = boundsAround(text, start, end, SEGMENT_BREAK);
+export function segmentAround(
+  text: string,
+  start: number,
+  end: number,
+  lang: LexiconLanguage = 'es',
+): string {
+  const [from, to] = boundsAround(
+    text,
+    start,
+    end,
+    lang === 'en' ? EN_SEGMENT_BREAK : SEGMENT_BREAK,
+  );
   return text.slice(from, to);
 }
 
 /** Like {@link clauseAround}, but returns the clause start offset too. */
-export function clauseBoundsAround(text: string, start: number, end: number): [number, number] {
-  return boundsAround(text, start, end, CLAUSE_BREAK);
+export function clauseBoundsAround(
+  text: string,
+  start: number,
+  end: number,
+  lang: LexiconLanguage = 'es',
+): [number, number] {
+  return boundsAround(text, start, end, lang === 'en' ? EN_CLAUSE_BREAK : CLAUSE_BREAK);
 }
 
 // ---------------------------------------------------------------- conditions
@@ -548,7 +1008,13 @@ function lastTokens(text: string, count: number): string {
  * diabetes", "sin antecedentes de DM2", "HTA descartada". Looks back within
  * the clause (eight words; three for a bare "sin") and two words ahead.
  */
-export function isNegatedMention(text: string, start: number, end: number): boolean {
+export function isNegatedMention(
+  text: string,
+  start: number,
+  end: number,
+  lang: LexiconLanguage = 'es',
+): boolean {
+  if (lang === 'en') return isNegatedEnglish(text, start, end);
   const [clauseStart] = clauseBoundsAround(text, start, end);
   const before = text.slice(clauseStart, start);
   const window = lastTokens(before, 8);
@@ -563,6 +1029,28 @@ export function isNegatedMention(text: string, start: number, end: number): bool
   SIN.lastIndex = 0;
   if (sin) return true;
   return NEGATION_AFTER.test(text.slice(end, end + 24));
+}
+
+const EN_NEGATION_CUES =
+  /(?<![a-z])(?:denies|denied|deny|denying|negative for|no history of|no hx of|no h\/o|no prior|no known|no personal history of|no evidence of|no signs of|no symptoms of|free of|ruled out|rules out|absence of|never (?:had|diagnosed with)|not diagnosed with)(?![a-z])/g;
+/** "no" and "not" negate only within their own list item ("no DM", "not diabetic"). */
+const EN_SHORT_NEGATION = /(?<![a-z])(?:no|not|without)(?![a-z])/g;
+const EN_NEGATION_AFTER =
+  /^\s*(?:[:(]\s*)?(?:ruled out|negative|denied|neg(?![a-z])|\(-\)|-\s|absent|none|no\s*(?:[.,;)]|$))/;
+
+function isNegatedEnglish(text: string, start: number, end: number): boolean {
+  const [clauseStart] = clauseBoundsAround(text, start, end, 'en');
+  const before = text.slice(clauseStart, start);
+  EN_NEGATION_CUES.lastIndex = 0;
+  const negated = EN_NEGATION_CUES.test(lastTokens(before, 8));
+  EN_NEGATION_CUES.lastIndex = 0;
+  if (negated) return true;
+  const item = before.slice(Math.max(before.lastIndexOf(','), 0));
+  EN_SHORT_NEGATION.lastIndex = 0;
+  const short = EN_SHORT_NEGATION.test(lastTokens(item, 3));
+  EN_SHORT_NEGATION.lastIndex = 0;
+  if (short) return true;
+  return EN_NEGATION_AFTER.test(text.slice(end, end + 24));
 }
 
 const RELATIVE = String.raw`(?:madre|padre|mama|papa|progenitora?|hermanos?|hermanas?|abuelos?|abuelas?|tios?|tias?|primos?|primas?|hijos?|hijas?|sobrinos?|sobrinas?|familiares?|familia)`;
@@ -598,7 +1086,13 @@ function lastMatchIndex(pattern: RegExp, text: string): { index: number; end: nu
  * relative ("madre con DM2", "padre hipertenso", "DM2 (madre)", "HTA en el
  * padre"). A relative who only reports ("la madre refiere que...") does not count.
  */
-export function isFamilyHistoryMention(text: string, start: number, end: number): boolean {
+export function isFamilyHistoryMention(
+  text: string,
+  start: number,
+  end: number,
+  lang: LexiconLanguage = 'es',
+): boolean {
+  if (lang === 'en') return isFamilyHistoryEnglish(text, start, end);
   const [clauseStart] = clauseBoundsAround(text, start, end);
   const before = text.slice(clauseStart, start);
   const family = lastMatchIndex(FAMILY_SECTION, before);
@@ -610,6 +1104,35 @@ export function isFamilyHistoryMention(text: string, start: number, end: number)
   const segment = before.slice(segmentStart);
   if (RELATIVE_BEFORE.test(segment) && !REPORTED_BY.test(segment)) return true;
   return RELATIVE_AFTER.test(text.slice(end, end + 40));
+}
+
+const EN_RELATIVE = String.raw`(?:mother|father|mom|dad|parents?|brothers?|sisters?|siblings?|grandmother|grandfather|grandparents?|aunts?|uncles?|cousins?|sons?|daughters?|children|family|maternal|paternal)`;
+const EN_FAMILY_SECTION =
+  /(?<![a-z])(?:family history|family hx|fam hx|fhx|fh|fmhx|family medical history)(?![a-z])/g;
+const EN_FAMILY_SECTION_EMPTY =
+  /^\s*(?::\s*)?(?:noncontributory|non-contributory|negative|unremarkable|none|unknown|not significant|no significant)/;
+const EN_PERSONAL_SECTION =
+  /(?<![a-z])(?:past medical history|pmh|pmhx|medical history|patient|pt|assessment|a\/p|impression|diagnosis|dx|hpi|chief complaint|cc|problem list|problems|history of present illness)(?![a-z])/g;
+const EN_RELATIVE_BEFORE = new RegExp(String.raw`(?<![a-z])${EN_RELATIVE}(?![a-z])`);
+const EN_REPORTED_BY =
+  /(?<![a-z])(?:reports|reported|states|stated|says|said|brings|brought|accompanied|accompanies|notes|per)(?![a-z])/;
+const EN_RELATIVE_AFTER = new RegExp(
+  String.raw`^\s*(?:\(\s*${EN_RELATIVE}|in (?:his |her |the |their |a )?${EN_RELATIVE}(?![a-z])|(?:on|of) (?:his |her |the |their )?${EN_RELATIVE} side)`,
+);
+const EN_SEGMENT_START = /[,;(\n]|\.(?!\d)|(?<![a-z])(?:and|but)(?![a-z])/g;
+
+function isFamilyHistoryEnglish(text: string, start: number, end: number): boolean {
+  const [clauseStart] = clauseBoundsAround(text, start, end, 'en');
+  const before = text.slice(clauseStart, start);
+  const family = lastMatchIndex(EN_FAMILY_SECTION, before);
+  if (family && !EN_FAMILY_SECTION_EMPTY.test(before.slice(family.end))) {
+    const personal = lastMatchIndex(EN_PERSONAL_SECTION, before);
+    if (personal === undefined || personal.index < family.index) return true;
+  }
+  const segmentStart = lastMatchIndex(EN_SEGMENT_START, before)?.end ?? 0;
+  const segment = before.slice(segmentStart);
+  if (EN_RELATIVE_BEFORE.test(segment) && !EN_REPORTED_BY.test(segment)) return true;
+  return EN_RELATIVE_AFTER.test(text.slice(end, end + 40));
 }
 
 const RISK_BEFORE =
@@ -704,12 +1227,51 @@ const DIABETES_CATEGORIES = new Set(['E10', 'E11', 'E13', 'E14']);
  * previo"), or a past delivery or loss read as a current one ("cesarea
  * previa", "antecedente de aborto") (`not_current`).
  */
-export function conditionContext(
+const EN_RISK_BEFORE =
+  /(?<![a-z])(?:risk (?:of|for)|at risk (?:of|for)|(?:high|increased|elevated) risk (?:of|for)|predisposition to|prone to|prevention of|prevent|screening (?:for|of)|screen for)(?: (?:developing|having|getting))?\s*$/;
+const EN_GESTATIONAL_BEFORE = /(?<![a-z])gestational\s*$/;
+const EN_GESTATIONAL_AFTER = /^\s*(?:in pregnancy|of pregnancy|during pregnancy)(?![a-z])/;
+const EN_PAST_PREGNANCY =
+  /(?<![a-z])(?:(?:prior|previous|past|last|first|earlier) pregnanc(?:y|ies)|in (?:her|a|the) (?:prior|previous|last) pregnancy)(?![a-z])/;
+
+function englishConditionContext(
   text: string,
   start: number,
   end: number,
   category: string,
 ): 'family_history' | 'not_current' | undefined {
+  if (isFamilyHistoryEnglish(text, start, end)) return 'family_history';
+  const [clauseStart, clauseEnd] = clauseBoundsAround(text, start, end, 'en');
+  const before = text.slice(clauseStart, start);
+  if (EN_RISK_BEFORE.test(lastTokens(before, 5) + (before.endsWith(' ') ? ' ' : ''))) {
+    return 'not_current';
+  }
+  if (DIABETES_CATEGORIES.has(category)) {
+    if (
+      PRE_PREFIX.test(before) ||
+      EN_GESTATIONAL_BEFORE.test(before) ||
+      EN_GESTATIONAL_AFTER.test(text.slice(end, end + 24))
+    ) {
+      return 'not_current';
+    }
+  }
+  if (
+    /^(?:O\d|Z3[2-9])/.test(category) &&
+    EN_PAST_PREGNANCY.test(text.slice(clauseStart, clauseEnd))
+  ) {
+    return 'not_current';
+  }
+  return undefined;
+}
+
+export function conditionContext(
+  text: string,
+  start: number,
+  end: number,
+  category: string,
+  lang: LexiconLanguage = 'es',
+): 'family_history' | 'not_current' | undefined {
+  if (lang === 'en') return englishConditionContext(text, start, end, category);
   if (isFamilyHistoryMention(text, start, end)) return 'family_history';
   const [clauseStart, clauseEnd] = clauseBoundsAround(text, start, end);
   const before = text.slice(clauseStart, start);
@@ -735,7 +1297,24 @@ export function conditionContext(
 }
 
 /** Whether the mention is only suspected ("sospecha de hipotiroidismo", "DM2?", "astenia en estudio"). */
-export function isHedgedMention(text: string, start: number, end: number): boolean {
+const EN_HEDGE_CUES =
+  /(?<![a-z])(?:suspected|suspect|suspicion of|suspicious for|possible|possibly|probable|probably|likely|presumed|presumptive|questionable|concern for|concerning for|rule out|r\/o|cannot rule out|differential includes|ddx)(?![a-z])/g;
+const EN_HEDGE_AFTER =
+  /^\s*(?:\?|to be ruled out|vs\.?(?![a-z])|versus|being worked up|under evaluation|pending workup|not confirmed)/;
+
+export function isHedgedMention(
+  text: string,
+  start: number,
+  end: number,
+  lang: LexiconLanguage = 'es',
+): boolean {
+  if (lang === 'en') {
+    const [clauseStart] = clauseBoundsAround(text, start, end, 'en');
+    EN_HEDGE_CUES.lastIndex = 0;
+    const hedged = EN_HEDGE_CUES.test(lastTokens(text.slice(clauseStart, start), 6));
+    EN_HEDGE_CUES.lastIndex = 0;
+    return hedged || EN_HEDGE_AFTER.test(text.slice(end, end + 24));
+  }
   const [clauseStart] = clauseBoundsAround(text, start, end);
   HEDGE_CUES.lastIndex = 0;
   const hedged = HEDGE_CUES.test(lastTokens(text.slice(clauseStart, start), 6));
@@ -754,8 +1333,48 @@ const DISCHARGE_CLAUSE = /^(?:plan\s*:?\s*)?alta(?:\s+(?:medica|definitiva|por m
 const DISCHARGE_NEGATION =
   /(?<![a-z])(?:no|aun no|todavia no|sin|pendiente|se difiere|difiere)\s+(?:se\s+(?:le\s+)?)?$/;
 
+const EN_CARE_SETTING = String.raw`(?:(?:this |our |the )?(?:clinic|practice|office|service|program|care|follow-up|follow up|f\/u|therapy|psychotherapy|physical therapy|pt|counseling|counselling|rehab|treatment|specialty care|(?:endocrinology|cardiology|psychology|gynecology|nephrology|diabetes|weight management) (?:clinic|care|follow-up|follow up)))`;
+/** "discharged from therapy", "d/c'd from PT", "no further follow-up needed", "therapy completed". */
+const EN_DISCHARGE = new RegExp(
+  String.raw`(?<![a-z])(?:(?:discharged|discharging|discharge|d\/c'?d|d\/c|dc'?d) from ${EN_CARE_SETTING}|discharged (?:back )?to (?:pcp|primary care|the care of)|(?:will |we will |i will )?discharge (?:the )?(?:patient|pt) (?:from|to)|no (?:further|more|additional|routine) (?:follow-up|follow up|f\/u|visits|appointments|sessions|care|treatment) (?:is )?(?:needed|required|necessary|indicated|planned)|no need for (?:further |more |additional )?(?:follow-up|follow up|f\/u|visits|appointments|sessions)|(?:therapy|treatment|psychotherapy|course of therapy|course of treatment) (?:is )?(?:completed|complete|concluded|terminated|ended)|(?:completed|concluded|terminated|ended) (?:the |her |his )?(?:therapy|treatment|course of therapy)|termination of (?:therapy|treatment|care)|end of (?:therapy|treatment|follow-up|follow up)|follow-up (?:is )?(?:complete|completed|no longer needed))(?![a-z])`,
+  'g',
+);
+/** "discharged from the hospital", "discharged home", "discharged 3 days ago": not the end of follow-up here. */
+const EN_HOSPITAL_AFTER =
+  /^\s*(?:from (?:the )?(?:hospital|er|ed|emergency|icu|ward|inpatient|floor|rehab facility|snf)|home|(?:\d+|a|one|two|three|few|several|some) (?:days?|weeks?) ago|on \d|yesterday|last week|after (?:a |an )?(?:admission|hospitalization))(?![a-z])/;
+const EN_DISCHARGE_CLAUSE = /^(?:plan\s*:?\s*)?(?:discharge|discharged)(?:\s+from\s+care)?\s*$/;
+const EN_DISCHARGE_NEGATION =
+  /(?<![a-z])(?:no|not|not yet|never|without|pending|before|prior to|until|after|post|since|recent|recently|hospital)\s+(?:be\s+)?$/;
+
+function findDischargeEnglish(text: string): { start: number; end: number } | undefined {
+  EN_DISCHARGE.lastIndex = 0;
+  for (let match = EN_DISCHARGE.exec(text); match; match = EN_DISCHARGE.exec(text)) {
+    const before = text.slice(Math.max(0, match.index - 24), match.index);
+    const after = text.slice(match.index + match[0].length, match.index + match[0].length + 40);
+    if (!EN_DISCHARGE_NEGATION.test(before) && !EN_HOSPITAL_AFTER.test(after)) {
+      EN_DISCHARGE.lastIndex = 0;
+      return { start: match.index, end: match.index + match[0].length };
+    }
+  }
+  EN_DISCHARGE.lastIndex = 0;
+  let offset = 0;
+  for (const clause of text.split(/[;\n]|\.(?!\d)/)) {
+    const trimmed = clause.trim();
+    if (EN_DISCHARGE_CLAUSE.test(trimmed)) {
+      const start = offset + clause.indexOf(trimmed);
+      return { start, end: start + trimmed.length };
+    }
+    offset += clause.length + 1;
+  }
+  return undefined;
+}
+
 /** Where a discharge statement starts and ends in `text` ("se da de alta"), or `undefined`. */
-export function findDischarge(text: string): { start: number; end: number } | undefined {
+export function findDischarge(
+  text: string,
+  lang: LexiconLanguage = 'es',
+): { start: number; end: number } | undefined {
+  if (lang === 'en') return findDischargeEnglish(text);
   DISCHARGE.lastIndex = 0;
   for (let match = DISCHARGE.exec(text); match; match = DISCHARGE.exec(text)) {
     const before = text.slice(Math.max(0, match.index - 24), match.index);
@@ -779,8 +1398,8 @@ export function findDischarge(text: string): { start: number; end: number } | un
 }
 
 /** Whether `text` (a quote) states a discharge. */
-export function statesDischarge(text: string): boolean {
-  return findDischarge(text) !== undefined;
+export function statesDischarge(text: string, lang: LexiconLanguage = 'es'): boolean {
+  return findDischarge(text, lang) !== undefined;
 }
 
 // ---------------------------------------------------------------- medications
@@ -791,6 +1410,10 @@ const LAB_ANALYTE =
   /^(?:hemoglobina|hb|hba1c|a1c|hematocrito|hto|glicemia|glucemia|glucosa|colesterol|ldl|hdl|trigliceridos|creatinina|urea|tsh|t4|t3|ferritina|plaquetas|leucocitos|psa|acido urico|tfg|filtrado|microalbuminuria|vsg|pcr|ta|pa|fc|fr|imc|peso|talla|temperatura)(?![a-z])/;
 
 /** Whether a "medication" is really a measurement ("Hemoglobina 10,8 g/dL", "HbA1c 7.4%"). */
-export function looksLikeMeasurement(text: string): boolean {
+const EN_LAB_ANALYTE =
+  /^(?:hemoglobin|hgb|hb|hba1c|a1c|hematocrit|hct|glucose|fbg|fasting glucose|blood sugar|cholesterol|ldl|hdl|triglycerides|tg|creatinine|cr|bun|egfr|gfr|tsh|t4|t3|ferritin|platelets|plt|wbc|psa|uric acid|microalbumin|uacr|esr|crp|bp|hr|rr|bmi|weight|wt|height|temp|temperature|spo2|sodium|na|potassium|k)(?![a-z])/;
+
+export function looksLikeMeasurement(text: string, lang: LexiconLanguage = 'es'): boolean {
+  if (lang === 'en') return CONCENTRATION.test(text) || EN_LAB_ANALYTE.test(text.trim());
   return CONCENTRATION.test(text) || LAB_ANALYTE.test(text.trim());
 }

@@ -138,6 +138,12 @@ describe.each(STORAGES)(
       expect(detail.body.timeline.map((entry) => entry.type)).toContain('appointment_booked');
       expect(
         detail.body.timeline.find((entry) => entry.type === 'appointment_booked')?.label,
+      ).toMatch(/booked from this case/);
+      const spanish = await h.call<CaseDetail>(`/api/inbox/cases/${caseId}`, {
+        headers: { 'accept-language': 'es' },
+      });
+      expect(
+        spanish.body.timeline.find((entry) => entry.type === 'appointment_booked')?.label,
       ).toMatch(/agendada desde este caso/);
       expect(detail.body.reasons[0]).toMatchObject({
         ruleId: 'lab_order_result_pending',
@@ -162,7 +168,11 @@ describe.each(STORAGES)(
 
     it('refuses a period that does not make sense', async () => {
       const now = h.runtime.clock.now().toISOString();
-      expect((await h.call(`/api/inbox/metrics?from=${now}&to=${now}`)).status).toBe(422);
+      const empty = await h.call<{ error: { fields: { path: string; message: string }[] } }>(
+        `/api/inbox/metrics?from=${now}&to=${now}`,
+      );
+      expect(empty.status).toBe(422);
+      expect(empty.body.error.fields[0]).toMatchObject({ path: 'period' });
       expect((await h.call('/api/inbox/metrics?from=yesterday')).status).toBe(422);
       const long = new Date(h.runtime.clock.now().getTime() - 1000 * DAY_MS).toISOString();
       expect((await h.call(`/api/inbox/metrics?from=${long}`)).status).toBe(422);

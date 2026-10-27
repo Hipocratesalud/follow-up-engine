@@ -22,18 +22,9 @@ import type {
   ProtocolRef,
 } from '../api/contract.ts';
 import { cx } from '../lib/cx.ts';
+import { useT } from '../i18n/index.ts';
 import { formatDate } from '../lib/format.ts';
-import {
-  DRAFT_PROTOCOL_HINT,
-  DRAFT_PROTOCOL_LABEL,
-  LAYER_DESCRIPTIONS,
-  LAYER_LABELS,
-  PROTOCOL_NAME_PREFIX,
-  PRIORITY_LABELS,
-  STATUS_LABELS,
-  escalationNext,
-  escalationSummary,
-} from '../lib/labels.ts';
+import { escalationNext, escalationSummary } from '../lib/labels.ts';
 import { Badge, type Tone } from './ui.tsx';
 
 const LAYER_STYLES: Record<Layer, string> = {
@@ -64,10 +55,11 @@ export function LayerChip({
   readonly layer: Layer;
   readonly className?: string;
 }): ReactNode {
+  const t = useT();
   const Icon = LAYER_ICONS[layer];
   return (
     <span
-      title={LAYER_DESCRIPTIONS[layer]}
+      title={t.labels.layerDescriptions[layer]}
       className={cx(
         'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium whitespace-nowrap',
         LAYER_STYLES[layer],
@@ -75,7 +67,7 @@ export function LayerChip({
       )}
     >
       <Icon className="size-3" aria-hidden="true" />
-      {LAYER_LABELS[layer]}
+      {t.labels.layers[layer]}
     </span>
   );
 }
@@ -101,10 +93,11 @@ const STATUS_ICONS: Record<CaseStatus, LucideIcon> = {
 };
 
 export function StatusBadge({ status }: { readonly status: CaseStatus }): ReactNode {
+  const t = useT();
   const Icon = STATUS_ICONS[status];
   return (
     <Badge tone={STATUS_TONES[status]} icon={<Icon className="size-3" aria-hidden="true" />}>
-      {STATUS_LABELS[status]}
+      {t.labels.statuses[status]}
     </Badge>
   );
 }
@@ -123,10 +116,11 @@ export function PriorityBadge({
   readonly label: PriorityLabel;
   readonly priority: number;
 }): ReactNode {
+  const t = useT();
   return (
-    <Badge tone={PRIORITY_TONES[label]} title={`Prioridad ${String(priority)} de 100`}>
-      <span className="sr-only">Prioridad </span>
-      {PRIORITY_LABELS[label]}
+    <Badge tone={PRIORITY_TONES[label]} title={t.labels.priorityTitle(priority)}>
+      <span className="sr-only">{t.labels.priorityPrefix}</span>
+      {t.labels.priorities[label]}
     </Badge>
   );
 }
@@ -144,8 +138,9 @@ export function EscalationMeter({
   readonly escalation: EscalationView;
   readonly showLabel?: boolean;
 }): ReactNode {
-  const summary = escalationSummary(escalation);
-  const next = escalationNext(escalation, formatDate);
+  const t = useT();
+  const summary = escalationSummary(t, escalation);
+  const next = escalationNext(t, escalation, formatDate);
   const label = next ? `${summary}. ${next}.` : `${summary}.`;
   const late = escalation.currentStep >= Math.max(2, escalation.steps.length - 2);
   return (
@@ -170,7 +165,9 @@ export function EscalationMeter({
       </span>
       {showLabel ? (
         <span aria-hidden="true" className="min-w-0 text-xs text-muted">
-          {summary.replace(/^Escalamiento: /, '')}
+          {summary.startsWith(t.labels.escalationPrefix)
+            ? summary.slice(t.labels.escalationPrefix.length)
+            : summary}
         </span>
       ) : null}
     </span>
@@ -192,16 +189,17 @@ export function DraftProtocolBadge({
 }: {
   readonly describe?: boolean;
 }): ReactNode {
+  const t = useT();
   return (
     <Badge
       tone="warning"
       wrap
-      title={DRAFT_PROTOCOL_HINT}
+      title={t.labels.draftProtocolHint}
       icon={<FilePen className="mt-0.5 size-3 shrink-0" aria-hidden="true" />}
     >
       <span>
-        {DRAFT_PROTOCOL_LABEL}
-        {describe ? <span className="sr-only">. {DRAFT_PROTOCOL_HINT}</span> : null}
+        {t.labels.draftProtocol}
+        {describe ? <span className="sr-only">. {t.labels.draftProtocolHint}</span> : null}
       </span>
     </Badge>
   );
@@ -209,7 +207,7 @@ export function DraftProtocolBadge({
 
 /**
  * Where a reason comes from when a protocol asks for it: the protocol's
- * Spanish name and, for a draft, the draft badge. Nothing for other reasons.
+ * name (in the request's language) and, for a draft, the draft badge. Nothing for other reasons.
  */
 export function ReasonProtocol({
   protocol,
@@ -219,6 +217,7 @@ export function ReasonProtocol({
   /** Closed expectations of a patient's history keep the protocol name, without the badge. */
   readonly withDraftBadge?: boolean;
 }): ReactNode {
+  const t = useT();
   const draft = withDraftBadge && isDraftProtocol(protocol);
   if (protocol?.name === undefined && !draft) {
     return null;
@@ -227,7 +226,7 @@ export function ReasonProtocol({
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
       {protocol?.name === undefined ? null : (
         <span className="text-xs text-muted">
-          {PROTOCOL_NAME_PREFIX} <span className="font-medium text-fg">{protocol.name}</span>
+          {t.labels.protocolPrefix} <span className="font-medium text-fg">{protocol.name}</span>
         </span>
       )}
       {draft ? <DraftProtocolBadge /> : null}

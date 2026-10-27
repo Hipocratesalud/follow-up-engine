@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "status": "draft",
   "description": "Dyslipidemia: a lipid panel 4 to 12 weeks after a statin or ezetimibe (ATC C10) is started or its dose changes (a panel sooner than 4 weeks does not count), then yearly. One lipid panel is expected per patient across protocols: the diabetes protocol's yearly panel and this one never both. Fills only what the doctor's plan did not cover.",
-  "reason": { "code": "protocol_dyslipidemia", "label": "Control de dislipidemia" },
+  "reason": { "code": "protocol_dyslipidemia", "label": "Dyslipidemia follow-up" },
   "sources": [
     {
       "title": "2019 ESC/EAS Guidelines for the management of dyslipidaemias",
@@ -39,7 +39,7 @@
       "code": { "system": "http://loinc.org", "code": "24331-1", "display": "Lipid panel" },
       "reason": {
         "code": "protocol_dyslipidemia_lipids",
-        "label": "Perfil lipídico de control pendiente"
+        "label": "Follow-up lipid panel due"
       },
       "schedule": {
         "type": "treatment_change",
@@ -78,7 +78,7 @@
       "priority": 25,
       "suggestedAction": {
         "code": "order_lab",
-        "label": "Indicar perfil lipídico",
+        "label": "Order a lipid panel",
         "patientContactPurpose": "complete_pending_test"
       }
     }

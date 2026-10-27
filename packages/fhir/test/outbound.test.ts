@@ -51,7 +51,7 @@ describe('expectation → Task', () => {
       businessStatus: { coding: [{ system: ENGINE_CODE_SYSTEMS.expectationStatus, code: 'open' }] },
       code: {
         coding: [{ system: ENGINE_CODE_SYSTEMS.expectation, code: 'lab_order_result_pending' }],
-        text: 'Resultado de laboratorio pendiente',
+        text: 'Lab result pending',
       },
       focus: { reference: 'ServiceRequest/sr-hba1c' },
       basedOn: [{ reference: 'ServiceRequest/sr-hba1c' }],

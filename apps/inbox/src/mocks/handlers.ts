@@ -22,8 +22,9 @@ import {
 } from '../api/contract.ts';
 import { MOCK_API_KEY } from '../config.ts';
 import { mockMetrics } from '../features/metrics/mock.ts';
-import { VALIDATION_COPY } from '../lib/copy.ts';
+import { DEFAULT_LOCALE, isLocale, type Locale, messagesFor } from '../i18n/index.ts';
 import { INPUT_LIMITS } from '../lib/limits.ts';
+import { type MockApiCopy, mockApiCopy } from './api-copy.ts';
 import { ReviewerMockError } from './reviewer.ts';
 import { MockHttpError, type MockStore } from './store.ts';
 
@@ -46,10 +47,30 @@ function errorResponse(
   );
 }
 
-/** The API's 422 for a too long input: `invalid_request` with one Spanish message per field. */
-function checkLength(path: string, value: unknown, max: number, what: string): void {
+/**
+ * The request's language, as apps/api reads it: the first `Accept-Language`
+ * tag whose primary language the API has (English or Spanish), else English.
+ */
+export function requestLocale(request: Request): Locale {
+  const header = request.headers.get('Accept-Language') ?? '';
+  for (const part of header.split(',')) {
+    const primary = part.split(';')[0]?.trim().split('-')[0]?.toLowerCase();
+    if (isLocale(primary)) return primary;
+  }
+  return DEFAULT_LOCALE;
+}
+
+/** The API's 422 for a too long input: `invalid_request` with one message per field. */
+function checkLength(
+  copy: MockApiCopy,
+  locale: Locale,
+  path: string,
+  value: unknown,
+  max: number,
+  what: string,
+): void {
   if (typeof value !== 'string' || value.length <= max) return;
-  const message = `${what} puede tener hasta ${max.toLocaleString('es')} caracteres.`;
+  const message = copy.errors.tooLong(what, max.toLocaleString(locale));
   throw new MockHttpError(422, 'invalid_request', message, [{ path, message }]);
 }
 
@@ -64,17 +85,22 @@ async function readJson(request: Request): Promise<Record<string, unknown>> {
   } catch {
     // Fall through to the validation error below.
   }
-  throw new MockHttpError(400, 'invalid_json', 'El cuerpo de la petición no es JSON válido.');
+  throw new MockHttpError(
+    400,
+    'invalid_json',
+    mockApiCopy(requestLocale(request)).errors.invalidJson,
+  );
 }
 
 const CASE_ACTIONS: readonly CaseAction[] = ['notify', 'snooze', 'resolve', 'dismiss'];
 
-function parseAction(body: Record<string, unknown>): CaseActionRequest {
+function parseAction(body: Record<string, unknown>, locale: Locale): CaseActionRequest {
+  const copy = mockApiCopy(locale);
   const action = CASE_ACTIONS.find((candidate) => candidate === body['action']);
-  if (!action) throw new MockHttpError(422, 'invalid_action', 'Acción no válida.');
+  if (!action) throw new MockHttpError(422, 'invalid_action', copy.errors.invalidAction);
   const snoozeDays = body['snoozeDays'];
   const note = body['note'];
-  checkLength('note', note, INPUT_LIMITS.note, 'La nota');
+  checkLength(copy, locale, 'note', note, INPUT_LIMITS.note, copy.errors.fields.note);
   const reason = DISMISS_REASONS.find((candidate) => candidate === body['reason']);
   return {
     action,
@@ -85,26 +111,27 @@ function parseAction(body: Record<string, unknown>): CaseActionRequest {
   };
 }
 
-function parseCallOutcome(body: Record<string, unknown>): CallOutcomeRequest {
+function parseCallOutcome(body: Record<string, unknown>, locale: Locale): CallOutcomeRequest {
   const outcome = CALL_OUTCOMES.find((candidate) => candidate === body['outcome']);
   if (!outcome) {
-    const message = VALIDATION_COPY.callOutcomeRequired;
+    const message = messagesFor(locale).validation.callOutcomeRequired;
     throw new MockHttpError(422, 'invalid_request', message, [{ path: 'outcome', message }]);
   }
   const requestId = body['requestId'];
   return { outcome, ...(typeof requestId === 'string' ? { requestId } : {}) };
 }
 
-function parseFeedback(body: Record<string, unknown>): FeedbackRequest {
+function parseFeedback(body: Record<string, unknown>, locale: Locale): FeedbackRequest {
+  const copy = mockApiCopy(locale);
   const useful = body['useful'];
   if (typeof useful !== 'boolean') {
-    throw new MockHttpError(422, 'invalid_feedback', 'Indica si el caso fue útil.');
+    throw new MockHttpError(422, 'invalid_feedback', copy.errors.feedbackUseful);
   }
   const reason: FeedbackReason | undefined = FEEDBACK_REASONS.find(
     (candidate) => candidate === body['reason'],
   );
   const comment = body['comment'];
-  checkLength('comment', comment, INPUT_LIMITS.comment, 'El comentario');
+  checkLength(copy, locale, 'comment', comment, INPUT_LIMITS.comment, copy.errors.fields.comment);
   return {
     useful,
     ...(reason ? { reason } : {}),
@@ -112,13 +139,21 @@ function parseFeedback(body: Record<string, unknown>): FeedbackRequest {
   };
 }
 
-function parseConsultation(body: Record<string, unknown>): DemoConsultationRequest {
+function parseConsultation(body: Record<string, unknown>, locale: Locale): DemoConsultationRequest {
+  const copy = mockApiCopy(locale);
   const { patientId, patientName, specialty, noteText, orders } = body;
   if (typeof specialty !== 'string' || typeof noteText !== 'string') {
-    throw new MockHttpError(422, 'invalid_consultation', 'Faltan la especialidad o la nota.');
+    throw new MockHttpError(422, 'invalid_consultation', copy.errors.consultationIncomplete);
   }
-  checkLength('patientName', patientName, INPUT_LIMITS.patientName, 'El nombre');
-  checkLength('noteText', noteText, INPUT_LIMITS.noteText, 'La nota');
+  checkLength(
+    copy,
+    locale,
+    'patientName',
+    patientName,
+    INPUT_LIMITS.patientName,
+    copy.errors.fields.name,
+  );
+  checkLength(copy, locale, 'noteText', noteText, INPUT_LIMITS.noteText, copy.errors.fields.note);
   const parsedOrders = Array.isArray(orders)
     ? orders
         .filter(isRecord)
@@ -162,17 +197,22 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     resolver: (args: {
       request: Request;
       params: Record<string, unknown>;
+      locale: Locale;
     }) => Promise<JsonBodyType> | JsonBodyType,
     extraLatency = 0,
   ): HttpResponseResolver {
     return async ({ request, params }) => {
+      const locale = requestLocale(request);
       if (request.headers.get('Authorization') !== `Bearer ${MOCK_API_KEY}`) {
-        return errorResponse(401, 'unauthorized', 'Clave de API no válida.');
+        return errorResponse(401, 'unauthorized', messagesFor(locale).errors.generic);
       }
       const wait = latency + extraLatency;
       if (wait > 0) await delay(wait);
+      // Labels in the request's language, like apps/api (which also answers Content-Language).
+      store.setLocale(locale);
       try {
-        return HttpResponse.json(await resolver({ request, params }));
+        const body = await resolver({ request, params, locale });
+        return HttpResponse.json(body, { headers: { 'Content-Language': locale } });
       } catch (error) {
         if (error instanceof MockHttpError || error instanceof ReviewerMockError) {
           return errorResponse(error.status, error.code, error.message, error.fields);
@@ -189,13 +229,14 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     ),
     http.get(
       '*/api/inbox/cases',
-      route(({ request }) => {
+      route(({ request, locale }) => {
         const url = new URL(request.url);
         const view = VIEWS.find((candidate) => candidate === url.searchParams.get('view'));
         const origin = ORIGINS.find((candidate) => candidate === url.searchParams.get('origin'));
         const assignee = url.searchParams.get('assignee');
         const q = url.searchParams.get('q');
-        checkLength('q', q, INPUT_LIMITS.search, 'La búsqueda');
+        const copy = mockApiCopy(locale);
+        checkLength(copy, locale, 'q', q, INPUT_LIMITS.search, copy.errors.fields.search);
         const patient = url.searchParams.get('patient');
         const cursor = url.searchParams.get('cursor');
         const limit = numberParam(url.searchParams.get('limit'));
@@ -216,15 +257,19 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     ),
     http.post(
       '*/api/inbox/cases/:id/actions',
-      route(async ({ request, params }) =>
-        store.act(param(params, 'id'), parseAction(await readJson(request))),
-      ),
+      route(async ({ request, params, locale }) => {
+        const body = parseAction(await readJson(request), locale);
+        store.setLocale(locale);
+        return store.act(param(params, 'id'), body);
+      }),
     ),
     http.post(
       '*/api/inbox/cases/:id/call-outcome',
-      route(async ({ request, params }) =>
-        store.recordCallOutcome(param(params, 'id'), parseCallOutcome(await readJson(request))),
-      ),
+      route(async ({ request, params, locale }) => {
+        const body = parseCallOutcome(await readJson(request), locale);
+        store.setLocale(locale);
+        return store.recordCallOutcome(param(params, 'id'), body);
+      }),
     ),
     http.post(
       '*/api/inbox/suppressions/:id/reactivate',
@@ -236,9 +281,11 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     ),
     http.post(
       '*/api/inbox/cases/:id/feedback',
-      route(async ({ request, params }) =>
-        store.feedback(param(params, 'id'), parseFeedback(await readJson(request))),
-      ),
+      route(async ({ request, params, locale }) => {
+        const body = parseFeedback(await readJson(request), locale);
+        store.setLocale(locale);
+        return store.feedback(param(params, 'id'), body);
+      }),
     ),
     http.get(
       '*/api/inbox/owners',
@@ -321,12 +368,17 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     ),
     http.post(
       '*/api/inbox/findings/:id/review',
-      route(async ({ request, params }) => {
+      route(async ({ request, params, locale }) => {
         const body = await readJson(request);
+        store.setLocale(locale);
         const verdict = body['verdict'];
         const reason = body['reason'];
         if (verdict !== 'relevant' && verdict !== 'already_known' && verdict !== 'not_relevant') {
-          throw new MockHttpError(422, 'invalid_request', 'Elige una calificación.');
+          throw new MockHttpError(
+            422,
+            'invalid_request',
+            messagesFor(locale).errors.validationFallback,
+          );
         }
         return store.reviewer.review(param(params, 'id'), {
           verdict,
@@ -340,8 +392,9 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     ),
     http.put(
       '*/api/inbox/finding-flags',
-      route(async ({ request }) => {
+      route(async ({ request, locale }) => {
         const body = await readJson(request);
+        store.setLocale(locale);
         const validatedBy = body['validatedBy'];
         return store.reviewer.updateFlag({
           category: body['category'] as never,
@@ -357,21 +410,23 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     ),
     http.post(
       '*/api/demo/clock/advance',
-      route(async ({ request }) => {
+      route(async ({ request, locale }) => {
         const body = await readJson(request);
+        store.setLocale(locale);
         const days = body['days'];
         if (typeof days !== 'number') {
-          throw new MockHttpError(422, 'invalid_days', 'Indica cuántos días avanzar.');
+          throw new MockHttpError(422, 'invalid_days', mockApiCopy(locale).errors.invalidDays);
         }
         return store.advance(days);
       }),
     ),
     http.post(
       '*/api/demo/consultations',
-      route(
-        async ({ request }) => store.createConsultation(parseConsultation(await readJson(request))),
-        options.modelLatencyMs ?? 0,
-      ),
+      route(async ({ request, locale }) => {
+        const body = parseConsultation(await readJson(request), locale);
+        store.setLocale(locale);
+        return store.createConsultation(body);
+      }, options.modelLatencyMs ?? 0),
     ),
     http.get(
       '*/api/demo/webhooks',

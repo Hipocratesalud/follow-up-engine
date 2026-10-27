@@ -94,6 +94,7 @@ export function deriveFromExtraction(
       // What reading the note cost: attributed to the cases its plan opens (metrics).
       costUsd: extraction.costUsd,
     },
+    ...(extraction.noteLanguage === undefined ? {} : { noteLanguage: extraction.noteLanguage }),
   };
   const confidence = new Map<string, number>();
   const conditions = extraction.conditions

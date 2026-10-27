@@ -1,0 +1,42 @@
+{
+  "id": "gold-101",
+  "specialty": "diabetology",
+  "authoredAt": "2026-03-02",
+  "language": "en",
+  "text": "58 yo F with T2DM and HTN, here for f/u. Reports good adherence to metformin. A1c today 8.1%, BP 132/84.\nA/P: T2DM, not at goal. Increase metformin to 1000 mg BID. Continue lisinopril 20 mg daily for HTN. Repeat A1c in 3 months. F/u in 3 months.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [
+      {
+        "icd10": "E11",
+        "evidenceQuote": "T2DM, not at goal"
+      },
+      {
+        "icd10": "I10",
+        "evidenceQuote": "lisinopril 20 mg daily for HTN"
+      }
+    ],
+    "medications": [
+      {
+        "text": "metformin 1000 mg BID",
+        "evidenceQuote": "metformin to 1000 mg BID"
+      },
+      {
+        "text": "lisinopril 20 mg daily",
+        "evidenceQuote": "lisinopril 20 mg daily"
+      }
+    ],
+    "planItems": [
+      {
+        "kind": "lab",
+        "dueInDays": 90,
+        "evidenceQuote": "Repeat A1c in 3 months"
+      },
+      {
+        "kind": "follow_up_visit",
+        "dueInDays": 90,
+        "evidenceQuote": "F/u in 3 months"
+      }
+    ]
+  }
+}

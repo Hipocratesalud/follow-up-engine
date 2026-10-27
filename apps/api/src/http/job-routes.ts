@@ -12,7 +12,7 @@ export function registerJobRoutes(app: App, runtime: EngineRuntime): void {
   app.get('/jobs/:id', async (c) => {
     const job = await runtime.storage.readModel.getJob(c.var.clinicId, c.req.param('id'));
     if (job === undefined) {
-      throw notFound('No encontramos ese trabajo.');
+      throw notFound(c.var.t, c.var.t.errors.jobNotFound);
     }
     const view: JobStatusView = {
       id: job.id,

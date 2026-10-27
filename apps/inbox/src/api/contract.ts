@@ -455,8 +455,13 @@ export interface PatientDetail {
   conditions: ConditionView[];
   expectations: PatientExpectationView[];
   qualityFindings: QualityFindingView[];
-  /** Rules stopped for this patient, active first ("Recordatorios desactivados"). */
+  /** Rules stopped for this patient, active first ("Reminders turned off"). */
   suppressions: SuppressionView[];
+  /**
+   * The patient's preferred language (BCP-47, from FHIR `Patient.communication`),
+   * when the host stated one: the language the host writes its messages in.
+   */
+  language?: string;
 }
 
 export interface InboxStats {
@@ -533,6 +538,11 @@ export interface DemoConsultationResponse {
     planItems: ExtractedPlanItem[];
     costUsd: number;
     latencyMs: number;
+    /**
+     * BCP-47 language the note was read as: the host's when it sent one,
+     * else detected from the text (`es`, `en`, `pt`).
+     */
+    noteLanguage?: string;
   };
   expectationsCreated: CreatedExpectation[];
 }

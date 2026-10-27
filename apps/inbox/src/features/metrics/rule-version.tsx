@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { metricsCopy, type MetricsLocale } from './copy.ts';
+import { useT } from '../../i18n/index.ts';
 
 /**
  * Which versioned rule (and protocol) produced a case reason (HIP-141), so
@@ -10,15 +10,13 @@ export function ReasonRuleVersion({
   ruleId,
   ruleVersion,
   protocol,
-  locale,
 }: {
   readonly ruleId: string;
   readonly ruleVersion: string | undefined;
   readonly protocol?: { readonly id: string; readonly version: string } | undefined;
-  readonly locale?: MetricsLocale;
 }): ReactNode {
+  const copy = useT().metrics.ruleVersion;
   if (ruleVersion === undefined) return null;
-  const copy = metricsCopy(locale).ruleVersion;
   return (
     <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted">
       <span>

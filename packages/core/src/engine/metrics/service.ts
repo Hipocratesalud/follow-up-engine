@@ -24,11 +24,11 @@ export function metricsPeriod(
   const to = requested.to ?? new Date(now.getTime() + 1);
   const from = requested.from ?? new Date(to.getTime() - DEFAULT_METRICS_PERIOD_DAYS * DAY_MS);
   if (from.getTime() >= to.getTime()) {
-    throw new ValidationError('from', 'The period must start before it ends');
+    throw new ValidationError('period', 'The period must start before it ends');
   }
   if (to.getTime() - from.getTime() > MAX_METRICS_PERIOD_DAYS * DAY_MS) {
     throw new ValidationError(
-      'from',
+      'period',
       `The period cannot be longer than ${String(MAX_METRICS_PERIOD_DAYS)} days`,
     );
   }

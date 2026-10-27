@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Navigate, useParams, useSearchParams, type RouteObject } from 'react-router';
+import { Navigate, useLocation, useParams, useSearchParams, type RouteObject } from 'react-router';
 import { Shell } from './components/shell.tsx';
 import { CaseDetailPanel } from './features/case/case-detail.tsx';
 import { DemoPage } from './features/demo/demo-page.tsx';
@@ -16,11 +16,7 @@ function InboxCaseRoute(): ReactNode {
   const [searchParams] = useSearchParams();
   const search = searchParams.toString();
   return (
-    <CaseDetailPanel
-      key={caseId}
-      caseId={caseId}
-      backTo={`/bandeja${search ? `?${search}` : ''}`}
-    />
+    <CaseDetailPanel key={caseId} caseId={caseId} backTo={`/inbox${search ? `?${search}` : ''}`} />
   );
 }
 
@@ -32,9 +28,28 @@ function ReviewFindingRoute(): ReactNode {
     <FindingDetailPanel
       key={findingId}
       findingId={findingId}
-      backTo={`/revision-clinica${search ? `?${search}` : ''}`}
+      backTo={`/clinical-review${search ? `?${search}` : ''}`}
     />
   );
+}
+
+/**
+ * Links saved before the paths were English (`/bandeja/…`, `/pacientes/…`)
+ * keep working: the same place under its English path.
+ */
+const LEGACY_PREFIXES: readonly (readonly [string, string])[] = [
+  ['/revision-clinica/categorias', '/clinical-review/categories'],
+  ['/revision-clinica', '/clinical-review'],
+  ['/por-recuperar', '/recovery'],
+  ['/pacientes', '/patients'],
+  ['/bandeja', '/inbox'],
+  ['/casos', '/cases'],
+];
+
+function LegacyRedirect(): ReactNode {
+  const { pathname } = useLocation();
+  const match = LEGACY_PREFIXES.find(([from]) => pathname.startsWith(from));
+  return <Navigate to={match ? match[1] + pathname.slice(match[0].length) : '/inbox'} replace />;
 }
 
 export const routes: RouteObject[] = [
@@ -42,23 +57,27 @@ export const routes: RouteObject[] = [
     path: '/',
     element: <Shell />,
     children: [
-      { index: true, element: <Navigate to="/bandeja" replace /> },
+      { index: true, element: <Navigate to="/inbox" replace /> },
       {
-        path: 'bandeja',
+        path: 'inbox',
         element: <InboxPage />,
         children: [{ path: ':caseId', element: <InboxCaseRoute /> }],
       },
-      { path: 'casos/:caseId', element: <StandaloneCasePage /> },
-      { path: 'pacientes/:patientId', element: <PatientPage /> },
-      { path: 'por-recuperar', element: <RecoveryPage /> },
-      { path: 'revision-clinica/categorias', element: <FlagsPage /> },
+      { path: 'cases/:caseId', element: <StandaloneCasePage /> },
+      { path: 'patients/:patientId', element: <PatientPage /> },
+      { path: 'recovery', element: <RecoveryPage /> },
+      { path: 'clinical-review/categories', element: <FlagsPage /> },
       {
-        path: 'revision-clinica',
+        path: 'clinical-review',
         element: <ReviewPage />,
         children: [{ path: ':findingId', element: <ReviewFindingRoute /> }],
       },
-      { path: 'metricas', element: <MetricsPage /> },
+      { path: 'metrics', element: <MetricsPage /> },
       { path: 'demo', element: <DemoPage /> },
+      ...LEGACY_PREFIXES.map(([from]) => ({
+        path: `${from.slice(1)}/*`,
+        element: <LegacyRedirect />,
+      })),
       { path: '*', element: <NotFoundPage /> },
     ],
   },

@@ -1,5 +1,6 @@
 import type { ClinicMetricsView, MetricsQuery } from '../features/metrics/contract.ts';
 import type { ApiConfig } from '../config.ts';
+import { getLocale, messages } from '../i18n/index.ts';
 import type {
   ApiErrorBody,
   ApiFieldError,
@@ -39,7 +40,7 @@ import type {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
-  /** The invalid inputs of a 422, each with its Spanish message. */
+  /** The invalid inputs of a 422, each with its message (in the request's language). */
   readonly fields: readonly ApiFieldError[];
 
   constructor(
@@ -109,7 +110,7 @@ async function readErrorBody(response: Response): Promise<ApiError> {
   return new ApiError(
     response.status,
     `http_${String(response.status)}`,
-    'El servidor no respondió como esperábamos. Intenta de nuevo.',
+    messages().errors.unexpected,
   );
 }
 
@@ -161,6 +162,9 @@ export function createApiClient(config: ApiConfig): ApiClient {
   ): Promise<T> {
     const headers: Record<string, string> = {
       Accept: 'application/json',
+      // The labels the API writes (reasons, timeline, validation messages)
+      // come back in the inbox's language.
+      'Accept-Language': getLocale(),
       Authorization: `Bearer ${config.apiKey}`,
     };
     const init: RequestInit = { method, headers };
@@ -172,11 +176,7 @@ export function createApiClient(config: ApiConfig): ApiClient {
     try {
       response = await fetch(url(path, options.query), init);
     } catch {
-      throw new ApiError(
-        0,
-        'network_error',
-        'No pudimos conectar con el servidor. Revisa tu conexión.',
-      );
+      throw new ApiError(0, 'network_error', messages().errors.network);
     }
     if (!response.ok) throw await readErrorBody(response);
     return (await response.json()) as T;

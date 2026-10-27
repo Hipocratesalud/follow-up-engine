@@ -13,14 +13,9 @@ import {
   type OriginKey,
   type OriginSplit,
 } from './contract.ts';
-import {
-  type MetricsCopy,
-  metricsCopy,
-  metricsFormat,
-  type MetricsLocale,
-  METRICS_PRESETS,
-  type MetricsPreset,
-} from './copy.ts';
+import { useLocale, useT } from '../../i18n/index.ts';
+import type { MetricsCopy } from '../../i18n/metrics-copy.ts';
+import { metricsFormat, METRICS_PRESETS, type MetricsPreset } from './copy.ts';
 import { useMetrics } from './queries.ts';
 
 const DAY_MS = 86_400_000;
@@ -37,7 +32,7 @@ type Format = ReturnType<typeof metricsFormat>;
 
 function presetOf(value: string | null): MetricsPreset {
   const days = Number(value);
-  return (METRICS_PRESETS as readonly number[]).includes(days)
+  return METRICS_PRESETS.some((preset) => preset === days)
     ? (days as MetricsPreset)
     : DEFAULT_PRESET;
 }
@@ -442,9 +437,9 @@ function MetricsSkeleton({ copy }: { readonly copy: MetricsCopy }): ReactNode {
  * small to-scale charts. The period presets count back from the API's
  * clock (the simulated date in the demo).
  */
-export function MetricsPage({ locale }: { readonly locale?: MetricsLocale }): ReactNode {
-  const copy = metricsCopy(locale);
-  const format = metricsFormat(locale);
+export function MetricsPage(): ReactNode {
+  const copy = useT().metrics;
+  const format = metricsFormat(useLocale());
   const now = useNow();
   const [searchParams, setSearchParams] = useSearchParams();
   const preset = presetOf(searchParams.get('days'));

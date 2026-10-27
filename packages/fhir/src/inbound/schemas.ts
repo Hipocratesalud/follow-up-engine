@@ -95,6 +95,8 @@ const resourceBase = <TType extends string>(resourceType: TType) => ({
   resourceType: z.literal(resourceType),
   id: fhirId.optional(),
   meta: MetaSchema.optional(),
+  /** `Resource.language` (BCP-47); read as a note's language, validated where read. */
+  language: fhirString.optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -104,6 +106,9 @@ export const PatientSchema = z.object({
   ...resourceBase('Patient'),
   active: z.boolean().optional(),
   extension: z.array(ExtensionSchema).optional(),
+  communication: z
+    .array(z.object({ language: CodeableConceptSchema, preferred: z.boolean().optional() }))
+    .optional(),
 }) satisfies z.ZodType<Partial<R4.Patient>>;
 
 export const ConsentSchema = z.object({
@@ -349,6 +354,7 @@ export const DocumentReferenceSchema = z.object({
       z.object({
         attachment: z.object({
           contentType: fhirString.optional(),
+          language: fhirString.optional(),
           data: z.string().optional(),
           title: fhirString.optional(),
         }),

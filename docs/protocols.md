@@ -2,7 +2,7 @@
 
 A protocol is a versioned JSON file in [`config/protocols/`](../config/protocols) that turns a condition into a cadence of expectations ("a TSH 6 to 8 weeks after the dose changed"). Protocols are the last layer of the engine: they only fill what the doctor's plan, the universal rules and the visit cadence did not already ask for. This page is the reference for clinicians and for the clinical team that validates them (Clinical team guide, point 2).
 
-**Every protocol is a draft.** None has been validated by a clinical team yet. A draft protocol runs only for a clinic that enables it, and the inbox marks each of its reasons with "Protocolo en borrador · pendiente de validación clínica".
+**Every protocol is a draft.** None has been validated by a clinical team yet. A draft protocol runs only for a clinic that enables it, and the inbox marks each of its reasons with "Draft protocol · pending clinical validation" ("Protocolo en borrador · pendiente de validación clínica" in Spanish).
 
 | Protocol                                                                    | Id                       | Version | Status | On by default |
 | --------------------------------------------------------------------------- | ------------------------ | ------- | ------ | ------------- |
@@ -75,7 +75,7 @@ A protocol that is disabled later stops creating expectations for that clinic.
 
 ## Depression and anxiety on treatment
 
-The id `treatment_followup` and every label are deliberately neutral ("Seguimiento de tratamiento", "Control de seguimiento pendiente"): the protocol is `sensitive`, so nothing it shows in the inbox or sends in a webhook or a patient contact request names the condition, the drug or the specialty, and its contact purpose is only `schedule_follow_up` (the schema refuses anything else).
+The id `treatment_followup` and every label are deliberately neutral, in every language ("Treatment follow-up", "Follow-up visit due"; "Seguimiento de tratamiento", "Control de seguimiento pendiente"): the protocol is `sensitive`, so nothing it shows in the inbox or sends in a webhook or a patient contact request names the condition, the drug or the specialty, and its contact purpose is only `schedule_follow_up` (the schema refuses anything else).
 
 - **Enrollment:** ICD-10 F32, F33, F41 (confirmed or probable); an antidepressant (ATC N06A, mapped from the drug name when the host sends free text) without a coded diagnosis (inferred as F32, probable).
 - **Item:** a control visit 2 to 4 weeks (due at 28 days) after an antidepressant is started or its dose changes (a later prescription of the same drug whose dose differs, or another antidepressant), then monthly until 3 consecutive controls without a change, then every 3 months. A change sent without a control (a phone adjustment) replaces a later expectation with the 28-day one. Psychiatry, psychology, general or family practice, internal medicine: a psychotherapy session counts as the control. Without any antidepressant in the record, every 3 months after the last visit.

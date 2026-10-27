@@ -33,7 +33,7 @@ export const CitationViewSchema = z
       .string()
       .meta({ description: 'Verbatim text of the document (checked before storing)' }),
     date: isoDate,
-    title: z.string().meta({ description: 'Spanish label: "Nota de diabetología", "Creatinina"' }),
+    title: z.string().meta({ description: 'Localized label: "Diabetology note", "Creatinine"' }),
     specialty: z.string().optional(),
     text: z
       .string()

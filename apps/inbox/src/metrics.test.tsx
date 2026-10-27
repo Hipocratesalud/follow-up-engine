@@ -1,13 +1,14 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { METRICS_COPY } from './features/metrics/copy.ts';
+import { en } from './i18n/en.ts';
+import { es } from './i18n/es.ts';
 import { renderApp } from './test/render.tsx';
 
-const COPY = METRICS_COPY.en;
+const COPY = en.metrics;
 
 describe('Metrics (HIP-141)', () => {
   it('shows the tiles and the to-scale charts of the period, in English by default', async () => {
-    renderApp('/metricas');
+    renderApp('/metrics');
     expect(await screen.findByRole('heading', { level: 1, name: COPY.title })).toBeInTheDocument();
     expect(await screen.findByText(COPY.tiles.opened)).toBeInTheDocument();
     expect(screen.getByText(COPY.tiles.booked)).toBeInTheDocument();
@@ -16,7 +17,7 @@ describe('Metrics (HIP-141)', () => {
     // The funnel: a table for screen readers says what the bars show.
     const funnel = screen.getByRole('heading', { name: COPY.funnel.title }).closest('section');
     if (funnel === null) throw new Error('funnel panel missing');
-    expect(within(funnel).getByRole('table')).toHaveTextContent(/Booked\s*19/);
+    expect(within(funnel).getAllByRole('table')[0]).toHaveTextContent(/Booked\s*19/);
     expect(funnel.querySelectorAll('svg rect').length).toBeGreaterThan(4);
     // The quantile strip reads as one sentence.
     expect(
@@ -29,7 +30,7 @@ describe('Metrics (HIP-141)', () => {
   });
 
   it('switches the period with one press, the choice kept in the URL', async () => {
-    const { user } = renderApp('/metricas');
+    const { user } = renderApp('/metrics');
     const week = await screen.findByRole('button', { name: COPY.preset(7) });
     expect(screen.getByRole('button', { name: COPY.preset(30) })).toHaveAttribute(
       'aria-pressed',
@@ -43,11 +44,11 @@ describe('Metrics (HIP-141)', () => {
   });
 
   it('shows the rule version under each case reason', async () => {
-    const { user } = renderApp('/bandeja');
+    const { user } = renderApp('/inbox');
     await waitFor(() => {
-      expect(document.querySelector('a[href^="/bandeja/"]')).not.toBeNull();
+      expect(document.querySelector('a[href^="/inbox/"]')).not.toBeNull();
     });
-    const row = document.querySelector<HTMLAnchorElement>('a[href^="/bandeja/"]');
+    const row = document.querySelector<HTMLAnchorElement>('a[href^="/inbox/"]');
     if (row === null) throw new Error('no case row');
     await user.click(row);
     const versions = await screen.findAllByText(/version \d+\.\d+\.\d+/);
@@ -62,6 +63,6 @@ describe('Metrics (HIP-141)', () => {
           ? keys(inner as object).map((child) => `${key}.${child}`)
           : [key],
       );
-    expect(keys(METRICS_COPY.es).sort()).toEqual(keys(METRICS_COPY.en).sort());
+    expect(keys(es.metrics).sort()).toEqual(keys(en.metrics).sort());
   });
 });

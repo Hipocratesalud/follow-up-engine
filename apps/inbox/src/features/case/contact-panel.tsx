@@ -26,9 +26,8 @@ import { useCallOutcome } from '../../api/queries.ts';
 import { InlineError } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, type Tone } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
+import { useT } from '../../i18n/index.ts';
 import { formatDate, formatDateTime, formatRelative } from '../../lib/format.ts';
-import { CALL_TASK_COPY, CONTACT_COPY, CONTACT_FLAG_COPY, DISMISSAL_COPY } from '../../lib/copy.ts';
-import { CALL_OUTCOME_LABELS } from '../../lib/labels.ts';
 
 const CHANNEL_ICONS: Record<ContactChannel | 'host', typeof Phone> = {
   whatsapp: MessageCircle,
@@ -47,8 +46,6 @@ const ATTEMPT_TONES: Record<ContactAttemptStatus, Tone> = {
   closed: 'neutral',
 };
 
-const TRIGGER_LABELS: Record<ContactAttemptView['trigger'], string> = CONTACT_COPY.triggers;
-
 /** The outcomes of a call, as buttons: what the team picks after calling. */
 const CALL_OUTCOME_ICONS: Record<CallOutcome, typeof Phone> = {
   booked: CalendarCheck,
@@ -66,12 +63,13 @@ export function ContactFlagNotice({
   readonly flag: ContactFlagView;
   readonly now: Date;
 }): ReactNode {
+  const t = useT();
   return (
     <p className="flex gap-2 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2.5 text-sm text-fg">
       <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
       <span>
         <span className="font-semibold text-warning">{flag.label}</span>{' '}
-        {CONTACT_FLAG_COPY.body(formatRelative(flag.raisedAt, now))}
+        {t.contact.flagBody(formatRelative(flag.raisedAt, now))}
       </span>
     </p>
   );
@@ -84,6 +82,7 @@ function AttemptItem({
   readonly attempt: ContactAttemptView;
   readonly now: Date;
 }): ReactNode {
+  const t = useT();
   const Icon = CHANNEL_ICONS[attempt.channel ?? 'host'];
   const reports = attempt.communications.filter((communication) => communication.outcomeLabel);
   return (
@@ -94,21 +93,23 @@ function AttemptItem({
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-sm font-semibold text-fg">
-            {CONTACT_COPY.attemptTitle(attempt.attempt, attempt.channelLabel)}
+            {t.contact.attemptTitle(attempt.attempt, attempt.channelLabel)}
           </span>
           <Badge tone={ATTEMPT_TONES[attempt.status]}>{attempt.statusLabel}</Badge>
         </div>
         <p className="text-xs text-muted">
-          {TRIGGER_LABELS[attempt.trigger]}
-          {attempt.requestedBy ? ` (${attempt.requestedBy})` : ''} ·{' '}
-          <time dateTime={attempt.requestedAt}>{formatDateTime(attempt.requestedAt)}</time> ·{' '}
+          {t.contact.triggers[attempt.trigger]}
+          {attempt.requestedBy ? ` (${attempt.requestedBy})` : ''}
+          {t.common.separator}
+          <time dateTime={attempt.requestedAt}>{formatDateTime(attempt.requestedAt)}</time>
+          {t.common.separator}
           {attempt.status === 'waiting' || attempt.status === 'pending_call'
-            ? CONTACT_COPY.waitsUntil(formatDate(attempt.dueBy))
-            : CONTACT_COPY.answerWindow(formatDate(attempt.dueBy))}
+            ? t.contact.waitsUntil(formatDate(attempt.dueBy))
+            : t.contact.answerWindow(formatDate(attempt.dueBy))}
         </p>
         {attempt.outcomeLabel && attempt.outcomeAt ? (
           <p className="text-sm text-fg">
-            {CONTACT_COPY.outcomePrefix} <span className="font-medium">{attempt.outcomeLabel}</span>{' '}
+            {t.contact.outcomePrefix} <span className="font-medium">{attempt.outcomeLabel}</span>{' '}
             <span className="text-xs text-muted">({formatRelative(attempt.outcomeAt, now)})</span>
           </p>
         ) : null}
@@ -119,8 +120,8 @@ function AttemptItem({
                 <time dateTime={communication.at}>{formatDateTime(communication.at)}</time>:{' '}
                 {communication.outcomeLabel}
                 {communication.sender === 'user'
-                  ? ` · ${communication.senderName ?? CONTACT_COPY.senderTeam}`
-                  : ` · ${CONTACT_COPY.senderHost}`}
+                  ? `${t.common.separator}${communication.senderName ?? t.contact.senderTeam}`
+                  : `${t.common.separator}${t.contact.senderHost}`}
               </li>
             ))}
           </ol>
@@ -138,13 +139,14 @@ export function ContactTimeline({
   readonly attempts: readonly ContactAttemptView[];
   readonly now: Date;
 }): ReactNode {
+  const t = useT();
   return (
     <Card className="flex flex-col gap-4 p-5" aria-labelledby="contact-title">
       <SectionTitle id="contact-title" count={attempts.length}>
-        {CONTACT_COPY.title}
+        {t.contact.title}
       </SectionTitle>
       {attempts.length === 0 ? (
-        <p className="text-sm text-muted">{CONTACT_COPY.empty}</p>
+        <p className="text-sm text-muted">{t.contact.empty}</p>
       ) : (
         <ol className="flex flex-col gap-4">
           {attempts.map((attempt) => (
@@ -166,6 +168,7 @@ export function CallTask({
   readonly task: CallTaskView;
   readonly patientName: string;
 }): ReactNode {
+  const t = useT();
   const mutation = useCallOutcome(caseId);
   const [picked, setPicked] = useState<CallOutcome>();
 
@@ -184,21 +187,21 @@ export function CallTask({
         </span>
         <div className="min-w-0">
           <h3 id="call-task-title" className="text-sm font-semibold text-fg">
-            {CALL_TASK_COPY.title}
+            {t.contact.callTitle}
           </h3>
           <p className="mt-1 text-sm text-muted">
             {task.trigger === 'wrong_number'
-              ? CALL_TASK_COPY.wrongNumber(patientName)
-              : CALL_TASK_COPY.unanswered(patientName)}{' '}
+              ? t.contact.callWrongNumber(patientName)
+              : t.contact.callUnanswered(patientName)}{' '}
             <span className={cx(task.overdue && 'font-medium text-warning')}>
               {task.overdue
-                ? CALL_TASK_COPY.overdue(formatDate(task.dueBy))
-                : CALL_TASK_COPY.due(formatDate(task.dueBy))}
+                ? t.contact.callOverdue(formatDate(task.dueBy))
+                : t.contact.callDue(formatDate(task.dueBy))}
             </span>
           </p>
         </div>
       </div>
-      <div role="group" aria-label={CALL_TASK_COPY.outcomesGroup} className="flex flex-wrap gap-2">
+      <div role="group" aria-label={t.contact.callOutcomesGroup} className="flex flex-wrap gap-2">
         {task.outcomes.map(({ outcome, label }) => {
           const Icon = CALL_OUTCOME_ICONS[outcome];
           return (
@@ -212,7 +215,7 @@ export function CallTask({
               onClick={handleOutcome}
               icon={<Icon className="size-3.5" aria-hidden="true" />}
             >
-              {label || CALL_OUTCOME_LABELS[outcome]}
+              {label || t.labels.callOutcomes[outcome]}
             </Button>
           );
         })}
@@ -230,40 +233,41 @@ export function DismissalSummary({
   readonly dismissal: DismissalView;
   readonly patientId: string;
 }): ReactNode {
+  const t = useT();
   return (
     <Card className="flex flex-col gap-3 p-5" aria-labelledby="dismissal-title">
-      <SectionTitle id="dismissal-title">{DISMISSAL_COPY.title}</SectionTitle>
+      <SectionTitle id="dismissal-title">{t.contact.dismissalTitle}</SectionTitle>
       <p className="text-sm text-fg">
         <span className="font-medium">{dismissal.reasonLabel}</span>
         <span className="text-muted">
-          {' '}
-          · {dismissal.by ? `${dismissal.by}, ` : ''}
+          {t.common.separator}
+          {dismissal.by ? `${dismissal.by}, ` : ''}
           {formatDate(dismissal.at)}
         </span>
       </p>
       {dismissal.note ? (
         <p className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm text-fg">{dismissal.note}</p>
       ) : null}
-      <p className="text-xs text-muted">{DISMISSAL_COPY.feedbackNote}</p>
+      <p className="text-xs text-muted">{t.contact.dismissalFeedbackNote}</p>
       {dismissal.suppressions.length > 0 ? (
         <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
           <p className="flex items-center gap-1.5 text-sm font-medium text-fg">
             <ShieldOff className="size-4 text-muted" aria-hidden="true" />
-            {DISMISSAL_COPY.suppressedTitle}
+            {t.contact.suppressedTitle}
           </p>
           <ul className="flex flex-col gap-0.5 text-sm text-fg">
             {dismissal.suppressions.map((suppression) => (
               <li key={suppression.id}>
                 {suppression.label}
-                {suppression.active ? '' : DISMISSAL_COPY.reactivatedSuffix}
+                {suppression.active ? '' : t.contact.reactivatedSuffix}
               </li>
             ))}
           </ul>
           <Link
-            to={`/pacientes/${patientId}`}
+            to={`/patients/${patientId}`}
             className="w-fit text-xs font-medium text-primary underline underline-offset-2"
           >
-            {DISMISSAL_COPY.patientLink}
+            {t.contact.dismissalPatientLink}
           </Link>
         </div>
       ) : null}

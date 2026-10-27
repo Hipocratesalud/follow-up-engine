@@ -12,7 +12,6 @@ import {
   PROTOCOL_STATUSES,
 } from '@follow-up-engine/core';
 import { z } from 'zod';
-import { CONTACT_LOOP_MESSAGES } from '../inbox/labels.ts';
 
 /**
  * The inbox JSON contract (`/api`), as zod schemas: requests are validated
@@ -48,12 +47,17 @@ export const ErrorBodySchema = z
         description:
           'Stable code: invalid_request (422, see fields), not_found, insufficient_scope, ...',
       }),
-      message: z.string().meta({ description: 'Spanish, ready to show to the clinic team' }),
+      message: z.string().meta({
+        description:
+          'In the response language (Content-Language), ready to show to the clinic team',
+      }),
       fields: z
         .array(
           z.object({
             path: z.string().meta({ description: 'Dotted path in the body or query (note)' }),
-            message: z.string().meta({ description: 'Spanish: what is wrong with the field' }),
+            message: z
+              .string()
+              .meta({ description: 'What is wrong with the field, in the response language' }),
           }),
         )
         .optional()
@@ -74,7 +78,7 @@ export const PatientSummarySchema = z
 export const ContactFlagViewSchema = z
   .object({
     issue: z.enum(['wrong_number']),
-    label: z.string().meta({ description: 'Spanish: "Número equivocado"' }),
+    label: z.string().meta({ description: 'Localized: "Wrong number"' }),
     raisedAt: isoDate,
     channel: ContactChannelSchema.optional(),
   })
@@ -109,7 +113,7 @@ export const ProtocolRefViewSchema = z
       .meta({ description: 'Version of the protocol that created the expectation' }),
     name: z.string().optional().meta({
       description:
-        'Spanish name of the protocol, ready to show ("Embarazo y puerperio"). Absent when the protocol is no longer enabled for the clinic',
+        'Name of the protocol in the response language, ready to show ("Pregnancy and postpartum"). Absent when the protocol is no longer enabled for the clinic',
     }),
     status: z.enum(PROTOCOL_STATUSES).optional().meta({
       description:
@@ -126,7 +130,7 @@ export const CaseReasonViewSchema = z
       description: 'Version of the rule that produced the reason (protocol version in `protocol`)',
     }),
     layer: LayerSchema,
-    label: z.string().meta({ description: 'Spanish; never includes a day count' }),
+    label: z.string().meta({ description: 'Localized; never includes a day count' }),
     protocol: ProtocolRefViewSchema.optional().meta({
       description: 'Only for protocol layer reasons: the protocol it comes from',
     }),
@@ -151,7 +155,7 @@ export const CaseReasonViewSchema = z
 export const EscalationStepViewSchema = z
   .object({
     action: z.enum(ESCALATION_ACTIONS),
-    label: z.string().meta({ description: 'Spanish label of the step' }),
+    label: z.string().meta({ description: 'Localized label of the step' }),
     afterDays: z.number().int().meta({ description: 'Days after the case opened, per the policy' }),
     outcome: z.enum(['done', 'skipped']).optional().meta({
       description:
@@ -354,25 +358,27 @@ export const CaseActionRequestSchema = z
         'dismiss with not_applicable_to_patient: stop the case rules for this patient ("Dejar de recordarlo")',
     }),
   })
+  // Refine messages are catalog keys (`ValidationMessages.custom`): the
+  // error map writes them in the request's language.
   .refine((body) => body.action !== 'snooze' || body.snoozeDays !== undefined, {
-    message: 'Indica por cuántos días posponer el caso.',
+    params: { message: 'snoozeDaysRequired' },
     path: ['snoozeDays'],
   })
   .refine((body) => body.action !== 'dismiss' || body.reason !== undefined, {
-    message: 'Elige por qué descartas el caso.',
+    params: { message: 'dismissReasonRequired' },
     path: ['reason'],
   })
   .refine(
     (body) =>
       body.action !== 'dismiss' || body.reason !== 'other' || (body.note ?? '').trim() !== '',
-    { message: 'Escribe una nota que explique el motivo.', path: ['note'] },
+    { params: { message: 'dismissNoteRequired' }, path: ['note'] },
   )
   .refine(
     (body) =>
       body.action !== 'dismiss' ||
       body.suppress !== true ||
       body.reason === 'not_applicable_to_patient',
-    { message: CONTACT_LOOP_MESSAGES.suppressNeedsNotApplicable, path: ['suppress'] },
+    { params: { message: 'suppressNeedsNotApplicable' }, path: ['suppress'] },
   )
   .meta({ id: 'CaseActionRequest' });
 
@@ -450,7 +456,7 @@ export const PatientExpectationViewSchema = z.object({
   status: z.enum(EXPECTATION_STATUSES),
   dueAt: isoDate,
   closedReason: z.string().optional().meta({
-    description: 'Why the engine closed it, in Spanish ("El médico dio de alta al paciente")',
+    description: 'Why the engine closed it, localized ("The doctor discharged the patient")',
   }),
   evidence: z.object({ quote: z.string(), documentId: z.string() }).optional(),
 });
@@ -470,11 +476,15 @@ export const PatientDetailSchema = z
       contact: PatientContactSchema,
     }),
     contact: PatientContactSchema,
+    language: z.string().optional().meta({
+      description:
+        "The patient's preferred language (BCP-47, from Patient.communication): contact requests carry it",
+    }),
     conditions: z.array(ConditionViewSchema),
     expectations: z.array(PatientExpectationViewSchema),
     qualityFindings: z.array(QualityFindingViewSchema),
     suppressions: z.array(SuppressionViewSchema).meta({
-      description: 'Rules stopped for this patient, active first ("Recordatorios desactivados")',
+      description: 'Rules stopped for this patient, active first ("Turned-off reminders")',
     }),
   })
   .meta({ id: 'PatientDetail' });
@@ -546,6 +556,10 @@ export const DemoConsultationResponseSchema = z
     extraction: z.object({
       model: z.string(),
       hasPlan: z.boolean(),
+      noteLanguage: z.string().optional().meta({
+        description:
+          'BCP-47 language the note was read as (the host DocumentReference.language, else detected); quotes stay in it',
+      }),
       conditions: z.array(
         z.object({
           code: z.object({

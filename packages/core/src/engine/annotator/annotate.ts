@@ -300,6 +300,15 @@ function isDerived(event: ClinicalEvent): boolean {
 }
 
 /**
+ * Facts about the patient rather than their care (a preferred language, an
+ * opt-out): dated by the Patient's `meta.lastUpdated`, else by when the
+ * Bundle arrived, so they never tell how old the clinical history is.
+ */
+function isPatientProfile(event: ClinicalEvent): boolean {
+  return event.type === 'patient.language_recorded' || event.type === 'patient.opted_out';
+}
+
+/**
  * Whether a live batch is old history (its newest clinical date is more than
  * `lateHistoryDays` before it arrived): a two-year-old order sent today.
  */
@@ -307,7 +316,7 @@ function isLateHistory(context: AnnotationContext, batch: readonly ClinicalEvent
   if ((context.origin ?? 'live') !== 'live' || context.asOf !== undefined) {
     return false;
   }
-  const dated = batch.filter((event) => !isDerived(event));
+  const dated = batch.filter((event) => !isDerived(event) && !isPatientProfile(event));
   if (dated.length === 0) {
     return false;
   }

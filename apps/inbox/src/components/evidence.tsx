@@ -2,6 +2,7 @@ import { Quote, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { ReasonEvidence } from '../api/contract.ts';
 import { useNoteReader } from '../api/queries.ts';
+import { useT } from '../i18n/index.ts';
 import { formatDate } from '../lib/format.ts';
 import { findQuote } from '../lib/highlight.ts';
 
@@ -10,6 +11,7 @@ import { findQuote } from '../lib/highlight.ts';
  * clinician sees exactly where the doctor wrote what the engine relies on.
  */
 export function EvidenceExcerpt({ evidence }: { readonly evidence: ReasonEvidence }): ReactNode {
+  const t = useT();
   const reader = useNoteReader();
   const excerpt = evidence.noteExcerpt;
   const match = excerpt ? findQuote(excerpt, evidence.quote) : undefined;
@@ -18,12 +20,13 @@ export function EvidenceExcerpt({ evidence }: { readonly evidence: ReasonEvidenc
       <figcaption className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs text-muted">
         <span className="inline-flex items-center gap-1.5 font-medium text-fg">
           <Quote className="size-3.5 text-layer-plan" aria-hidden="true" />
-          Cita textual de la nota
+          {t.evidence.title}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <Sparkles className="size-3.5 text-layer-plan" aria-hidden="true" />
-          {reader.simulated ? reader.label : `Leída por ${reader.name}`} · nota del{' '}
-          {formatDate(evidence.authoredAt)}
+          {reader.simulated ? reader.label : t.evidence.readBy(reader.name)}
+          {t.common.separator}
+          {t.evidence.noteOf(formatDate(evidence.authoredAt))}
         </span>
       </figcaption>
       <blockquote className="px-3 py-3 text-sm leading-relaxed text-fg">
@@ -51,7 +54,8 @@ export function EvidenceExcerpt({ evidence }: { readonly evidence: ReasonEvidenc
 /** A short quote on its own (conditions, expectations), styled like the evidence mark. */
 export function InlineQuote({ quote }: { readonly quote: string }): ReactNode {
   return (
-    <q className="text-sm text-muted before:content-['«'] after:content-['»']">
+    // `<q>` takes the quotation marks of the page language (“…” in English, «…» in Spanish).
+    <q className="text-sm text-muted">
       <mark className="evidence-mark">{quote}</mark>
     </q>
   );
