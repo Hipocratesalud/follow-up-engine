@@ -1,0 +1,482 @@
+{
+  "provider": "meta",
+  "model": "muse-spark-1.3",
+  "promptVersion": "note-extraction@5",
+  "startedAt": "2026-10-27T14:22:31.110Z",
+  "dataset": "packages/testkit/fixtures/gold-notes (22 of 101 notes: --ids gold-001,gold-026,gold-047,gold-062,gold-071,gold-101,gold-102,gold-103,gold-104,gold-105,gold-106,gold-107,gold-108,gold-109,gold-110,gold-111,gold-112,gold-113,gold-114,gold-115,gold-116,gold-117)",
+  "report": "2026-10-27-meta-muse-spark-1.3.md",
+  "summary": {
+    "overall": {
+      "notes": 22,
+      "errors": 0,
+      "counts": {
+        "conditions": {
+          "tp": 25,
+          "fp": 0,
+          "fn": 0
+        },
+        "medications": {
+          "tp": 20,
+          "fp": 0,
+          "fn": 2
+        },
+        "planItems": {
+          "tp": 33,
+          "fp": 1,
+          "fn": 1
+        },
+        "pregnancyOutcome": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0
+        },
+        "pregnancyDating": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0
+        }
+      },
+      "scores": {
+        "conditions": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1
+        },
+        "medications": {
+          "precision": 1,
+          "recall": 0.9090909090909091,
+          "f1": 0.9523809523809523
+        },
+        "planItems": {
+          "precision": 0.9705882352941176,
+          "recall": 0.9705882352941176,
+          "f1": 0.9705882352941176
+        },
+        "pregnancyOutcome": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1
+        },
+        "pregnancyDating": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1
+        }
+      },
+      "hasPlanAccuracy": 1,
+      "dischargeAccuracy": 1,
+      "hallucinatedQuoteRate": 0,
+      "modelItems": 83,
+      "quoteRejected": 0,
+      "evidenceRejected": 0
+    },
+    "bySpecialty": [
+      {
+        "specialty": "diabetology",
+        "notes": 6,
+        "errors": 0,
+        "counts": {
+          "conditions": {
+            "tp": 11,
+            "fp": 0,
+            "fn": 0
+          },
+          "medications": {
+            "tp": 11,
+            "fp": 0,
+            "fn": 0
+          },
+          "planItems": {
+            "tp": 16,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyOutcome": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyDating": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          }
+        },
+        "scores": {
+          "conditions": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "medications": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "planItems": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "pregnancyOutcome": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "pregnancyDating": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          }
+        },
+        "hasPlanAccuracy": 1,
+        "dischargeAccuracy": 1,
+        "hallucinatedQuoteRate": 0,
+        "modelItems": 39,
+        "quoteRejected": 0,
+        "evidenceRejected": 0
+      },
+      {
+        "specialty": "gynecology",
+        "notes": 3,
+        "errors": 0,
+        "counts": {
+          "conditions": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 0
+          },
+          "medications": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 0
+          },
+          "planItems": {
+            "tp": 8,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyOutcome": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyDating": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          }
+        },
+        "scores": {
+          "conditions": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "medications": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "planItems": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "pregnancyOutcome": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "pregnancyDating": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          }
+        },
+        "hasPlanAccuracy": 1,
+        "dischargeAccuracy": 1,
+        "hallucinatedQuoteRate": 0,
+        "modelItems": 12,
+        "quoteRejected": 0,
+        "evidenceRejected": 0
+      },
+      {
+        "specialty": "internal_medicine",
+        "notes": 8,
+        "errors": 0,
+        "counts": {
+          "conditions": {
+            "tp": 8,
+            "fp": 0,
+            "fn": 0
+          },
+          "medications": {
+            "tp": 8,
+            "fp": 0,
+            "fn": 0
+          },
+          "planItems": {
+            "tp": 8,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyOutcome": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyDating": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          }
+        },
+        "scores": {
+          "conditions": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "medications": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "planItems": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "pregnancyOutcome": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "pregnancyDating": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          }
+        },
+        "hasPlanAccuracy": 1,
+        "dischargeAccuracy": 1,
+        "hallucinatedQuoteRate": 0,
+        "modelItems": 24,
+        "quoteRejected": 0,
+        "evidenceRejected": 0
+      },
+      {
+        "specialty": "psychology",
+        "notes": 5,
+        "errors": 0,
+        "counts": {
+          "conditions": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 0
+          },
+          "medications": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 2
+          },
+          "planItems": {
+            "tp": 1,
+            "fp": 1,
+            "fn": 1
+          },
+          "pregnancyOutcome": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyDating": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          }
+        },
+        "scores": {
+          "conditions": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "medications": {
+            "precision": 1,
+            "recall": 0,
+            "f1": 0
+          },
+          "planItems": {
+            "precision": 0.5,
+            "recall": 0.5,
+            "f1": 0.5
+          },
+          "pregnancyOutcome": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "pregnancyDating": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          }
+        },
+        "hasPlanAccuracy": 1,
+        "dischargeAccuracy": 1,
+        "hallucinatedQuoteRate": 0,
+        "modelItems": 8,
+        "quoteRejected": 0,
+        "evidenceRejected": 0
+      }
+    ],
+    "byLanguage": [
+      {
+        "language": "en",
+        "notes": 17,
+        "errors": 0,
+        "counts": {
+          "conditions": {
+            "tp": 20,
+            "fp": 0,
+            "fn": 0
+          },
+          "medications": {
+            "tp": 14,
+            "fp": 0,
+            "fn": 2
+          },
+          "planItems": {
+            "tp": 28,
+            "fp": 1,
+            "fn": 1
+          },
+          "pregnancyOutcome": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyDating": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          }
+        },
+        "scores": {
+          "conditions": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "medications": {
+            "precision": 1,
+            "recall": 0.875,
+            "f1": 0.9333333333333333
+          },
+          "planItems": {
+            "precision": 0.9655172413793104,
+            "recall": 0.9655172413793104,
+            "f1": 0.9655172413793104
+          },
+          "pregnancyOutcome": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "pregnancyDating": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          }
+        },
+        "hasPlanAccuracy": 1,
+        "dischargeAccuracy": 1,
+        "hallucinatedQuoteRate": 0,
+        "modelItems": 66,
+        "quoteRejected": 0,
+        "evidenceRejected": 0,
+        "detectionAccuracy": 1
+      },
+      {
+        "language": "es",
+        "notes": 5,
+        "errors": 0,
+        "counts": {
+          "conditions": {
+            "tp": 5,
+            "fp": 0,
+            "fn": 0
+          },
+          "medications": {
+            "tp": 6,
+            "fp": 0,
+            "fn": 0
+          },
+          "planItems": {
+            "tp": 5,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyOutcome": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyDating": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          }
+        },
+        "scores": {
+          "conditions": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "medications": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "planItems": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "pregnancyOutcome": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "pregnancyDating": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          }
+        },
+        "hasPlanAccuracy": 1,
+        "dischargeAccuracy": 1,
+        "hallucinatedQuoteRate": 0,
+        "modelItems": 17,
+        "quoteRejected": 0,
+        "evidenceRejected": 0,
+        "detectionAccuracy": 1
+      }
+    ],
+    "tokens": {
+      "inputPerNote": 3827.090909090909,
+      "outputPerNote": 953.6363636363636
+    },
+    "cost": {
+      "totalUsd": 0.10887100000000001,
+      "perNoteUsd": 0.004948681818181818
+    },
+    "latencyMs": {
+      "p50": 3313,
+      "p95": 6217
+    }
+  }
+}

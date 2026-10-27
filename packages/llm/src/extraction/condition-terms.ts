@@ -263,3 +263,161 @@ export const DEFAULT_CONDITION_TERMS: ConditionTermTable = {
     'examen de rutina',
   ],
 };
+
+const EN_DIABETES = ['diabetes', 'diabetes mellitus', 'diabetic', 'dm'];
+const EN_HYPERTENSION = [
+  'htn',
+  'hypertension',
+  'hypertensive',
+  'high blood pressure',
+  'elevated blood pressure',
+];
+const EN_ANEMIA = ['anemia', 'anaemia', 'anemic'];
+const EN_ANXIETY = [
+  'anxiety',
+  'anxious',
+  'gad',
+  'generalized anxiety disorder',
+  'anxiety disorder',
+  'panic disorder',
+  'panic attacks',
+];
+const EN_DEPRESSION = [
+  'depression',
+  'depressed',
+  'depressive',
+  'mdd',
+  'major depressive disorder',
+  'depressive episode',
+  'depressive disorder',
+];
+const EN_OSTEOARTHRITIS = ['osteoarthritis', 'oa', 'degenerative joint disease', 'djd'];
+const EN_THROAT = ['pharyngitis', 'tonsillitis', 'sore throat', 'strep throat'];
+
+/**
+ * The same categories as {@link DEFAULT_CONDITION_TERMS}, worded as US-style
+ * English notes write them ("T2DM", "HTN", "HLD", "CKD 3a", "GERD"). Used for
+ * notes read as English (`conditionTermsFor('en')`).
+ */
+export const ENGLISH_CONDITION_TERMS: ConditionTermTable = {
+  // Endocrine and metabolic
+  E10: ['type 1 diabetes', 'type i diabetes', 'diabetes type 1', 't1dm', 'dm1', 'dm 1', 'iddm'],
+  E11: [
+    ...EN_DIABETES,
+    't2dm',
+    't2d',
+    'dm2',
+    'dm 2',
+    'dm ii',
+    'dmii',
+    'niddm',
+    'type 2 diabetes',
+    'type ii diabetes',
+    'diabetes type 2',
+    'type 2 diabetes mellitus',
+    'diabetic foot',
+  ],
+  E13: EN_DIABETES,
+  E14: EN_DIABETES,
+  R73: ['prediabetes', 'pre-diabetes', 'prediabetic', 'impaired fasting glucose', 'ifg'],
+  E78: [
+    'hyperlipidemia',
+    'hld',
+    'dyslipidemia',
+    'hypercholesterolemia',
+    'high cholesterol',
+    'hypertriglyceridemia',
+    'mixed hyperlipidemia',
+  ],
+  E03: ['hypothyroidism', 'hypothyroid', 'hashimoto', 'hashimotos', 'thyroiditis'],
+  E05: ['hyperthyroidism', 'thyrotoxicosis', 'graves disease', 'graves'],
+  E04: ['goiter', 'thyroid nodule', 'thyroid nodules'],
+  E66: ['obesity', 'obese', 'overweight', 'morbid obesity'],
+  E28: ['pcos', 'polycystic ovary syndrome', 'polycystic ovaries'],
+  E55: ['vitamin d deficiency', 'vit d deficiency', 'low vitamin d'],
+  E79: ['hyperuricemia'],
+  E87: ['hypokalemia', 'hyperkalemia', 'hyponatremia', 'hypernatremia'],
+  // Blood
+  D50: [...EN_ANEMIA, 'iron deficiency anemia', 'ida', 'iron deficiency'],
+  D64: EN_ANEMIA,
+  // Circulatory
+  I10: EN_HYPERTENSION,
+  I11: [...EN_HYPERTENSION, 'hypertensive heart disease'],
+  I12: [...EN_HYPERTENSION, 'hypertensive kidney disease', 'hypertensive nephropathy'],
+  I20: ['angina'],
+  I21: ['myocardial infarction', 'mi', 'heart attack', 'stemi', 'nstemi'],
+  I25: ['coronary artery disease', 'cad', 'ischemic heart disease'],
+  I48: ['atrial fibrillation', 'afib', 'a-fib', 'a fib', 'atrial flutter'],
+  I50: ['heart failure', 'chf', 'hfref', 'hfpef', 'congestive heart failure'],
+  I83: ['varicose veins', 'venous insufficiency'],
+  I95: ['hypotension'],
+  // Respiratory
+  J00: ['common cold', 'cold', 'uri', 'nasopharyngitis'],
+  J01: ['sinusitis'],
+  J02: EN_THROAT,
+  J03: EN_THROAT,
+  J06: ['uri', 'upper respiratory infection', 'upper respiratory tract infection'],
+  J18: ['pneumonia'],
+  J20: ['acute bronchitis', 'bronchitis'],
+  J30: ['allergic rhinitis', 'rhinitis', 'hay fever'],
+  J44: ['copd', 'chronic obstructive pulmonary disease', 'emphysema', 'chronic bronchitis'],
+  J45: ['asthma', 'asthmatic', 'bronchospasm'],
+  // Digestive
+  A09: ['gastroenteritis', 'acute diarrhea'],
+  K21: ['gerd', 'reflux', 'acid reflux', 'gastroesophageal reflux'],
+  K29: ['gastritis'],
+  K30: ['dyspepsia'],
+  K58: ['ibs', 'irritable bowel syndrome', 'irritable bowel'],
+  K59: ['constipation'],
+  // Musculoskeletal
+  M10: ['gout'],
+  M15: EN_OSTEOARTHRITIS,
+  M16: ['hip osteoarthritis', 'hip oa'],
+  M17: ['knee osteoarthritis', 'knee oa'],
+  M19: EN_OSTEOARTHRITIS,
+  M54: ['low back pain', 'lbp', 'back pain', 'lumbago', 'sciatica', 'neck pain'],
+  M79: ['fibromyalgia', 'myalgia'],
+  M81: ['osteoporosis'],
+  M85: ['osteopenia'],
+  // Nervous system
+  G43: ['migraine', 'migraines'],
+  G44: ['tension headache', 'tension-type headache'],
+  R51: ['headache', 'headaches'],
+  G47: ['insomnia', 'sleep apnea', 'osa'],
+  F51: ['insomnia'],
+  // Mental and behavioral
+  F10: ['alcohol use disorder', 'alcohol dependence', 'alcohol abuse'],
+  F17: ['tobacco use', 'smoker', 'nicotine dependence', 'tobacco use disorder'],
+  F20: ['schizophrenia'],
+  F31: ['bipolar disorder', 'bipolar'],
+  F32: EN_DEPRESSION,
+  F33: [...EN_DEPRESSION, 'recurrent depression', 'mdd recurrent'],
+  F40: ['phobia', 'social anxiety'],
+  F41: EN_ANXIETY,
+  F42: ['ocd', 'obsessive-compulsive disorder', 'obsessive compulsive disorder'],
+  F43: ['ptsd', 'adjustment disorder', 'acute stress reaction', 'grief'],
+  F90: ['adhd', 'attention deficit'],
+  // Genitourinary
+  N18: ['ckd', 'chronic kidney disease', 'ckd stage 3', 'ckd 3a', 'ckd 3b', 'ckd stage 4'],
+  N30: ['cystitis'],
+  N39: ['uti', 'urinary tract infection'],
+  N40: ['bph', 'benign prostatic hyperplasia', 'enlarged prostate'],
+  N92: ['menorrhagia', 'heavy menstrual bleeding', 'abnormal uterine bleeding', 'aub'],
+  N95: ['menopause', 'menopausal', 'perimenopause', 'postmenopausal'],
+  D25: ['fibroid', 'fibroids', 'uterine fibroid', 'uterine fibroids', 'leiomyoma', 'myoma'],
+  // Pregnancy
+  O24: ['gestational diabetes', 'gdm'],
+  O03: ['miscarriage', 'spontaneous abortion', 'pregnancy loss'],
+  Z34: ['pregnancy', 'pregnant', 'intrauterine pregnancy', 'iup'],
+  Z39: ['postpartum', 'post-partum'],
+  // Symptoms and encounters
+  R05: ['cough'],
+  R10: ['abdominal pain'],
+  R50: ['fever'],
+  R53: ['fatigue'],
+};
+
+/** The condition terms a note in `language` is read with: English or Spanish (the default). */
+export function conditionTermsFor(language: 'es' | 'en'): ConditionTermTable {
+  return language === 'en' ? ENGLISH_CONDITION_TERMS : DEFAULT_CONDITION_TERMS;
+}
