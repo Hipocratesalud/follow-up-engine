@@ -23,6 +23,7 @@ import { createLoopbackPublisher, WebhookSink } from './webhooks/sink.ts';
 import { IngestionService } from './ingestion.ts';
 import { createConfiguredExtractor, type ExtractorInfo } from './llm.ts';
 import { createLogger, type Logger } from './logger.ts';
+import { withPatientRedaction } from './redaction.ts';
 import { createMemoryStorage, createPostgresStorage, type Storage } from './storage.ts';
 
 /** Id and name of the synthetic demo clinic (fictional). */
@@ -109,7 +110,8 @@ export async function createRuntime(
 
   const engine = createFollowUpEngine({
     unitOfWork: storage.unitOfWork,
-    noteExtractor: extractor,
+    // The patient's names and identifiers are masked before a note leaves for a model.
+    noteExtractor: withPatientRedaction(extractor, storage.stores.clinicalRecords),
     rules: new FileRuleSource(),
     protocols: new FileProtocolSource(),
     clinics: storage.clinics,

@@ -1,7 +1,7 @@
 import type { PlanItemKind } from '@follow-up-engine/core';
 import type { FakeResponder } from '../providers/fake.ts';
 import { readNoteFromMessages } from './prompt.ts';
-import { normalizeForMatch, originalSpan } from './quote.ts';
+import { createQuoteIndex } from './quote.ts';
 import type {
   ModelCondition,
   ModelExtraction,
@@ -9,13 +9,26 @@ import type {
   ModelPlanItem,
   TimeUnit,
 } from './schema.ts';
+import {
+  NUMBER_WORDS,
+  UNIT_WORDS,
+  findDischarge,
+  isConditional,
+  isNegatedMention,
+  looksLikeMeasurement,
+  parseAmount,
+  segmentAround,
+} from './signals.ts';
 
 /**
  * A rule-based extractor that answers like a model would. It is what the
  * fake provider returns when no fixture matches, which gives the eval
  * harness an honest, offline baseline: the number a Meta model has to beat.
  * Regexes over normalized text (lowercase, no accents); quotes are taken
- * from the original note so they pass the verbatim check.
+ * from the original note so they pass the verbatim check. It shares the
+ * post-checks' reading of negation ("niega HTA"), conditional returns
+ * ("volver si fiebre"), measurements ("Hemoglobina 10,8 g/dL") and
+ * discharge ("se da de alta").
  */
 
 interface ConditionPattern {
@@ -68,61 +81,41 @@ const CONDITION_PATTERNS: readonly ConditionPattern[] = [
     icd10: 'N40',
     display: 'benign prostatic hyperplasia',
   },
-  { pattern: /\b(anemia)\b/, icd10: 'D64', display: 'anemia' },
+  {
+    pattern: /\b(anemia ferropenica|ferropenia)\b/,
+    icd10: 'D50',
+    display: 'iron deficiency anemia',
+  },
+  { pattern: /\b(anemia)\b(?! ferropenica)/, icd10: 'D64', display: 'anemia' },
+  {
+    pattern: /\b(itu|infeccion urinaria|infeccion de vias urinarias)\b/,
+    icd10: 'N39',
+    display: 'urinary tract infection',
+  },
   { pattern: /\b(migrana)\b/, icd10: 'G43', display: 'migraine' },
   { pattern: /\b(erge|reflujo gastroesofagico)\b/, icd10: 'K21', display: 'GERD' },
   { pattern: /\b(osteoporosis)\b/, icd10: 'M81', display: 'osteoporosis' },
   { pattern: /\b(embarazo|gestacion)\b/, icd10: 'Z34', display: 'pregnancy supervision' },
 ];
 
-const NUMBER_WORDS: Readonly<Record<string, number>> = {
-  un: 1,
-  una: 1,
-  uno: 1,
-  dos: 2,
-  tres: 3,
-  cuatro: 4,
-  cinco: 5,
-  seis: 6,
-  siete: 7,
-  ocho: 8,
-  nueve: 9,
-  diez: 10,
-  doce: 12,
-  quince: 15,
-  veinte: 20,
-  treinta: 30,
-};
-
-const UNIT_WORDS: Readonly<Record<string, TimeUnit>> = {
-  dia: 'day',
-  dias: 'day',
-  d: 'day',
-  semana: 'week',
-  semanas: 'week',
-  sem: 'week',
-  mes: 'month',
-  meses: 'month',
-  m: 'month',
-  ano: 'year',
-  anos: 'year',
-};
-
 const AMOUNT = String.raw`(\d+(?:[.,]\d+)?|${Object.keys(NUMBER_WORDS).join('|')})`;
 const UNIT = String.raw`(dias|dia|semanas|semana|sem|meses|mes|anos|ano)`;
-const RELATIVE_TIMING = new RegExp(String.raw`\ben ${AMOUNT} ${UNIT}\b`);
+const RELATIVE_TIMING = new RegExp(String.raw`\b(?:en|cada) ${AMOUNT} ${UNIT}\b`);
 const NEXT_TIMING = /\b(proximo mes|proxima semana|proximo ano|mes que viene)\b/;
 
 const KIND_PATTERNS: readonly (readonly [PlanItemKind, RegExp])[] = [
   [
     'lab',
-    /\b(hba1c|laboratorio|labs?|perfil lipidico|hemograma|tsh|t4|creatinina|glicemia|glucemia|examen de orina|uroanalisis|urocultivo|psa|ferritina|microalbuminuria)\b/,
+    /\b(hba1c|laboratorio|labs?|perfil lipidico|hemograma|tsh|t4|creatinina|glicemia|glucemia|examen de orina|uroanalisis|urocultivo|psa|ferritina|microalbuminuria|citologia)\b/,
   ],
   [
     'imaging',
     /\b(eco|ecografia|ecocardiograma|rx|radiografia|tac|tomografia|rm|resonancia|mamografia|densitometria|doppler)\b/,
   ],
-  ['session', /\b(sesiones|fisioterapia|kinesiologia|psicoterapia|terapia|rehabilitacion)\b/],
+  [
+    'session',
+    /\b(sesion|sesiones|fisioterapia|kinesiologia|psicoterapia|terapia|rehabilitacion|proceso)\b/,
+  ],
   [
     'follow_up_visit',
     /\b(control|ctrl|cita|consulta|reevaluar|reevaluacion|revision|seguimiento|volver)\b/,
@@ -139,23 +132,25 @@ const DESCRIPTIONS: Readonly<Record<PlanItemKind, string>> = {
 };
 
 const MEDICATION =
-  /\b([a-z]{4,}) (\d+(?:[.,]\d+)?) ?(mg|mcg|ug|g|ui|ml|puff)\b.*?(?= y |[;,\n]|\.(?!\d)|$)/g;
+  /\b([a-z]{4,}) (\d+(?:[.,]\d+)?) ?(mg|mcg|ug|g|ui|ml|puff)\b(?!\s*\/\s*(?:dl|l|ul|mm3))(?:.*?)(?= y |[;,\n]|\.(?!\d)|$)/g;
 const DURATION = new RegExp(String.raw`\bpor ${AMOUNT} ${UNIT}\b`);
 const NOT_DRUGS = new Set([
   'dosis',
   'glicemia',
   'glucemia',
+  'glucosa',
   'colesterol',
   'trigliceridos',
+  'hemoglobina',
+  'hematocrito',
+  'creatinina',
+  'ferritina',
   'ayunas',
   'previa',
   'actual',
+  'peso',
 ]);
 const ABSOLUTE_DATE = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/;
-
-function parseAmount(raw: string): number {
-  return NUMBER_WORDS[raw] ?? Number(raw.replace(',', '.'));
-}
 
 function sentences(normalized: string): { text: string; start: number }[] {
   const out: { text: string; start: number }[] = [];
@@ -166,26 +161,33 @@ function sentences(normalized: string): { text: string; start: number }[] {
   return out;
 }
 
-/** Runs the rule-based extraction on a note. */
+/** Runs the rule-based extraction on a note. Linear in the note length. */
 export function heuristicExtraction(note: string): ModelExtraction {
-  const normalized = normalizeForMatch(note);
+  const index = createQuoteIndex(note);
+  const normalized = index.normalized.text;
+  const quoteOf = (start: number, end: number): string => index.spanOf(start, end)?.text ?? '';
+
   const conditions: ModelCondition[] = [];
   for (const { pattern, icd10, display } of CONDITION_PATTERNS) {
-    const match = pattern.exec(normalized);
-    if (!match) continue;
-    conditions.push({
-      icd10,
-      display,
-      confidence: 0.6,
-      evidenceQuote: originalSpan(note, match.index, match.index + match[0].length),
-    });
+    const global = new RegExp(pattern.source, 'g');
+    for (const match of normalized.matchAll(global)) {
+      const end = match.index + match[0].length;
+      if (isNegatedMention(normalized, match.index, end)) continue;
+      conditions.push({
+        icd10,
+        display,
+        confidence: 0.6,
+        evidenceQuote: quoteOf(match.index, end),
+      });
+      break;
+    }
   }
 
   const medications: ModelMedication[] = [];
   for (const match of normalized.matchAll(MEDICATION)) {
     const drug = match[1] ?? '';
-    if (NOT_DRUGS.has(drug)) continue;
-    const quote = originalSpan(note, match.index, match.index + match[0].length).trim();
+    if (NOT_DRUGS.has(drug) || looksLikeMeasurement(match[0])) continue;
+    const quote = quoteOf(match.index, match.index + match[0].length).trim();
     const duration = DURATION.exec(match[0]);
     medications.push({
       text: quote,
@@ -204,6 +206,12 @@ export function heuristicExtraction(note: string): ModelExtraction {
     const absolute = ABSOLUTE_DATE.exec(sentence.text);
     const timingMatch = relative ?? next ?? absolute;
     if (!timingMatch) continue;
+    const timingStart = sentence.start + timingMatch.index;
+    if (
+      isConditional(segmentAround(normalized, timingStart, timingStart + timingMatch[0].length))
+    ) {
+      continue;
+    }
     let amount: number | null = 1;
     let unit: TimeUnit | null = 'month';
     let date: string | null = null;
@@ -237,14 +245,24 @@ export function heuristicExtraction(note: string): ModelExtraction {
         description: DESCRIPTIONS[kind],
         timing: { amount, unit, date },
         loincCode: null,
-        evidenceQuote: originalSpan(note, from, to),
+        evidenceQuote: quoteOf(from, to),
         confidence: 0.5,
       });
     }
   }
 
-  const hasPlan = planItems.length > 0 || /\b(plan|indicaciones|ctrl|control)\b/.test(normalized);
-  return { hasPlan, conditions, medications, planItems };
+  const discharge = findDischarge(normalized);
+  const hasPlan =
+    planItems.length > 0 ||
+    discharge !== undefined ||
+    /\b(plan|indicaciones|ctrl|control)\b/.test(normalized);
+  return {
+    hasPlan,
+    discharge: discharge ? { evidenceQuote: quoteOf(discharge.start, discharge.end) } : null,
+    conditions,
+    medications,
+    planItems,
+  };
 }
 
 /** Fake-provider responder backed by {@link heuristicExtraction}. */

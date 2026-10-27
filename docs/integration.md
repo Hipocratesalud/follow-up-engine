@@ -452,7 +452,7 @@ Single resources can also be sent one by one with `POST /fhir/<type>` (for examp
 
 1. The API validates and maps the Bundle (pure functions), stores the resources and enqueues a `fhir.ingest_bundle` job in the same transaction, and answers.
 2. The worker claims the job (`FOR UPDATE SKIP LOCKED`, leased) and runs the engine per consultation: universal rules, the doctor's plan read from the note by the LLM (Muse Spark through the `llm_gateway`, with verbatim evidence quotes), cadence, protocols for what the plan did not cover, fulfillment and supersession of older expectations.
-3. If the LLM is unavailable, the consultation is still processed by the rules, and a `note.extract_plan` job retries the note with exponential backoff (5 s, 10 s, ... capped at 1 h). Nothing blocks the host.
+3. If the LLM is unavailable, the consultation is still processed by the rules, and a `note.extract_plan` job retries the note with exponential backoff (5 s, 10 s, ... capped at 1 h), up to 30 attempts (about 20 hours). If it still fails, the job is dead-lettered and the worker logs an error with `alert: "note_extraction_exhausted"` and the patient and document ids; re-sending the note retries it. Nothing blocks the host.
 4. The hourly sweeps expire due expectations into one case per patient and reason group (`runWatcher`) and advance escalation (`runEscalation`). Every case change writes its webhook to the outbox in the same transaction.
 
 ### Reading back

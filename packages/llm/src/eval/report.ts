@@ -86,7 +86,9 @@ export function renderReport(run: EvalRun, notes?: string): string {
     '| Metric | Value |',
     '| --- | ---: |',
     `| hasPlan accuracy | ${pct(overall.hasPlanAccuracy)} |`,
+    `| Discharge accuracy ("se da de alta") | ${pct(overall.dischargeAccuracy)} |`,
     `| Hallucinated-quote rate (items dropped by the verbatim check) | ${pct(overall.hallucinatedQuoteRate)} (${String(overall.quoteRejected)} / ${String(overall.modelItems)}) |`,
+    `| Items dropped by the evidence checks (quote in the note but not backing the item) | ${String(overall.evidenceRejected)} / ${String(overall.modelItems)} |`,
     `| Input tokens per note | ${summary.tokens.inputPerNote.toFixed(0)} |`,
     `| Output tokens per note | ${summary.tokens.outputPerNote.toFixed(0)} |`,
     `| Cost per note | ${usd(summary.cost.perNoteUsd)} |`,
@@ -117,6 +119,8 @@ export function renderReport(run: EvalRun, notes?: string): string {
     '- Conditions match on the ICD-10 category (first 3 characters). Plan items match on kind and a due date within ±20% of the expected days (at least ±1 day). Medications match on the drug name, allowing two typos.',
     '- Scores are micro-averaged over all items; an empty set (nothing expected, nothing predicted) scores 100%.',
     '- The hallucinated-quote rate counts model items whose evidence quote is not a substring of the note. They never reach the engine: the post-check drops them.',
+    '- The evidence checks drop items whose quote is in the note but does not back them: too short ("Plan"), no term linked to the ICD-10 code, no drug name, no plan wording or timing, a denied condition ("niega HTA"), a conditional return ("volver si fiebre"), an interval that contradicts the quoted one, or a measurement listed as a medication.',
+    '- Discharge accuracy: the note discharges the patient ("se da de alta") exactly when the gold note says so.',
     '- Cost uses the pricing table in `packages/llm/src/pricing.ts`; check it against the vendor before quoting.',
     '',
   ];

@@ -107,9 +107,12 @@ export interface FieldCounts {
 /** Scores one extraction against the gold expectation. */
 export function compareExtraction(
   expected: ExpectedExtraction,
-  actual: Pick<NoteExtraction, 'conditions' | 'medications' | 'planItems' | 'hasPlan'>,
+  actual: Pick<
+    NoteExtraction,
+    'conditions' | 'medications' | 'planItems' | 'hasPlan' | 'discharged'
+  >,
   authoredAt: Date,
-): FieldCounts & { readonly hasPlanCorrect: boolean } {
+): FieldCounts & { readonly hasPlanCorrect: boolean; readonly dischargeCorrect: boolean } {
   const conditions = matchCounts(expected.conditions, actual.conditions, (e, p) =>
     icd10Category(e.icd10) === icd10Category(p.code.code) ? 0 : undefined,
   );
@@ -126,6 +129,7 @@ export function compareExtraction(
     medications,
     planItems,
     hasPlanCorrect: expected.hasPlan === actual.hasPlan,
+    dischargeCorrect: (expected.discharge !== undefined) === (actual.discharged === true),
   };
 }
 

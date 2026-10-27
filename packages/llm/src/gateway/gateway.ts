@@ -26,6 +26,7 @@ import {
 } from '../pricing.ts';
 import type { StructuredLlmProvider } from '../providers/chat-completions.ts';
 import type { LlmUsageLog } from '../usage-log.ts';
+import { issueSummary } from '../providers/structured-output.ts';
 import { ZERO_USAGE, sumUsage, type DetailedUsage, type ProviderCompletion } from '../usage.ts';
 import { DEFAULT_RETRY_POLICY, backoffDelayMs, isRetryable, type RetryPolicy } from './retry.ts';
 
@@ -250,6 +251,7 @@ export function createLlmGateway(config: LlmGatewayConfig): FollowUpLlmGateway {
               model: target.model,
               rawOutput: raw,
               issues: z.prettifyError(checked.error),
+              summary: issueSummary(checked.error),
               usage,
               repairable: true,
             });

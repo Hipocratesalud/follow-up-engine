@@ -242,7 +242,14 @@ describe('Meta provider', () => {
     };
     const refusal = {
       choices: [
-        { message: { role: 'assistant', content: null, refusal: 'no' }, finish_reason: 'stop' },
+        {
+          message: {
+            role: 'assistant',
+            content: null,
+            refusal: 'No puedo: Rosalinda Quintero, VIH+',
+          },
+          finish_reason: 'stop',
+        },
       ],
     };
     const { fetch } = mockFetch(jsonResponse(truncated), jsonResponse(refusal));
@@ -251,10 +258,12 @@ describe('Meta provider', () => {
       repairable: false,
       issues: expect.stringContaining('truncated') as unknown,
     });
-    await expect(provider.complete({ model: 'm', messages, output })).rejects.toMatchObject({
-      repairable: false,
-      issues: expect.stringContaining('refused') as unknown,
-    });
+    const refused: unknown = await provider
+      .complete({ model: 'm', messages, output })
+      .catch((error: unknown) => error);
+    expect(refused).toMatchObject({ repairable: false, issues: 'model refused' });
+    // The refusal text is model output that can quote the note: never in the message.
+    expect(String(refused)).not.toMatch(/Rosalinda|VIH/);
   });
 
   it('accepts replies wrapped in a Markdown fence', async () => {

@@ -112,6 +112,7 @@ describe('metric math', () => {
       medications: { tp: 1, fp: 0, fn: 0 },
       planItems: { tp: 1, fp: 1, fn: 1 },
       hasPlanCorrect: true,
+      dischargeCorrect: true,
     });
   });
 

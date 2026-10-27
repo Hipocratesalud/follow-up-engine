@@ -18,6 +18,26 @@ export function extractJsonText(raw: string): string {
 }
 
 /**
+ * A log-safe summary of zod issues: codes and schema paths only (the paths
+ * of a closed schema are its own keys and array indices), never the values
+ * or unknown keys the model sent.
+ */
+export function issueSummary(error: z.ZodError): string {
+  const shown = error.issues.slice(0, 5).map((issue) => {
+    const path = issue.path
+      .map((segment) => (typeof segment === 'number' ? `[${String(segment)}]` : String(segment)))
+      .join('.')
+      .replace(/\.\[/g, '[');
+    return `${path === '' ? '(root)' : path}: ${issue.code}`;
+  });
+  const more =
+    error.issues.length > shown.length
+      ? ` (+${String(error.issues.length - shown.length)} more)`
+      : '';
+  return `${String(error.issues.length)} schema issue(s): ${shown.join('; ')}${more}`;
+}
+
+/**
  * Parses and validates a raw model reply against the requested schema.
  * Throws {@link LlmSchemaError} (repairable) with the zod issues, so the
  * gateway can show the model exactly what to fix.
@@ -32,14 +52,15 @@ export function parseStructuredOutput<TOutput>(
   let value: unknown;
   try {
     value = JSON.parse(extractJsonText(raw));
-  } catch (cause) {
+  } catch {
+    // The parser's message quotes the reply; neither it nor the cause is kept.
     throw new LlmSchemaError(provider, {
       model,
       rawOutput: raw,
-      issues: `reply is not valid JSON (${cause instanceof Error ? cause.message : String(cause)})`,
+      issues: 'reply is not valid JSON',
+      summary: 'reply is not valid JSON',
       usage,
       repairable: true,
-      cause,
     });
   }
   const parsed = schema.safeParse(value);
@@ -48,9 +69,9 @@ export function parseStructuredOutput<TOutput>(
       model,
       rawOutput: raw,
       issues: z.prettifyError(parsed.error),
+      summary: issueSummary(parsed.error),
       usage,
       repairable: true,
-      cause: parsed.error,
     });
   }
   return parsed.data;

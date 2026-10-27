@@ -31,6 +31,7 @@ import {
   type ExtractedNotes,
   extractedNotes,
   NOTE_EXTRACTION_JOB,
+  NOTE_EXTRACTION_MAX_ATTEMPTS,
   type NoteExtractionJobPayload,
 } from './note-extraction.ts';
 
@@ -318,6 +319,7 @@ export async function ingest(deps: IngestDeps, batch: ClinicalBatch): Promise<In
         type: NOTE_EXTRACTION_JOB,
         payload: { ...payload },
         dedupKey: `${NOTE_EXTRACTION_JOB}:${note.documentId}`,
+        maxAttempts: NOTE_EXTRACTION_MAX_ATTEMPTS,
       });
       const index = outcomes.findIndex((outcome) => outcome.documentId === note.documentId);
       const failed = outcomes[index];

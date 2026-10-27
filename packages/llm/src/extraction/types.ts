@@ -11,6 +11,11 @@ export interface NoteExtractionInput {
   readonly text: string;
   readonly specialty?: string;
   readonly authoredAt: Date;
+  /**
+   * Names and identifiers of the patient (from the Patient resource of the
+   * same Bundle) to mask before the note leaves for a model. Never sent.
+   */
+  readonly redactTerms?: readonly string[];
 }
 
 export interface ExtractedCondition {
@@ -35,6 +40,8 @@ export interface NoteExtraction {
   readonly medications: readonly ExtractedMedication[];
   /** `dueAt` already resolved against `authoredAt`. */
   readonly planItems: readonly PlanItem[];
+  /** The note ends follow-up in this specialty ("se da de alta"). Absent means no. */
+  readonly discharged?: boolean;
   readonly model: string;
   readonly promptVersion: string;
   readonly costUsd: number;
@@ -46,7 +53,20 @@ export interface NoteExtractor {
 
 /** Why a model item was dropped by the deterministic post-checks. */
 export type RejectionReason =
+  /** The quote is not in the note. */
   | 'quote_not_found'
+  /** The quote is in the note but too short to back anything ("a", ".", "Plan"). */
+  | 'quote_too_short'
+  /** The quote does not support the item (no term linked to the ICD-10 code, no drug name, no plan wording). */
+  | 'quote_unrelated'
+  /** The note denies the condition ("niega HTA"). */
+  | 'negated'
+  /** A conditional or as-needed return ("volver si presenta fiebre"), not scheduled follow-up. */
+  | 'conditional'
+  /** The model's interval disagrees with the interval stated where it quotes. */
+  | 'timing_mismatch'
+  /** A measurement reported as a medication ("Hemoglobina 10,8 g/dL"). */
+  | 'not_a_medication'
   | 'invalid_code'
   | 'no_due_date'
   | 'due_before_note'
@@ -54,7 +74,7 @@ export type RejectionReason =
   | 'duplicate';
 
 export interface RejectedItem {
-  readonly field: 'condition' | 'medication' | 'planItem';
+  readonly field: 'condition' | 'medication' | 'planItem' | 'discharge';
   readonly reason: RejectionReason;
   readonly evidenceQuote: string;
 }
@@ -73,4 +93,14 @@ export interface DetailedNoteExtraction extends NoteExtraction {
   readonly modelItemCount: number;
   /** Items dropped by post-checks, with the reason. */
   readonly rejected: readonly RejectedItem[];
+  /** Verbatim note text that discharges the patient, when `discharged`. */
+  readonly dischargeEvidenceQuote?: string;
+  /**
+   * What the extractor did to the note before sending it: `note_truncated`
+   * (longer than the cap; the tail was not read), `names_masked` (patient
+   * names or identifiers replaced), `tags_neutralized` (delimiter-shaped tags).
+   */
+  readonly warnings: readonly ExtractionWarning[];
 }
+
+export type ExtractionWarning = 'note_truncated' | 'names_masked' | 'tags_neutralized';

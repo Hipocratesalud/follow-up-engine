@@ -38,6 +38,7 @@ export {
 } from './ingestion.ts';
 export type { ExtractorInfo } from './llm.ts';
 export { createLogger, type Logger } from './logger.ts';
+export { patientRedactTerms, withPatientRedaction } from './redaction.ts';
 export type { PatientRecord, ReadModel } from './read-model.ts';
 export type { ClinicRegistration, DrainResult, Storage } from './storage.ts';
 export {

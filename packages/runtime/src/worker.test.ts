@@ -1,5 +1,10 @@
 import { readFileSync } from 'node:fs';
-import { type ClinicId, NOTE_EXTRACTION_JOB } from '@follow-up-engine/core';
+import {
+  type ClinicId,
+  NOTE_EXTRACTION_JOB,
+  NOTE_EXTRACTION_MAX_ATTEMPTS,
+} from '@follow-up-engine/core';
+import { pino } from 'pino';
 import { afterEach, describe, expect, it } from 'vitest';
 import { InvalidConfigError, loadRuntimeConfig } from './config.ts';
 import { INGEST_BUNDLE_JOB } from './ingestion.ts';
@@ -53,8 +58,11 @@ describe('job retry backoff', () => {
 
 describe('worker over the memory runtime', () => {
   let runtime: EngineRuntime | undefined;
+  let rt0: EngineRuntime | undefined;
   afterEach(async () => {
     await runtime?.close();
+    await rt0?.close();
+    rt0 = undefined;
   });
 
   async function setUp(): Promise<{ runtime: EngineRuntime; clinicId: ClinicId; worker: Worker }> {
@@ -102,6 +110,61 @@ describe('worker over the memory runtime', () => {
     expect(await worker.runJobs()).toEqual({ completed: 0, failed: 0 });
     rt.fakeClock?.advance({ seconds: 6 });
     expect((await worker.runJobs()).failed).toBe(2);
+  });
+
+  it('keeps retrying a failed note extraction for most of a day (api-fhir #13)', async () => {
+    // Nothing listens on port 9: every model call fails fast without leaving the machine.
+    rt0 = await createRuntime(
+      loadRuntimeConfig({
+        CLOCK: 'fake',
+        LOG_LEVEL: 'silent',
+        DEMO_API_KEY: 'demo-key',
+        LLM_PROVIDER: 'openai-compatible',
+        OPENAI_COMPATIBLE_BASE_URL: 'http://127.0.0.1:9/v1',
+        OPENAI_COMPATIBLE_API_KEY: 'none',
+        OPENAI_COMPATIBLE_MODEL: 'offline',
+      }),
+    );
+    const clinicId = 'clinic-demo' as ClinicId;
+    const accepted = await rt0.ingestion.accept(clinicId, bundle, 'sync');
+    expect(accepted.reports?.flatMap((report) => report.notes).map((n) => n.status)).toContain(
+      'failed',
+    );
+    const [job] = await rt0.storage.jobs.claim({
+      workerId: 'test',
+      types: [NOTE_EXTRACTION_JOB],
+      limit: 1,
+      leaseFor: { minutes: 1 },
+      now: new Date('2100-01-01T00:00:00Z'),
+    });
+    expect(job?.maxAttempts).toBe(NOTE_EXTRACTION_MAX_ATTEMPTS);
+    const retryWindowMs = Array.from({ length: NOTE_EXTRACTION_MAX_ATTEMPTS - 1 }, (_, i) =>
+      jobRetryDelayMs(i + 1),
+    ).reduce((total, delay) => total + delay, 0);
+    // Main gave up after 5 attempts (~75 s): a provider outage lost the doctor's plan.
+    expect(retryWindowMs).toBeGreaterThan(20 * 3_600_000);
+  }, 30_000);
+
+  it('raises an alert when a note extraction gives up instead of dropping it silently', async () => {
+    const lines: string[] = [];
+    rt0 = await createRuntime(
+      loadRuntimeConfig({ CLOCK: 'fake', LOG_LEVEL: 'info', DEMO_API_KEY: 'demo-key' }),
+      { logger: pino({ level: 'info' }, { write: (line: string) => lines.push(line) }) },
+    );
+    const clinicId = 'clinic-demo' as ClinicId;
+    await rt0.storage.unitOfWork.withTransaction(clinicId, (stores) =>
+      stores.jobs.enqueue(clinicId, {
+        type: NOTE_EXTRACTION_JOB,
+        payload: { patientId: 'pat-x', documentId: 'doc-x' },
+        maxAttempts: 1,
+      }),
+    );
+    expect(await new Worker(rt0).runJobs()).toEqual({ completed: 0, failed: 1 });
+    const alerts = lines
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+      .filter((entry) => entry['alert'] === 'note_extraction_exhausted');
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toMatchObject({ level: 50, documentId: 'doc-x', patientId: 'pat-x' });
   });
 
   it('starts and stops its loops gracefully', async () => {

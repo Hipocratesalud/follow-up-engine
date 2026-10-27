@@ -2,6 +2,7 @@ import { PLAN_ITEM_KINDS } from '@follow-up-engine/core';
 import { z } from 'zod';
 import type { FakeResponder } from '../providers/fake.ts';
 import { readNoteFromMessages } from './prompt.ts';
+import { REDACTION_PLACEHOLDER, defangTags } from './prepare.ts';
 import { normalizeForMatch } from './quote.ts';
 import type { ModelExtraction } from './schema.ts';
 
@@ -12,6 +13,8 @@ import type { ModelExtraction } from './schema.ts';
  */
 export const ExpectedExtractionSchema = z.object({
   hasPlan: z.boolean(),
+  /** Present when the note discharges the patient ("se da de alta"). */
+  discharge: z.object({ evidenceQuote: z.string() }).optional(),
   conditions: z.array(
     z.object({
       icd10: z.string(),
@@ -47,6 +50,7 @@ export type ExpectedExtraction = z.infer<typeof ExpectedExtractionSchema>;
 export function modelOutputFromExpected(expected: ExpectedExtraction): ModelExtraction {
   return {
     hasPlan: expected.hasPlan,
+    discharge: expected.discharge ? { evidenceQuote: expected.discharge.evidenceQuote } : null,
     conditions: expected.conditions.map((c) => ({
       icd10: c.icd10,
       display: c.display ?? '',
@@ -75,6 +79,9 @@ export function modelOutputFromExpected(expected: ExpectedExtraction): ModelExtr
  */
 export const ExtractionFixtureSchema = z.object({
   hasPlan: z.boolean(),
+  discharged: z.boolean().optional(),
+  /** The note text that discharges the patient; a discharge without it cannot be verified and is dropped. */
+  dischargeEvidenceQuote: z.string().optional(),
   conditions: z.array(
     z.object({
       code: z.object({ code: z.string(), display: z.string().optional() }),
@@ -107,6 +114,10 @@ export type ExtractionFixture = z.infer<typeof ExtractionFixtureSchema>;
 export function modelOutputFromExtraction(fixture: ExtractionFixture): ModelExtraction {
   return {
     hasPlan: fixture.hasPlan,
+    discharge:
+      fixture.discharged === true && fixture.dischargeEvidenceQuote !== undefined
+        ? { evidenceQuote: fixture.dischargeEvidenceQuote }
+        : null,
     conditions: fixture.conditions.map((c) => ({
       icd10: c.code.code,
       display: c.code.display ?? '',
@@ -136,16 +147,43 @@ export interface NoteFixture {
 
 /**
  * A fake-provider responder that answers extraction requests from fixtures,
- * matched by note text (whitespace and accent insensitive). Returns
- * `undefined` for unknown notes so it can be chained with another responder.
+ * matched by note text (whitespace and accent insensitive) as the model sees
+ * it: delimiter-shaped tags neutralized, and each masked name or identifier
+ * (`[REDACTADO]`) matching any text. Returns `undefined` for unknown notes so
+ * it can be chained with another responder.
  */
 export function createNoteFixtureResponder(fixtures: Iterable<NoteFixture>): FakeResponder {
   const byText = new Map<string, ModelExtraction>();
-  for (const fixture of fixtures) byText.set(normalizeForMatch(fixture.text), fixture.output);
+  for (const fixture of fixtures) {
+    byText.set(normalizeForMatch(defangTags(fixture.text)), fixture.output);
+  }
+  const placeholder = normalizeForMatch(REDACTION_PLACEHOLDER);
   return (request) => {
     const note = readNoteFromMessages(request.messages);
-    return note === undefined ? undefined : byText.get(normalizeForMatch(note));
+    if (note === undefined) return undefined;
+    const key = normalizeForMatch(note);
+    const exact = byText.get(key);
+    if (exact !== undefined || !key.includes(placeholder)) return exact;
+    const parts = key.split(placeholder);
+    for (const [text, output] of byText) {
+      if (matchesInOrder(text, parts)) return output;
+    }
+    return undefined;
   };
+}
+
+/** Whether `text` is `parts` joined by arbitrary non-empty text (a masked span each). */
+function matchesInOrder(text: string, parts: readonly string[]): boolean {
+  const first = parts[0] ?? '';
+  const last = parts.at(-1) ?? '';
+  if (!text.startsWith(first) || !text.endsWith(last)) return false;
+  let at = first.length;
+  for (const part of parts.slice(1, -1)) {
+    const found = text.indexOf(part, at + 1);
+    if (found < 0) return false;
+    at = found + part.length;
+  }
+  return text.length - last.length > at;
 }
 
 /** Tries responders in order and returns the first defined reply. */

@@ -196,7 +196,7 @@ async function main(argv: readonly string[]): Promise<void> {
       });
       runNote = oracle
         ? '> Fake provider in **oracle** mode: it returns the gold answer, so this run checks the harness and the post-checks, not a model. Anything below 100% is a harness or post-check bug.'
-        : '> Fake provider in **baseline** mode: a deterministic, rule-based extractor (regexes, no model). It runs offline in CI and is the floor a Meta model has to beat. Its rules were written alongside the six seed notes, so on them it overstates how well regexes generalize.';
+        : '> Fake provider in **baseline** mode: a deterministic, rule-based extractor (regexes, no model). It runs offline in CI and is the floor a Meta model has to beat. Its rules were written while looking at the gold notes, so it overstates how well regexes generalize. It reads the note the model would see (names masked, capped) and passes the same evidence checks.';
       break;
     }
   }
@@ -252,6 +252,7 @@ async function main(argv: readonly string[]): Promise<void> {
       `medications F1 ${(overall.scores.medications.f1 * 100).toFixed(1)}%`,
       `plan items F1 ${(overall.scores.planItems.f1 * 100).toFixed(1)}%`,
       `hasPlan ${(overall.hasPlanAccuracy * 100).toFixed(1)}%`,
+      `discharge ${(overall.dischargeAccuracy * 100).toFixed(1)}%`,
       `hallucinated quotes ${(overall.hallucinatedQuoteRate * 100).toFixed(1)}%`,
       `cost/note $${run.summary.cost.perNoteUsd.toFixed(6)}`,
       `p50 ${String(run.summary.latencyMs.p50)} ms`,

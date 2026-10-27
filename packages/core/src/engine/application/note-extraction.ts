@@ -13,6 +13,14 @@ import type { EngineSettings } from '../settings.ts';
 /** Job type of a note extraction to retry later (the extractor failed during ingest). */
 export const NOTE_EXTRACTION_JOB = 'note.extract_plan';
 
+/**
+ * Attempts of a {@link NOTE_EXTRACTION_JOB} before it is dead-lettered. With
+ * the worker's backoff (5 s doubling, capped at 1 h) this keeps retrying for
+ * about 20 hours, long enough to outlast a provider outage instead of
+ * silently losing the doctor's plan.
+ */
+export const NOTE_EXTRACTION_MAX_ATTEMPTS = 30;
+
 /** Payload of a {@link NOTE_EXTRACTION_JOB} job. Ids only: the note text stays in the clinical record. */
 export interface NoteExtractionJobPayload {
   readonly patientId: string;

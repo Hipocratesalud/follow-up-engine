@@ -1,0 +1,235 @@
+/**
+ * Which words in a note can support which diagnosis. The extractor accepts a
+ * model's condition only when its evidence quote contains a term listed here
+ * for the condition's ICD-10 category (3 characters), so a quote like "DM2"
+ * can back E11 but never B20, and a code missing from this table is not
+ * accepted from free text at all.
+ *
+ * Configuration, not logic: terms are Spanish as written in Latin American
+ * outpatient notes (abbreviations included), compared lowercase and without
+ * accents, as whole words. Add a category (or a synonym) here, with a gold
+ * note that needs it, when the clinical team enables a new condition; the
+ * table can also be replaced per deployment (`NoteExtractorOptions.conditionTerms`).
+ */
+export type ConditionTermTable = Readonly<Record<string, readonly string[]>>;
+
+const DIABETES = ['diabetes', 'diabetes mellitus', 'diabetico', 'diabetica', 'dm'];
+const HYPERTENSION = [
+  'hta',
+  'hipertension',
+  'hipertension arterial',
+  'hipertenso',
+  'hipertensa',
+  'presion alta',
+  'tension alta',
+];
+const ANEMIA = ['anemia', 'anemico', 'anemica'];
+const ANXIETY = [
+  'ansiedad',
+  'ansioso',
+  'ansiosa',
+  'tag',
+  'trastorno de ansiedad',
+  'trastorno de panico',
+  'panico',
+  'angustia',
+];
+const DEPRESSION = [
+  'depresion',
+  'depresivo',
+  'depresiva',
+  'episodio depresivo',
+  'trastorno depresivo',
+];
+const OSTEOARTHRITIS = ['artrosis', 'osteoartrosis', 'osteoartritis'];
+const HEADACHE = ['cefalea', 'cefaleas'];
+const THROAT = ['faringitis', 'faringoamigdalitis', 'amigdalitis', 'odinofagia'];
+
+export const DEFAULT_CONDITION_TERMS: ConditionTermTable = {
+  // Endocrine and metabolic
+  E10: ['diabetes tipo 1', 'diabetes mellitus tipo 1', 'dm1', 'dm 1', 'dm tipo 1', 'dmt1'],
+  E11: [
+    ...DIABETES,
+    'dm2',
+    'dm 2',
+    'dm ii',
+    'dm tipo 2',
+    'dmt2',
+    'pie diabetico',
+    'diabetes tipo 2',
+  ],
+  E13: DIABETES,
+  E14: DIABETES,
+  R73: [
+    'prediabetes',
+    'prediabetico',
+    'prediabetica',
+    'glicemia alterada',
+    'glucemia alterada',
+    'intolerancia a la glucosa',
+    'resistencia a la insulina',
+    'hiperglicemia',
+    'hiperglucemia',
+  ],
+  E78: [
+    'dislipidemia',
+    'dislipemia',
+    'hipercolesterolemia',
+    'hipertrigliceridemia',
+    'hiperlipidemia',
+    'colesterol alto',
+    'trigliceridos altos',
+  ],
+  E03: ['hipotiroidismo', 'hipotiroideo', 'hipotiroidea', 'hashimoto', 'tiroiditis'],
+  E05: ['hipertiroidismo', 'tirotoxicosis', 'enfermedad de graves', 'graves'],
+  E04: ['bocio', 'nodulo tiroideo', 'nodulos tiroideos'],
+  E66: ['obesidad', 'obeso', 'obesa', 'sobrepeso'],
+  E28: ['sop', 'ovario poliquistico', 'ovarios poliquisticos', 'poliquistosis ovarica'],
+  E55: ['deficit de vitamina d', 'deficiencia de vitamina d', 'hipovitaminosis d'],
+  E79: ['hiperuricemia', 'acido urico elevado'],
+  E87: [
+    'hiperpotasemia',
+    'hipopotasemia',
+    'hiperkalemia',
+    'hipokalemia',
+    'hiponatremia',
+    'hipernatremia',
+  ],
+  // Blood
+  D50: [...ANEMIA, 'anemia ferropenica', 'ferropenia', 'ferropenica', 'deficit de hierro'],
+  D64: ANEMIA,
+  // Circulatory
+  I10: HYPERTENSION,
+  I11: [...HYPERTENSION, 'cardiopatia hipertensiva'],
+  I12: [...HYPERTENSION, 'nefropatia hipertensiva'],
+  I20: ['angina', 'angor'],
+  I21: ['infarto', 'iam', 'sindrome coronario agudo'],
+  I25: ['cardiopatia isquemica', 'enfermedad coronaria', 'coronariopatia'],
+  I48: ['fibrilacion auricular', 'fa', 'acxfa', 'flutter auricular', 'flutter'],
+  I50: ['insuficiencia cardiaca', 'icc', 'ic', 'falla cardiaca'],
+  I83: ['varices', 'insuficiencia venosa'],
+  I95: ['hipotension'],
+  // Respiratory
+  J00: ['resfriado', 'resfriado comun', 'rinofaringitis', 'catarro'],
+  J01: ['sinusitis'],
+  J02: THROAT,
+  J03: THROAT,
+  J06: ['ira alta', 'iras', 'ira', 'infeccion respiratoria alta', 'infeccion respiratoria aguda'],
+  J18: ['neumonia'],
+  J20: ['bronquitis aguda', 'bronquitis'],
+  J30: ['rinitis', 'rinitis alergica'],
+  J44: ['epoc', 'enfermedad pulmonar obstructiva cronica', 'bronquitis cronica', 'enfisema'],
+  J45: ['asma', 'asmatico', 'asmatica', 'broncoespasmo'],
+  // Digestive
+  A09: ['gastroenteritis', 'gea', 'diarrea aguda'],
+  K21: ['erge', 'reflujo', 'reflujo gastroesofagico'],
+  K29: ['gastritis'],
+  K30: ['dispepsia'],
+  K58: ['colon irritable', 'sii', 'intestino irritable'],
+  K59: ['estrenimiento', 'constipacion'],
+  // Musculoskeletal and injuries
+  M10: ['gota', 'artritis gotosa'],
+  M15: OSTEOARTHRITIS,
+  M16: [...OSTEOARTHRITIS, 'coxartrosis'],
+  M17: [...OSTEOARTHRITIS, 'gonartrosis'],
+  M19: OSTEOARTHRITIS,
+  M54: [
+    'lumbalgia',
+    'lumbago',
+    'lumbociatalgia',
+    'ciatalgia',
+    'cervicalgia',
+    'dorsalgia',
+    'dolor lumbar',
+  ],
+  M79: ['fibromialgia', 'mialgia', 'mialgias'],
+  M81: ['osteoporosis'],
+  M85: ['osteopenia'],
+  S83: ['esguince de rodilla', 'esguince'],
+  S93: ['esguince de tobillo', 'esguince', 'torcedura de tobillo'],
+  // Nervous system and mental health
+  G43: ['migrana', 'jaqueca'],
+  G44: HEADACHE,
+  R51: HEADACHE,
+  G47: ['insomnio', 'apnea del sueno', 'trastorno del sueno'],
+  F51: ['insomnio', 'trastorno del sueno'],
+  F10: ['alcoholismo', 'consumo de alcohol', 'abuso de alcohol'],
+  F17: ['tabaquismo', 'fumador', 'fumadora'],
+  F20: ['esquizofrenia'],
+  F31: ['bipolar', 'trastorno bipolar'],
+  F32: DEPRESSION,
+  F33: [...DEPRESSION, 'depresion recurrente', 'trastorno depresivo recurrente'],
+  F40: ['fobia', 'fobia social', 'agorafobia'],
+  F41: ANXIETY,
+  F42: ['toc', 'trastorno obsesivo', 'trastorno obsesivo compulsivo'],
+  F43: [
+    'estres',
+    'trastorno adaptativo',
+    'adaptativo',
+    'reaccion a estres',
+    'estres postraumatico',
+    'tept',
+    'duelo',
+  ],
+  F90: ['tdah', 'deficit de atencion'],
+  // Genitourinary
+  N18: ['erc', 'enfermedad renal cronica', 'insuficiencia renal cronica', 'irc', 'nefropatia'],
+  N30: ['cistitis'],
+  N39: ['itu', 'ivu', 'infeccion urinaria', 'infeccion de vias urinarias', 'cistitis'],
+  N40: ['hpb', 'hiperplasia prostatica', 'crecimiento prostatico'],
+  N60: ['mastopatia fibroquistica', 'mastopatia'],
+  N63: ['nodulo mamario', 'nodulo de mama'],
+  N76: ['vaginosis', 'vaginitis', 'vulvovaginitis'],
+  N91: ['amenorrea', 'oligomenorrea'],
+  N92: [
+    'menorragia',
+    'hipermenorrea',
+    'metrorragia',
+    'polimenorrea',
+    'sangrado menstrual abundante',
+  ],
+  N94: ['dismenorrea'],
+  N95: ['climaterio', 'climaterico', 'menopausia', 'perimenopausia', 'sofocos'],
+  N97: ['infertilidad', 'esterilidad'],
+  D25: ['mioma', 'miomas', 'miomatosis', 'leiomioma'],
+  R87: ['asc-us', 'ascus', 'lsil', 'hsil', 'citologia anormal', 'pap anormal'],
+  // Infections and skin
+  B35: ['tina', 'onicomicosis', 'dermatofitosis'],
+  B37: ['candidiasis', 'moniliasis', 'candida'],
+  H10: ['conjuntivitis'],
+  H66: ['otitis', 'otitis media'],
+  L20: ['dermatitis atopica'],
+  L30: ['dermatitis'],
+  L70: ['acne'],
+  // Pregnancy and reproductive health
+  O13: ['hipertension gestacional', 'hta gestacional'],
+  O14: ['preeclampsia'],
+  O20: ['amenaza de aborto'],
+  O21: ['hiperemesis'],
+  O24: ['diabetes gestacional'],
+  Z30: [
+    'anticoncepcion',
+    'anticonceptivo',
+    'anticonceptivos',
+    'diu',
+    'implante subdermico',
+    'planificacion familiar',
+    'aco',
+  ],
+  Z32: ['prueba de embarazo'],
+  Z34: ['embarazo', 'embarazada', 'gestacion', 'gestante', 'control prenatal', 'cpn'],
+  Z39: ['puerperio', 'puerpera', 'postparto', 'posparto', 'post parto', 'puerperal'],
+  // Symptoms and encounters
+  R05: ['tos'],
+  R10: ['dolor abdominal'],
+  R50: ['fiebre', 'sindrome febril'],
+  R53: ['astenia', 'fatiga', 'cansancio', 'adinamia'],
+  Z00: ['chequeo', 'control de salud', 'examen de rutina', 'control de rutina'],
+  Z01: [
+    'control ginecologico',
+    'chequeo ginecologico',
+    'examen ginecologico',
+    'control de rutina',
+    'examen de rutina',
+  ],
+};

@@ -16,7 +16,12 @@ export const WORKER_JOB_TYPES = [INGEST_BUNDLE_JOB, NOTE_EXTRACTION_JOB] as cons
 const RETRY_BASE_MS = 5_000;
 const RETRY_CAP_MS = 3_600_000;
 
-/** Exponential backoff before retrying a failed job: 5 s, 10 s, 20 s, ... capped at 1 h. */
+/**
+ * Exponential backoff before retrying a failed job: 5 s, 10 s, 20 s, ...
+ * capped at 1 h. A `note.extract_plan` job gets `NOTE_EXTRACTION_MAX_ATTEMPTS`
+ * (about 20 h of retries) and raises a `note_extraction_exhausted` alert
+ * when it finally gives up.
+ */
 export function jobRetryDelayMs(attempt: number): number {
   return Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** Math.max(0, attempt - 1));
 }
@@ -307,15 +312,30 @@ export class Worker {
       return true;
     } catch (error) {
       const retryAt = new Date(clock.now().getTime() + jobRetryDelayMs(job.attempt));
+      const final = job.attempt >= job.maxAttempts;
       logger.warn(
         {
           ...context,
           error: describe(error),
-          final: job.attempt >= job.maxAttempts,
+          final,
           retryAt: retryAt.toISOString(),
         },
         'job failed',
       );
+      if (final && job.type === NOTE_EXTRACTION_JOB) {
+        // Never lose a doctor's plan silently: an alertable error with ids only.
+        const { patientId, documentId } = job.payload;
+        logger.error(
+          {
+            ...context,
+            alert: 'note_extraction_exhausted',
+            patientId: typeof patientId === 'string' ? patientId : undefined,
+            documentId: typeof documentId === 'string' ? documentId : undefined,
+            error: describe(error),
+          },
+          'note extraction gave up: the plan in this note is not tracked until it is re-sent',
+        );
+      }
       await storage.jobs.fail(job.clinicId, job, { error: describe(error), retryAt });
       return false;
     }
