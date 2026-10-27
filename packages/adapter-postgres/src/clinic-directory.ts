@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { ClinicId } from '@follow-up-engine/core';
-import type { Clinic, ClinicDirectory, ClinicSettings } from './local-ports.ts';
+import type { Clinic, ClinicDirectory, ClinicId, ClinicSettings } from '@follow-up-engine/core';
 import { jsonParam, type RepositoryContext } from './sql.ts';
 
 /** Settings a clinic gets for every key it does not override. */

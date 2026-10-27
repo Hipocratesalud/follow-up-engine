@@ -46,6 +46,7 @@ import {
   describeUnitOfWorkContract,
   describeClinicDirectoryContract,
   describeLlmUsageLogContract,
+  describeBackfillProgressStoreContract,
   describeClockContract,
   contractBuilders,
 } from '@follow-up-engine/testkit';
@@ -78,7 +79,7 @@ describeClinicDirectoryContract('memory', async (seed) => ({
 }));
 ```
 
-Every suite checks clinic isolation (nothing of clinic A is visible or writable from clinic B, and writing an entity of another clinic rejects with `TenantMismatchError`). Others: idempotent upsert, `findDue` ordering and limit, a single active case per `dedupKey`, cursor paging, job leases (expiry, reclaim with a new token, `lease_lost` for the stale holder, retry at `retryAt`, dead letter after `maxAttempts`, dedup per clinic), and `UnitOfWork` rollback leaving no partial writes in any store, jobs and outbox included. Each test uses fresh random clinic ids and job types, so suites also run against a persistent database that is not truncated. Ports must reject, not throw synchronously. `ClinicDirectory` and `LlmUsageLog` shapes are exported from here until core exports them (structurally identical to the shared brief).
+Every suite checks clinic isolation (nothing of clinic A is visible or writable from clinic B, and writing an entity of another clinic rejects with `TenantMismatchError`). Others: idempotent upsert, `findDue` ordering and limit, a single active case per `dedupKey`, cursor paging, job leases (expiry, reclaim with a new token, `lease_lost` for the stale holder, retry at `retryAt`, dead letter after `maxAttempts`, dedup per clinic while the first job is unfinished), backfill runs (one unfinished run per clinic, cursor and counters, budget pause and resume), and `UnitOfWork` rollback leaving no partial writes in any store, jobs and outbox included. Each test uses fresh random clinic ids and job types, so suites also run against a persistent database that is not truncated. Ports must reject, not throw synchronously. Every port type comes from `@follow-up-engine/core`; `packages/acceptance` runs every suite against `adapter-memory` and `adapter-postgres`.
 
 ## Fixture formats
 

@@ -72,6 +72,7 @@ export function deriveFromExtraction(
         idempotencyKey,
         code: condition.code,
         verification: 'provisional',
+        evidence: { quote: condition.evidenceQuote, sourceDocumentId: note.documentId },
       };
     });
   const finding: QualityFinding | undefined = extraction.hasPlan

@@ -1,3 +1,4 @@
+import type { Evidence } from './common.ts';
 import type { ClinicId, PatientId, PractitionerId } from './ids.ts';
 import type { Coding, ResourceRef } from './resource.ts';
 
@@ -98,6 +99,8 @@ export interface ConditionRecordedEvent extends ClinicalEventBase {
   /** ICD-10 code ({@link ICD10_SYSTEM}). */
   readonly code: Coding;
   readonly verification: ConditionVerification;
+  /** When the diagnosis was read from a note: the verbatim quote that supports it. */
+  readonly evidence?: Evidence;
 }
 
 /** A clinical note arrived (FHIR `DocumentReference`). */

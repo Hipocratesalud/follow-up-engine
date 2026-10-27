@@ -14,6 +14,7 @@ import {
   type FeedbackId,
   type FollowUpCase,
   type PatientId,
+  ZERO_BACKFILL_COUNTS,
 } from '@follow-up-engine/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { PostgresAdapters } from './adapters.ts';
@@ -817,20 +818,34 @@ describe.skipIf(testDatabaseUrl() === undefined)(
     describe('BackfillProgressStore', () => {
       it('tracks one running run per clinic with a resumable cursor', async () => {
         const [a, b] = [newClinic(), newClinic()];
-        const started = await pg.backfillProgress.start(a, 'run-1', at(0));
+        const started = await pg.backfillProgress.start(a, 'run-1', { now: at(0) });
         expect(started).toMatchObject({ status: 'running', patientsScanned: 0 });
         expect(started.cursor).toBeUndefined();
-        await expect(pg.backfillProgress.start(a, 'run-2', at(0))).rejects.toThrow(ConflictError);
-        await pg.backfillProgress.start(b, 'run-1', at(0));
+        await expect(pg.backfillProgress.start(a, 'run-2', { now: at(0) })).rejects.toThrow(
+          ConflictError,
+        );
+        await pg.backfillProgress.start(b, 'run-1', { now: at(0) });
 
         await pg.backfillProgress.advance(a, 'run-1', {
           cursor: patient('pat-1'),
-          delta: { patientsScanned: 100, expectationsCreated: 40, casesOpened: 7 },
+          delta: {
+            ...ZERO_BACKFILL_COUNTS,
+            patientsScanned: 100,
+            expectationsCreated: 40,
+            casesOpened: 7,
+            llmCostUsd: 0.1000123,
+          },
           now: at(1),
         });
         const advanced = await pg.backfillProgress.advance(a, 'run-1', {
           cursor: patient('pat-2'),
-          delta: { patientsScanned: 50, expectationsCreated: 10, casesOpened: 1 },
+          delta: {
+            ...ZERO_BACKFILL_COUNTS,
+            patientsScanned: 50,
+            expectationsCreated: 10,
+            casesOpened: 1,
+            llmCostUsd: 0.2,
+          },
           now: at(2),
         });
         expect(advanced).toMatchObject({
@@ -840,6 +855,8 @@ describe.skipIf(testDatabaseUrl() === undefined)(
           casesOpened: 8,
           updatedAt: at(2),
         });
+        // numeric(20, 10): no float drift when summing costs.
+        expect(advanced.llmCostUsd).toBe(0.3000123);
         expect(await pg.backfillProgress.findRunning(a)).toEqual(advanced);
 
         const done = await pg.backfillProgress.finish(a, 'run-1', {
@@ -851,7 +868,7 @@ describe.skipIf(testDatabaseUrl() === undefined)(
         await expect(
           pg.backfillProgress.advance(a, 'run-1', {
             cursor: patient('pat-3'),
-            delta: { patientsScanned: 1, expectationsCreated: 0, casesOpened: 0 },
+            delta: { ...ZERO_BACKFILL_COUNTS, patientsScanned: 1 },
             now: at(4),
           }),
         ).rejects.toThrow(NotFoundError);

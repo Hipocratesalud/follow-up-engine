@@ -1,8 +1,14 @@
 import { createHash } from 'node:crypto';
-import { type ClinicId, clinicId } from '@follow-up-engine/core';
+import {
+  type Clinic,
+  type ClinicDirectory,
+  type ClinicId,
+  clinicId,
+  type LlmCallRecord,
+  type LlmUsageLog,
+} from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import { at, freshClinics, uniqueId, useSubject } from './harness.ts';
-import type { Clinic, ClinicDirectory, LlmCallRecord, LlmUsageLog } from './shapes.ts';
 
 /** A clinic to seed the directory with, plus the hash of its API key. */
 export interface ClinicSeed {

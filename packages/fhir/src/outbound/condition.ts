@@ -6,14 +6,10 @@ import { ENGINE_EXTENSIONS, TERMINOLOGY } from '../terminology.ts';
 import { concept, ext, patientReference, referenceTo } from './elements.ts';
 
 /**
- * A patient condition as the engine knows it, plus what the API may add:
- * a stable `id` (defaults to `<patientId>-<code>`) and the verbatim quote
- * that supports an extracted condition.
+ * A core `PatientCondition` (its `evidence` included), plus the FHIR id the
+ * API may choose (defaults to {@link conditionId}).
  */
-export type PatientConditionInput = PatientCondition & {
-  readonly id?: string;
-  readonly evidence?: Evidence;
-};
+export type PatientConditionInput = PatientCondition & { readonly id?: string };
 
 /** `Condition.verificationStatus` and `clinicalStatus` codes for each engine status. */
 export const CONDITION_STATUS_CODES = {

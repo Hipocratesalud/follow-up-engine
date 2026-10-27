@@ -3,6 +3,7 @@ import {
   type ClinicId,
   type ConditionRepository,
   type ConditionSourceType,
+  type Evidence,
   type PatientCondition,
   type PatientConditionStatus,
   type PatientId,
@@ -10,7 +11,7 @@ import {
   type QualityFindingKind,
   type QualityFindingRepository,
 } from '@follow-up-engine/core';
-import { optional, type RepositoryContext } from './sql.ts';
+import { jsonParam, optional, type RepositoryContext } from './sql.ts';
 
 interface ConditionRow {
   readonly clinic_id: string;
@@ -24,11 +25,12 @@ interface ConditionRow {
   readonly source_resource_type: string;
   readonly source_resource_id: string;
   readonly confirmed_by: string | null;
+  readonly evidence: Evidence | null;
   readonly updated_at: Date;
 }
 
 const CONDITION_COLUMNS = `clinic_id, patient_id, code_system, code, code_display, status, confidence,
-  source_type, source_resource_type, source_resource_id, confirmed_by, updated_at`;
+  source_type, source_resource_type, source_resource_id, confirmed_by, evidence, updated_at`;
 
 /** Conditions per patient (`patient_conditions`), unique per patient and code. */
 export class PostgresConditionRepository implements ConditionRepository {
@@ -44,7 +46,7 @@ export class PostgresConditionRepository implements ConditionRepository {
     }
     await this.#ctx.db().query(
       `INSERT INTO ${this.#ctx.tables.patient_conditions} (${CONDITION_COLUMNS})
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13)
        ON CONFLICT (clinic_id, patient_id, code_system, code) DO UPDATE SET
          code_display = EXCLUDED.code_display,
          status = EXCLUDED.status,
@@ -53,6 +55,7 @@ export class PostgresConditionRepository implements ConditionRepository {
          source_resource_type = EXCLUDED.source_resource_type,
          source_resource_id = EXCLUDED.source_resource_id,
          confirmed_by = EXCLUDED.confirmed_by,
+         evidence = EXCLUDED.evidence,
          updated_at = EXCLUDED.updated_at`,
       [
         clinicId,
@@ -66,6 +69,7 @@ export class PostgresConditionRepository implements ConditionRepository {
         condition.source.resourceType,
         condition.source.id,
         condition.confirmedBy ?? null,
+        condition.evidence === undefined ? null : jsonParam(condition.evidence),
         condition.updatedAt,
       ],
     );
@@ -96,6 +100,7 @@ export class PostgresConditionRepository implements ConditionRepository {
       sourceType: row.source_type,
       source: { resourceType: row.source_resource_type, id: row.source_resource_id },
       ...optional('confirmedBy', row.confirmed_by),
+      ...optional('evidence', row.evidence),
       updatedAt: row.updated_at,
     }));
   }

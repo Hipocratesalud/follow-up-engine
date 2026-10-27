@@ -1,5 +1,4 @@
-import type { ClinicId } from '@follow-up-engine/core';
-import type { LlmCallRecord, LlmUsageLog } from './local-ports.ts';
+import type { ClinicId, LlmCallRecord, LlmUsageLog } from '@follow-up-engine/core';
 import type { RepositoryContext } from './sql.ts';
 
 /** Per-clinic LLM accounting (`llm_calls`). Costs are stored as `numeric(20, 10)` USD (no float drift when summing). */

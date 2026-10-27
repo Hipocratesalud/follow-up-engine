@@ -19,6 +19,7 @@ import { FakeNoteExtractor } from './fake-note-extractor.ts';
 import { SequentialIdGenerator } from './id-generator.ts';
 import { MemoryJobQueue, MemoryOutbox } from './job-queue.ts';
 import { MemoryDatabase } from './memory-database.ts';
+import { MemoryBackfillProgressStore } from './repositories/backfill-progress-store.ts';
 import { MemoryCaseRepository } from './repositories/case-repository.ts';
 import { MemoryClinicalRecordRepository } from './repositories/clinical-record-repository.ts';
 import { MemoryExpectationRepository } from './repositories/expectation-repository.ts';
@@ -37,6 +38,7 @@ export interface MemoryStores extends TransactionalStores {
   readonly audit: MemoryAuditLog;
   readonly jobs: MemoryJobQueue;
   readonly outbox: MemoryOutbox;
+  readonly backfillProgress: MemoryBackfillProgressStore;
 }
 
 /** Builds every memory store over one database. */
@@ -51,6 +53,7 @@ export function createMemoryStores(db: MemoryDatabase, clock: Clock): MemoryStor
     audit: new MemoryAuditLog(db),
     jobs: new MemoryJobQueue(db, clock),
     outbox: new MemoryOutbox(db),
+    backfillProgress: new MemoryBackfillProgressStore(db),
   };
 }
 

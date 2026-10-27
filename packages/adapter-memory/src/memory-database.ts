@@ -1,4 +1,5 @@
 import type {
+  BackfillProgress,
   CaseEvent,
   CaseFeedback,
   ClinicalEvent,
@@ -64,6 +65,7 @@ export interface MemoryState {
   readonly jobs: Map<JobId, JobRecord>;
   readonly outbox: OutboxRecord[];
   readonly llmCalls: LlmCallRecord[];
+  readonly backfillRuns: Map<string, BackfillProgress>;
   sequence: number;
 }
 
@@ -82,6 +84,7 @@ function emptyState(): MemoryState {
     jobs: new Map(),
     outbox: [],
     llmCalls: [],
+    backfillRuns: new Map(),
     sequence: 0,
   };
 }
