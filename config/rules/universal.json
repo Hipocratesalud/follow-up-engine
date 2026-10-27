@@ -1,9 +1,9 @@
 [
   {
     "id": "lab_order_result_pending",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "layer": "universal",
-    "description": "A laboratory order should have a result within 15 days. A result of the same measurement under any equivalent LOINC code fulfills it (HbA1c 17856-6 or IFCC 59261-8 for a 4548-4 order; a lipid panel by its components). A newer order of the same test supersedes it; a visit does not fulfill it.",
+    "description": "A laboratory order should have a result within 15 days. A result of the same measurement under any equivalent LOINC code fulfills it (HbA1c 17856-6 or IFCC 59261-8 for a 4548-4 order; a lipid panel by its components). A newer order of the same test supersedes it; a visit does not fulfill it. An order of an acute episode (a blood count for a cold) is no longer relevant once 90 days overdue.",
     "reason": { "code": "lab_order_result_pending", "label": "Lab result pending" },
     "trigger": { "event": "service_request.created", "filter": { "category": "laboratory" } },
     "dueInDays": 15,
@@ -20,6 +20,7 @@
         "match": "same_code"
       }
     ],
+    "relevance": [{ "visits": "acute", "afterOverdueDays": 90 }],
     "priority": 40,
     "escalationPolicy": "default_v1",
     "suggestedAction": {
@@ -30,9 +31,9 @@
   },
   {
     "id": "imaging_order_result_pending",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "layer": "universal",
-    "description": "An imaging order should have a result within 30 days. A newer order of the same study supersedes it; a visit does not fulfill it.",
+    "description": "An imaging order should have a result within 30 days. A newer order of the same study supersedes it; a visit does not fulfill it. An order of an acute episode is no longer relevant once 90 days overdue.",
     "reason": { "code": "imaging_order_result_pending", "label": "Imaging result pending" },
     "trigger": { "event": "service_request.created", "filter": { "category": "imaging" } },
     "dueInDays": 30,
@@ -49,6 +50,7 @@
         "match": "same_code"
       }
     ],
+    "relevance": [{ "visits": "acute", "afterOverdueDays": 90 }],
     "priority": 50,
     "escalationPolicy": "default_v1",
     "suggestedAction": {
@@ -59,9 +61,9 @@
   },
   {
     "id": "short_treatment_followup",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "layer": "universal",
-    "description": "A short treatment (30 days or less, no refills; a clearly acute drug class, or 14 days or less of a drug of no known class; never a chronic ATC class; not taken only when needed) should be followed by a visit within 3 days of its end. One control per consultation (the longest treatment); none when the note makes the return conditional ('reconsultar si persiste') or the doctor's plan already asks for a control by then.",
+    "description": "A short treatment (30 days or less, no refills; a clearly acute drug class, or 14 days or less of a drug of no known class; never a chronic ATC class; not taken only when needed) should be followed by a visit within 3 days of its end. One control per consultation (the longest treatment); none when the note makes the return conditional ('reconsultar si persiste') or the doctor's plan already asks for a control by then. A control more than 90 days overdue is no longer relevant (the course ended long ago).",
     "reason": { "code": "short_treatment_followup", "label": "Visit at the end of treatment" },
     "trigger": { "event": "medication.prescribed", "filter": { "durationDays": { "lte": 30 } } },
     "treatment": {
@@ -235,6 +237,7 @@
       { "event": "encounter.finished", "match": "any" },
       { "event": "appointment.booked", "match": "any" }
     ],
+    "relevance": [{ "visits": "any", "afterOverdueDays": 90 }],
     "priority": 30,
     "escalationPolicy": "default_v1",
     "suggestedAction": {

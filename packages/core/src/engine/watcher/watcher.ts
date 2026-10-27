@@ -27,6 +27,8 @@ import {
 import { daysBetween } from '../support/time.ts';
 import { caseExpectations, pinnedPolicyId } from '../escalation/schedule.ts';
 import { recheckFulfilled } from '../annotator/recheck.ts';
+import { PAST_RELEVANCE_HORIZON, pastRelevanceHorizon } from '../annotator/acuity.ts';
+import { closeExpectation } from '../case-manager/reconcile.ts';
 import { caseOwner } from './owner.ts';
 
 export interface WatcherDeps {
@@ -92,6 +94,9 @@ export async function runWatcher(
       const sweep = new Sweep(stores, deps, catalog, clinicId, now, 'live', notifyMaxAgeDays);
       for (const expectation of due) {
         const outcome = await sweep.expire(expectation);
+        if (outcome === undefined) {
+          continue;
+        }
         if (outcome.opened) {
           opened.push(outcome.caseId);
         } else {
@@ -252,7 +257,9 @@ export async function expirePatient(
   const merged: CaseId[] = [];
   for (const expectation of due) {
     const outcome = await sweep.expire(expectation);
-    (outcome.opened ? opened : merged).push(outcome.caseId);
+    if (outcome !== undefined) {
+      (outcome.opened ? opened : merged).push(outcome.caseId);
+    }
   }
   return { opened, merged: merged.filter((id) => !opened.includes(id)), expired: due.length };
 }
@@ -313,15 +320,36 @@ class Sweep {
     this.#writer = new CaseWriter(stores, deps.ids, clinicId);
   }
 
+  /**
+   * Expires `expectation` into its patient's case, or closes it when it is
+   * past its clinical-relevance horizon (`undefined`: no case).
+   */
   async expire(
     expectation: Expectation,
-  ): Promise<{ readonly caseId: CaseId; readonly opened: boolean }> {
+  ): Promise<{ readonly caseId: CaseId; readonly opened: boolean } | undefined> {
     const definition = this.#catalog.definition(expectation.ruleId);
+    const patient = await this.#patient(expectation.patientId);
+    if (
+      pastRelevanceHorizon({
+        expectation,
+        catalog: this.#catalog,
+        timeline: patient.timeline,
+        now: this.#now,
+      }) !== undefined
+    ) {
+      await closeExpectation(
+        this.#stores,
+        expectation,
+        'cancelled',
+        PAST_RELEVANCE_HORIZON,
+        this.#now,
+      );
+      return undefined;
+    }
     const dedupKey = caseDedupKey(
       expectation.patientId,
       definition?.caseGroup ?? expectation.reason.code,
     );
-    const patient = await this.#patient(expectation.patientId);
     const actor: CaseEventActor = { type: 'rule', id: expectation.ruleId };
     const active = await this.#stores.cases.findActiveByDedupKey(this.#clinicId, dedupKey, {
       forUpdate: true,
