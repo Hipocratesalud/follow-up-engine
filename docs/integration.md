@@ -455,7 +455,7 @@ A diabetology consultation (synthetic). The note, base64 in `attachment.data`, r
 | `415`  | Not JSON.                                                                                                                                                                                | `OperationOutcome`                                                                                          |
 | `429`  | Too many requests for this key; wait `Retry-After` seconds.                                                                                                                              | `OperationOutcome` (`throttled`)                                                                            |
 
-Each response entry answers the request entry at the same position (FHIR R4 `transaction-response`): a stored resource gets `201 Created` (new) or `200 OK` (changed or unchanged) with its versioned `location` and `etag`; a failed entry of a `batch` gets `400 Bad Request` with its own `response.outcome`; an entry the engine does not consume (a `Basic`) gets `200 OK` with an informational `response.outcome`. Warnings (an uncoded order, control characters removed, a category inferred from LOINC, a date in the future) travel in the `response.outcome` of their entry.
+Each response entry answers the request entry at the same position (FHIR R4 `transaction-response`): a stored resource gets `201 Created` (new) or `200 OK` (changed or unchanged) with its versioned `location` and `etag`; a failed entry of a `batch` gets `400 Bad Request` with its own `response.outcome`; an entry the engine does not consume (a `Basic`) gets `200 OK` with an informational `response.outcome`. Warnings (an uncoded order, control characters removed, a category inferred from LOINC, a date in the future, a visit, order, prescription, result or note dated more than 90 days before receipt: old history, whose overdue follow-up never contacts the patient by itself and, beyond the clinic's notify window, waits among the patients to recover) travel in the `response.outcome` of their entry.
 
 ```json
 {
@@ -639,9 +639,9 @@ The initial scan of the clinic's history finished. Counters only: how much histo
     "patientsScanned": 120,
     "eventsProcessed": 5074,
     "documentsProcessed": 671,
-    "expectationsCreated": 1877,
-    "expectationsFulfilled": 1318,
-    "casesOpened": 85,
+    "expectationsCreated": 1765,
+    "expectationsFulfilled": 1225,
+    "casesOpened": 78,
     "llmCostUsd": 0,
     "casesScheduled": 85,
     "casesNotNotified": 0

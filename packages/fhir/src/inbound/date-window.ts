@@ -23,6 +23,26 @@ export const FUTURE_DATE_LIMITS = {
   scheduledRejectAfterDays: 5 * 366,
 } as const;
 
+/**
+ * Against the real receipt time: an event that starts follow-up (a visit, an
+ * order, a prescription, a result, a note) dated more than this before
+ * receipt is old history sent live: a warning. The engine never contacts the
+ * patient about it by itself and holds what is too old among the patients to
+ * recover (`EngineSettings.lateHistoryDays`, same default).
+ */
+export const PAST_DATE_LIMITS = {
+  warnBeforeDays: 90,
+} as const;
+
+/** Events whose date starts follow-up (a diagnosis or a withdrawal may be old on purpose). */
+const FOLLOW_UP_EVENT_TYPES: ReadonlySet<string> = new Set([
+  'encounter.finished',
+  'service_request.created',
+  'medication.prescribed',
+  'result.received',
+  'note.received',
+]);
+
 /** Fields that say when something happened (the rest, like `scheduledFor`, may be ahead). */
 const HAPPENED_AT_FIELDS: ReadonlySet<string> = new Set(['occurredAt', 'authoredAt']);
 
@@ -35,7 +55,9 @@ function isDate(value: unknown): value is Date {
  * Outside {@link CLINICAL_DATE_RANGE} is always an error. With
  * `againstReceipt` (`receivedAt` is the real time the host sent it), an event
  * dated more than a year after receipt is an error and more than a day after
- * a warning; scheduled dates may be up to five years ahead.
+ * a warning; scheduled dates may be up to five years ahead; a visit, order,
+ * prescription, result or note dated more than 90 days before receipt is a
+ * warning (old history sent live).
  */
 export function checkEventDates(
   events: readonly EventDraft[],
@@ -66,6 +88,13 @@ export function checkEventDates(
         time > received + FUTURE_DATE_LIMITS.warnAfterDays * MS_PER_DAY
       ) {
         warning ??= `${label} is in the future (received ${toFhirInstant(ctx.receivedAt)}); check the host clock`;
+      } else if (
+        againstReceipt &&
+        field === 'occurredAt' &&
+        FOLLOW_UP_EVENT_TYPES.has(event.type) &&
+        time < received - PAST_DATE_LIMITS.warnBeforeDays * MS_PER_DAY
+      ) {
+        warning ??= `${label} is more than ${String(PAST_DATE_LIMITS.warnBeforeDays)} days before the engine received it (${toFhirInstant(ctx.receivedAt)}); old history belongs in the backfill import: its overdue follow-up never contacts the patient automatically and, beyond the clinic's notify window, waits among the patients to recover`;
       }
     }
   }

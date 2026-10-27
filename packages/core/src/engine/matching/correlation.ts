@@ -11,7 +11,8 @@ import type { ExpectationDefinition } from '../catalog.ts';
 import { addDays } from '../support/time.ts';
 import { encounterOf, eventInstant, type PatientTimeline, refKey } from '../timeline.ts';
 import { matchesFilter } from './filter.ts';
-import { kindOfMatchKey, parseCodeMatchKey, sameCoding } from './match-key.ts';
+import { resultAnswers, sameConcept } from '../terminology/loinc.ts';
+import { kindOfMatchKey, parseCodeMatchKey } from './match-key.ts';
 import { canonicalSpecialty, referredSpecialties } from './specialty.ts';
 
 const MS_PER_DAY = 86_400_000;
@@ -308,7 +309,14 @@ export function matchesShape(
     return true;
   }
   const eventCode = codeOfEvent(event);
-  return eventCode !== undefined && sameCoding(eventCode, code);
+  if (eventCode === undefined) {
+    return false;
+  }
+  // A result answers the request under any equivalent LOINC code (a lipid
+  // panel by its components); a new order replaces one of the same measurement.
+  return event.type === 'result.received'
+    ? resultAnswers(eventCode, code)
+    : sameConcept(eventCode, code);
 }
 
 /** Whether `event` relates to `target` the way `correlation` says (see `MATCH_STRATEGIES`). */

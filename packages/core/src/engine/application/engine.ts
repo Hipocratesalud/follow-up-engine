@@ -117,7 +117,7 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
 
   return {
     ingest: (batch) => ingest(ingestDeps, batch),
-    runWatcher: (clinicId, now) => runWatcher(shared, clinicId, now),
+    runWatcher: (clinicId, now) => runWatcher({ ...shared, clinics: deps.clinics }, clinicId, now),
     runEscalation: (clinicId, now) =>
       runEscalation({ ...shared, clinics: deps.clinics }, clinicId, now),
     runNoteExtractionJob: (clinicId, payload) =>

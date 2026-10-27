@@ -1,6 +1,6 @@
 {
   "id": "diabetes",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Diabetes mellitus follow-up: a control visit at least every 6 months, HbA1c every 3 months, lipid panel and fundus exam yearly. Fills only what the doctor's plan did not cover.",
   "reason": { "code": "protocol_diabetes", "label": "Control de diabetes" },
   "specialties": [
@@ -72,7 +72,7 @@
       "fulfilledBy": [
         {
           "event": "result.received",
-          "filter": { "code.code": ["4548-4", "17856-6", "4549-2"] },
+          "filter": { "code.code": ["4548-4", "17856-6", "4549-2", "62388-4", "59261-8"] },
           "match": "any"
         }
       ],
@@ -102,7 +102,19 @@
       "fulfilledBy": [
         {
           "event": "result.received",
-          "filter": { "code.code": ["24331-1", "57698-3", "2093-3", "13457-7", "2085-9"] },
+          "filter": {
+            "code.code": [
+              "24331-1",
+              "57698-3",
+              "57696-7",
+              "2093-3",
+              "2085-9",
+              "13457-7",
+              "18262-6",
+              "2089-1",
+              "2571-8"
+            ]
+          },
           "match": "any"
         }
       ],

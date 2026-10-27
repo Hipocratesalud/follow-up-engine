@@ -8,7 +8,7 @@ import type {
 } from '../../domain/condition.ts';
 import type { ClinicId, PatientId } from '../../domain/ids.ts';
 import { type Coding, ICD10_SYSTEM, type ResourceRef } from '../../domain/resource.ts';
-import { sameCoding } from '../matching/match-key.ts';
+import { resultValueAs, sameConcept } from '../terminology/loinc.ts';
 
 /** Confidence given to a condition inferred from a medication. */
 const MEDICATION_INFERENCE_CONFIDENCE = 0.7;
@@ -130,10 +130,10 @@ function inferredCandidates(
     const hit = events.find(
       (event) =>
         event.type === 'result.received' &&
-        sameCoding(event.code, rule.code) &&
+        sameConcept(event.code, rule.code) &&
         (event.value === undefined
           ? event.interpretation === 'abnormal'
-          : event.value.value >= rule.gte),
+          : (resultValueAs(rule.code, event) ?? Number.NEGATIVE_INFINITY) >= rule.gte),
     );
     if (hit !== undefined) {
       candidates.push({

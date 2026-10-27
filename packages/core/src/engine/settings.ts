@@ -23,6 +23,15 @@ export interface EngineSettings {
    * again.
    */
   readonly bookingVisitGraceDays: number;
+  /**
+   * Old history sent through live ingestion: a batch whose newest clinical
+   * date is more than this many days before it arrived is history, not a
+   * new fact. What it leaves already overdue is routed like the backfill:
+   * never contacts the patient automatically, and is held among the patients
+   * to recover when overdue by more than the clinic's
+   * `backfillNotifyMaxAgeDays`.
+   */
+  readonly lateHistoryDays: number;
 }
 
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
@@ -35,4 +44,5 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   sweepBatchSize: 200,
   backfillPageSize: 50,
   bookingVisitGraceDays: 2,
+  lateHistoryDays: 90,
 };

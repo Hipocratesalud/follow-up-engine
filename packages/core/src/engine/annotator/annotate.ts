@@ -1,4 +1,5 @@
 import type { ClinicalEvent } from '../../domain/clinical-event.ts';
+import type { Origin } from '../../domain/common.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import { type CaseId, expectationId } from '../../domain/ids.ts';
@@ -97,7 +98,8 @@ export async function annotate(
     }),
     ...planDrafts,
   ];
-  created.push(...(await createExpectations(context, state.live, firstDrafts)));
+  const lateHistory = isLateHistory(context, ordered);
+  created.push(...(await createExpectations(context, state.live, firstDrafts, lateHistory)));
 
   // An amended note's plan replaces the earlier version's.
   const closed = await supersedeAmendedPlans(context, state, ordered, firstDrafts);
@@ -127,7 +129,7 @@ export async function annotate(
   const cadence = cadenceDrafts(ordered, state.timeline, context.catalog).filter(
     (draft) => !coveredByPlan(state.live, draft.matchKey),
   );
-  created.push(...(await createExpectations(context, state.live, cadence)));
+  created.push(...(await createExpectations(context, state.live, cadence, lateHistory)));
 
   const protocols = protocolDrafts({
     catalog: context.catalog,
@@ -136,7 +138,7 @@ export async function annotate(
     live: state.live.list(),
     now: context.now,
   });
-  created.push(...(await createExpectations(context, state.live, protocols.drafts)));
+  created.push(...(await createExpectations(context, state.live, protocols.drafts, lateHistory)));
   closed.push(...(await fulfillFromRecord(context, state, created, ordered)));
 
   const casesResolved: CaseId[] = [];
@@ -218,10 +220,50 @@ async function upsertConditions(
   return { all: [...byKey.values()], upserted };
 }
 
+const MS_PER_DAY = 86_400_000;
+
+/** Facts the engine derived itself (a note's plan and conditions), not dated by the host. */
+function isDerived(event: ClinicalEvent): boolean {
+  return event.type === 'plan.extracted' || event.idempotencyKey.includes('::');
+}
+
+/**
+ * Whether a live batch is old history (its newest clinical date is more than
+ * `lateHistoryDays` before it arrived): a two-year-old order sent today.
+ */
+function isLateHistory(context: AnnotationContext, batch: readonly ClinicalEvent[]): boolean {
+  if ((context.origin ?? 'live') !== 'live' || context.asOf !== undefined) {
+    return false;
+  }
+  const dated = batch.filter((event) => !isDerived(event));
+  if (dated.length === 0) {
+    return false;
+  }
+  const newest = Math.max(...dated.map((event) => event.occurredAt.getTime()));
+  return context.now.getTime() - newest > context.settings.lateHistoryDays * MS_PER_DAY;
+}
+
+/**
+ * Origin of a new expectation: the run's, except that what old history sent
+ * through live ingestion leaves already overdue is routed like the backfill
+ * (`backfill`): it never contacts the patient automatically and, overdue
+ * beyond the clinic's notify window, is held among the patients to recover
+ * (see the watcher).
+ */
+function originOf(
+  context: AnnotationContext,
+  draft: ExpectationDraft,
+  lateHistory: boolean,
+): Origin {
+  const origin = context.origin ?? 'live';
+  return lateHistory && draft.dueAt.getTime() <= context.now.getTime() ? 'backfill' : origin;
+}
+
 async function createExpectations(
   context: AnnotationContext,
   live: LiveExpectations,
   drafts: readonly ExpectationDraft[],
+  lateHistory = false,
 ): Promise<Expectation[]> {
   const created: Expectation[] = [];
   const seen = new Set<string>();
@@ -235,7 +277,7 @@ async function createExpectations(
       clinicId: context.clinicId,
       patientId: context.patientId,
       now: context.now,
-      origin: context.origin ?? 'live',
+      origin: originOf(context, draft, lateHistory),
     });
     let result = await context.stores.expectations.upsertByIdempotencyKey(
       context.clinicId,
