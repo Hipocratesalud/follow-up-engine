@@ -212,6 +212,15 @@ export const ProtocolItemSchema = z
      * panel LOINC).
      */
     planTerms: z.array(z.string().min(1)).min(1).optional(),
+    /**
+     * Visit items: the specialties whose visits fulfill (and count for) the
+     * item, instead of the protocol's `specialties`. The control after an
+     * antidepressant is started or its dose changes is a visit with someone
+     * who prescribes it (psychiatry, primary care), not a psychotherapy
+     * session, while a psychology discharge still ends the protocol. The
+     * practitioner who made the change always counts.
+     */
+    visitSpecialties: z.array(z.string().min(1)).min(1).optional(),
     priority: z.number().int().nonnegative(),
     suggestedAction: SuggestedActionSchema,
   })

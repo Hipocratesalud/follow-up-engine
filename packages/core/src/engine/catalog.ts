@@ -111,7 +111,11 @@ function fromProtocolItem(protocol: Protocol, item: ProtocolItem): ExpectationDe
     escalationPolicy: protocol.escalationPolicy,
     suggestedAction: item.suggestedAction,
     protocol: { id: protocol.id, version: protocol.version, itemKey: item.key },
-    ...(protocol.specialties === undefined ? {} : { specialties: protocol.specialties }),
+    ...(item.visitSpecialties !== undefined
+      ? { specialties: item.visitSpecialties }
+      : protocol.specialties === undefined
+        ? {}
+        : { specialties: protocol.specialties }),
   };
 }
 

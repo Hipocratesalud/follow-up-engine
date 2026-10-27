@@ -436,14 +436,20 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
         visit('psq-1', 0, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
       ]);
       expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([28]);
+      // A psychotherapy session is not the prescriber's control: the 2-4 week
+      // control after the start is still due.
       await day(harness, 21, [visit('psy-2', 21, { specialty: 'psychology' })]);
-      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([51]);
-      await day(harness, 50, [
-        visit('psq-2', 50, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
+      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([28]);
+      await day(harness, 27, [
+        visit('psq-2', 27, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
       ]);
-      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([80]);
+      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([57]);
+      await day(harness, 55, [
+        visit('psq-3', 55, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
+      ]);
+      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([85]);
       await day(harness, 78, [
-        visit('psq-3', 78, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
+        visit('psq-3b', 78, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
       ]);
       // Three controls without a change: every 3 months.
       expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([168]);
@@ -453,7 +459,9 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
       ]);
       let snapshot = await snapshotPatient(harness, patient);
       expect(liveDue(snapshot, TREATMENT_VISIT)).toEqual([128]);
-      // Missed: a case, whose reason names no condition.
+      // Psychotherapy goes on, but the prescriber's control is missed: a
+      // case, whose reason names no condition.
+      await day(harness, 110, [visit('psy-3', 110, { specialty: 'psychology' })]);
       await day(harness, 140);
       snapshot = await snapshotPatient(harness, patient);
       expect(activeReasons(snapshot)).toContain(TREATMENT_VISIT);
