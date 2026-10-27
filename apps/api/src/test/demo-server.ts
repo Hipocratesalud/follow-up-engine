@@ -12,7 +12,7 @@ import { seedSyntheticClinic } from './seed.ts';
  * `pnpm --filter @follow-up-engine/api demo`: the whole product in one
  * process with no infrastructure. Fake clock, embedded worker, in-process
  * signed webhook sink, memory storage unless `DATABASE_URL` is set, and the
- * synthetic clinic loaded at startup through the initial backfill (all 120
+ * synthetic clinic loaded at startup through the initial backfill (all 148
  * patients; `SEED_PATIENTS=N` loads fewer, `SEED=false` skips it). Seeding an
  * already seeded database is a no-op.
  */

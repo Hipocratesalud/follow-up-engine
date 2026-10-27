@@ -179,7 +179,7 @@ Patient contact rules (`patient-contact/policy.ts`): only if the clinic allows i
 | Case                 | its most pressing reason (still open or expired), +3 per extra reason (at most 2), + the `raise_priority` steps already run (+20)                                   |
 | Cap                  | never above the cap of the most pressing category among its reasons: critical and abnormal result 100, ordered result 89, doctor's plan 82, cadence and protocol 74 |
 
-A fresh ordered result is medium (61), a fresh abnormal result high (80), a fresh critical result urgent (95); only a result that came back abnormal can be urgent, so an escalated backfill lab never outranks a fresh critical value; a probable-only protocol reminder stays low. On the synthetic clinic at day 0 (`pnpm demo`): 0 urgent, 6 high, 13 medium, 66 low of 85 released cases (before this model: 50 urgent, 29 high, 23 medium, 1 low of 104). Thirty days on, with nobody acting, only the one abnormal result is urgent; escalated backfill labs top out at 89 (before the caps: 8 urgent, 90 to 98).
+A fresh ordered result is medium (61), a fresh abnormal result high (80), a fresh critical result urgent (95); only a result that came back abnormal can be urgent, so an escalated backfill lab never outranks a fresh critical value; a probable-only protocol reminder stays low. On the synthetic clinic at day 0 (`pnpm demo`, every protocol enabled): 0 urgent, 6 high, 21 medium, 77 low of 104 backfill cases (before this model: 50 urgent, 29 high, 23 medium, 1 low of 104). Thirty days on, with nobody acting, only the one abnormal result is urgent; escalated backfill labs top out at 89 (before the caps: 8 urgent, 90 to 98).
 
 **Critical results** (HIP-124): a result whose interpretation is critical (`HH`, `LL`, `AA`, or labelled critical / panic: `ResultReceivedEvent.severity = 'critical'`) expects its follow-up within `criticalDueInDays` of the rule (default `DEFAULT_CRITICAL_RESULT_DUE_IN_DAYS` = 1) instead of `dueInDays`, carries `Expectation.severity = 'critical'` and ranks in the critical category. Mild flags (`H`, `L`, `A`) keep the rule's `dueInDays`.
 
@@ -219,7 +219,7 @@ How it works:
 
 For the inbox: active cases are `list({ statuses: ACTIVE, releasedAsOf: now })`; the patients to recover are `list({ origin: 'backfill', unreleasedAsOf: now })`.
 
-On the synthetic clinic (120 patients, two years, 1,680 bundles; acceptance test `packages/acceptance/test/backfill.test.ts`): 5,074 events and 671 notes replayed, 1,853 expectations created and 1,325 of them fulfilled by the history itself, 85 cases for 75 patients (at most 2 per patient), all released on day 0: no owner has more than the default cap of 20 (`packages/acceptance/test/backfill-release-cap.test.ts`).
+On the synthetic clinic (148 patients, two years, 2,185 bundles; acceptance test `packages/acceptance/test/backfill.test.ts`, default protocols diabetes and hypertension): 6,291 events and 867 notes replayed, 2,213 expectations created and 1,663 of them fulfilled by the history itself, 94 cases for 84 patients (at most 2 per patient), all released on day 0: no owner has more than the default cap of 20 (`packages/acceptance/test/backfill-release-cap.test.ts`).
 
 ## Adding a rule or a protocol
 
