@@ -49,6 +49,7 @@ import {
   DismissalSummary,
 } from './contact-panel.tsx';
 import { FeedbackPanel } from './feedback-panel.tsx';
+import { ReasonRuleVersion } from '../metrics/rule-version.tsx';
 
 /** "Result — HbA1c"; just the display when it already names the type ("Clinical note of ..."). */
 function sourceLabel(t: Messages, source: CaseReasonView['source']): string {
@@ -81,6 +82,11 @@ function ReasonCard({
         </p>
       </div>
       <ReasonProtocol protocol={reason.protocol} />
+      <ReasonRuleVersion
+        ruleId={reason.ruleId}
+        ruleVersion={reason.ruleVersion}
+        protocol={reason.protocol}
+      />
       {reason.evidence ? <EvidenceExcerpt evidence={reason.evidence} /> : null}
     </li>
   );

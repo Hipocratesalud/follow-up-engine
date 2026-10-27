@@ -1,3 +1,4 @@
+import type { AppointmentOrigin } from './attribution.ts';
 import type { Evidence } from './common.ts';
 import type { ClinicId, PatientId, PractitionerId } from './ids.ts';
 import type { Coding, ResourceRef } from './resource.ts';
@@ -75,6 +76,12 @@ export interface AppointmentBookedEvent extends ClinicalEventBase {
   readonly scheduledFor: Date;
   readonly practitionerId?: PractitionerId;
   readonly specialty?: string;
+  /**
+   * Where the booking came from (HIP-141 attribution): the case or contact
+   * attempt the host says it answers, verified by the engine before the
+   * event is stored. Absent: `organic`.
+   */
+  readonly origin?: AppointmentOrigin;
 }
 
 /** Why a booked appointment no longer counts (FHIR `Appointment.status`). */
@@ -213,7 +220,12 @@ export interface PlanExtractedEvent extends ClinicalEventBase {
   /** The note discharged the patient from this specialty ("alta"): no visit pattern after it. */
   readonly discharged?: boolean;
   /** Which model and prompt produced the items, for provenance. */
-  readonly extractor: { readonly model: string; readonly promptVersion: string };
+  readonly extractor: {
+    readonly model: string;
+    readonly promptVersion: string;
+    /** What reading the note cost (USD, retries included), when known. */
+    readonly costUsd?: number;
+  };
   /**
    * BCP-47 language the note was read as (the host's, else detected). Quotes
    * stay in it; it picks the lexicons of the deterministic checks.

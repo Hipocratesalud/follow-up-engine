@@ -15,6 +15,8 @@ import type {
 } from '../../domain/contact.ts';
 import type { ContactRequestId } from '../../domain/ids.ts';
 import { type CalibrationReport, calibrationReport } from '../calibration/calibration.ts';
+import type { ClinicMetrics } from '../metrics/metrics.ts';
+import { clinicMetrics } from '../metrics/service.ts';
 import {
   clearContactFlags,
   type CommunicationInput,
@@ -157,6 +159,16 @@ export interface FollowUpEngine {
   readonly suppressions: SuppressionCommands;
   /** Per rule: how many cases the team found useful and why it dismissed the rest. */
   calibration(clinicId: ClinicId, options?: { readonly since?: Date }): Promise<CalibrationReport>;
+  /**
+   * The clinic's metrics over `[from, to)` (default: the last 30 days up to
+   * now): cases, bookings attributed to the engine or organic, attendance,
+   * time to first action, feedback, dismissals, extraction reviews, AI cost
+   * (docs/metrics.md). Throws `ValidationError` for an empty or too long period.
+   */
+  metrics(
+    clinicId: ClinicId,
+    period?: { readonly from?: Date; readonly to?: Date },
+  ): Promise<ClinicMetrics>;
   /** The rules and protocols enabled for a clinic (labels, suggested actions, policies). */
   catalog(clinicId: ClinicId): Promise<Catalog>;
   patientContactStatus(clinicId: ClinicId, patientId: PatientId): Promise<PatientContactStatus>;
@@ -250,6 +262,8 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
     },
     suppressions: createSuppressionCommands({ ...shared, clock: deps.clock }),
     calibration: (clinicId, options) => calibrationReport(shared, clinicId, options),
+    metrics: (clinicId, period) =>
+      clinicMetrics({ unitOfWork: deps.unitOfWork, clock: deps.clock }, clinicId, period),
     catalog: loadCatalog,
     async patientContactStatus(clinicId, patientId) {
       const clinic = await deps.clinics.get(clinicId);

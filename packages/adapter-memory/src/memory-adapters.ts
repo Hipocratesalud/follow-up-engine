@@ -24,6 +24,7 @@ import { FakeNoteExtractor } from './fake-note-extractor.ts';
 import { SequentialIdGenerator } from './id-generator.ts';
 import { MemoryJobQueue, MemoryOutbox } from './job-queue.ts';
 import { MemoryDatabase } from './memory-database.ts';
+import { MemoryMetricsReadModel } from './repositories/metrics-read-model.ts';
 import { MemoryBackfillProgressStore } from './repositories/backfill-progress-store.ts';
 import { MemoryCaseRepository } from './repositories/case-repository.ts';
 import {
@@ -78,6 +79,7 @@ export function createMemoryStores(db: MemoryDatabase, clock: Clock): MemoryStor
     clinicalFindings: new MemoryClinicalFindingRepository(db),
     reviewRuns: new MemoryClinicalReviewRunRepository(db),
     findingFlags: new MemoryFindingFlagRepository(db),
+    metrics: new MemoryMetricsReadModel(db),
   };
 }
 

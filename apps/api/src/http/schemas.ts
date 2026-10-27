@@ -126,6 +126,9 @@ export const CaseReasonViewSchema = z
   .object({
     expectationId: z.string(),
     ruleId: z.string(),
+    ruleVersion: z.string().meta({
+      description: 'Version of the rule that produced the reason (protocol version in `protocol`)',
+    }),
     layer: LayerSchema,
     label: z.string().meta({ description: 'Localized; never includes a day count' }),
     protocol: ProtocolRefViewSchema.optional().meta({

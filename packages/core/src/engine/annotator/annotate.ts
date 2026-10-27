@@ -4,7 +4,11 @@ import type { PatientCondition } from '../../domain/condition.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import { type CaseId, type ExpectationId, expectationId } from '../../domain/ids.ts';
 import { CaseWriter } from '../case-manager/case-writer.ts';
-import { closeExpectation, resolveSatisfiedCases } from '../case-manager/reconcile.ts';
+import {
+  type BookingOrigin,
+  closeExpectation,
+  resolveSatisfiedCases,
+} from '../case-manager/reconcile.ts';
 import {
   findFulfillment,
   fulfillmentReason,
@@ -29,6 +33,7 @@ import { protocolDrafts } from './layers/protocol.ts';
 import { plannedItems, universalDrafts } from './layers/universal.ts';
 import { suppressedRuleIds } from '../suppression/active.ts';
 import { recheckAtFor, recheckFulfilled } from './recheck.ts';
+import { originTypeOf, recordCaseBookings } from '../attribution/attribution.ts';
 import { retractByLaterInformation } from './retract.ts';
 import {
   cancelWithdrawn,
@@ -181,6 +186,17 @@ export async function annotate(
     )),
   );
 
+  // Bookings that concern a case (attributed to it, or fulfilling one of
+  // its reasons) go on its trail before it resolves (HIP-141).
+  await recordCaseBookings({
+    stores: context.stores,
+    clinicId: context.clinicId,
+    events: ordered,
+    closed,
+    now: context.now,
+  });
+  const bookingOrigins = bookingOriginsOf(ordered);
+
   const casesResolved: CaseId[] = [];
   for (const { expectation } of closed) {
     if (expectation.caseId === undefined) {
@@ -194,6 +210,7 @@ export async function annotate(
         caseIds: [expectation.caseId],
         actor: { type: 'rule', id: expectation.ruleId },
         now: context.now,
+        bookingOrigins,
       })),
     );
   }
@@ -206,6 +223,20 @@ export async function annotate(
     conditionsUpserted: [...conditions.upserted, ...unenrolled.resolved, ...ended.resolved],
     optedOut: state.timeline.optedOut,
   };
+}
+
+/** The origin type of each booking of the batch, by appointment (`Appointment/<id>`). */
+function bookingOriginsOf(events: readonly ClinicalEvent[]): ReadonlyMap<string, BookingOrigin> {
+  const origins = new Map<string, BookingOrigin>();
+  for (const event of events) {
+    if (event.type === 'appointment.booked') {
+      origins.set(refKey(event.source), {
+        type: originTypeOf(event),
+        ...(event.origin?.caseId === undefined ? {} : { caseId: event.origin.caseId }),
+      });
+    }
+  }
+  return origins;
 }
 
 /** In a replay, whether `expectation` was created by the step at `asOf` and was still open after it. */

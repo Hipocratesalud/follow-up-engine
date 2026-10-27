@@ -7,6 +7,7 @@
  * Add a key here first, then in `es.ts`, then read it with `useT()`
  * (components) or `messages()` (code outside React).
  */
+import type { MetricsCopy } from './metrics-copy.ts';
 
 const plurals = new Intl.PluralRules('en-US');
 const numbers = new Intl.NumberFormat('en-US');
@@ -49,6 +50,7 @@ const common = {
 };
 
 const nav = {
+  metrics: 'Metrics',
   inbox: 'Inbox',
   recovery: 'To recover',
   review: 'Clinical review',
@@ -899,7 +901,131 @@ const review = {
   },
 };
 
+/** The Metrics view (HIP-141). */
+const metrics: MetricsCopy = {
+  title: 'Metrics',
+  subtitle:
+    'What happened to the cases that reached the inbox in the period: how many ended in a visit, how fast the team acted, and what the AI cost.',
+  periodLegend: 'Period',
+  preset: (days) => (days === 365 ? 'Last year' : `Last ${String(days)} days`),
+  periodRange: (from, to) => `${from} – ${to}`,
+  loading: 'Loading metrics',
+  errorTitle: 'We could not load the metrics',
+  empty: {
+    title: 'No cases in this period',
+    body: 'Pick a longer period, or come back once cases reach the inbox.',
+  },
+  tiles: {
+    opened: 'Cases opened',
+    openedHint: (live, backfill) => `${String(live)} live · ${String(backfill)} from history`,
+    booked: 'Ended in a booking',
+    bookedHint: (rate) => `${rate} of cases`,
+    attended: 'Visit attended',
+    attendedHint: (rate) => `${rate} of bookings`,
+    firstAction: 'Median time to first action',
+    firstActionHint: (measured, pending) =>
+      `${String(measured)} acted on · ${String(pending)} still waiting`,
+    useful: 'Useful, per the team',
+    usefulHint: (count) => `of ${String(count)} ${count === 1 ? 'rated case' : 'rated cases'}`,
+    costPerCase: 'AI cost per case',
+    costPerCaseHint: (total) => `${total} in the period`,
+    lost: 'Lost to follow-up',
+    lostHint: (dismissed) => `${String(dismissed)} dismissed by the team`,
+    recovered: 'Patients recovered from history',
+    recoveredHint: (cases) => `${String(cases)} ${cases === 1 ? 'case' : 'cases'} resolved`,
+    none: '—',
+  },
+  funnel: {
+    title: 'From case to visit',
+    description:
+      'Cases opened in the period, the ones that got a booking and the ones whose visit took place. Attributed bookings came from working the case or from a contact request; organic ones did not.',
+    opened: 'Opened',
+    booked: 'Booked',
+    attended: 'Attended',
+    resolvedByBooking: 'Resolved by the booking',
+    byOrigin: 'The bookings, by origin',
+    origin: {
+      followUpCase: 'From the case',
+      patientContact: 'After a contact request',
+      organic: 'Organic',
+    },
+    summary: (stage, total, parts) => `${stage}: ${String(total)}${parts ? ` (${parts})` : ''}`,
+  },
+  timing: {
+    title: 'Time to first action',
+    description:
+      'From the case reaching the inbox to the first thing the team did or the first contact request.',
+    median: 'Median',
+    p75: '75th percentile',
+    p90: '90th percentile',
+    none: 'No case was acted on in this period yet.',
+    summary: (median, p75, p90) =>
+      `Median ${median}, 75th percentile ${p75}, 90th percentile ${p90}`,
+  },
+  dismissals: {
+    title: 'Dismissals by reason',
+    description: (total) =>
+      `${String(total)} ${total === 1 ? 'case' : 'cases'} dismissed by the team. A reason that repeats points at the rule to tune.`,
+    none: 'No case of the period was dismissed.',
+    reasons: {
+      handled_elsewhere: 'Handled elsewhere',
+      already_done: 'Already done',
+      not_applicable_to_patient: 'Not for this patient',
+      wrong_diagnosis: 'Wrong diagnosis',
+      wrong_interval: 'Wrong interval',
+      other: 'Other',
+    },
+  },
+  extraction: {
+    title: 'What the doctors corrected',
+    description:
+      'Conditions read from notes that a clinician confirmed or rejected in the period, and corrections to plan items.',
+    conditions: 'Conditions read from notes',
+    confirmed: 'Confirmed',
+    rejected: 'Rejected',
+    pending: 'Waiting for review',
+    legend: (label, count) => `${label} ${String(count)}`,
+    corrections: (rate) => `${rate} rejected`,
+    planItems: 'Plan items',
+    planItemsNone: 'No plan item was reviewed in this period.',
+    planItemsCounts: (confirmed, corrected, rejected) =>
+      `${String(confirmed)} confirmed · ${String(corrected)} corrected · ${String(rejected)} rejected`,
+  },
+  ai: {
+    title: 'AI cost',
+    description:
+      'Every model call of the clinic in the period, by task. Reading a note is charged to the cases its plan opened.',
+    tasks: {
+      note_extraction: 'Reading notes',
+      clinical_review: 'Clinical review',
+    },
+    calls: (count) => `${String(count)} ${count === 1 ? 'call' : 'calls'}`,
+    tokens: (count) => `${count} tokens`,
+    perReviewRun: (cost, runs) =>
+      `${cost} per review (${String(runs)} ${runs === 1 ? 'review' : 'reviews'})`,
+    attributed: (cost, cases) =>
+      `${cost} of note reading behind ${String(cases)} ${cases === 1 ? 'case' : 'cases'}`,
+    none: 'No model call in this period.',
+  },
+  ruleVersion: {
+    rule: 'Rule',
+    protocol: 'Protocol',
+    version: (version) => `version ${version}`,
+  },
+  hours: (hours) => {
+    // Intl, not toFixed: arithmetic and formatting only (the catalog test passes a boxed sample).
+    const value = hours;
+    const one = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+    if (value < 1) return `${String(Math.round(value * 60))} min`;
+    return value < 48 ? `${one.format(value)} h` : `${one.format(value / 24)} d`;
+  },
+};
+
 export const en = {
+  metrics,
   common,
   nav,
   errors,

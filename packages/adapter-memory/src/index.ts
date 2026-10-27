@@ -17,6 +17,7 @@ export {
   MemoryFindingFlagRepository,
 } from './repositories/clinical-finding-repositories.ts';
 export { MemoryBackfillProgressStore } from './repositories/backfill-progress-store.ts';
+export { MemoryMetricsReadModel } from './repositories/metrics-read-model.ts';
 export {
   MemoryContactRepository,
   MemorySuppressionRepository,

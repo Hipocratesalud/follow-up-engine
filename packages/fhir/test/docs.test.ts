@@ -12,6 +12,7 @@ import {
   activeSuppression,
   escalatedCase,
   expiredPlanExpectation,
+  openExpectation,
   whatsappAttempt,
   wrongNumber,
 } from './domain-fixtures.ts';
@@ -107,8 +108,8 @@ function namedCodes(
 }
 
 describe('docs/fhir.md', () => {
-  it('has the eight examples', () => {
-    expect(examples).toHaveLength(8);
+  it('has the nine examples', () => {
+    expect(examples).toHaveLength(9);
   });
 
   it('shows OperationOutcome issues the mapping really emits', () => {
@@ -165,8 +166,15 @@ describe('docs/fhir.md', () => {
   });
 
   it('shows the case and expectation Tasks the outbound mapping produces', () => {
-    expect(examples[3]).toEqual(asJson(caseToTask(escalatedCase)));
+    expect(examples[3]).toEqual(
+      asJson(caseToTask(escalatedCase, { reasons: [expiredPlanExpectation, openExpectation] })),
+    );
     expect(examples[4]).toEqual(asJson(expectationToTask(expiredPlanExpectation)));
+  });
+
+  it('shows the attributed Appointment fixture the engine reads an origin from', () => {
+    const fixture = loadBundle('appointment-attributed') as { entry: { resource: unknown }[] };
+    expect(examples[8]).toEqual(fixture.entry[0]?.resource);
   });
 
   it('shows the contact loop resources the outbound mapping produces', () => {

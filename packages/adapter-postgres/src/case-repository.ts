@@ -25,7 +25,7 @@ import {
   type RepositoryContext,
 } from './sql.ts';
 
-interface CaseRow {
+export interface CaseRow {
   readonly clinic_id: string;
   readonly id: string;
   readonly patient_id: string;
@@ -45,7 +45,7 @@ interface CaseRow {
   readonly updated_at: Date;
 }
 
-const COLUMNS = `clinic_id, id, patient_id, dedup_key, reasons, status, priority, assignee,
+export const CASE_COLUMNS = `clinic_id, id, patient_id, dedup_key, reasons, status, priority, assignee,
   escalation_step, next_action_at, snoozed_until, release_at, origin, resolution, created_at, updated_at,
   escalation_policy_id`;
 const PLACEHOLDERS = Array.from({ length: 17 }, (_, index) => `$${String(index + 1)}`).join(', ');
@@ -56,7 +56,7 @@ function lockClause(options: CaseReadOptions): string {
   return options.forUpdate === true ? 'FOR UPDATE' : '';
 }
 
-function toCase(row: CaseRow): FollowUpCase {
+export function toCase(row: CaseRow): FollowUpCase {
   return {
     id: row.id as CaseId,
     clinicId: row.clinic_id as ClinicId,
@@ -193,7 +193,7 @@ export class PostgresCaseRepository implements CaseRepository {
     options: CaseReadOptions = {},
   ): Promise<FollowUpCase | undefined> {
     const { rows } = await this.#ctx.db().query<CaseRow>(
-      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.follow_up_cases} WHERE clinic_id = $1 AND id = $2
+      `SELECT ${CASE_COLUMNS} FROM ${this.#ctx.tables.follow_up_cases} WHERE clinic_id = $1 AND id = $2
        ${lockClause(options)}`,
       [clinicId, id],
     );
@@ -210,7 +210,7 @@ export class PostgresCaseRepository implements CaseRepository {
     // re-checked against the WHERE clause once its lock is released: a case
     // resolved in between is no longer returned.
     const { rows } = await this.#ctx.db().query<CaseRow>(
-      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.follow_up_cases}
+      `SELECT ${CASE_COLUMNS} FROM ${this.#ctx.tables.follow_up_cases}
        WHERE clinic_id = $1 AND dedup_key = $2 AND ${ACTIVE}
        ${lockClause(options)}`,
       [clinicId, dedupKey],
@@ -226,7 +226,7 @@ export class PostgresCaseRepository implements CaseRepository {
     await this.#ctx
       .db()
       .query(
-        `INSERT INTO ${this.#ctx.tables.follow_up_cases} (${COLUMNS}) VALUES (${PLACEHOLDERS})`,
+        `INSERT INTO ${this.#ctx.tables.follow_up_cases} (${CASE_COLUMNS}) VALUES (${PLACEHOLDERS})`,
         toParams(value),
       )
       .catch((error: unknown) => {
@@ -241,7 +241,7 @@ export class PostgresCaseRepository implements CaseRepository {
     const result = await this.#ctx
       .db()
       .query(
-        `UPDATE ${this.#ctx.tables.follow_up_cases} SET (${COLUMNS}) = ROW(${PLACEHOLDERS})
+        `UPDATE ${this.#ctx.tables.follow_up_cases} SET (${CASE_COLUMNS}) = ROW(${PLACEHOLDERS})
          WHERE clinic_id = $1 AND id = $2`,
         toParams(value),
       )
@@ -285,7 +285,7 @@ export class PostgresCaseRepository implements CaseRepository {
     }
     params.push(query.limit + 1);
     const { rows } = await this.#ctx.db().query<CaseRow>(
-      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.follow_up_cases}
+      `SELECT ${CASE_COLUMNS} FROM ${this.#ctx.tables.follow_up_cases}
        WHERE clinic_id = $1
          AND ($2::text[] IS NULL OR status = ANY($2::text[]))
          AND ($3::text IS NULL OR patient_id = $3)
@@ -315,7 +315,7 @@ export class PostgresCaseRepository implements CaseRepository {
     // snooze, whichever has passed first. The rows stay locked for the sweep's
     // transaction; one a user is changing right now is left for the next sweep.
     const { rows } = await this.#ctx.db().query<CaseRow>(
-      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.follow_up_cases}
+      `SELECT ${CASE_COLUMNS} FROM ${this.#ctx.tables.follow_up_cases}
        WHERE clinic_id = $1 AND ${ACTIVE}
          AND (next_action_at <= $2 OR (status = 'snoozed' AND snoozed_until <= $2))
        ORDER BY LEAST(

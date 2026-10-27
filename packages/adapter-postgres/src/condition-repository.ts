@@ -13,7 +13,7 @@ import {
 } from '@follow-up-engine/core';
 import { jsonParam, optional, type RepositoryContext } from './sql.ts';
 
-interface ConditionRow {
+export interface ConditionRow {
   readonly clinic_id: string;
   readonly patient_id: string;
   readonly code_system: string;
@@ -29,7 +29,7 @@ interface ConditionRow {
   readonly updated_at: Date;
 }
 
-const CONDITION_COLUMNS = `clinic_id, patient_id, code_system, code, code_display, status, confidence,
+export const CONDITION_COLUMNS = `clinic_id, patient_id, code_system, code, code_display, status, confidence,
   source_type, source_resource_type, source_resource_id, confirmed_by, evidence, updated_at`;
 
 /** Conditions per patient (`patient_conditions`), unique per patient and code. */
@@ -87,23 +87,27 @@ export class PostgresConditionRepository implements ConditionRepository {
        ORDER BY code_system, code`,
       [clinicId, patientId, statuses ?? null],
     );
-    return rows.map((row) => ({
-      clinicId: row.clinic_id as ClinicId,
-      patientId: row.patient_id as PatientId,
-      code: {
-        system: row.code_system,
-        code: row.code,
-        ...optional('display', row.code_display),
-      },
-      status: row.status,
-      confidence: row.confidence,
-      sourceType: row.source_type,
-      source: { resourceType: row.source_resource_type, id: row.source_resource_id },
-      ...optional('confirmedBy', row.confirmed_by),
-      ...optional('evidence', row.evidence),
-      updatedAt: row.updated_at,
-    }));
+    return rows.map(toCondition);
   }
+}
+
+export function toCondition(row: ConditionRow): PatientCondition {
+  return {
+    clinicId: row.clinic_id as ClinicId,
+    patientId: row.patient_id as PatientId,
+    code: {
+      system: row.code_system,
+      code: row.code,
+      ...optional('display', row.code_display),
+    },
+    status: row.status,
+    confidence: row.confidence,
+    sourceType: row.source_type,
+    source: { resourceType: row.source_resource_type, id: row.source_resource_id },
+    ...optional('confirmedBy', row.confirmed_by),
+    ...optional('evidence', row.evidence),
+    updatedAt: row.updated_at,
+  };
 }
 
 interface FindingRow {

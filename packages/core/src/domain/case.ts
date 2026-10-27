@@ -94,7 +94,11 @@ export type CaseEventType =
   | 'dismissed'
   | 'reopened'
   | 'lost_to_follow_up'
-  | 'feedback_recorded';
+  | 'feedback_recorded'
+  /** An appointment was booked for the case: attributed to it, or fulfilling one of its reasons. */
+  | 'appointment_booked'
+  /** A booking recorded on the case was kept: the visit took place. */
+  | 'appointment_attended';
 
 /** Who caused a case event. `id` is a rule id, host user id or patient id. */
 export interface CaseEventActor {

@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   CalendarClock,
   FlaskConical,
   HeartPulse,
@@ -159,6 +160,7 @@ export function Shell(): ReactNode {
       count: findings.data?.counts.byStatus.open,
     },
   ];
+  items.push({ to: '/metrics', label: t.nav.metrics, icon: BarChart3 });
   if (clock.data) items.push({ to: '/demo', label: t.nav.demo, icon: FlaskConical });
 
   return (

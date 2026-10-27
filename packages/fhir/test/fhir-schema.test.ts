@@ -99,6 +99,10 @@ const outbound: readonly [string, FhirResource][] = [
     caseToTask({ ...escalatedCase, status }),
   ]),
   ['resolved case Task', caseToTask(resolvedCase)],
+  [
+    'case Task with the rule and protocol version of each reason',
+    caseToTask(escalatedCase, { reasons: [expiredPlanExpectation, openExpectation] }),
+  ],
   ['dismissed case Task', caseToTask(dismissedCase)],
   ['CommunicationRequest (WhatsApp)', contactRequestToFhir(whatsappAttempt)],
   ['CommunicationRequest (call, by a user)', contactRequestToFhir(callAttempt)],
@@ -144,6 +148,7 @@ const VALID_FIXTURES = [
   'consultation-gynecology',
   'result-hba1c',
   'appointment-booked',
+  'appointment-attributed',
   'appointment-cancelled',
   'patient-opt-out',
   'communication-outcome',

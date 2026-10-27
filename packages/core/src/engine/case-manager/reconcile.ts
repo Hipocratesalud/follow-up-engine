@@ -1,3 +1,4 @@
+import type { AppointmentOriginType } from '../../domain/attribution.ts';
 import type { CaseEventActor, CaseResolutionKind, FollowUpCase } from '../../domain/case.ts';
 import type { Expectation, ExpectationStatus } from '../../domain/expectation.ts';
 import type { CaseId, ClinicId } from '../../domain/ids.ts';
@@ -5,6 +6,12 @@ import type { ResourceRef } from '../../domain/resource.ts';
 import type { TransactionalStores } from '../../ports/unit-of-work.ts';
 import { withoutKey, type CaseWriter } from './case-writer.ts';
 import { isActiveCaseStatus } from './state-machine.ts';
+
+/** A booking of the batch being applied: its origin and the case it is attributed to. */
+export interface BookingOrigin {
+  readonly type: AppointmentOriginType;
+  readonly caseId?: CaseId;
+}
 
 export type ClosingStatus = Extract<ExpectationStatus, 'fulfilled' | 'superseded' | 'cancelled'>;
 
@@ -78,6 +85,12 @@ export async function resolveSatisfiedCases(input: {
   readonly caseIds: Iterable<CaseId>;
   readonly actor: CaseEventActor;
   readonly now: Date;
+  /**
+   * The batch's bookings by appointment (`Appointment/<id>`): a case a
+   * booking resolves records it (`appointmentId`, `appointmentOrigin`), an
+   * unattributed one as `organic` (HIP-141).
+   */
+  readonly bookingOrigins?: ReadonlyMap<string, BookingOrigin>;
 }): Promise<CaseId[]> {
   const resolved: CaseId[] = [];
   for (const caseId of new Set(input.caseIds)) {
@@ -105,11 +118,40 @@ export async function resolveSatisfiedCases(input: {
       now: input.now,
       payload: {
         closedReasons: reasons.map((expectation) => expectation.closedReason ?? expectation.status),
+        ...resolvingBooking(followUpCase.id, reasons, input.bookingOrigins),
       },
     });
     resolved.push(caseId);
   }
   return resolved;
+}
+
+/**
+ * The booking of the batch that fulfilled one of the case's reasons, with
+ * its origin as far as this case goes (attributed to another case: organic).
+ */
+function resolvingBooking(
+  caseId: CaseId,
+  reasons: readonly Expectation[],
+  bookingOrigins: ReadonlyMap<string, BookingOrigin> | undefined,
+): Record<string, string> {
+  if (bookingOrigins === undefined) {
+    return {};
+  }
+  for (const expectation of reasons) {
+    const closedBy = expectation.closedBy;
+    if (expectation.status !== 'fulfilled' || closedBy?.resourceType !== 'Appointment') {
+      continue;
+    }
+    const origin = bookingOrigins.get(`${closedBy.resourceType}/${closedBy.id}`);
+    if (origin !== undefined) {
+      return {
+        appointmentId: closedBy.id,
+        appointmentOrigin: origin.caseId === caseId ? origin.type : 'organic',
+      };
+    }
+  }
+  return {};
 }
 
 /** Moves a case to `resolved` and emits `case.resolved`. */

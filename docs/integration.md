@@ -794,15 +794,15 @@ The same check is exported as `verifyWebhookSignature(secret, { timestamp, deliv
 
 After every message it sends for a `patient_contact.requested`, the host tells the engine what came of it with a FHIR `Communication`: `POST /fhir` (a `transaction` or `batch` Bundle, or `PUT /fhir/Communication/<id>`), `basedOn` the `CommunicationRequest` of the webhook, `subject` the patient, the outcome in the `contact-outcome` extension (or `statusReason`). Send one `Communication` per update, or new versions of the same one (`meta.versionId`): the engine keeps the latest, ignores an older version and changes nothing when the same one arrives again. The strongest outcome of an attempt decides it.
 
-| Outcome (`CodeSystem/contact-outcome`) | When the host sends it                                      | What the engine does                                                                                                                             |
-| -------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `delivered`, `read`                    | the channel's receipts                                      | nothing yet: the attempt waits for an answer until its `dueBy`                                                                                   |
-| `replied`                              | the patient answered                                        | the patient is reachable: later attempts that skip when answered (the call, the second WhatsApp) are skipped; never lost to follow-up            |
-| `booked`                               | the patient booked (send the `Appointment` too)             | as `replied`; the `Appointment` holds the expectation and the visit resolves the case, as always (a no-show opens it again)                      |
-| `treated_elsewhere`                    | the patient is followed elsewhere                           | the case resolves as `handled_outside`                                                                                                           |
-| `declined`                             | the patient does not want this follow-up                    | the case resolves as `patient_declined` (an opt-out of every contact is a `Consent`, see the mapping table)                                      |
-| `wrong_number`                         | the message reached someone else                            | the patient's contact data is flagged (no more messages; the inbox shows it), the front-desk call is requested now; send the corrected `Patient` |
-| `no_answer`                            | the message could not be delivered (or a `not-done` status) | the attempt is over: the next attempt of the policy goes ahead on its day                                                                        |
+| Outcome (`CodeSystem/contact-outcome`) | When the host sends it                                                                                          | What the engine does                                                                                                                             |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `delivered`, `read`                    | the channel's receipts                                                                                          | nothing yet: the attempt waits for an answer until its `dueBy`                                                                                   |
+| `replied`                              | the patient answered                                                                                            | the patient is reachable: later attempts that skip when answered (the call, the second WhatsApp) are skipped; never lost to follow-up            |
+| `booked`                               | the patient booked (send the `Appointment` too, naming the attempt: [below](#saying-where-a-booking-came-from)) | as `replied`; the `Appointment` holds the expectation and the visit resolves the case, as always (a no-show opens it again)                      |
+| `treated_elsewhere`                    | the patient is followed elsewhere                                                                               | the case resolves as `handled_outside`                                                                                                           |
+| `declined`                             | the patient does not want this follow-up                                                                        | the case resolves as `patient_declined` (an opt-out of every contact is a `Consent`, see the mapping table)                                      |
+| `wrong_number`                         | the message reached someone else                                                                                | the patient's contact data is flagged (no more messages; the inbox shows it), the front-desk call is requested now; send the corrected `Patient` |
+| `no_answer`                            | the message could not be delivered (or a `not-done` status)                                                     | the attempt is over: the next attempt of the policy goes ahead on its day                                                                        |
 
 A `basedOn` that is not a `CommunicationRequest` of the clinic (another clinic's, or made up) is refused with an `OperationOutcome` (`not-found` at `basedOn`): a transaction is rejected whole, a batch answers that entry `400`. A `Communication` about another patient than the attempt's is refused the same way (`value` at `subject`).
 
@@ -936,6 +936,38 @@ What the engine does after each WhatsApp of `default_v2`, if nobody acts on the 
 | 14              | WhatsApp (answer within 7 d) | the case waits for the visit or resolves | the call goes ahead on day 21                       |
 | 21              | front-desk call (3 d)        | skipped                                  | coordination already has the case; second WhatsApp  |
 | 28              | second WhatsApp (7 d)        | skipped                                  | lost to follow-up on day 35 (`patient_unreachable`) |
+
+### Saying where a booking came from
+
+The clinic's question is "how many patients came back because of the engine?". The host answers it on the `Appointment` it already sends: when the booking was made **from a case** (the team worked it in the inbox, or the host's own screen opened from `case.opened`), name the case `Task`; when the patient booked **after a contact attempt** (the WhatsApp of `patient_contact.requested`, or the front-desk call), name the `CommunicationRequest`. Use the `follow-up-origin-case` extension (preferred) or `supportingInformation`; `basedOn` is also read (strict R4 profiles only allow a `ServiceRequest` there). A booking that names nothing still counts when it fulfills a case's reasons, as an **organic** one.
+
+```json
+{
+  "resourceType": "Appointment",
+  "id": "appt-dm-0412",
+  "extension": [
+    {
+      "url": "https://hipocratesalud.com/fhir/StructureDefinition/follow-up-origin-case",
+      "valueReference": { "reference": "Task/case-0001", "type": "Task" }
+    }
+  ],
+  "status": "booked",
+  "start": "2026-04-06T14:00:00-04:00",
+  "end": "2026-04-06T14:30:00-04:00",
+  "created": "2026-01-20T13:00:00Z",
+  "supportingInformation": [
+    { "reference": "CommunicationRequest/cr-0001", "type": "CommunicationRequest" }
+  ],
+  "participant": [
+    {
+      "actor": { "reference": "Patient/5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e01" },
+      "status": "accepted"
+    }
+  ]
+}
+```
+
+The engine checks the claim before it believes it: the case or attempt must be of the same clinic and the same patient, else the booking is stored as `organic` (`unverified`). It then records the booking on the case (`appointment_booked`, in the case's `Provenance` trail), names it on the resolution, and records the visit that keeps it (`appointment_attended`). `GET /api/inbox/metrics` reports bookings and visits split by origin ([metrics.md](metrics.md)); the full rules are in [fhir.md](fhir.md#attribution-of-bookings).
 
 ## 5. Configuration
 

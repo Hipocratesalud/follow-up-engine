@@ -22,6 +22,7 @@ import {
   describeFindingFlagRepositoryContract,
   describeJobQueueContract,
   describeLlmUsageLogContract,
+  describeMetricsReadModelContract,
   describeOutboxContract,
   describeQualityFindingRepositoryContract,
   describeSuppressionRepositoryContract,
@@ -127,3 +128,14 @@ describeClinicDirectoryContract(NAME, (seed) =>
 describeLlmUsageLogContract(NAME, () =>
   Promise.resolve({ subject: new MemoryLlmUsageLog(new MemoryDatabase()), cleanup: noop }),
 );
+
+describeMetricsReadModelContract(NAME, () => {
+  const db = new MemoryDatabase();
+  return Promise.resolve({
+    subject: {
+      stores: createMemoryStores(db, new SystemClock()),
+      llmUsage: new MemoryLlmUsageLog(db),
+    },
+    cleanup: noop,
+  });
+});

@@ -1,4 +1,5 @@
 import type {
+  AppointmentOriginType,
   CaseEvent,
   CaseResolutionKind,
   CaseStatus,
@@ -122,6 +123,11 @@ export function eventNote(event: CaseEvent): string | undefined {
  * event (its expectation id and rule id, from the payload) to the same label
  * the reason card shows; `personName` an owner id to a display name.
  */
+/** The origin of a booking on the case trail (HIP-141); anything else is organic. */
+function bookingOrigin(value: unknown): AppointmentOriginType {
+  return value === 'follow_up_case' || value === 'patient_contact' ? value : 'organic';
+}
+
 export function timelineLabel(
   t: ApiMessages,
   event: CaseEvent,
@@ -210,5 +216,14 @@ export function timelineLabel(
       return line.lostToFollowUp;
     case 'feedback_recorded':
       return payload['useful'] === true ? line.useful : line.notUseful;
+    case 'appointment_booked': {
+      const origin = line.bookingOrigins[bookingOrigin(payload['originType'])];
+      const date = longDay(t, text(payload['scheduledFor']));
+      return date === ''
+        ? line.appointmentBookedNoDate(origin)
+        : line.appointmentBooked(date, origin);
+    }
+    case 'appointment_attended':
+      return line.appointmentAttended;
   }
 }

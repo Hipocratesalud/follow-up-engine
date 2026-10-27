@@ -2,6 +2,7 @@ import type { ClinicId } from '../domain/ids.ts';
 import type { AuditLog } from './audit-log.ts';
 import type { BackfillProgressStore } from './backfill-progress.ts';
 import type { CaseRepository } from './case-repository.ts';
+import type { MetricsReadModel } from './metrics-read-model.ts';
 import type {
   ClinicalFindingRepository,
   ClinicalReviewRunRepository,
@@ -32,6 +33,8 @@ export interface TransactionalStores {
   readonly clinicalFindings: ClinicalFindingRepository;
   readonly reviewRuns: ClinicalReviewRunRepository;
   readonly findingFlags: FindingFlagRepository;
+  /** Read side of the clinic metrics (HIP-141). */
+  readonly metrics: MetricsReadModel;
 }
 
 /**

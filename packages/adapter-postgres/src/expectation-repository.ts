@@ -16,7 +16,7 @@ import {
 } from '@follow-up-engine/core';
 import { isUniqueViolation, jsonParam, optional, type RepositoryContext } from './sql.ts';
 
-interface ExpectationRow {
+export interface ExpectationRow {
   readonly clinic_id: string;
   readonly id: string;
   readonly patient_id: string;
@@ -46,12 +46,12 @@ interface ExpectationRow {
   readonly updated_at: Date;
 }
 
-const COLUMNS = `clinic_id, id, patient_id, idempotency_key, rule_id, rule_version, layer, source_type,
+export const EXPECTATION_COLUMNS = `clinic_id, id, patient_id, idempotency_key, rule_id, rule_version, layer, source_type,
   source_id, match_key, due_at, status, case_id, closed_reason, closed_at, closed_by_type,
   closed_by_id, origin, protocol_id, protocol_version, reason_code, reason_label, evidence,
   recheck_at, severity, created_at, updated_at`;
 
-function toExpectation(row: ExpectationRow): Expectation {
+export function toExpectation(row: ExpectationRow): Expectation {
   return {
     id: row.id as ExpectationId,
     clinicId: row.clinic_id as ClinicId,
@@ -82,7 +82,7 @@ function toExpectation(row: ExpectationRow): Expectation {
   };
 }
 
-/** Column values in {@link COLUMNS} order. */
+/** Column values in {@link EXPECTATION_COLUMNS} order. */
 function toParams(expectation: Expectation): unknown[] {
   return [
     expectation.clinicId,
@@ -135,9 +135,9 @@ export class PostgresExpectationRepository implements ExpectationRepository {
     const inserted = await this.#ctx
       .db()
       .query<ExpectationRow>(
-        `INSERT INTO ${table} (${COLUMNS}) VALUES (${PLACEHOLDERS})
+        `INSERT INTO ${table} (${EXPECTATION_COLUMNS}) VALUES (${PLACEHOLDERS})
          ON CONFLICT (clinic_id, idempotency_key) DO NOTHING
-         RETURNING ${COLUMNS}`,
+         RETURNING ${EXPECTATION_COLUMNS}`,
         toParams(expectation),
       )
       .catch((error: unknown) => {
@@ -151,7 +151,7 @@ export class PostgresExpectationRepository implements ExpectationRepository {
     const existing = await this.#ctx
       .db()
       .query<ExpectationRow>(
-        `SELECT ${COLUMNS} FROM ${table} WHERE clinic_id = $1 AND idempotency_key = $2`,
+        `SELECT ${EXPECTATION_COLUMNS} FROM ${table} WHERE clinic_id = $1 AND idempotency_key = $2`,
         [clinicId, expectation.idempotencyKey],
       );
     const [row] = existing.rows;
@@ -165,7 +165,7 @@ export class PostgresExpectationRepository implements ExpectationRepository {
     const { rows } = await this.#ctx
       .db()
       .query<ExpectationRow>(
-        `SELECT ${COLUMNS} FROM ${this.#ctx.tables.expectations} WHERE clinic_id = $1 AND id = $2`,
+        `SELECT ${EXPECTATION_COLUMNS} FROM ${this.#ctx.tables.expectations} WHERE clinic_id = $1 AND id = $2`,
         [clinicId, id],
       );
     const [row] = rows;
@@ -177,7 +177,7 @@ export class PostgresExpectationRepository implements ExpectationRepository {
     patientId: PatientId,
   ): Promise<readonly Expectation[]> {
     const { rows } = await this.#ctx.db().query<ExpectationRow>(
-      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.expectations}
+      `SELECT ${EXPECTATION_COLUMNS} FROM ${this.#ctx.tables.expectations}
        WHERE clinic_id = $1 AND patient_id = $2 AND status = 'open'
        ORDER BY due_at, id`,
       [clinicId, patientId],
@@ -191,7 +191,7 @@ export class PostgresExpectationRepository implements ExpectationRepository {
     statuses?: readonly ExpectationStatus[],
   ): Promise<readonly Expectation[]> {
     const { rows } = await this.#ctx.db().query<ExpectationRow>(
-      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.expectations}
+      `SELECT ${EXPECTATION_COLUMNS} FROM ${this.#ctx.tables.expectations}
        WHERE clinic_id = $1 AND patient_id = $2
          AND ($3::text[] IS NULL OR status = ANY($3::text[]))
        ORDER BY due_at, id`,
@@ -202,7 +202,7 @@ export class PostgresExpectationRepository implements ExpectationRepository {
 
   async findDue(clinicId: ClinicId, now: Date, limit: number): Promise<readonly Expectation[]> {
     const { rows } = await this.#ctx.db().query<ExpectationRow>(
-      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.expectations}
+      `SELECT ${EXPECTATION_COLUMNS} FROM ${this.#ctx.tables.expectations}
        WHERE clinic_id = $1 AND status = 'open' AND due_at <= $2
        ORDER BY due_at, id
        LIMIT $3`,
@@ -217,7 +217,7 @@ export class PostgresExpectationRepository implements ExpectationRepository {
     limit: number,
   ): Promise<readonly Expectation[]> {
     const { rows } = await this.#ctx.db().query<ExpectationRow>(
-      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.expectations}
+      `SELECT ${EXPECTATION_COLUMNS} FROM ${this.#ctx.tables.expectations}
        WHERE clinic_id = $1 AND status = 'fulfilled' AND recheck_at <= $2
        ORDER BY recheck_at, id
        LIMIT $3`,
@@ -233,7 +233,7 @@ export class PostgresExpectationRepository implements ExpectationRepository {
     const result = await this.#ctx
       .db()
       .query(
-        `UPDATE ${this.#ctx.tables.expectations} SET (${COLUMNS}) = ROW(${PLACEHOLDERS})
+        `UPDATE ${this.#ctx.tables.expectations} SET (${EXPECTATION_COLUMNS}) = ROW(${PLACEHOLDERS})
          WHERE clinic_id = $1 AND id = $2`,
         toParams(expectation),
       )

@@ -15,7 +15,7 @@ import {
 } from '@follow-up-engine/core';
 import { isUniqueViolation, jsonParam, optional, type RepositoryContext } from './sql.ts';
 
-interface CaseEventRow {
+export interface CaseEventRow {
   readonly clinic_id: string;
   readonly case_id: string;
   readonly type: CaseEventType;
@@ -60,18 +60,22 @@ export class PostgresAuditLog implements AuditLog {
        ORDER BY at, seq`,
       [clinicId, caseId],
     );
-    return rows.map((row) => ({
-      clinicId: row.clinic_id as ClinicId,
-      caseId: row.case_id as CaseId,
-      type: row.type,
-      actor: { type: row.actor_type, ...optional('id', row.actor_id) },
-      payload: row.payload,
-      at: row.at,
-    }));
+    return rows.map(toCaseEvent);
   }
 }
 
-interface FeedbackRow {
+export function toCaseEvent(row: CaseEventRow): CaseEvent {
+  return {
+    clinicId: row.clinic_id as ClinicId,
+    caseId: row.case_id as CaseId,
+    type: row.type,
+    actor: { type: row.actor_type, ...optional('id', row.actor_id) },
+    payload: row.payload,
+    at: row.at,
+  };
+}
+
+export interface FeedbackRow {
   readonly clinic_id: string;
   readonly id: string;
   readonly case_id: string;
@@ -82,9 +86,10 @@ interface FeedbackRow {
   readonly created_at: Date;
 }
 
-const FEEDBACK_COLUMNS = 'clinic_id, id, case_id, useful, reason, comment, author_id, created_at';
+export const FEEDBACK_COLUMNS =
+  'clinic_id, id, case_id, useful, reason, comment, author_id, created_at';
 
-function toFeedback(row: FeedbackRow): CaseFeedback {
+export function toFeedback(row: FeedbackRow): CaseFeedback {
   return {
     id: row.id as FeedbackId,
     clinicId: row.clinic_id as ClinicId,

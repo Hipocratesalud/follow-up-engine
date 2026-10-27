@@ -298,6 +298,14 @@ export const ES = {
     lostToFollowUp: 'Sin respuesta tras todos los escalamientos: perdido en seguimiento',
     useful: 'Marcado como útil',
     notUseful: 'Marcado como no útil',
+    bookingOrigins: {
+      follow_up_case: 'agendada desde este caso',
+      patient_contact: 'agendada tras el pedido de contacto',
+      organic: 'agendada por su cuenta',
+    },
+    appointmentBooked: (date, origin) => `Cita para el ${date} (${origin})`,
+    appointmentBookedNoDate: (origin) => `Cita agendada (${origin})`,
+    appointmentAttended: 'El paciente asistió a la cita',
   },
 
   sources: {
@@ -403,6 +411,7 @@ export const ES = {
     feedbackReasonRequired:
       'Elige un motivo cuando el caso no fue útil: así podemos mejorar la regla.',
     domainValidation: {
+      period: 'El período debe empezar antes de terminar y durar como mucho 800 días.',
       until: 'Solo puedes posponer un caso hasta una fecha futura.',
       status: 'El caso ya no está activo: no admite esta acción.',
       reason: 'Indica el motivo cuando el caso no fue útil.',

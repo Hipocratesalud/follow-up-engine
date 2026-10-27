@@ -295,6 +295,14 @@ export const EN = {
     lostToFollowUp: 'No response after every escalation: lost to follow-up',
     useful: 'Marked as useful',
     notUseful: 'Marked as not useful',
+    bookingOrigins: {
+      follow_up_case: 'booked from this case',
+      patient_contact: 'booked after the contact request',
+      organic: 'booked on its own',
+    },
+    appointmentBooked: (date, origin) => `Appointment for ${date} (${origin})`,
+    appointmentBookedNoDate: (origin) => `Appointment booked (${origin})`,
+    appointmentAttended: 'The patient attended the appointment',
   },
 
   sources: {
@@ -399,6 +407,7 @@ export const EN = {
     feedbackReasonRequired:
       'Pick a reason when the case was not useful: it helps us improve the rule.',
     domainValidation: {
+      period: 'The period must start before it ends and last at most 800 days.',
       until: 'You can only snooze a case until a future date.',
       status: 'The case is no longer active: this action does not apply.',
       reason: 'Give the reason when the case was not useful.',

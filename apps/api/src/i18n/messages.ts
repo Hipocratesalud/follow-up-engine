@@ -1,4 +1,5 @@
 import type {
+  AppointmentOriginType,
   CallOutcome,
   CaseResolutionKind,
   CaseStatus,
@@ -168,6 +169,11 @@ export interface ApiMessages {
     readonly lostToFollowUp: string;
     readonly useful: string;
     readonly notUseful: string;
+    /** HIP-141: where a booking came from, as the case timeline says it. */
+    readonly bookingOrigins: Readonly<Record<AppointmentOriginType, string>>;
+    readonly appointmentBooked: (date: string, origin: string) => string;
+    readonly appointmentBookedNoDate: (origin: string) => string;
+    readonly appointmentAttended: string;
   };
 
   readonly sources: {

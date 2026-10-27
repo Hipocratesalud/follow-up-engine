@@ -4,6 +4,7 @@ import { Shell } from './components/shell.tsx';
 import { CaseDetailPanel } from './features/case/case-detail.tsx';
 import { DemoPage } from './features/demo/demo-page.tsx';
 import { InboxPage } from './features/inbox/inbox-page.tsx';
+import { MetricsPage } from './features/metrics/metrics-page.tsx';
 import { NotFoundPage, PatientPage } from './features/patient/patient-page.tsx';
 import { RecoveryPage, StandaloneCasePage } from './features/recovery/recovery-page.tsx';
 import { FindingDetailPanel } from './features/reviewer/finding-detail.tsx';
@@ -71,6 +72,7 @@ export const routes: RouteObject[] = [
         element: <ReviewPage />,
         children: [{ path: ':findingId', element: <ReviewFindingRoute /> }],
       },
+      { path: 'metrics', element: <MetricsPage /> },
       { path: 'demo', element: <DemoPage /> },
       ...LEGACY_PREFIXES.map(([from]) => ({
         path: `${from.slice(1)}/*`,

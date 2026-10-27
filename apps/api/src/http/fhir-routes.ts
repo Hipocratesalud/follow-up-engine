@@ -9,6 +9,7 @@ import {
   type PatientId,
   patientId as toPatientId,
   type SuppressionId,
+  type TransactionalStores,
 } from '@follow-up-engine/core';
 import {
   type Bundle,
@@ -383,6 +384,20 @@ function pageUrl(c: Context, offset: number, count: number): string {
   return url.toString();
 }
 
+/** A case `Task` with the rule and protocol version behind each reason (HIP-141). */
+async function caseTask(
+  stores: TransactionalStores,
+  clinicId: ClinicId,
+  followUpCase: FollowUpCase,
+): Promise<Task> {
+  const reasons = await Promise.all(
+    followUpCase.reasons.map((reason) => stores.expectations.get(clinicId, reason.expectationId)),
+  );
+  return caseToTask(followUpCase, {
+    reasons: reasons.filter((expectation) => expectation !== undefined),
+  });
+}
+
 async function allCases(
   runtime: EngineRuntime,
   c: Context<AppEnv>,
@@ -644,8 +659,11 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
         : (await Promise.all(patients.map((patient) => allCases(runtime, c, patient)))).flat();
     const statuses = paramValues(c, 'status');
     const codes = paramValues(c, 'code');
-    const tasks = [...cases.map(caseToTask), ...expectations.map(expectationToTask)].filter(
-      (task) => taskMatches(task, statuses, codes),
+    const caseTasks = await Promise.all(
+      cases.map((followUpCase) => caseTask(stores, c.var.clinicId, followUpCase)),
+    );
+    const tasks = [...caseTasks, ...expectations.map(expectationToTask)].filter((task) =>
+      taskMatches(task, statuses, codes),
     );
     const { _offset: offset, _count: count } = query;
     const page = tasks.slice(offset, offset + count);
@@ -686,7 +704,7 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
     const id = c.req.param('id');
     const followUpCase = await stores.cases.get(c.var.clinicId, id as CaseId);
     if (followUpCase !== undefined) {
-      return fhirJson(c, caseToTask(followUpCase));
+      return fhirJson(c, await caseTask(stores, c.var.clinicId, followUpCase));
     }
     const expectation = await stores.expectations.get(c.var.clinicId, id as ExpectationId);
     if (expectation === undefined) {

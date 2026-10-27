@@ -1,3 +1,4 @@
+import type { MetricsCopy } from './metrics-copy.ts';
 import type { Messages } from './types.ts';
 
 /**
@@ -44,6 +45,7 @@ const common: Messages['common'] = {
 };
 
 const nav: Messages['nav'] = {
+  metrics: 'Métricas',
   inbox: 'Bandeja',
   recovery: 'Por recuperar',
   review: 'Revisión clínica',
@@ -890,7 +892,132 @@ const review: Messages['review'] = {
   },
 };
 
+/** The Metrics view (HIP-141). */
+const metrics: MetricsCopy = {
+  title: 'Métricas',
+  subtitle:
+    'Qué pasó con los casos que llegaron a la bandeja en el período: cuántos terminaron en una consulta, qué tan rápido actuó el equipo y cuánto costó la IA.',
+  periodLegend: 'Período',
+  preset: (days) => (days === 365 ? 'Último año' : `Últimos ${String(days)} días`),
+  periodRange: (from, to) => `${from} – ${to}`,
+  loading: 'Cargando métricas',
+  errorTitle: 'No pudimos cargar las métricas',
+  empty: {
+    title: 'No hay casos en este período',
+    body: 'Elige un período más largo, o vuelve cuando lleguen casos a la bandeja.',
+  },
+  tiles: {
+    opened: 'Casos abiertos',
+    openedHint: (live, backfill) => `${String(live)} en vivo · ${String(backfill)} del historial`,
+    booked: 'Terminaron en una cita',
+    bookedHint: (rate) => `${rate} de los casos`,
+    attended: 'Consulta realizada',
+    attendedHint: (rate) => `${rate} de las citas`,
+    firstAction: 'Mediana hasta la primera acción',
+    firstActionHint: (measured, pending) =>
+      `${String(measured)} atendidos · ${String(pending)} en espera`,
+    useful: 'Útiles según el equipo',
+    usefulHint: (count) =>
+      `de ${String(count)} ${count === 1 ? 'caso calificado' : 'casos calificados'}`,
+    costPerCase: 'Costo de IA por caso',
+    costPerCaseHint: (total) => `${total} en el período`,
+    lost: 'Perdidos en seguimiento',
+    lostHint: (dismissed) => `${String(dismissed)} descartados por el equipo`,
+    recovered: 'Pacientes recuperados del historial',
+    recoveredHint: (cases) =>
+      `${String(cases)} ${cases === 1 ? 'caso resuelto' : 'casos resueltos'}`,
+    none: '—',
+  },
+  funnel: {
+    title: 'Del caso a la consulta',
+    description:
+      'Casos abiertos en el período, los que consiguieron una cita y aquellos cuya consulta se realizó. Las citas atribuidas salieron de trabajar el caso o de un pedido de contacto; las orgánicas, no.',
+    opened: 'Abiertos',
+    booked: 'Con cita',
+    attended: 'Con consulta',
+    resolvedByBooking: 'Resueltos por la cita',
+    byOrigin: 'Las citas, por origen',
+    origin: {
+      followUpCase: 'Desde el caso',
+      patientContact: 'Tras un pedido de contacto',
+      organic: 'Orgánica',
+    },
+    summary: (stage, total, parts) => `${stage}: ${String(total)}${parts ? ` (${parts})` : ''}`,
+  },
+  timing: {
+    title: 'Tiempo hasta la primera acción',
+    description:
+      'Desde que el caso llega a la bandeja hasta lo primero que hizo el equipo o el primer pedido de contacto.',
+    median: 'Mediana',
+    p75: 'Percentil 75',
+    p90: 'Percentil 90',
+    none: 'Todavía no se actuó sobre ningún caso del período.',
+    summary: (median, p75, p90) => `Mediana ${median}, percentil 75 ${p75}, percentil 90 ${p90}`,
+  },
+  dismissals: {
+    title: 'Descartes por motivo',
+    description: (total) =>
+      `${String(total)} ${total === 1 ? 'caso descartado' : 'casos descartados'} por el equipo. Un motivo que se repite señala la regla a ajustar.`,
+    none: 'No se descartó ningún caso del período.',
+    reasons: {
+      handled_elsewhere: 'Atendido en otro lugar',
+      already_done: 'Ya se hizo',
+      not_applicable_to_patient: 'No aplica a este paciente',
+      wrong_diagnosis: 'Diagnóstico equivocado',
+      wrong_interval: 'Plazo equivocado',
+      other: 'Otro',
+    },
+  },
+  extraction: {
+    title: 'Lo que corrigieron los médicos',
+    description:
+      'Condiciones leídas de las notas que un clínico confirmó o rechazó en el período, y correcciones a ítems del plan.',
+    conditions: 'Condiciones leídas de notas',
+    confirmed: 'Confirmadas',
+    rejected: 'Rechazadas',
+    pending: 'Por revisar',
+    legend: (label, count) => `${label} ${String(count)}`,
+    corrections: (rate) => `${rate} rechazadas`,
+    planItems: 'Ítems del plan',
+    planItemsNone: 'No se revisó ningún ítem del plan en este período.',
+    planItemsCounts: (confirmed, corrected, rejected) =>
+      `${String(confirmed)} confirmados · ${String(corrected)} corregidos · ${String(rejected)} rechazados`,
+  },
+  ai: {
+    title: 'Costo de IA',
+    description:
+      'Cada llamada a un modelo del consultorio en el período, por tarea. Leer una nota se carga a los casos que abrió su plan.',
+    tasks: {
+      note_extraction: 'Lectura de notas',
+      clinical_review: 'Revisión clínica',
+    },
+    calls: (count) => `${String(count)} ${count === 1 ? 'llamada' : 'llamadas'}`,
+    tokens: (count) => `${count} tokens`,
+    perReviewRun: (cost, runs) =>
+      `${cost} por revisión (${String(runs)} ${runs === 1 ? 'revisión' : 'revisiones'})`,
+    attributed: (cost, cases) =>
+      `${cost} de lectura de notas detrás de ${String(cases)} ${cases === 1 ? 'caso' : 'casos'}`,
+    none: 'Ninguna llamada a un modelo en este período.',
+  },
+  ruleVersion: {
+    rule: 'Regla',
+    protocol: 'Protocolo',
+    version: (version) => `versión ${version}`,
+  },
+  hours: (hours) => {
+    // Intl, not toFixed: arithmetic and formatting only (the catalog test passes a boxed sample).
+    const value = hours;
+    const one = new Intl.NumberFormat('es', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+    if (value < 1) return `${String(Math.round(value * 60))} min`;
+    return value < 48 ? `${one.format(value)} h` : `${one.format(value / 24)} d`;
+  },
+};
+
 export const es: Messages = {
+  metrics,
   common,
   nav,
   errors,

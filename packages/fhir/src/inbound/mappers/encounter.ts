@@ -1,10 +1,13 @@
 import {
+  type AppointmentOrigin,
   type AppointmentWithdrawalReason,
+  caseId,
+  contactRequestId,
   practitionerId,
   type PractitionerId,
   type RecordWithdrawalReason,
 } from '@follow-up-engine/core';
-import { TERMINOLOGY } from '../../terminology.ts';
+import { ENGINE_EXTENSIONS, TERMINOLOGY } from '../../terminology.ts';
 import { firstDate } from '../../support/datetime.ts';
 import {
   hasCode,
@@ -126,8 +129,70 @@ const WITHDRAWN_APPOINTMENT_STATUSES: Readonly<Record<string, AppointmentWithdra
 };
 
 /**
- * Appointment booked → `appointment.booked`; cancelled, no-show or entered
- * in error → `appointment.cancelled` (with its reason).
+ * What the host says the booking answers (HIP-141 attribution): the case
+ * `Task` and/or the `CommunicationRequest`, from the `follow-up-origin-case`
+ * extension, `basedOn` or `supportingInformation`. Other references (a
+ * `basedOn` ServiceRequest) are ordinary R4 and ignored here. The engine
+ * verifies the claim against its own cases and attempts before storing it.
+ */
+function originClaim(
+  appointment: ParsedResourceOf<'Appointment'>,
+  ctx: EntryContext,
+): AppointmentOrigin | undefined {
+  const candidates: { readonly reference: string; readonly path: string }[] = [];
+  (appointment.extension ?? []).forEach((extension, index) => {
+    if (extension.url !== ENGINE_EXTENSIONS.followUpOriginCase) {
+      return;
+    }
+    const literal = extension.valueReference?.reference;
+    const path = `extension[${String(index)}].valueReference`;
+    if (literal === undefined) {
+      ctx.report('warning', 'required', 'the origin-case extension needs a valueReference', path);
+      return;
+    }
+    candidates.push({ reference: literal, path });
+  });
+  for (const field of ['basedOn', 'supportingInformation'] as const) {
+    (appointment[field] ?? []).forEach((reference, index) => {
+      if (reference.reference !== undefined) {
+        candidates.push({ reference: reference.reference, path: `${field}[${String(index)}]` });
+      }
+    });
+  }
+  let claimedCase: string | undefined;
+  let claimedRequest: string | undefined;
+  for (const candidate of candidates) {
+    const target = ctx.bundle.resolve(candidate.reference);
+    const fromExtension = candidate.path.startsWith('extension');
+    if (target?.resourceType === 'Task') {
+      claimedCase ??= target.id;
+    } else if (target?.resourceType === 'CommunicationRequest') {
+      claimedRequest ??= target.id;
+    } else if (fromExtension) {
+      ctx.report(
+        'warning',
+        'value',
+        `the origin-case extension must reference a Task or a CommunicationRequest, got "${candidate.reference}"`,
+        candidate.path,
+      );
+    }
+  }
+  if (claimedRequest !== undefined) {
+    return {
+      type: 'patient_contact',
+      contactRequestId: contactRequestId(claimedRequest),
+      ...(claimedCase === undefined ? {} : { caseId: caseId(claimedCase) }),
+    };
+  }
+  return claimedCase === undefined
+    ? undefined
+    : { type: 'follow_up_case', caseId: caseId(claimedCase) };
+}
+
+/**
+ * Appointment booked → `appointment.booked` (with the origin the host
+ * claims); cancelled, no-show or entered in error → `appointment.cancelled`
+ * (with its reason).
  */
 export function mapAppointment(
   appointment: ParsedResourceOf<'Appointment'>,
@@ -187,6 +252,7 @@ export function mapAppointment(
       ],
     };
   }
+  const origin = originClaim(appointment, ctx);
   const specialty = specialtyOf(
     ...(appointment.specialty ?? []),
     ...(appointment.serviceType ?? []),
@@ -204,6 +270,7 @@ export function mapAppointment(
         scheduledFor,
         ...(practitioner === undefined ? {} : { practitionerId: practitioner }),
         ...(specialty === undefined ? {} : { specialty }),
+        ...(origin === undefined ? {} : { origin }),
       },
     ],
   };
