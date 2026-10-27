@@ -26,20 +26,39 @@ export const TreatmentCriteriaSchema = z.strictObject({
   /** More refills than this means a chronic prescription (`numberOfRepeatsAllowed`). */
   maxRefills: z.number().int().nonnegative(),
   /**
-   * Chronic drug classes, never a short treatment: medication code prefixes
-   * (ATC `C10` statins, `A10` antidiabetics, ...) and case- and
-   * accent-insensitive substrings of the medication text.
+   * Chronic drug classes, never a short treatment, whatever the dispensed
+   * supply: ATC code prefixes (`B01` antithrombotics, `C10` lipid modifying
+   * agents, `R03` drugs for obstructive airway diseases, ...) and, for names
+   * the ATC table does not know, case- and accent-insensitive substrings of
+   * the medication text. Uncoded prescriptions are classified by name (the
+   * engine's Spanish/INN to ATC table).
    */
   chronicMedications: z.strictObject({
     codePrefixes: z.array(z.string().min(1)).optional(),
     text: z.array(z.string().min(1)).optional(),
   }),
   /**
+   * Clearly acute drug classes (`J01` antibacterials, `M01A` NSAIDs, ...): a
+   * course within the trigger's duration is a short treatment.
+   */
+  acuteMedications: z.strictObject({ codePrefixes: z.array(z.string().min(1)).min(1) }).optional(),
+  /**
+   * A drug of neither class is a short treatment only when its duration is
+   * explicitly short: at most this many days (a 30-day supply of an unknown
+   * drug is usually a monthly refill). No limit when absent.
+   */
+  unclassifiedMaxDays: z.number().int().positive().optional(),
+  /**
    * Phrases of the dosage or medication text that mean "only when needed"
-   * (`PRN`, `SOS`, `si dolor`). A FHIR `asNeeded` dosage counts too. Such a
-   * drug never expects a control by itself.
+   * (`PRN`, `SOS`, `por razones necesarias`). A FHIR `asNeeded` dosage counts
+   * too. Such a drug never expects a control by itself.
    */
   asNeededPhrases: PhrasesSchema,
+  /**
+   * "Only when needed" written as a condition: one of `leads` followed by
+   * one of `symptoms` ("si hay dolor", "en caso de crisis").
+   */
+  asNeededConditions: z.strictObject({ leads: PhrasesSchema, symptoms: PhrasesSchema }).optional(),
   /**
    * Phrases of the consultation's note that make the control conditional
    * ("reconsultar si persiste"): the patient comes back only if needed, so
@@ -149,6 +168,15 @@ export const RuleSchema = z.strictObject({
           controlWithinDays: z.number().int().nonnegative(),
         })
         .optional(),
+      /**
+       * A visit and its own planned control are an episode, not a pattern:
+       * the next visit of the specialty that comes as the control a visit's
+       * plan asked for (by the planned date plus the larger of `withinDays`
+       * and the planned interval) leaves the pattern when it plans no
+       * further visit. Three or more visits chained by their plans
+       * (repeated planned controls) are a routine pattern and stay.
+       */
+      plannedControl: z.strictObject({ withinDays: z.number().int().nonnegative() }).optional(),
     })
     .optional(),
   /** Short-treatment criteria of a `medication.prescribed` rule. */

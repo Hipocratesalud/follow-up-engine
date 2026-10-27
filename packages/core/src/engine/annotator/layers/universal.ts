@@ -4,7 +4,8 @@ import type { PatientCondition } from '../../../domain/condition.ts';
 import type { Expectation } from '../../../domain/expectation.ts';
 import type { Catalog, ExpectationDefinition } from '../../catalog.ts';
 import { matchesFilter } from '../../matching/filter.ts';
-import { matchKeyFor, sameCoding } from '../../matching/match-key.ts';
+import { matchKeyFor } from '../../matching/match-key.ts';
+import { resultValueAs } from '../../terminology/loinc.ts';
 import { codeOfEvent } from '../../matching/correlation.ts';
 import { addDays } from '../../support/time.ts';
 import { encounterOf, eventInstant, type PatientTimeline, refKey } from '../../timeline.ts';
@@ -94,8 +95,7 @@ function atKnownTarget(
   conditions: readonly PatientCondition[],
   batch: readonly ClinicalEvent[],
 ): boolean {
-  const value = event.value?.value;
-  if (targets === undefined || value === undefined) {
+  if (targets === undefined || event.value === undefined) {
     return false;
   }
   const batchResults = new Set(
@@ -109,12 +109,16 @@ function atKnownTarget(
         batchResults.has(refKey(condition.source))
       ),
   );
-  return targets.some(
-    (target) =>
-      sameCoding(target.code, event.code) &&
+  // The value read as the target's code and unit: an IFCC HbA1c in mmol/mol
+  // is compared with the % target after conversion.
+  return targets.some((target) => {
+    const value = resultValueAs(target.code, event);
+    return (
+      value !== undefined &&
       known.some((condition) => icd10Matches(condition.code, target.conditionCodes)) &&
-      matchesFilter({ value: target.atTarget }, { value }),
-  );
+      matchesFilter({ value: target.atTarget }, { value })
+    );
+  });
 }
 
 /** Whether `event` triggers `rule`, its clinical criteria included. */

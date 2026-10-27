@@ -1,5 +1,11 @@
 import type { CadenceEpisode, Rule } from '../../../config/rule.ts';
-import type { ClinicalEvent, EncounterFinishedEvent } from '../../../domain/clinical-event.ts';
+import type {
+  ClinicalEvent,
+  EncounterFinishedEvent,
+  NoteReceivedEvent,
+  PlanExtractedEvent,
+  PlanItem,
+} from '../../../domain/clinical-event.ts';
 import type { Catalog } from '../../catalog.ts';
 import { matchKeyFor } from '../../matching/match-key.ts';
 import { addDays } from '../../support/time.ts';
@@ -49,6 +55,32 @@ export function usualIntervalDays(
 }
 
 /**
+ * The consultation a plan belongs to: its own `encounterId`, else the visit
+ * of the note's specialty on the same day (a note not linked to its
+ * consultation).
+ */
+function planEncounterId(
+  plan: PlanExtractedEvent,
+  notes: readonly NoteReceivedEvent[],
+  timeline: PatientTimeline,
+): string | undefined {
+  if (plan.encounterId !== undefined) {
+    return plan.encounterId;
+  }
+  const note = notes.find((candidate) => candidate.documentId === plan.sourceDocumentId);
+  const at = (note?.authoredAt ?? plan.occurredAt).getTime();
+  const visit = timeline
+    .encounters()
+    .filter(
+      (encounter) =>
+        (note?.specialty === undefined || sameSpecialty(encounter.specialty, note.specialty)) &&
+        Math.abs(encounter.occurredAt.getTime() - at) <= UNLINKED_NOTE_WINDOW_MS,
+    )
+    .at(-1);
+  return visit === undefined ? undefined : idOf(visit);
+}
+
+/**
  * Encounters whose note discharged the patient ("se da de alta"). A note not
  * linked to its consultation counts for the visit of its specialty on the
  * same day.
@@ -57,28 +89,76 @@ export function dischargedEncounters(timeline: PatientTimeline): Set<string> {
   const discharged = new Set<string>();
   const notes = timeline.ofType('note.received');
   for (const plan of timeline.ofType('plan.extracted')) {
-    if (plan.discharged !== true) {
-      continue;
-    }
-    if (plan.encounterId !== undefined) {
-      discharged.add(plan.encounterId);
-      continue;
-    }
-    const note = notes.find((candidate) => candidate.documentId === plan.sourceDocumentId);
-    const at = (note?.authoredAt ?? plan.occurredAt).getTime();
-    const visit = timeline
-      .encounters()
-      .filter(
-        (encounter) =>
-          (note?.specialty === undefined || sameSpecialty(encounter.specialty, note.specialty)) &&
-          Math.abs(encounter.occurredAt.getTime() - at) <= UNLINKED_NOTE_WINDOW_MS,
-      )
-      .at(-1);
-    if (visit !== undefined) {
-      discharged.add(idOf(visit));
+    const encounterId =
+      plan.discharged === true ? planEncounterId(plan, notes, timeline) : undefined;
+    if (encounterId !== undefined) {
+      discharged.add(encounterId);
     }
   }
   return discharged;
+}
+
+/** Kinds of plan item that ask the patient to come back. */
+const PLANNED_VISIT_KINDS: ReadonlySet<PlanItem['kind']> = new Set(['follow_up_visit', 'session']);
+
+/** For each consultation whose plan asked for a control visit, the latest date it was asked by. */
+function plannedVisitDueByEncounter(timeline: PatientTimeline): Map<string, Date> {
+  const due = new Map<string, Date>();
+  const notes = timeline.ofType('note.received');
+  for (const plan of timeline.ofType('plan.extracted')) {
+    const visits = plan.items.filter((item) => PLANNED_VISIT_KINDS.has(item.kind));
+    const encounterId = visits.length === 0 ? undefined : planEncounterId(plan, notes, timeline);
+    if (encounterId === undefined) {
+      continue;
+    }
+    for (const item of visits) {
+      const current = due.get(encounterId);
+      if (current === undefined || item.dueAt.getTime() > current.getTime()) {
+        due.set(encounterId, item.dueAt);
+      }
+    }
+  }
+  return due;
+}
+
+/**
+ * Planned controls that are not independent visits: the next visit of the
+ * specialty that came as the control a visit's plan asked for, when it ends
+ * the chain (it plans no further visit). So a visit and its own control never
+ * make a pattern by themselves (a sprain and its control, "control en 14
+ * días" and the control). Three or more visits chained by their plans are a
+ * routine of planned controls and all stay.
+ */
+function closingControlVisits(
+  visits: readonly EncounterFinishedEvent[],
+  settings: NonNullable<CadenceSettings['plannedControl']>,
+  timeline: PatientTimeline,
+): string[] {
+  const planned = plannedVisitDueByEncounter(timeline);
+  const linked = visits.map((visit, index) => {
+    const next = visits[index + 1];
+    const due = planned.get(idOf(visit));
+    if (next === undefined || due === undefined) {
+      return false;
+    }
+    const plannedInterval = Math.max(0, (due.getTime() - visit.occurredAt.getTime()) / MS_PER_DAY);
+    const deadline = addDays(due, Math.max(settings.withinDays, plannedInterval));
+    return next.occurredAt.getTime() <= deadline.getTime();
+  });
+  const closed: string[] = [];
+  let start = 0;
+  while (start < visits.length) {
+    let end = start;
+    while (linked[end] === true) {
+      end += 1;
+    }
+    const control = visits[end];
+    if (end - start === 1 && control !== undefined && !planned.has(idOf(control))) {
+      closed.push(idOf(control));
+    }
+    start = end + 1;
+  }
+  return closed;
 }
 
 function diagnosesByEncounter(timeline: PatientTimeline): Map<string, ClinicalEvent[]> {
@@ -161,7 +241,7 @@ function acuteEpisodeVisits(
  * The visits of one specialty, up to `current`, that make the patient's
  * pattern: closed episodes left out (everything up to a discharge, a
  * pregnancy once its postpartum visit came, an acute episode and its
- * control).
+ * control, the control a single visit's plan asked for).
  */
 export function patternVisits(
   visits: readonly EncounterFinishedEvent[],
@@ -180,6 +260,9 @@ export function patternVisits(
     ...(cadence.acuteEpisode === undefined
       ? []
       : acuteEpisodeVisits(visits, cadence.acuteEpisode, timeline, catalog)),
+    ...(cadence.plannedControl === undefined
+      ? []
+      : closingControlVisits(visits, cadence.plannedControl, timeline)),
   ]);
   return visits.filter((visit) => !closed.has(idOf(visit)));
 }

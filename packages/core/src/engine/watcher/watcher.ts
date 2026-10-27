@@ -3,6 +3,7 @@ import { BACKFILL_UNSCHEDULED_RELEASE_AT } from '../../domain/backfill.ts';
 import type { Origin } from '../../domain/common.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import { type CaseId, caseId, type ClinicId, type PatientId } from '../../domain/ids.ts';
+import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { TransactionalStores, UnitOfWork } from '../../ports/unit-of-work.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
@@ -11,7 +12,13 @@ import { priorityOfCase, refreshCasePriorities } from '../case-manager/case-prio
 import type { Catalog } from '../catalog.ts';
 import type { EngineSettings } from '../settings.ts';
 import { PatientTimeline } from '../timeline.ts';
-import { firstActionAt, releaseCase, releaseDueBackfillCases } from '../backfill/release.ts';
+import {
+  BACKFILL_RELEASE_DEFAULTS,
+  firstActionAt,
+  releaseCase,
+  releaseDueBackfillCases,
+} from '../backfill/release.ts';
+import { daysBetween } from '../support/time.ts';
 import { caseExpectations } from '../escalation/schedule.ts';
 import { caseOwner } from './owner.ts';
 
@@ -20,6 +27,8 @@ export interface WatcherDeps {
   readonly ids: IdGenerator;
   readonly settings: EngineSettings;
   readonly loadCatalog: (clinicId: ClinicId) => Promise<Catalog>;
+  /** The clinic's backfill notify window (`backfillNotifyMaxAgeDays`); PRD default when absent. */
+  readonly clinics?: ClinicDirectory;
 }
 
 export interface WatcherReport {
@@ -57,6 +66,7 @@ export async function runWatcher(
   now: Date,
 ): Promise<WatcherReport> {
   const catalog = await deps.loadCatalog(clinicId);
+  const notifyMaxAgeDays = await backfillNotifyMaxAgeDays(deps, clinicId);
   const casesReleased = await releaseDueBackfillCases(deps, clinicId, now, catalog);
   const opened: CaseId[] = [];
   const merged = new Set<CaseId>();
@@ -64,7 +74,7 @@ export async function runWatcher(
   for (;;) {
     const page = await deps.unitOfWork.withTransaction(clinicId, async (stores) => {
       const due = await stores.expectations.findDue(clinicId, now, deps.settings.sweepBatchSize);
-      const sweep = new Sweep(stores, deps, catalog, clinicId, now, 'live');
+      const sweep = new Sweep(stores, deps, catalog, clinicId, now, 'live', notifyMaxAgeDays);
       for (const expectation of due) {
         const outcome = await sweep.expire(expectation);
         if (outcome.opened) {
@@ -117,7 +127,15 @@ export async function expirePatient(
   const due = (await stores.expectations.findOpenByPatient(clinicId, input.patientId)).filter(
     (expectation) => expectation.dueAt.getTime() <= now.getTime(),
   );
-  const sweep = new Sweep(stores, input.deps, input.catalog, clinicId, now, origin);
+  const sweep = new Sweep(
+    stores,
+    input.deps,
+    input.catalog,
+    clinicId,
+    now,
+    origin,
+    await backfillNotifyMaxAgeDays(input.deps, clinicId),
+  );
   const opened: CaseId[] = [];
   for (const expectation of due) {
     const outcome = await sweep.expire(expectation);
@@ -128,7 +146,32 @@ export async function expirePatient(
   return { opened, expired: due.length };
 }
 
-/** A sweep opens `live` cases (the watcher) or held `backfill` cases (the backfill replay). */
+async function backfillNotifyMaxAgeDays(deps: WatcherDeps, clinicId: ClinicId): Promise<number> {
+  const clinic = await deps.clinics?.get(clinicId);
+  return (
+    clinic?.settings.backfillNotifyMaxAgeDays ?? BACKFILL_RELEASE_DEFAULTS.backfillNotifyMaxAgeDays
+  );
+}
+
+/**
+ * Old history sent through live ingestion: created already overdue and
+ * routed like the backfill by the annotator (`origin: 'backfill'`). A
+ * backfill replay never leaves such an expectation open, it expires it.
+ */
+function isLateHistory(expectation: Expectation): boolean {
+  return (
+    expectation.origin === 'backfill' &&
+    expectation.createdAt.getTime() >= expectation.dueAt.getTime()
+  );
+}
+
+/**
+ * A sweep opens `live` cases (the watcher) or held `backfill` cases (the
+ * backfill replay). Old history the watcher meets opens a `backfill` case:
+ * visible now, never contacting the patient by itself, or held among the
+ * patients to recover when it was overdue by more than the clinic's
+ * notify window when it arrived.
+ */
 class Sweep {
   readonly #stores: TransactionalStores;
   readonly #deps: WatcherDeps;
@@ -137,6 +180,7 @@ class Sweep {
   readonly #now: Date;
   readonly #writer: CaseWriter;
   readonly #origin: Origin;
+  readonly #notifyMaxAgeDays: number;
   readonly #patients = new Map<PatientId, PatientContext>();
 
   constructor(
@@ -146,8 +190,10 @@ class Sweep {
     clinicId: ClinicId,
     now: Date,
     origin: Origin,
+    notifyMaxAgeDays: number,
   ) {
     this.#origin = origin;
+    this.#notifyMaxAgeDays = notifyMaxAgeDays;
     this.#stores = stores;
     this.#deps = deps;
     this.#catalog = catalog;
@@ -188,7 +234,12 @@ class Sweep {
     patient: PatientContext,
     actor: CaseEventActor,
   ): Promise<FollowUpCase> {
-    const held = this.#origin === 'backfill';
+    const lateHistory = this.#origin === 'live' && isLateHistory(expectation);
+    const origin: Origin = lateHistory ? 'backfill' : this.#origin;
+    const held =
+      this.#origin === 'backfill' ||
+      (lateHistory &&
+        daysBetween(expectation.dueAt, expectation.createdAt) > this.#notifyMaxAgeDays);
     const followUpCase: FollowUpCase = {
       id: caseId(this.#deps.ids.next('case')),
       clinicId: this.#clinicId,
@@ -202,8 +253,11 @@ class Sweep {
       // A held backfill case neither escalates nor shows until its release day.
       ...(held
         ? { releaseAt: BACKFILL_UNSCHEDULED_RELEASE_AT }
-        : { nextActionAt: firstActionAt(this.#catalog, expectation, this.#now) }),
-      origin: this.#origin,
+        : {
+            ...(lateHistory ? { releaseAt: this.#now } : {}),
+            nextActionAt: firstActionAt(this.#catalog, expectation, this.#now),
+          }),
+      origin,
       createdAt: this.#now,
       updatedAt: this.#now,
     };

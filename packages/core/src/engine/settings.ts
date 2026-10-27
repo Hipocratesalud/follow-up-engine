@@ -16,6 +16,15 @@ export interface EngineSettings {
   readonly sweepBatchSize: number;
   /** Patients per page of the initial backfill (each patient is its own transaction). */
   readonly backfillPageSize: number;
+  /**
+   * Old history sent through live ingestion: a batch whose newest clinical
+   * date is more than this many days before it arrived is history, not a
+   * new fact. What it leaves already overdue is routed like the backfill:
+   * never contacts the patient automatically, and is held among the patients
+   * to recover when overdue by more than the clinic's
+   * `backfillNotifyMaxAgeDays`.
+   */
+  readonly lateHistoryDays: number;
 }
 
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
@@ -27,4 +36,5 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   coordinatorOwner: 'coordinator',
   sweepBatchSize: 200,
   backfillPageSize: 50,
+  lateHistoryDays: 90,
 };
