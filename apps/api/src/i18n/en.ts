@@ -375,6 +375,7 @@ export const EN = {
     '36643-5': 'Chest X-ray',
     'fundus-exam': 'Eye fundus exam',
   },
+  priorities: { urgent: 'Urgent', high: 'High', medium: 'Medium', low: 'Low' },
   icd10: {
     E10: 'Type 1 diabetes mellitus',
     E11: 'Type 2 diabetes mellitus',

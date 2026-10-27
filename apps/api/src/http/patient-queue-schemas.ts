@@ -8,6 +8,7 @@ import {
   PatientContactSchema,
   PatientExpectationViewSchema,
   PatientSummarySchema,
+  PriorityBandSchema,
   PriorityLabelSchema,
   ProtocolRefViewSchema,
 } from './schemas.ts';
@@ -24,6 +25,7 @@ export const PatientQueueItemSchema = z
   .object({
     patient: PatientSummarySchema,
     priority: z.number().int().meta({ description: "The patient's most urgent case" }),
+    priorityBand: PriorityBandSchema,
     priorityLabel: PriorityLabelSchema,
     status: CaseStatusSchema.meta({
       description:

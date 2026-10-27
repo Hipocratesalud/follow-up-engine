@@ -40,7 +40,6 @@ const SAME_IN_BOTH = new Set([
   'nav.demo',
   'time.seconds',
   'time.milliseconds',
-  'labels.priorities.media',
   'labels.conditionStatuses.probable',
   'labels.sexShort.female',
   'labels.sexShort.male',

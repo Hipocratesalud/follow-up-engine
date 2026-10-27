@@ -106,7 +106,7 @@ const labels: Messages['labels'] = {
     dismissed: 'Descartado',
     lost_to_follow_up: 'Perdido en seguimiento',
   },
-  priorities: { urgente: 'Urgente', alta: 'Alta', media: 'Media', baja: 'Baja' },
+  priorities: { urgent: 'Urgente', high: 'Alta', medium: 'Media', low: 'Baja' },
   priorityTitle: (priority) => `Prioridad ${String(priority)} de 100`,
   priorityPrefix: 'Prioridad ',
   escalationNone: (total) => `Escalamiento: ningún paso de ${String(total)}`,

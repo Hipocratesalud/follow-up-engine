@@ -224,6 +224,8 @@ export interface ApiMessages {
     readonly types: Readonly<Record<string, string>>;
     readonly onDate: (type: string, date: string) => string;
   };
+  /** Name of each case priority band (`CaseView.priorityBand`). */
+  readonly priorities: Readonly<Record<'low' | 'medium' | 'high' | 'urgent', string>>;
   /** Display names of the LOINC (and engine procedure) codes the inbox shows. */
   readonly loinc: Readonly<Record<string, string>>;
   /** Display names of ICD-10 codes and categories. */

@@ -18,7 +18,7 @@ import type {
   CaseStatus,
   EscalationView,
   Layer,
-  PriorityLabel,
+  PriorityBand,
   ProtocolRef,
 } from '../api/contract.ts';
 import { cx } from '../lib/cx.ts';
@@ -102,25 +102,25 @@ export function StatusBadge({ status }: { readonly status: CaseStatus }): ReactN
   );
 }
 
-const PRIORITY_TONES: Record<PriorityLabel, Tone> = {
-  urgente: 'danger',
-  alta: 'warning',
-  media: 'info',
-  baja: 'neutral',
+const PRIORITY_TONES: Record<PriorityBand, Tone> = {
+  urgent: 'danger',
+  high: 'warning',
+  medium: 'info',
+  low: 'neutral',
 };
 
 export function PriorityBadge({
-  label,
+  band,
   priority,
 }: {
-  readonly label: PriorityLabel;
+  readonly band: PriorityBand;
   readonly priority: number;
 }): ReactNode {
   const t = useT();
   return (
-    <Badge tone={PRIORITY_TONES[label]} title={t.labels.priorityTitle(priority)}>
+    <Badge tone={PRIORITY_TONES[band]} title={t.labels.priorityTitle(priority)}>
       <span className="sr-only">{t.labels.priorityPrefix}</span>
-      {t.labels.priorities[label]}
+      {t.labels.priorities[band]}
     </Badge>
   );
 }

@@ -109,6 +109,7 @@ export function mockPatientQueueItem(views: readonly CaseView[]): PatientQueueIt
   return {
     patient: top.patient,
     priority: top.priority,
+    priorityBand: top.priorityBand,
     priorityLabel: top.priorityLabel,
     status:
       summarized

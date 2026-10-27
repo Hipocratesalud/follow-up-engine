@@ -8,7 +8,7 @@ import type {
   PatientContact,
   PatientExpectationView,
   PatientSummary,
-  PriorityLabel,
+  PriorityBand,
   ProtocolRef,
 } from './contract.ts';
 
@@ -27,7 +27,8 @@ export interface PlanItemReviewResponse {
 export interface PatientQueueItem {
   patient: PatientSummary;
   priority: number;
-  priorityLabel: PriorityLabel;
+  priorityBand: PriorityBand;
+  priorityLabel: string;
   status: CaseStatus;
   caseCount: number;
   reasonCount: number;

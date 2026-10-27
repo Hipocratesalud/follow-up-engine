@@ -101,12 +101,12 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * MS_PER_DAY);
 }
 
-/** Priority bands (codes of the contract, not labels: the inbox names them). */
-const PRIORITY_LABELS = {
-  stat: 'urgente',
-  asap: 'alta',
-  urgent: 'media',
-  routine: 'baja',
+/** Priority band of each task priority: a stable code, named per locale by `t.priorities`. */
+const PRIORITY_BANDS = {
+  stat: 'urgent',
+  asap: 'high',
+  urgent: 'medium',
+  routine: 'low',
 } as const;
 
 /** Owner ids the engine uses when no practitioner is known (`EngineSettings`). */
@@ -463,7 +463,8 @@ export class InboxPresenter {
       },
       status: followUpCase.status,
       priority: followUpCase.priority,
-      priorityLabel: PRIORITY_LABELS[taskPriority(followUpCase.priority)],
+      priorityBand: PRIORITY_BANDS[taskPriority(followUpCase.priority)],
+      priorityLabel: this.t.priorities[PRIORITY_BANDS[taskPriority(followUpCase.priority)]],
       escalationStep: followUpCase.escalationStep,
       escalation: this.escalationView(followUpCase),
       assignee,

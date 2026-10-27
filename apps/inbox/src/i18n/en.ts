@@ -112,7 +112,7 @@ const labels = {
     dismissed: 'Dismissed',
     lost_to_follow_up: 'Lost to follow-up',
   },
-  priorities: { urgente: 'Urgent', alta: 'High', media: 'Medium', baja: 'Low' },
+  priorities: { urgent: 'Urgent', high: 'High', medium: 'Medium', low: 'Low' },
   priorityTitle: (priority: number): string => `Priority ${String(priority)} of 100`,
   priorityPrefix: 'Priority ',
   escalationNone: (total: number): string => `Escalation: no step of ${String(total)}`,

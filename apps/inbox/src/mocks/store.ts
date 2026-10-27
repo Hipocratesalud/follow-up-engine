@@ -40,7 +40,7 @@ import {
   type PatientDetail,
   type PatientExpectationView,
   type PatientSummary,
-  type PriorityLabel,
+  type PriorityBand,
   type ProtocolRef,
   type RecoveryPage,
   type Sex,
@@ -343,12 +343,20 @@ function pad(value: number): string {
   return String(value).padStart(3, '0');
 }
 
-function priorityLabel(priority: number): PriorityLabel {
-  if (priority >= 75) return 'urgente';
-  if (priority >= 55) return 'alta';
-  if (priority >= 35) return 'media';
-  return 'baja';
+function priorityBand(priority: number): PriorityBand {
+  if (priority >= 75) return 'urgent';
+  if (priority >= 55) return 'high';
+  if (priority >= 35) return 'medium';
+  return 'low';
 }
+
+/** What the API names each band without an `Accept-Language` (English). */
+const PRIORITY_NAMES: Record<PriorityBand, string> = {
+  urgent: 'Urgent',
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+};
 
 function excerptAround(text: string, quote: string, radius = 220): string {
   const index = text.indexOf(quote);
@@ -918,7 +926,8 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       patient: { id: patient.id, name: patient.name, sex: patient.sex, ...ageOf(patient) },
       status: followUpCase.status,
       priority,
-      priorityLabel: priorityLabel(priority),
+      priorityBand: priorityBand(priority),
+      priorityLabel: PRIORITY_NAMES[priorityBand(priority)],
       escalationStep: followUpCase.escalationStep,
       escalation: escalationView(followUpCase, false),
       origin: followUpCase.origin,

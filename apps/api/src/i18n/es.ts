@@ -378,6 +378,7 @@ export const ES = {
     '36643-5': 'Radiografía de tórax',
     'fundus-exam': 'Fondo de ojo',
   },
+  priorities: { urgent: 'Urgente', high: 'Alta', medium: 'Media', low: 'Baja' },
   icd10: {
     E10: 'Diabetes mellitus tipo 1',
     E11: 'Diabetes mellitus tipo 2',

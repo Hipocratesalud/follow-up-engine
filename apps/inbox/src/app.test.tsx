@@ -35,7 +35,7 @@ describe.each(LOCALES)('key flows in %s', (locale: Locale) => {
       renderApp('/inbox', { locale });
       const rows = await screen.findAllByRole('link', { name: overdue });
       expect(rows.length).toBeGreaterThan(10);
-      expect(within(first(rows)).getByText(t.labels.priorities.urgente)).toBeInTheDocument();
+      expect(within(first(rows)).getByText(t.labels.priorities.urgent)).toBeInTheDocument();
       expect(screen.getAllByText(t.labels.layers.doctor_plan).length).toBeGreaterThan(0);
       expect(await screen.findByText(t.stats.aiCost)).toBeInTheDocument();
       expect(screen.getByText(/Muse Spark · Meta/)).toBeInTheDocument();

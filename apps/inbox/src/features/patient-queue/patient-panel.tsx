@@ -317,7 +317,7 @@ function CaseSection({
           </span>
           <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs">
             <StatusBadge status={view.status} />
-            <PriorityBadge label={view.priorityLabel} priority={view.priority} />
+            <PriorityBadge band={view.priorityBand} priority={view.priority} />
             <span className="text-muted">{t.patientCard.reasons(view.reasons.length)}</span>
             {top ? (
               <span className={cx('font-medium', overdueTone(top.overdueDays))}>
@@ -415,7 +415,7 @@ function PatientCasesView({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={card.status} />
-          <PriorityBadge label={card.priorityLabel} priority={card.priority} />
+          <PriorityBadge band={card.priorityBand} priority={card.priority} />
           {active.length > 0 ? (
             <Badge tone="neutral">{t.patientCard.activeCases(active.length)}</Badge>
           ) : null}
