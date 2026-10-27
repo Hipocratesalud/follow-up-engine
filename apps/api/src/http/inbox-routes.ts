@@ -21,6 +21,7 @@ import { humanName, patientSummary } from '../inbox/fhir-display.ts';
 import { invalidTransitionMessage } from '../inbox/labels.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
+import { followUpUser } from './security.ts';
 import {
   CaseActionRequestSchema,
   CaseListQuerySchema,
@@ -38,10 +39,12 @@ function startOfUtcMonth(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
-/** The clinic user acting, from the host (`X-FollowUp-User`), for the audit trail. */
+/**
+ * The clinic user acting, from the host (`X-FollowUp-User`, validated and
+ * decoded as UTF-8), for the audit trail.
+ */
 function actor(c: Context<AppEnv>): CaseEventActor & { readonly id: string } {
-  const id = c.req.header('x-followup-user')?.trim();
-  return { type: 'user', id: id === undefined || id === '' ? 'inbox-user' : id.slice(0, 120) };
+  return { type: 'user', id: followUpUser(c) ?? 'inbox-user' };
 }
 
 async function requireCase(
@@ -321,11 +324,8 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     // reads why in Spanish, not as a schema path.
     const body = await readJson(c, FeedbackRequestSchema).catch((error: unknown) => {
       if (error instanceof z.ZodError && error.issues.some((issue) => issue.path[0] === 'reason')) {
-        throw new HttpError(
-          422,
-          'validation_error',
-          'Elige un motivo cuando el caso no fue útil: así podemos mejorar la regla.',
-        );
+        const message = 'Elige un motivo cuando el caso no fue útil: así podemos mejorar la regla.';
+        throw new HttpError(422, 'invalid_request', message, [{ path: 'reason', message }]);
       }
       throw error;
     });

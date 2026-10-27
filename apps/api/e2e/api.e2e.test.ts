@@ -93,9 +93,15 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
   async function call<T>(
     path: string,
-    init: { method?: string; body?: string | object; key?: string | null; fhir?: boolean } = {},
+    init: {
+      method?: string;
+      body?: string | object;
+      key?: string | null;
+      fhir?: boolean;
+      headers?: Record<string, string>;
+    } = {},
   ): Promise<{ status: number; body: T; headers: Headers }> {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...init.headers };
     if (init.key !== null) {
       headers['authorization'] = `Bearer ${init.key ?? KEY_A}`;
     }
@@ -367,10 +373,16 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
       'task',
     ]);
 
-    const missingReason = await call(`/api/inbox/cases/${planCase}/feedback`, {
+    const missingReason = await call<{
+      error: { code: string; fields: { path: string; message: string }[] };
+    }>(`/api/inbox/cases/${planCase}/feedback`, {
       body: { useful: false },
     });
     expect(missingReason.status).toBe(422);
+    expect(missingReason.body.error).toMatchObject({
+      code: 'invalid_request',
+      fields: [{ path: 'reason', message: expect.stringMatching(/motivo/) as unknown }],
+    });
     const feedback = await call<CaseDetail>(`/api/inbox/cases/${planCase}/feedback`, {
       body: { useful: false, reason: 'already_handled', comment: 'Ya tenía cita' },
     });
@@ -388,10 +400,13 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
       ]),
     );
 
+    // The host proxy sends the user as UTF-8 bytes; the audit trail keeps the accents.
     const resolved = await call<CaseDetail>(`/api/inbox/cases/${planCase}/actions`, {
       body: { action: 'resolve' },
+      headers: { 'x-followup-user': Buffer.from('Dra. Médica Peña', 'utf8').toString('latin1') },
     });
     expect(resolved.body.status).toBe('resolved');
+    expect(resolved.body.timeline.at(-1)?.actor).toEqual({ type: 'user', id: 'Dra. Médica Peña' });
     const again = await call<{ error: { code: string } }>(`/api/inbox/cases/${planCase}/actions`, {
       body: { action: 'dismiss' },
     });
@@ -408,7 +423,16 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
     const tasks = await call<{ total: number }>(`/fhir/Task?patient=${PATIENT}`, { key: KEY_B });
     expect(tasks.body.total).toBe(0);
     expect((await call(`/api/inbox/patients/${PATIENT}`, { key: KEY_B })).status).toBe(404);
-    const webhooks = await call<{ items: unknown[] }>('/api/demo/webhooks', { key: KEY_B });
+    // The demo webhook feed is the demo operator's (demo:clock), not a clinic's.
+    expect((await call('/api/demo/webhooks', { key: KEY_B })).status).toBe(403);
+    const ownFeed = await runtime.issueApiKey({
+      clinicId: 'clinic-e2e-b',
+      label: 'demo feed',
+      scopes: ['demo:clock'],
+    });
+    const webhooks = await call<{ items: unknown[] }>('/api/demo/webhooks', {
+      key: ownFeed.apiKey,
+    });
     expect(webhooks.body.items).toEqual([]);
   });
 });

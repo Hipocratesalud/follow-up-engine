@@ -14,8 +14,11 @@ export const PUBLIC_DEMO_KEYS: readonly string[] = [
   DEFAULT_DEMO_INBOX_API_KEY,
 ];
 
-/** Shortest demo key accepted with `CLOCK=system` and `DEMO_CLINIC=true`. */
-const MIN_PRODUCTION_KEY_LENGTH = 24;
+/**
+ * Shortest demo key accepted with `CLOCK=system` and `DEMO_CLINIC=true`,
+ * in the environment and when a stored demo key authenticates.
+ */
+export const MIN_PRODUCTION_KEY_LENGTH = 24;
 
 export const LLM_PROVIDERS = ['fake', 'meta', 'baseten', 'openai-compatible'] as const;
 export type LlmProviderName = (typeof LLM_PROVIDERS)[number];
@@ -61,7 +64,10 @@ const EnvSchema = z
      * registered at boot on a fake clock, or with `DEMO_CLINIC=true`.
      */
     DEMO_API_KEY: optionalString,
-    /** Inbox key of the demo clinic (`inbox:read`, `inbox:act`, `demo`): `VITE_API_KEY`. */
+    /**
+     * Inbox key of the demo clinic (`inbox:read`, `inbox:act`; plus
+     * `demo:clock` and `demo:ingest` on a fake clock): `VITE_API_KEY`.
+     */
     DEMO_INBOX_API_KEY: optionalString,
     /** Register the demo clinic with `CLOCK=system` too (its keys must not be the public ones). */
     DEMO_CLINIC: z

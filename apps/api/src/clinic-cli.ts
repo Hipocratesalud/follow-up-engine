@@ -3,8 +3,10 @@ import { clinicId as toClinicId } from '@follow-up-engine/core';
 import {
   API_KEY_SCOPES,
   type ApiKeyScope,
+  DEMO_CLINIC,
   type EngineRuntime,
   isApiKeyScope,
+  isDemoScope,
 } from '@follow-up-engine/runtime';
 
 export const CLINIC_CLI_USAGE = `Usage: pnpm --filter @follow-up-engine/api clinic:create [options]
@@ -16,6 +18,8 @@ Registers a clinic (or updates one) and issues a scoped API key, printed once.
   --scopes <a,b>             ${API_KEY_SCOPES.join(', ')} (default: fhir:write)
   --label <label>            Name of the key (default: integration)
   --revoke <label>           Revoke the clinic's keys with this label instead of issuing one
+  --allow-demo               Allow demo:* scopes for a clinic other than ${DEMO_CLINIC.id}
+                             (demo:clock moves the shared fake clock of every clinic)
   --allow-patient-contact    Enable patient contact requests for a new clinic (default: off)
   --timezone <iana>          Clinic time zone for a new clinic (default: UTC)
   --help                     This help
@@ -65,6 +69,7 @@ export async function runClinicCommand(
         label: { type: 'string' },
         revoke: { type: 'string' },
         'allow-patient-contact': { type: 'boolean' },
+        'allow-demo': { type: 'boolean' },
         timezone: { type: 'string' },
         help: { type: 'boolean' },
       },
@@ -105,6 +110,13 @@ export async function runClinicCommand(
   const unknown = scopes.filter((scope) => !isApiKeyScope(scope));
   if (scopes.length === 0 || unknown.length > 0) {
     return fail(`Unknown scope(s): ${unknown.join(', ') || '(none given)'}.`);
+  }
+  const demoScopes = scopes.filter((scope) => isApiKeyScope(scope) && isDemoScope(scope));
+  if (demoScopes.length > 0 && id !== DEMO_CLINIC.id && values['allow-demo'] !== true) {
+    return fail(
+      `${demoScopes.join(', ')} drive the shared demo of every clinic: only ${DEMO_CLINIC.id} ` +
+        'gets them, unless you pass --allow-demo.',
+    );
   }
   if (existing === undefined && values.name === undefined) {
     return fail(`Clinic ${id} does not exist: give --name to create it.`);

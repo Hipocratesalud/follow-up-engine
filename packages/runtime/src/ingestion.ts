@@ -105,6 +105,18 @@ function hasErrors(outcome: OperationOutcome | undefined): boolean {
   );
 }
 
+/**
+ * Whether the whole Bundle is refused: an invalid envelope, or a
+ * transaction with errors. A batch is answered entry by entry, so a batch
+ * whose every entry failed still gets its batch-response.
+ */
+function rejected(mapping: BundleMappingResult): boolean {
+  if (!hasErrors(mapping.issues) || mapping.batches.length > 0 || mapping.resources.length > 0) {
+    return false;
+  }
+  return mapping.bundleType !== 'batch' || mapping.entryRefs.length === 0;
+}
+
 export interface IngestionDeps {
   readonly storage: Storage;
   readonly engine: FollowUpEngine;
@@ -129,7 +141,7 @@ export class IngestionService {
     const receivedAt = this.#deps.clock.now();
     const mapping = mapBundleToBatches(bundle, { clinicId, receivedAt, checkFutureDates: true });
     const outcome = mapping.issues;
-    if (hasErrors(outcome) && mapping.batches.length === 0 && mapping.resources.length === 0) {
+    if (rejected(mapping)) {
       return {
         ok: false,
         ...(outcome === undefined ? {} : { outcome }),

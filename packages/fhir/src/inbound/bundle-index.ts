@@ -49,6 +49,13 @@ export type IndexResult =
 
 const FHIR_ID = /^[A-Za-z0-9\-.]{1,64}$/;
 
+/**
+ * `Bundle.entry.request.method`s the engine carries out. Reads (`GET`,
+ * `HEAD`), `DELETE` and `PATCH` are refused per entry (`not-supported`
+ * error: `405` in a batch-response, the whole transaction rejected).
+ */
+const SUPPORTED_METHODS: readonly string[] = ['POST', 'PUT'];
+
 const refKey = (ref: ResourceRef): string => `${ref.resourceType}/${ref.id}`;
 
 function idFromFullUrl(fullUrl: string, resourceType: string): string | undefined {
@@ -122,6 +129,21 @@ export function indexBundle(input: unknown): IndexResult {
   envelope.data.entry?.forEach((entry, index) => {
     const entryExpression = `Bundle.entry[${String(index)}]`;
     const raw: unknown = (rawEntries[index] as Record<string, unknown> | undefined)?.['resource'];
+    const method = entry.request?.method;
+    if (method !== undefined && !SUPPORTED_METHODS.includes(method)) {
+      // Never "200 OK" for a request the engine did not carry out, and a
+      // DELETE that carries a resource is not a create.
+      issues.push({
+        severity: 'error',
+        code: 'not-supported',
+        message:
+          `request.method ${method} is not supported: send resources with POST or PUT ` +
+          '(to cancel an order or withdraw a note, send it again with status revoked or ' +
+          'entered-in-error)',
+        expression: entryExpression,
+      });
+      return;
+    }
     if (entry.resource === undefined || !isPlainObject(raw)) {
       issues.push({
         severity: 'information',
@@ -155,7 +177,7 @@ export function indexBundle(input: unknown): IndexResult {
       issues.push({
         severity: 'error',
         code: 'duplicate',
-        message: `${refKey(ref)} already appears in entry[${String(duplicate)}]`,
+        message: `${refKey(ref)} already appears in entry[${String(identified[duplicate]?.index ?? duplicate)}]`,
         expression: entryExpression,
       });
       return;

@@ -17,13 +17,21 @@ import {
 } from '@follow-up-engine/core';
 import type { NoteFixture } from '@follow-up-engine/llm';
 import {
+  ApiKeyConflictError,
   type ApiKeyScope,
+  DEMO_SCOPES,
   generateApiKey,
   hashApiKey,
   INBOX_SCOPES,
   INTEGRATION_SCOPES,
+  isDemoScope,
 } from './api-keys.ts';
-import { DEV_WEBHOOK_SECRET, PUBLIC_DEMO_KEYS, type RuntimeConfig } from './config.ts';
+import {
+  DEV_WEBHOOK_SECRET,
+  MIN_PRODUCTION_KEY_LENGTH,
+  PUBLIC_DEMO_KEYS,
+  type RuntimeConfig,
+} from './config.ts';
 import { createWebhookPublisher } from './webhooks/publisher.ts';
 import { createLoopbackPublisher, WebhookSink } from './webhooks/sink.ts';
 import { IngestionService } from './ingestion.ts';
@@ -73,7 +81,8 @@ export interface EngineRuntime {
   readonly logger: Logger;
   /**
    * Registers or updates a clinic with its integration API key (stored as a
-   * sha256 hash; scopes {@link INTEGRATION_SCOPES}).
+   * sha256 hash; scopes {@link INTEGRATION_SCOPES}). Throws
+   * {@link ApiKeyConflictError} when another clinic holds that key value.
    */
   registerClinic(input: {
     readonly id: string;
@@ -83,7 +92,9 @@ export interface EngineRuntime {
   }): Promise<Clinic>;
   /**
    * Issues a scoped key for an existing clinic. Without `apiKey` a random
-   * one is generated; the result is the only time it is visible.
+   * one is generated; the result is the only time it is visible. Throws
+   * {@link ApiKeyConflictError} when another clinic holds that key value
+   * (revoked or not): key values are unique across clinics.
    */
   issueApiKey(input: {
     readonly clinicId: string;
@@ -93,8 +104,10 @@ export interface EngineRuntime {
   }): Promise<IssuedApiKey>;
   /**
    * The clinic and scopes of an API key; `undefined` for an unknown,
-   * revoked or inactive one, and for the public demo keys outside a fake
-   * clock (a production database seeded once by the demo stays closed).
+   * revoked or inactive one. On a real clock the demo clinic answers only
+   * with `DEMO_CLINIC=true` and a private key of 24+ characters (a
+   * production database seeded once by the demo stays closed, whatever
+   * demo keys it kept), and `demo:*` scopes are dropped.
    */
   authenticate(apiKey: string): Promise<Principal | undefined>;
   close(): Promise<void>;
@@ -179,6 +192,44 @@ export async function createRuntime(
     'engine runtime ready',
   );
 
+  /** Key values are unique across clinics: scoped keys and integration keys alike. */
+  async function assertKeyFree(keyHash: string, clinicId: ClinicId): Promise<void> {
+    const holder =
+      (await storage.apiKeys.holderOf(keyHash)) ??
+      (await storage.clinics.findByApiKeyHash(keyHash))?.id;
+    if (holder !== undefined && holder !== clinicId) {
+      throw new ApiKeyConflictError();
+    }
+  }
+
+  async function lookUp(apiKey: string): Promise<Principal | undefined> {
+    if (fakeClock === undefined && PUBLIC_DEMO_KEYS.includes(apiKey)) {
+      return undefined;
+    }
+    const keyHash = hashApiKey(apiKey);
+    const scoped = await storage.apiKeys.findByHash(keyHash);
+    if (scoped !== undefined) {
+      const clinic = await storage.clinics.get(scoped.clinicId);
+      return clinic?.active === true ? { clinic, scopes: scoped.scopes } : undefined;
+    }
+    const clinic = await storage.clinics.findByApiKeyHash(keyHash);
+    if (clinic?.active !== true) {
+      return undefined;
+    }
+    // The demo clinic's own key also drives the demo (only on a fake clock).
+    const demo = fakeClock !== undefined && clinic.id === DEMO_CLINIC.id;
+    return { clinic, scopes: demo ? [...INTEGRATION_SCOPES, ...DEMO_SCOPES] : INTEGRATION_SCOPES };
+  }
+
+  /** `DEMO_CLINIC=true` and a key that could have passed its startup check. */
+  function demoOpenOnRealClock(apiKey: string): boolean {
+    return (
+      config.demo !== undefined &&
+      apiKey.length >= MIN_PRODUCTION_KEY_LENGTH &&
+      !PUBLIC_DEMO_KEYS.includes(apiKey)
+    );
+  }
+
   const runtime: EngineRuntime = {
     config,
     clock,
@@ -190,21 +241,27 @@ export async function createRuntime(
     publisher,
     ...(sink === undefined ? {} : { sink }),
     logger,
-    registerClinic: (input) =>
-      storage.registerClinic({
-        id: toClinicId(input.id),
+    async registerClinic(input) {
+      const id = toClinicId(input.id);
+      const apiKeyHash = hashApiKey(input.apiKey);
+      await assertKeyFree(apiKeyHash, id);
+      return storage.registerClinic({
+        id,
         name: input.name,
-        apiKeyHash: hashApiKey(input.apiKey),
+        apiKeyHash,
         ...(input.settings === undefined ? {} : { settings: input.settings }),
-      }),
+      });
+    },
     async issueApiKey(input) {
       const clinicId = toClinicId(input.clinicId);
       if ((await storage.clinics.get(clinicId)) === undefined) {
         throw new Error(`Clinic ${clinicId} does not exist`);
       }
       const apiKey = input.apiKey ?? generateApiKey();
+      const keyHash = hashApiKey(apiKey);
+      await assertKeyFree(keyHash, clinicId);
       await storage.apiKeys.issue({
-        keyHash: hashApiKey(apiKey),
+        keyHash,
         clinicId,
         label: input.label,
         scopes: input.scopes,
@@ -213,22 +270,16 @@ export async function createRuntime(
       return { apiKey, clinicId, label: input.label, scopes: input.scopes };
     },
     async authenticate(apiKey) {
-      if (fakeClock === undefined && PUBLIC_DEMO_KEYS.includes(apiKey)) {
+      const principal = await lookUp(apiKey);
+      if (principal === undefined || fakeClock !== undefined) {
+        return principal;
+      }
+      // A real clock: the demo clinic stays closed unless explicitly enabled
+      // with private keys, and no key moves a clock that does not exist.
+      if (principal.clinic.id === DEMO_CLINIC.id && !demoOpenOnRealClock(apiKey)) {
         return undefined;
       }
-      const keyHash = hashApiKey(apiKey);
-      const scoped = await storage.apiKeys.findByHash(keyHash);
-      if (scoped !== undefined) {
-        const clinic = await storage.clinics.get(scoped.clinicId);
-        return clinic?.active === true ? { clinic, scopes: scoped.scopes } : undefined;
-      }
-      const clinic = await storage.clinics.findByApiKeyHash(keyHash);
-      if (clinic?.active !== true) {
-        return undefined;
-      }
-      // The demo clinic's own key also drives the demo (only on a fake clock).
-      const demo = fakeClock !== undefined && clinic.id === DEMO_CLINIC.id;
-      return { clinic, scopes: demo ? [...INTEGRATION_SCOPES, 'demo'] : INTEGRATION_SCOPES };
+      return { ...principal, scopes: principal.scopes.filter((scope) => !isDemoScope(scope)) };
     },
     close: () => storage.close(),
   };
@@ -255,8 +306,9 @@ export async function createRuntime(
 
 /**
  * Registers the synthetic demo clinic with `DEMO_API_KEY` (the host
- * integration key, plus `demo` on a fake clock) and, when given, an inbox
- * key with `DEMO_INBOX_API_KEY` (`inbox:read`, `inbox:act`, `demo`: never
+ * integration key, plus `demo:clock` and `demo:ingest` on a fake clock)
+ * and, when given, an inbox key with `DEMO_INBOX_API_KEY` (`inbox:read`,
+ * `inbox:act`, plus the demo scopes only on a fake clock: never
  * `fhir:write`). Patient contact is enabled so the demo shows
  * `patient_contact.requested` webhooks.
  */
@@ -275,7 +327,7 @@ export async function registerDemoClinic(
     await runtime.issueApiKey({
       clinicId: DEMO_CLINIC.id,
       label: DEMO_INBOX_KEY_LABEL,
-      scopes: [...INBOX_SCOPES, 'demo'],
+      scopes: runtime.fakeClock === undefined ? INBOX_SCOPES : [...INBOX_SCOPES, ...DEMO_SCOPES],
       apiKey: inboxApiKey,
     });
   }

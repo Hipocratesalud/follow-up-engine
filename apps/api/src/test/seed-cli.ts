@@ -39,7 +39,7 @@ try {
   runtime.logger.info(report, 'synthetic clinic seeded');
   if (config.demo.inboxApiKey !== undefined) {
     process.stdout.write(
-      `\nInbox key (inbox:read, inbox:act, demo; no fhir:write): ${config.demo.inboxApiKey}\n` +
+      `\nInbox key (inbox:read, inbox:act, demo:clock, demo:ingest; no fhir:write): ${config.demo.inboxApiKey}\n` +
         `  VITE_API_URL=http://localhost:3000 VITE_API_KEY=${config.demo.inboxApiKey} pnpm inbox\n`,
     );
   }

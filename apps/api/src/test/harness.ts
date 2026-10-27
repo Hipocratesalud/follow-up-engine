@@ -82,7 +82,7 @@ export async function createHarness(
   await runtime.registerClinic({ id: 'clinic-b', name: 'Clínica B', apiKey: KEY_B });
   const { app } = createApiServer(
     runtime,
-    { port: 0, embeddedWorker: false, corsOrigins: [] },
+    { port: 0, embeddedWorker: false, corsOrigins: options.app?.corsOrigins ?? [] },
     options.app,
   );
   return {

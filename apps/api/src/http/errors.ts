@@ -14,17 +14,31 @@ import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
 import { invalidTransitionMessage } from '../inbox/labels.ts';
+import { type FieldError, fieldErrors, SPANISH_ERRORS, validationSummary } from './validation.ts';
 
-/** An error with an HTTP status and a stable code, rendered as `{ error: { code, message } }`. */
+/**
+ * An error with an HTTP status and a stable code, rendered as
+ * `{ error: { code, message, fields? } }`: `fields` lists, for a validation
+ * error, each field and what is wrong with it (Spanish).
+ */
 export class HttpError extends Error {
   override readonly name = 'HttpError';
   readonly status: ContentfulStatusCode;
   readonly code: string;
+  readonly fields?: readonly FieldError[];
 
-  constructor(status: ContentfulStatusCode, code: string, message: string) {
+  constructor(
+    status: ContentfulStatusCode,
+    code: string,
+    message: string,
+    fields?: readonly FieldError[],
+  ) {
     super(message);
     this.status = status;
     this.code = code;
+    if (fields !== undefined) {
+      this.fields = fields;
+    }
   }
 }
 
@@ -43,12 +57,19 @@ const CONTACT_DENIAL_MESSAGES: Record<PatientContactDenial, string> = {
   low_confidence: 'El caso se apoya en una condición sin confirmar: revísala antes de contactar.',
 };
 
-function zodMessage(error: z.ZodError): string {
-  return error.issues
-    .map((issue) =>
-      issue.path.length === 0 ? issue.message : `${issue.path.join('.')}: ${issue.message}`,
-    )
-    .join('; ');
+/**
+ * Spanish copy for the engine's business validations (`ValidationError`),
+ * by field; the engine's own messages are English, for logs.
+ */
+const DOMAIN_VALIDATION_MESSAGES: Readonly<Record<string, string>> = {
+  until: 'Solo puedes posponer un caso hasta una fecha futura.',
+  status: 'El caso ya no está activo: no admite esta acción.',
+  reason: 'Indica el motivo cuando el caso no fue útil.',
+  userId: 'Falta identificar a la persona del equipo que hace la revisión.',
+};
+
+function invalidRequest(fields: readonly FieldError[], message: string): HttpError {
+  return new HttpError(422, 'invalid_request', message, fields);
 }
 
 /**
@@ -61,7 +82,7 @@ export function toHttpError(error: unknown): HttpError {
     return error;
   }
   if (error instanceof z.ZodError) {
-    return new HttpError(422, 'validation_error', zodMessage(error));
+    return invalidRequest(fieldErrors(error.issues), validationSummary(error.issues));
   }
   if (error instanceof InvalidCaseTransitionError) {
     return new HttpError(409, 'invalid_transition', invalidTransitionMessage(error.from, error.to));
@@ -70,7 +91,9 @@ export function toHttpError(error: unknown): HttpError {
     return new HttpError(409, 'patient_contact_not_allowed', CONTACT_DENIAL_MESSAGES[error.reason]);
   }
   if (error instanceof ValidationError) {
-    return new HttpError(422, 'validation_error', `${error.field}: ${error.message}`);
+    const message =
+      DOMAIN_VALIDATION_MESSAGES[error.field] ?? 'Los datos no son válidos para esta operación.';
+    return invalidRequest([{ path: error.field, message }], message);
   }
   if (error instanceof NotFoundError) {
     return notFound();
@@ -95,13 +118,23 @@ export function toHttpError(error: unknown): HttpError {
 }
 
 export function errorResponse(c: Context, error: HttpError): Response {
-  return c.json({ error: { code: error.code, message: error.message } }, error.status);
+  return c.json(
+    {
+      error: {
+        code: error.code,
+        message: error.message,
+        ...(error.fields === undefined ? {} : { fields: error.fields }),
+      },
+    },
+    error.status,
+  );
 }
 
 /**
- * Reads and validates a JSON body: 400 when it is not JSON, 422 when it
- * breaks the schema. Control characters (a NUL) are dropped from every
- * string first: they would never reach the clinic as text anyway.
+ * Reads and validates a JSON body: 400 when it is not JSON, 422
+ * `invalid_request` (Spanish, field by field) when it breaks the schema.
+ * Control characters (a NUL) are dropped from every string first: they
+ * would never reach the clinic as text anyway.
  */
 export async function readJson<TSchema extends z.ZodType>(
   c: Context,
@@ -113,13 +146,13 @@ export async function readJson<TSchema extends z.ZodType>(
   } catch {
     throw new HttpError(400, 'invalid_json', 'El cuerpo de la petición no es JSON válido.');
   }
-  return schema.parse(sanitizeFhirJson(body, 'body').value);
+  return schema.parse(sanitizeFhirJson(body, 'body').value, SPANISH_ERRORS);
 }
 
-/** Validates the query string against a schema (422 on failure). */
+/** Validates the query string against a schema (422 `invalid_request` on failure, in Spanish). */
 export function readQuery<TSchema extends z.ZodType>(
   c: Context,
   schema: TSchema,
 ): z.infer<TSchema> {
-  return schema.parse(c.req.query());
+  return schema.parse(c.req.query(), SPANISH_ERRORS);
 }
