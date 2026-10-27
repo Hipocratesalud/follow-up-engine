@@ -1,6 +1,7 @@
 import type { ClinicMetricsView, MetricsQuery } from '../features/metrics/contract.ts';
 import type { ApiConfig } from '../config.ts';
 import { getLocale, messages } from '../i18n/index.ts';
+import type { PatientDocumentView } from './why-contract.ts';
 import type {
   ApiErrorBody,
   ApiFieldError,
@@ -133,6 +134,8 @@ export interface ApiClient {
   listOwners(): Promise<{ items: OwnerView[] }>;
   listPatients(query: { query?: string; limit?: number }): Promise<{ items: PatientSummary[] }>;
   getPatient(id: string): Promise<PatientDetail>;
+  /** Every document of the patient, oldest first: the "View documents" drawer (HIP-142). */
+  getPatientDocuments(id: string): Promise<{ items: PatientDocumentView[] }>;
   confirmCondition(id: string): Promise<ConditionView>;
   rejectCondition(id: string): Promise<ConditionView>;
   listRecovery(query: { cursor?: string; limit?: number }): Promise<RecoveryPage>;
@@ -214,6 +217,8 @@ export function createApiClient(config: ApiConfig): ApiClient {
     listOwners: () => request('GET', '/inbox/owners'),
     listPatients: (query) => request('GET', '/inbox/patients', { query: { ...query } }),
     getPatient: (id) => request('GET', `/inbox/patients/${encodeURIComponent(id)}`),
+    getPatientDocuments: (id) =>
+      request('GET', `/inbox/patients/${encodeURIComponent(id)}/documents`),
     confirmCondition: (id) =>
       request('POST', `/inbox/conditions/${encodeURIComponent(id)}/confirm`),
     rejectCondition: (id) => request('POST', `/inbox/conditions/${encodeURIComponent(id)}/reject`),

@@ -13,6 +13,7 @@ import type {
   PatientContactDenial,
   PlanItemKind,
   QualityFindingKind,
+  AnchorRole,
 } from '@follow-up-engine/core';
 
 /**
@@ -22,6 +23,110 @@ import type {
  * Clinical content (note text, evidence quotes, the host's own displays,
  * names) never goes through a catalog: it is returned as written.
  */
+
+/** "Why this?": the evidence behind each reason, in plain words (HIP-142). */
+export interface WhyMessages {
+  /** What a document is, by kind. */
+  readonly kinds: Readonly<Record<WhyDocumentKind, string>>;
+  /** What the due date counts from. */
+  readonly anchorRoles: Readonly<Record<AnchorRole, string>>;
+  /** "Due Jan 21, 2026 = last time done (HbA1c, Jun 10, 2025) + 90 days". */
+  readonly dueMath: (due: string, anchor: string, date: string, days: number) => string;
+  /** No anchor left in the record: only the due date. */
+  readonly dueOnly: (due: string) => string;
+  /** How the interval was chosen, per basis (parameters already formatted). */
+  readonly basis: {
+    readonly rule_days: (days: number) => string;
+    readonly critical_result: (days: number) => string;
+    readonly treatment_end: (treatmentDays: number | undefined, days: number) => string;
+    readonly plan_date: string;
+    readonly cadence: (multiplier: number, interval: number) => string;
+    readonly protocol_interval: (days: number) => string;
+    readonly protocol_treatment_change: string;
+    readonly protocol_gestational_age: (weeks: number | undefined) => string;
+    readonly protocol_gestational_window: string;
+    readonly protocol_after_outcome: (days: number) => string;
+    readonly protocol_ckd_stage: (stage: string | undefined) => string;
+  };
+  readonly bookingTolerance: (days: number) => string;
+  /** A gestational window: due when the pregnancy reaches `week`. */
+  readonly dueAtWeek: (due: string, week: number) => string;
+  /** Done too soon after a treatment change to count as its control. */
+  readonly tooEarly: (record: string, date: string) => string;
+  readonly days: (count: number) => string;
+  /** What would fulfill it. */
+  readonly fulfill: {
+    readonly result: (test: string, code: string, equivalents: number) => string;
+    readonly orderResult: (test: string, code: string) => string;
+    readonly anyResult: (kind: string) => string;
+    readonly visit: (withBooking: boolean) => string;
+    readonly session: (withBooking: boolean) => string;
+    readonly other: (withBooking: boolean) => string;
+  };
+  readonly expectKinds: Readonly<Record<PlanItemKind, string>>;
+  /** Why the patient is in the protocol. */
+  readonly enrollment: {
+    readonly diagnosis: (diagnosis: string, date: string) => string;
+    readonly note: (diagnosis: string, date: string) => string;
+    readonly medication: (medication: string, date: string, diagnosis: string) => string;
+    readonly results: (count: number, test: string, threshold: string, diagnosis: string) => string;
+    readonly record: (record: string, date: string, diagnosis: string) => string;
+    readonly ended: (outcome: string, date: string) => string;
+    readonly notEnrolled: string;
+    readonly unknown: (diagnosis: string) => string;
+    readonly activeTreatment: (medication: string, date: string) => string;
+    readonly confirm: (count: number, days: number) => string;
+    readonly outcomes: Readonly<Record<string, string>>;
+  };
+  readonly protocolVersion: (name: string, version: string) => string;
+  readonly draft: string;
+  readonly validated: string;
+  /** "Every 90 days", per schedule type. */
+  readonly schedule: {
+    readonly interval: (days: number) => string;
+    readonly treatment_change: (
+      afterChange: number,
+      every: number,
+      titration: string | undefined,
+    ) => string;
+    readonly titration: (every: number, controls: number) => string;
+    readonly gestational_age: (intervals: string) => string;
+    readonly gestationalInterval: (untilWeek: number, every: number) => string;
+    readonly gestational_window: (from: number, to: number) => string;
+    readonly after_outcome: (outcome: string, days: number) => string;
+    readonly ckd_stage: (fallback: number) => string;
+  };
+  readonly cadence: (
+    visits: number,
+    pattern: number,
+    interval: number | undefined,
+    multiplier: number | undefined,
+    expected: string,
+  ) => string;
+  readonly noPattern: string;
+  readonly closedBy: string;
+  readonly noteBy: (author: string) => string;
+  readonly value: (value: string, interpretation: string | undefined) => string;
+  readonly interpretations: Readonly<
+    Record<'normal' | 'abnormal' | 'unknown' | 'critical', string>
+  >;
+  readonly noKnownAllergy: string;
+  readonly cancelled: string;
+  readonly verification: Readonly<Record<'confirmed' | 'provisional', string>>;
+  readonly durationDays: (days: number) => string;
+}
+
+/** Kinds of document the evidence and the documents drawer list. */
+export type WhyDocumentKind =
+  | 'note'
+  | 'order'
+  | 'result'
+  | 'prescription'
+  | 'visit'
+  | 'appointment'
+  | 'diagnosis'
+  | 'allergy'
+  | 'other';
 
 /** Where a contact attempt stands (`ContactAttemptView.status`). */
 export type AttemptStatus =
@@ -219,6 +324,9 @@ export interface ApiMessages {
     readonly invalidDueDate: string;
     readonly invalidKind: string;
   };
+
+  /** "Why this?" evidence of every reason (HIP-142). */
+  readonly why: WhyMessages;
 
   readonly sources: {
     readonly types: Readonly<Record<string, string>>;

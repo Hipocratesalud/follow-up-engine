@@ -336,6 +336,142 @@ export const ES = {
     invalidKind: 'Elige qué pide el punto del plan.',
   },
 
+  why: {
+    kinds: {
+      note: 'Nota clínica',
+      order: 'Orden',
+      result: 'Resultado',
+      prescription: 'Receta',
+      visit: 'Consulta',
+      appointment: 'Cita',
+      diagnosis: 'Diagnóstico',
+      allergy: 'Registro de alergias',
+      other: 'Registro',
+    },
+    anchorRoles: {
+      trigger: 'origen',
+      note: 'la nota',
+      last_visit: 'la última consulta',
+      last_done: 'última vez que se hizo',
+      enrollment: 'ingreso al protocolo',
+      treatment_change: 'inicio o cambio de tratamiento',
+      episode_end: 'fin del episodio',
+      window_open: 'apertura de la ventana',
+      unknown: 'registro',
+    },
+    dueMath: (due, anchor, date, days) =>
+      `Vence el ${due} = ${anchor} (${date}) + ${String(days)} ${days === 1 ? 'día' : 'días'}`,
+    dueOnly: (due) => `Vence el ${due} (aquello desde lo que se contó ya no está en la historia)`,
+    basis: {
+      rule_days: (days) => `La regla da ${String(days)} días desde el origen.`,
+      critical_result: (days) =>
+        `Resultado crítico: se atiende en ${String(days)} días en lugar del plazo habitual.`,
+      treatment_end: (treatmentDays, days) =>
+        treatmentDays === undefined
+          ? `Contado desde el fin del tratamiento, más ${String(days)} días.`
+          : `${String(treatmentDays)} días de tratamiento, más ${String(days)} días después de terminarlo.`,
+      plan_date: 'La fecha que el médico indicó en la nota.',
+      cadence: (multiplier, interval) =>
+        `${String(multiplier)} × el intervalo habitual del paciente, de ${String(interval)} días.`,
+      protocol_interval: (days) =>
+        `Cada ${String(days)} días, desde la última vez que se hizo (o desde el ingreso al protocolo).`,
+      protocol_treatment_change:
+        'Un control tras iniciar o cambiar el tratamiento, luego el intervalo regular del protocolo.',
+      protocol_gestational_age: (weeks) =>
+        weeks === undefined
+          ? 'Intervalo prenatal de un embarazo sin fecha.'
+          : `Intervalo prenatal a las ${String(weeks)} semanas de gestación.`,
+      protocol_gestational_window: 'Vence cuando se cierra la ventana gestacional.',
+      protocol_after_outcome: (days) =>
+        `Dentro de los ${String(days)} días posteriores al desenlace.`,
+      protocol_ckd_stage: (stage) =>
+        stage === undefined
+          ? 'Intervalo para un estadio de ERC desconocido (el del protocolo por defecto).'
+          : `Intervalo para el estadio ${stage} de ERC (KDIGO).`,
+    },
+    dueAtWeek: (due, week) =>
+      `Vence el ${due}, cuando el embarazo llega a las ${String(week)} semanas`,
+    tooEarly: (record, date) =>
+      `${record} del ${date} llegó demasiado pronto tras el cambio para contar como su control.`,
+    bookingTolerance: (days) =>
+      days === 0
+        ? 'Una cita debe caer en la fecha de vencimiento o antes.'
+        : `Una cita hasta ${String(days)} días después del vencimiento todavía cuenta.`,
+    days: (count) => `${String(count)} ${count === 1 ? 'día' : 'días'}`,
+    fulfill: {
+      result: (test, code, equivalents) =>
+        `Un resultado de ${test} (${code}${equivalents > 0 ? ' o un código equivalente' : ''}).`,
+      orderResult: (test, code) => `El resultado de esta orden: ${test} (${code} o equivalente).`,
+      anyResult: (kind) => `Un resultado de ${kind}.`,
+      visit: (withBooking) =>
+        withBooking ? 'Una consulta, o una cita agendada.' : 'Una consulta.',
+      session: (withBooking) => (withBooking ? 'Una sesión, o una cita agendada.' : 'Una sesión.'),
+      other: (withBooking) =>
+        withBooking ? 'Una consulta, o una cita agendada.' : 'Un registro que lo cumpla.',
+    },
+    expectKinds: {
+      follow_up_visit: 'consulta',
+      lab: 'laboratorio',
+      imaging: 'imagen',
+      session: 'sesión',
+      other: 'seguimiento',
+    },
+    enrollment: {
+      diagnosis: (diagnosis, date) => `Diagnóstico codificado ${diagnosis}, registrado el ${date}.`,
+      note: (diagnosis, date) => `${diagnosis}, leído de la nota del ${date}.`,
+      medication: (medication, date, diagnosis) =>
+        `Receta de ${medication} el ${date}: hace probable ${diagnosis} (sin diagnóstico codificado).`,
+      results: (count, test, threshold, diagnosis) =>
+        `${String(count)} ${count === 1 ? 'resultado' : 'resultados'} de ${test} ${threshold}: hace probable ${diagnosis}.`,
+      record: (record, date, diagnosis) => `${record} el ${date}: hace probable ${diagnosis}.`,
+      ended: (outcome, date) => `El episodio terminó (${outcome}) el ${date}.`,
+      notEnrolled: 'La historia ya no incluye al paciente en este protocolo.',
+      unknown: (diagnosis) => `${diagnosis} (el registro que lo respalda ya no está disponible).`,
+      activeTreatment: (medication, date) => `Receta activa: ${medication} (${date}).`,
+      confirm: (count, days) =>
+        `al menos ${String(count)} resultados, con ${String(days)} días o más de separación`,
+      outcomes: { delivery: 'parto', loss: 'pérdida gestacional', discharge: 'alta' },
+    },
+    protocolVersion: (name, version) => `${name} v${version}`,
+    draft: 'Borrador: aún sin validar por el equipo clínico',
+    validated: 'Validado por el equipo clínico',
+    schedule: {
+      interval: (days) => `Cada ${String(days)} días.`,
+      treatment_change: (afterChange, every, titration) =>
+        `${String(afterChange)} días después de iniciar o cambiar la dosis${titration === undefined ? '' : `, ${titration}`}, luego cada ${String(every)} días.`,
+      titration: (every, controls) =>
+        `cada ${String(every)} días hasta ${String(controls)} controles estables`,
+      gestational_age: (intervals) => `Consultas prenatales: ${intervals}.`,
+      gestationalInterval: (untilWeek, every) =>
+        `cada ${String(every)} días hasta la semana ${String(untilWeek)}`,
+      gestational_window: (from, to) =>
+        `Una vez entre las semanas ${String(from)} y ${String(to)}.`,
+      after_outcome: (outcome, days) =>
+        `Una vez dentro de los ${String(days)} días posteriores al ${outcome}.`,
+      ckd_stage: (fallback) =>
+        `Según el estadio de ERC (KDIGO); cada ${String(fallback)} días si se desconoce el estadio.`,
+    },
+    cadence: (visits, pattern, interval, multiplier, expected) =>
+      interval === undefined || multiplier === undefined
+        ? `${String(visits)} consultas de esta especialidad; la próxima se esperaba antes del ${expected}.`
+        : `${String(visits)} consultas de esta especialidad (${String(pattern)} forman el patrón): intervalo habitual de ${String(interval)} días, así que la próxima consulta se esperaba dentro de ${String(multiplier)} × ${String(interval)} días, antes del ${expected}.`,
+    noPattern: 'Las consultas que forman el patrón ya no están en la historia.',
+    closedBy: 'Cerrado por',
+    noteBy: (author) => `por ${author}`,
+    value: (value, interpretation) =>
+      interpretation === undefined ? value : `${value} · ${interpretation}`,
+    interpretations: {
+      normal: 'normal',
+      abnormal: 'alterado',
+      unknown: 'sin interpretación',
+      critical: 'crítico',
+    },
+    noKnownAllergy: 'Sin alergias conocidas',
+    cancelled: 'cancelada',
+    verification: { confirmed: 'confirmado', provisional: 'provisional' },
+    durationDays: (days) => `${String(days)} días`,
+  },
+
   sources: {
     types: {
       ServiceRequest: 'Orden',

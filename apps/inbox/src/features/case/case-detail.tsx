@@ -51,6 +51,8 @@ import {
 import { FeedbackPanel } from './feedback-panel.tsx';
 import { ReasonRuleVersion } from '../metrics/rule-version.tsx';
 import { PlanItemReview } from '../plan-items/plan-item-review.tsx';
+import { PatientDocumentsProvider, ViewDocumentsButton } from '../why/documents-drawer.tsx';
+import { WhyThis } from '../why/why-this.tsx';
 
 /** "Result — HbA1c"; just the display when it already names the type ("Clinical note of ..."). */
 function sourceLabel(t: Messages, source: CaseReasonView['source']): string {
@@ -96,6 +98,7 @@ function ReasonCard({
           dueAt={reason.dueAt}
         />
       ) : null}
+      <WhyThis why={reason.why} label={reason.label} />
     </li>
   );
 }
@@ -299,157 +302,163 @@ export function CaseDetailView({
 
   const Wrapper = embedded ? 'div' : 'article';
   return (
-    <Wrapper
-      {...(embedded ? {} : { 'aria-labelledby': CASE_TITLE_ID })}
-      className="flex flex-col gap-4"
-    >
-      {backTo && !embedded ? (
-        <Link
-          to={backTo}
-          className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-fg lg:hidden"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          {t.common.backToInbox}
-        </Link>
-      ) : null}
-
-      {embedded ? null : (
-        <Card className="flex flex-col gap-4 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2
-                id={CASE_TITLE_ID}
-                ref={heading}
-                tabIndex={-1}
-                className="text-lg font-semibold tracking-tight text-fg outline-none"
-              >
-                {detail.patient.name}
-              </h2>
-              <p className="mt-0.5 text-sm text-muted">
-                {[
-                  patientMeta(detail.patient, t),
-                  detail.assignee ? t.caseDetail.owner(detail.assignee) : '',
-                ]
-                  .filter(Boolean)
-                  .join(t.common.separator)}
-              </p>
-            </div>
-            <Link
-              to={`/patients/${detail.patient.id}`}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border-strong px-3 text-[13px] font-medium text-fg hover:bg-surface-2"
-            >
-              <UserRound className="size-3.5" aria-hidden="true" />
-              {t.common.viewPatient}
-            </Link>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge status={detail.status} />
-            <PriorityBadge label={detail.priorityLabel} priority={detail.priority} />
-            <span className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
-              <EscalationMeter escalation={detail.escalation} showLabel />
-            </span>
-            {detail.origin === 'backfill' ? (
-              <Badge tone="info">{t.caseDetail.recovered}</Badge>
-            ) : null}
-            <span className="text-xs text-muted">
-              {t.caseDetail.openedAgo(formatRelative(detail.openedAt, now))}
-            </span>
-          </div>
-          <ContactStatus detail={detail} now={now} />
-        </Card>
-      )}
-
-      {/* One primary action per view: a pending call comes first. */}
-      {active && detail.callTask ? (
-        <CallTask caseId={detail.id} task={detail.callTask} patientName={detail.patient.name} />
-      ) : null}
-
-      {active ? (
-        <Card
-          className={cx(
-            'flex flex-col gap-4 p-5',
-            detail.callTask === undefined && 'border-primary/30',
-          )}
-        >
-          <div className="flex gap-3">
-            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
-              <Lightbulb className="size-4" aria-hidden="true" />
-            </span>
-            <div>
-              <h3 className="text-sm font-semibold text-fg">{t.caseDetail.suggestedStep}</h3>
-              <p className="mt-1 text-sm text-muted">{detail.suggestedAction}</p>
-              {detail.status === 'snoozed' && detail.snoozedUntil ? (
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
-                  <CalendarX className="size-3.5" aria-hidden="true" />
-                  {t.caseDetail.snoozedUntil(formatDate(detail.snoozedUntil))}
-                </p>
-              ) : null}
-            </div>
-          </div>
-          <CaseActions detail={detail} withContactRequest={!embedded} />
-        </Card>
-      ) : (
-        <Card className="p-0">
-          <div
-            ref={closedNotice}
-            id={CASE_CLOSED_NOTICE_ID}
-            tabIndex={-1}
-            role="status"
-            className="flex items-center gap-3 rounded-xl p-4 text-sm text-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    <PatientDocumentsProvider patientId={detail.patient.id} patientName={detail.patient.name}>
+      <Wrapper
+        {...(embedded ? {} : { 'aria-labelledby': CASE_TITLE_ID })}
+        className="flex flex-col gap-4"
+      >
+        {backTo && !embedded ? (
+          <Link
+            to={backTo}
+            className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-fg lg:hidden"
           >
-            <StatusBadge status={detail.status} />
-            {t.caseDetail.closedNotice(t.labels.statuses[detail.status].toLowerCase())}
-          </div>
-        </Card>
-      )}
-
-      <section aria-labelledby="reasons-title" className="flex flex-col gap-3">
-        <SectionTitle id="reasons-title" count={detail.reasons.length}>
-          {t.caseDetail.reasons}
-        </SectionTitle>
-        {planReasons > 0 ? (
-          <p className="flex items-center gap-1.5 text-xs text-muted">
-            <Bot className="size-3.5 text-layer-plan" aria-hidden="true" />
-            {t.caseDetail.quotesNote}
-          </p>
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            {t.common.backToInbox}
+          </Link>
         ) : null}
-        <ul className="flex flex-col gap-3">
-          {detail.reasons.map((reason) => (
-            <ReasonCard key={reason.expectationId} reason={reason} now={now} />
-          ))}
-        </ul>
-      </section>
 
-      <Card className="flex flex-col gap-3 p-5" aria-labelledby="escalation-title">
-        <SectionTitle id="escalation-title">{t.caseDetail.escalation}</SectionTitle>
-        <p className="text-xs text-muted">{t.caseDetail.escalationIntro}</p>
-        {detail.status === 'snoozed' && detail.snoozedUntil ? (
-          <p className="flex items-start gap-1.5 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs text-fg">
-            <CalendarX className="mt-px size-3.5 shrink-0 text-muted" aria-hidden="true" />
-            {t.caseDetail.escalationSnoozed(formatDate(detail.snoozedUntil))}
-          </p>
+        {embedded ? null : (
+          <Card className="flex flex-col gap-4 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2
+                  id={CASE_TITLE_ID}
+                  ref={heading}
+                  tabIndex={-1}
+                  className="text-lg font-semibold tracking-tight text-fg outline-none"
+                >
+                  {detail.patient.name}
+                </h2>
+                <p className="mt-0.5 text-sm text-muted">
+                  {[
+                    patientMeta(detail.patient, t),
+                    detail.assignee ? t.caseDetail.owner(detail.assignee) : '',
+                  ]
+                    .filter(Boolean)
+                    .join(t.common.separator)}
+                </p>
+              </div>
+              <Link
+                to={`/patients/${detail.patient.id}`}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border-strong px-3 text-[13px] font-medium text-fg hover:bg-surface-2"
+              >
+                <UserRound className="size-3.5" aria-hidden="true" />
+                {t.common.viewPatient}
+              </Link>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={detail.status} />
+              <PriorityBadge label={detail.priorityLabel} priority={detail.priority} />
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
+                <EscalationMeter escalation={detail.escalation} showLabel />
+              </span>
+              {detail.origin === 'backfill' ? (
+                <Badge tone="info">{t.caseDetail.recovered}</Badge>
+              ) : null}
+              <span className="text-xs text-muted">
+                {t.caseDetail.openedAgo(formatRelative(detail.openedAt, now))}
+              </span>
+            </div>
+            <ContactStatus detail={detail} now={now} />
+          </Card>
+        )}
+
+        {/* One primary action per view: a pending call comes first. */}
+        {active && detail.callTask ? (
+          <CallTask caseId={detail.id} task={detail.callTask} patientName={detail.patient.name} />
         ) : null}
-        <EscalationSteps escalation={detail.escalation} active={active} />
-      </Card>
 
-      <ContactTimeline attempts={detail.contactAttempts} now={now} />
+        {active ? (
+          <Card
+            className={cx(
+              'flex flex-col gap-4 p-5',
+              detail.callTask === undefined && 'border-primary/30',
+            )}
+          >
+            <div className="flex gap-3">
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
+                <Lightbulb className="size-4" aria-hidden="true" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold text-fg">{t.caseDetail.suggestedStep}</h3>
+                <p className="mt-1 text-sm text-muted">{detail.suggestedAction}</p>
+                {detail.status === 'snoozed' && detail.snoozedUntil ? (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
+                    <CalendarX className="size-3.5" aria-hidden="true" />
+                    {t.caseDetail.snoozedUntil(formatDate(detail.snoozedUntil))}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <CaseActions detail={detail} withContactRequest={!embedded} />
+          </Card>
+        ) : (
+          <Card className="p-0">
+            <div
+              ref={closedNotice}
+              id={CASE_CLOSED_NOTICE_ID}
+              tabIndex={-1}
+              role="status"
+              className="flex items-center gap-3 rounded-xl p-4 text-sm text-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <StatusBadge status={detail.status} />
+              {t.caseDetail.closedNotice(t.labels.statuses[detail.status].toLowerCase())}
+            </div>
+          </Card>
+        )}
 
-      {detail.status === 'dismissed' ? (
-        detail.dismissal ? (
-          <DismissalSummary dismissal={detail.dismissal} patientId={detail.patient.id} />
-        ) : null
-      ) : (
-        <Card className="flex flex-col gap-3 p-5">
-          <h3 className="text-sm font-semibold text-fg">{t.caseDetail.feedbackTitle}</h3>
-          <FeedbackPanel caseId={detail.id} feedback={detail.feedback} />
+        <section aria-labelledby="reasons-title" className="flex flex-col gap-3">
+          <SectionTitle
+            id="reasons-title"
+            count={detail.reasons.length}
+            action={<ViewDocumentsButton />}
+          >
+            {t.caseDetail.reasons}
+          </SectionTitle>
+          {planReasons > 0 ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted">
+              <Bot className="size-3.5 text-layer-plan" aria-hidden="true" />
+              {t.caseDetail.quotesNote}
+            </p>
+          ) : null}
+          <ul className="flex flex-col gap-3">
+            {detail.reasons.map((reason) => (
+              <ReasonCard key={reason.expectationId} reason={reason} now={now} />
+            ))}
+          </ul>
+        </section>
+
+        <Card className="flex flex-col gap-3 p-5" aria-labelledby="escalation-title">
+          <SectionTitle id="escalation-title">{t.caseDetail.escalation}</SectionTitle>
+          <p className="text-xs text-muted">{t.caseDetail.escalationIntro}</p>
+          {detail.status === 'snoozed' && detail.snoozedUntil ? (
+            <p className="flex items-start gap-1.5 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs text-fg">
+              <CalendarX className="mt-px size-3.5 shrink-0 text-muted" aria-hidden="true" />
+              {t.caseDetail.escalationSnoozed(formatDate(detail.snoozedUntil))}
+            </p>
+          ) : null}
+          <EscalationSteps escalation={detail.escalation} active={active} />
         </Card>
-      )}
 
-      <Card className="flex flex-col gap-4 p-5" aria-labelledby="timeline-title">
-        <SectionTitle id="timeline-title">{t.caseDetail.history}</SectionTitle>
-        <Timeline entries={detail.timeline} now={now} />
-      </Card>
-    </Wrapper>
+        <ContactTimeline attempts={detail.contactAttempts} now={now} />
+
+        {detail.status === 'dismissed' ? (
+          detail.dismissal ? (
+            <DismissalSummary dismissal={detail.dismissal} patientId={detail.patient.id} />
+          ) : null
+        ) : (
+          <Card className="flex flex-col gap-3 p-5">
+            <h3 className="text-sm font-semibold text-fg">{t.caseDetail.feedbackTitle}</h3>
+            <FeedbackPanel caseId={detail.id} feedback={detail.feedback} />
+          </Card>
+        )}
+
+        <Card className="flex flex-col gap-4 p-5" aria-labelledby="timeline-title">
+          <SectionTitle id="timeline-title">{t.caseDetail.history}</SectionTitle>
+          <Timeline entries={detail.timeline} now={now} />
+        </Card>
+      </Wrapper>
+    </PatientDocumentsProvider>
   );
 }
 

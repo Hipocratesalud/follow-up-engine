@@ -159,3 +159,20 @@ export { matchesFilter } from './matching/filter.ts';
 export { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from './settings.ts';
 
 export * from './reviewer/index.ts';
+export {
+  ANCHOR_ROLES,
+  createExplainer,
+  DUE_BASES,
+  ENROLLMENT_BASES,
+  type AnchorRole,
+  type CadenceExplanation,
+  type DueBasis,
+  type DueExplanation,
+  type EnrollmentBasis,
+  type EnrollmentExplanation,
+  type ExpectationExplanation,
+  type ExplainInput,
+  type FulfillmentExplanation,
+  type PlanExplanation,
+  type ProtocolExplanation,
+} from './explain/explain.ts';

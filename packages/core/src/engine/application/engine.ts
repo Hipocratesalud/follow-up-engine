@@ -1,6 +1,6 @@
 import type { ClinicalBatch } from '../../domain/clinical-event.ts';
 import type { BackfillProgress } from '../../ports/backfill-progress.ts';
-import type { ClinicId, PatientId } from '../../domain/ids.ts';
+import type { ClinicId, ExpectationId, PatientId } from '../../domain/ids.ts';
 import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
 import type { Clock } from '../../ports/clock.ts';
 import type {
@@ -46,6 +46,7 @@ import type { CaseId } from '../../domain/ids.ts';
 import { type CaseCommands, createCaseCommands } from '../case-manager/commands.ts';
 import { protocolEnabled } from '../../config/protocol.ts';
 import { Catalog } from '../catalog.ts';
+import { createExplainer, type ExpectationExplanation } from '../explain/explain.ts';
 import { type EscalationReport, runEscalation } from '../escalation/escalation.ts';
 import {
   hasInvalidContactData,
@@ -226,6 +227,17 @@ export interface FollowUpEngine {
   ): Promise<ClinicMetrics>;
   /** The rules and protocols enabled for a clinic (labels, suggested actions, policies). */
   catalog(clinicId: ClinicId): Promise<Catalog>;
+  /**
+   * Why each of a patient's expectations exists (all of them, or those of
+   * `expectationIds`), recomputed from the stored record and the clinic's
+   * catalog (HIP-142): the due date's anchor and interval, the protocol
+   * enrollment, the visit pattern, what would fulfill it. Read only.
+   */
+  explain(
+    clinicId: ClinicId,
+    patientId: PatientId,
+    expectationIds?: readonly ExpectationId[],
+  ): Promise<readonly ExpectationExplanation[]>;
   patientContactStatus(clinicId: ClinicId, patientId: PatientId): Promise<PatientContactStatus>;
 }
 
@@ -345,6 +357,22 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
     metrics: (clinicId, period) =>
       clinicMetrics({ unitOfWork: deps.unitOfWork, clock: deps.clock }, clinicId, period),
     catalog: loadCatalog,
+    async explain(clinicId, patientId, expectationIds) {
+      const catalog = await loadCatalog(clinicId);
+      const { events, conditions, expectations } = await deps.unitOfWork.withTransaction(
+        clinicId,
+        async (stores) => ({
+          events: await stores.clinicalRecords.listEventsForPatient(clinicId, patientId),
+          conditions: await stores.conditions.listByPatient(clinicId, patientId),
+          expectations: await stores.expectations.listByPatient(clinicId, patientId),
+        }),
+      );
+      const wanted = expectationIds === undefined ? undefined : new Set<string>(expectationIds);
+      const explainer = createExplainer({ catalog, conditions, events, now: deps.clock.now() });
+      return expectations
+        .filter((expectation) => wanted === undefined || wanted.has(expectation.id))
+        .map(explainer);
+    },
     async patientContactStatus(clinicId, patientId) {
       const clinic = await deps.clinics.get(clinicId);
       const { optedOut, lastContactAt, contactDataInvalid } = await deps.unitOfWork.withTransaction(

@@ -79,6 +79,8 @@ import {
 } from './patient-queue.ts';
 import { detectNoteLanguage, extractFromNote, MOCK_MODEL } from './extraction.ts';
 import { localized, type Text } from './localized.ts';
+import { mockDocuments, mockNoteRef, mockWhy } from './why.ts';
+import type { PatientDocumentView, ReasonWhyView } from '../api/why-contract.ts';
 import {
   ASSIGNEES,
   CLINIC_NAME,
@@ -399,6 +401,8 @@ export interface MockStore {
   calibration(): CalibrationReportView;
   feedback(id: string, request: FeedbackRequest, actorId?: string): CaseFeedbackView;
   getPatient(id: string): PatientDetail;
+  /** The patient's documents for the "View documents" drawer (HIP-142). */
+  getPatientDocuments(id: string): { items: PatientDocumentView[] };
   reviewCondition(id: string, decision: 'confirm' | 'reject'): ConditionView;
   listRecovery(query: { cursor?: string; limit?: number }): RecoveryPage;
   stats(): InboxStats;
@@ -884,6 +888,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       ...(closedLabel === undefined ? {} : { closedReason: closedLabel }),
       ...(expectation.evidence ? { evidence: { ...expectation.evidence } } : {}),
       ...planItemField(expectation),
+      why: whyOf(expectation),
     };
   }
 
@@ -1003,9 +1008,48 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     return patient.age === undefined ? {} : { age: patient.age };
   }
 
+  /** The mock "Why this?" of an expectation (HIP-142). */
+  function whyOf(expectation: MockExpectation): ReasonWhyView {
+    const note = expectation.evidence
+      ? documents.get(expectation.evidence.documentId)
+      : [...documents.values()]
+          .filter((document) => document.patientId === expectation.patientId)
+          .sort((a, b) => b.authoredAt.getTime() - a.authoredAt.getTime())[0];
+    const protocol = mockProtocolRef(expectation.ruleId, locale);
+    const condition = [...conditions.values()].find(
+      (candidate) =>
+        candidate.patientId === expectation.patientId && candidate.status === 'confirmed',
+    );
+    return mockWhy({
+      locale,
+      ruleId: expectation.ruleId,
+      layer: expectation.layer,
+      dueAt: expectation.dueAt,
+      source: { ...expectation.source, display: say(expectation.source.display) },
+      ...(note === undefined ? {} : { note }),
+      ...(expectation.evidence === undefined
+        ? {}
+        : {
+            quote: expectation.evidence.quote,
+            ...(note === undefined
+              ? {}
+              : { noteExcerpt: excerptAround(note.text, expectation.evidence.quote) }),
+          }),
+      ...(protocol === undefined ? {} : { protocol }),
+      ...(condition === undefined
+        ? {}
+        : { condition: { id: condition.id, code: condition.code, display: condition.display } }),
+    });
+  }
+
   function caseDetail(followUpCase: MockCase): CaseDetail {
+    const view = caseView(followUpCase);
     return {
-      ...caseView(followUpCase),
+      ...view,
+      reasons: view.reasons.map((reason) => {
+        const expectation = expectations.get(reason.expectationId);
+        return expectation === undefined ? reason : { ...reason, why: whyOf(expectation) };
+      }),
       escalation: escalationView(followUpCase, true),
       timeline: [...followUpCase.timeline]
         .sort((a, b) => b.at.getTime() - a.at.getTime())
@@ -2232,6 +2276,25 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     },
 
     reviewCondition,
+
+    getPatientDocuments(id: string): { items: PatientDocumentView[] } {
+      if (!patients.has(id)) {
+        throw new MockHttpError(404, 'patient_not_found', api().errors.patientNotFound);
+      }
+      const cited = [...expectations.values()]
+        .filter((expectation) => expectation.patientId === id)
+        .flatMap((expectation) => {
+          const why = whyOf(expectation);
+          return [
+            ...(why.due.anchor === undefined ? [] : [why.due.anchor]),
+            ...(why.protocol?.enrollment.evidence ?? []),
+          ];
+        });
+      const notes = [...documents.values()]
+        .filter((document) => document.patientId === id)
+        .map((document) => ({ view: mockNoteRef(locale, document), text: document.text }));
+      return { items: mockDocuments(cited, notes) };
+    },
 
     listRecovery(query: { cursor?: string; limit?: number }): RecoveryPage {
       const items = [...cases.values()]

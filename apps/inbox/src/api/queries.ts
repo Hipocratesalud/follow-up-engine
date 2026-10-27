@@ -14,6 +14,7 @@ import { createContext, useContext } from 'react';
 import { useT } from '../i18n/index.ts';
 import { noteReader, type NoteReader } from '../lib/labels.ts';
 import { type ApiClient, isApiError } from './client.ts';
+import type { PatientDocumentView } from './why-contract.ts';
 import type {
   CallOutcomeRequest,
   CaseActionRequest,
@@ -131,6 +132,19 @@ export function useCase(id: string): UseQueryResult<CaseDetail> {
 export function usePatient(id: string): UseQueryResult<PatientDetail> {
   const api = useApi();
   return useQuery({ queryKey: queryKeys.patient(id), queryFn: () => api.getPatient(id) });
+}
+
+/** The patient's documents for the "View documents" drawer, loaded when it opens (HIP-142). */
+export function usePatientDocuments(
+  id: string,
+  enabled: boolean,
+): UseQueryResult<{ items: PatientDocumentView[] }> {
+  const api = useApi();
+  return useQuery({
+    queryKey: [...queryKeys.patient(id), 'documents'],
+    queryFn: () => api.getPatientDocuments(id),
+    enabled,
+  });
 }
 
 export function useRecovery(): UseQueryResult<RecoveryPage> {

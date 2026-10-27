@@ -33,6 +33,8 @@ import { PreVisitQuestions } from '../reviewer/pre-visit-questions.tsx';
 import { cx } from '../../lib/cx.ts';
 import { useT } from '../../i18n/index.ts';
 import { ContactFlagNotice } from '../case/contact-panel.tsx';
+import { PatientDocumentsProvider, ViewDocumentsButton } from '../why/documents-drawer.tsx';
+import { WhyThis } from '../why/why-this.tsx';
 import {
   formatDate,
   formatLanguage,
@@ -201,6 +203,7 @@ function ExpectationItem({
           dueAt={expectation.dueAt}
         />
       ) : null}
+      <WhyThis why={expectation.why} label={expectation.label} headingLevel={3} />
     </li>
   );
 }
@@ -350,163 +353,166 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
   const rejected = conditions.filter((condition) => condition.status === 'rejected');
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-5">
-      <Link
-        to="/inbox"
-        className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-fg"
-      >
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        {t.patient.back}
-      </Link>
-
-      <Card className="flex flex-wrap items-center gap-4 p-5">
-        <span
-          className="grid size-12 place-items-center rounded-full bg-primary-soft text-base font-semibold text-primary"
-          aria-hidden="true"
+    <PatientDocumentsProvider patientId={patient.id} patientName={patient.name}>
+      <div className="mx-auto flex max-w-4xl flex-col gap-5">
+        <Link
+          to="/inbox"
+          className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-fg"
         >
-          {initials(patient.name)}
-        </span>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-semibold tracking-tight text-fg">{patient.name}</h1>
-          <p className="text-sm text-muted">
-            {[
-              patient.age === undefined ? undefined : t.patient.age(patient.age),
-              patient.sex === undefined || patient.sex === 'unknown'
-                ? undefined
-                : t.labels.sexes[patient.sex],
-            ]
-              .filter((part) => part !== undefined)
-              .join(t.common.separator) || t.patient.noDemographics}
-          </p>
-          {detail.language ? (
-            <p className="mt-0.5 text-xs text-muted">
-              {t.common.preferredLanguage(formatLanguage(detail.language))}
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          {t.patient.back}
+        </Link>
+
+        <Card className="flex flex-wrap items-center gap-4 p-5">
+          <span
+            className="grid size-12 place-items-center rounded-full bg-primary-soft text-base font-semibold text-primary"
+            aria-hidden="true"
+          >
+            {initials(patient.name)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-semibold tracking-tight text-fg">{patient.name}</h1>
+            <p className="text-sm text-muted">
+              {[
+                patient.age === undefined ? undefined : t.patient.age(patient.age),
+                patient.sex === undefined || patient.sex === 'unknown'
+                  ? undefined
+                  : t.labels.sexes[patient.sex],
+              ]
+                .filter((part) => part !== undefined)
+                .join(t.common.separator) || t.patient.noDemographics}
+            </p>
+            {detail.language ? (
+              <p className="mt-0.5 text-xs text-muted">
+                {t.common.preferredLanguage(formatLanguage(detail.language))}
+              </p>
+            ) : null}
+          </div>
+          <ViewDocumentsButton />
+          {contact ? (
+            <div className="flex flex-col items-start gap-1 text-xs sm:items-end">
+              {contact.optedOut || !contact.allowed ? (
+                <Badge
+                  tone="warning"
+                  icon={<MessageSquareOff className="size-3" aria-hidden="true" />}
+                >
+                  {t.patient.noMessages}
+                </Badge>
+              ) : (
+                <Badge
+                  tone="success"
+                  icon={<MessageSquareText className="size-3" aria-hidden="true" />}
+                >
+                  {t.patient.contactAllowed}
+                </Badge>
+              )}
+              <span className="text-muted">
+                {contact.lastContactAt
+                  ? t.patient.lastContact(formatRelative(contact.lastContactAt, now))
+                  : t.patient.noContacts}
+              </span>
+            </div>
+          ) : null}
+        </Card>
+
+        {contact?.contactFlag ? <ContactFlagNotice flag={contact.contactFlag} now={now} /> : null}
+
+        <PreVisitQuestions patientId={detail.patient.id} />
+
+        <section aria-labelledby="conditions-title" className="flex flex-col gap-3">
+          <SectionTitle id="conditions-title" count={current.length}>
+            {t.patient.conditions}
+          </SectionTitle>
+          {probable > 0 ? (
+            <p className="text-sm text-muted">
+              {probable === 1 ? t.patient.probableOne : t.patient.probableMany(probable)}
             </p>
           ) : null}
-        </div>
-        {contact ? (
-          <div className="flex flex-col items-start gap-1 text-xs sm:items-end">
-            {contact.optedOut || !contact.allowed ? (
-              <Badge
-                tone="warning"
-                icon={<MessageSquareOff className="size-3" aria-hidden="true" />}
-              >
-                {t.patient.noMessages}
-              </Badge>
-            ) : (
-              <Badge
-                tone="success"
-                icon={<MessageSquareText className="size-3" aria-hidden="true" />}
-              >
-                {t.patient.contactAllowed}
-              </Badge>
-            )}
-            <span className="text-muted">
-              {contact.lastContactAt
-                ? t.patient.lastContact(formatRelative(contact.lastContactAt, now))
-                : t.patient.noContacts}
-            </span>
-          </div>
-        ) : null}
-      </Card>
-
-      {contact?.contactFlag ? <ContactFlagNotice flag={contact.contactFlag} now={now} /> : null}
-
-      <PreVisitQuestions patientId={detail.patient.id} />
-
-      <section aria-labelledby="conditions-title" className="flex flex-col gap-3">
-        <SectionTitle id="conditions-title" count={current.length}>
-          {t.patient.conditions}
-        </SectionTitle>
-        {probable > 0 ? (
-          <p className="text-sm text-muted">
-            {probable === 1 ? t.patient.probableOne : t.patient.probableMany(probable)}
-          </p>
-        ) : null}
-        {current.length === 0 ? (
-          <Card className="p-4 text-sm text-muted">{t.patient.noConditions}</Card>
-        ) : (
-          <ul className="flex flex-col gap-2.5">
-            {current.map((condition) => (
-              <ConditionItem key={condition.id} condition={condition} patientId={patient.id} />
-            ))}
-          </ul>
-        )}
-        {rejected.length > 0 ? (
-          <details className="group rounded-xl border border-border bg-surface">
-            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-muted hover:text-fg">
-              {t.patient.ruledOut(rejected.length)}
-            </summary>
-            <ul className="flex flex-col gap-2.5 px-4 pb-4">
-              {rejected.map((condition) => (
+          {current.length === 0 ? (
+            <Card className="p-4 text-sm text-muted">{t.patient.noConditions}</Card>
+          ) : (
+            <ul className="flex flex-col gap-2.5">
+              {current.map((condition) => (
                 <ConditionItem key={condition.id} condition={condition} patientId={patient.id} />
               ))}
             </ul>
-          </details>
-        ) : null}
-      </section>
+          )}
+          {rejected.length > 0 ? (
+            <details className="group rounded-xl border border-border bg-surface">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-muted hover:text-fg">
+                {t.patient.ruledOut(rejected.length)}
+              </summary>
+              <ul className="flex flex-col gap-2.5 px-4 pb-4">
+                {rejected.map((condition) => (
+                  <ConditionItem key={condition.id} condition={condition} patientId={patient.id} />
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </section>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card className="flex flex-col p-5" aria-labelledby="open-expectations-title">
-          <SectionTitle id="open-expectations-title" count={open.length}>
-            {t.patient.openExpectations}
+        <div className="grid gap-5 lg:grid-cols-2">
+          <Card className="flex flex-col p-5" aria-labelledby="open-expectations-title">
+            <SectionTitle id="open-expectations-title" count={open.length}>
+              {t.patient.openExpectations}
+            </SectionTitle>
+            {open.length === 0 ? (
+              <p className="mt-3 text-sm text-muted">{t.patient.nothingPending}</p>
+            ) : (
+              <ul className="mt-1">
+                {open.map((expectation) => (
+                  <ExpectationItem key={expectation.id} expectation={expectation} />
+                ))}
+              </ul>
+            )}
+          </Card>
+          <Card className="flex flex-col p-5" aria-labelledby="closed-expectations-title">
+            <SectionTitle id="closed-expectations-title" count={closed.length}>
+              {t.patient.closedExpectations}
+            </SectionTitle>
+            {closed.length === 0 ? (
+              <p className="mt-3 text-sm text-muted">{t.patient.noClosed}</p>
+            ) : (
+              <ul className="mt-1">
+                {closed.map((expectation) => (
+                  <ExpectationItem key={expectation.id} expectation={expectation} />
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+
+        <SuppressionsSection suppressions={detail.suppressions} patientId={patient.id} />
+
+        <section aria-labelledby="quality-title" className="flex flex-col gap-3">
+          <SectionTitle id="quality-title" count={detail.qualityFindings.length}>
+            {t.patient.quality}
           </SectionTitle>
-          {open.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">{t.patient.nothingPending}</p>
+          {detail.qualityFindings.length === 0 ? (
+            <Card className="p-4 text-sm text-muted">{t.patient.qualityOk}</Card>
           ) : (
-            <ul className="mt-1">
-              {open.map((expectation) => (
-                <ExpectationItem key={expectation.id} expectation={expectation} />
+            <ul className="flex flex-col gap-2.5">
+              {detail.qualityFindings.map((finding) => (
+                <li
+                  key={finding.id}
+                  className="flex gap-3 rounded-xl border border-warning/40 bg-warning-soft/30 p-4"
+                >
+                  <FileWarning className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden="true" />
+                  <div>
+                    <p className="text-sm font-semibold text-fg">{finding.label}</p>
+                    <p className="mt-0.5 text-sm text-muted">
+                      {finding.code === 'note_truncated'
+                        ? t.patient.truncated(formatDate(finding.at))
+                        : t.patient.noPlan(formatDate(finding.at))}
+                    </p>
+                  </div>
+                </li>
               ))}
             </ul>
           )}
-        </Card>
-        <Card className="flex flex-col p-5" aria-labelledby="closed-expectations-title">
-          <SectionTitle id="closed-expectations-title" count={closed.length}>
-            {t.patient.closedExpectations}
-          </SectionTitle>
-          {closed.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">{t.patient.noClosed}</p>
-          ) : (
-            <ul className="mt-1">
-              {closed.map((expectation) => (
-                <ExpectationItem key={expectation.id} expectation={expectation} />
-              ))}
-            </ul>
-          )}
-        </Card>
+        </section>
       </div>
-
-      <SuppressionsSection suppressions={detail.suppressions} patientId={patient.id} />
-
-      <section aria-labelledby="quality-title" className="flex flex-col gap-3">
-        <SectionTitle id="quality-title" count={detail.qualityFindings.length}>
-          {t.patient.quality}
-        </SectionTitle>
-        {detail.qualityFindings.length === 0 ? (
-          <Card className="p-4 text-sm text-muted">{t.patient.qualityOk}</Card>
-        ) : (
-          <ul className="flex flex-col gap-2.5">
-            {detail.qualityFindings.map((finding) => (
-              <li
-                key={finding.id}
-                className="flex gap-3 rounded-xl border border-warning/40 bg-warning-soft/30 p-4"
-              >
-                <FileWarning className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden="true" />
-                <div>
-                  <p className="text-sm font-semibold text-fg">{finding.label}</p>
-                  <p className="mt-0.5 text-sm text-muted">
-                    {finding.code === 'note_truncated'
-                      ? t.patient.truncated(formatDate(finding.at))
-                      : t.patient.noPlan(formatDate(finding.at))}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+    </PatientDocumentsProvider>
   );
 }
 

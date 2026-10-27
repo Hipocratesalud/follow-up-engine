@@ -333,6 +333,138 @@ export const EN = {
     invalidKind: 'Choose what the plan item asks for.',
   },
 
+  why: {
+    kinds: {
+      note: 'Clinical note',
+      order: 'Order',
+      result: 'Result',
+      prescription: 'Prescription',
+      visit: 'Visit',
+      appointment: 'Appointment',
+      diagnosis: 'Diagnosis',
+      allergy: 'Allergy record',
+      other: 'Record',
+    },
+    anchorRoles: {
+      trigger: 'trigger',
+      note: 'the note',
+      last_visit: 'the latest visit',
+      last_done: 'last time done',
+      enrollment: 'enrollment',
+      treatment_change: 'treatment start or change',
+      episode_end: 'end of the episode',
+      window_open: 'window opened',
+      unknown: 'record',
+    },
+    dueMath: (due, anchor, date, days) =>
+      `Due ${due} = ${anchor} (${date}) + ${String(days)} ${days === 1 ? 'day' : 'days'}`,
+    dueOnly: (due) => `Due ${due} (what it counted from is no longer in the record)`,
+    basis: {
+      rule_days: (days) => `The rule gives ${String(days)} days after the trigger.`,
+      critical_result: (days) =>
+        `Critical result: acted on within ${String(days)} days instead of the usual deadline.`,
+      treatment_end: (treatmentDays, days) =>
+        treatmentDays === undefined
+          ? `Counted from the end of the treatment, plus ${String(days)} days.`
+          : `${String(treatmentDays)} days of treatment, plus ${String(days)} days after it ends.`,
+      plan_date: 'The date the doctor gave in the note.',
+      cadence: (multiplier, interval) =>
+        `${String(multiplier)} × the patient’s usual interval of ${String(interval)} days.`,
+      protocol_interval: (days) =>
+        `Every ${String(days)} days, from the last time it was done (or from enrollment).`,
+      protocol_treatment_change:
+        'A control after the treatment started or changed, then the protocol’s regular interval.',
+      protocol_gestational_age: (weeks) =>
+        weeks === undefined
+          ? 'Prenatal interval for an undated pregnancy.'
+          : `Prenatal interval at ${String(weeks)} weeks of gestation.`,
+      protocol_gestational_window: 'Due when the gestational window closes.',
+      protocol_after_outcome: (days) => `Within ${String(days)} days after the outcome.`,
+      protocol_ckd_stage: (stage) =>
+        stage === undefined
+          ? 'Interval for an unknown CKD stage (the protocol’s default).'
+          : `Interval for CKD stage ${stage} (KDIGO).`,
+    },
+    dueAtWeek: (due, week) => `Due ${due}, when the pregnancy reaches ${String(week)} weeks`,
+    tooEarly: (record, date) =>
+      `${record} on ${date} came too soon after the change to count as its control.`,
+    bookingTolerance: (days) =>
+      days === 0
+        ? 'A booking must fall on or before the due date.'
+        : `A booking up to ${String(days)} days after the due date still counts.`,
+    days: (count) => `${String(count)} ${count === 1 ? 'day' : 'days'}`,
+    fulfill: {
+      result: (test, code, equivalents) =>
+        `A result for ${test} (${code}${equivalents > 0 ? ' or an equivalent code' : ''}).`,
+      orderResult: (test, code) => `The result of this order: ${test} (${code} or equivalent).`,
+      anyResult: (kind) => `A ${kind} result.`,
+      visit: (withBooking) => (withBooking ? 'A visit, or a booked appointment.' : 'A visit.'),
+      session: (withBooking) =>
+        withBooking ? 'A session, or a booked appointment.' : 'A session.',
+      other: (withBooking) =>
+        withBooking ? 'A visit, or a booked appointment.' : 'A matching record.',
+    },
+    expectKinds: {
+      follow_up_visit: 'visit',
+      lab: 'lab',
+      imaging: 'imaging',
+      session: 'session',
+      other: 'follow-up',
+    },
+    enrollment: {
+      diagnosis: (diagnosis, date) => `Coded diagnosis ${diagnosis}, recorded ${date}.`,
+      note: (diagnosis, date) => `${diagnosis}, read from the note of ${date}.`,
+      medication: (medication, date, diagnosis) =>
+        `Prescription of ${medication} on ${date}: makes ${diagnosis} probable (no coded diagnosis).`,
+      results: (count, test, threshold, diagnosis) =>
+        `${String(count)} ${count === 1 ? 'result' : 'results'} of ${test} ${threshold}: makes ${diagnosis} probable.`,
+      record: (record, date, diagnosis) => `${record} on ${date}: makes ${diagnosis} probable.`,
+      ended: (outcome, date) => `The episode ended (${outcome}) on ${date}.`,
+      notEnrolled: 'The record no longer enrolls the patient in this protocol.',
+      unknown: (diagnosis) => `${diagnosis} (the record behind it is no longer available).`,
+      activeTreatment: (medication, date) => `Active prescription: ${medication} (${date}).`,
+      confirm: (count, days) =>
+        `at least ${String(count)} results, ${String(days)} or more days apart`,
+      outcomes: { delivery: 'delivery', loss: 'pregnancy loss', discharge: 'discharge' },
+    },
+    protocolVersion: (name, version) => `${name} v${version}`,
+    draft: 'Draft: not yet validated by the clinical team',
+    validated: 'Validated by the clinical team',
+    schedule: {
+      interval: (days) => `Every ${String(days)} days.`,
+      treatment_change: (afterChange, every, titration) =>
+        `${String(afterChange)} days after a treatment start or dose change${titration === undefined ? '' : `, ${titration}`}, then every ${String(every)} days.`,
+      titration: (every, controls) =>
+        `every ${String(every)} days until ${String(controls)} stable controls`,
+      gestational_age: (intervals) => `Prenatal visits: ${intervals}.`,
+      gestationalInterval: (untilWeek, every) =>
+        `every ${String(every)} days until week ${String(untilWeek)}`,
+      gestational_window: (from, to) => `Once between weeks ${String(from)} and ${String(to)}.`,
+      after_outcome: (outcome, days) => `Once within ${String(days)} days after the ${outcome}.`,
+      ckd_stage: (fallback) =>
+        `By CKD stage (KDIGO); every ${String(fallback)} days when the stage is unknown.`,
+    },
+    cadence: (visits, pattern, interval, multiplier, expected) =>
+      interval === undefined || multiplier === undefined
+        ? `${String(visits)} visits of this specialty; next visit expected by ${expected}.`
+        : `${String(visits)} visits of this specialty (${String(pattern)} make the pattern): usual interval ${String(interval)} days, so the next visit was expected within ${String(multiplier)} × ${String(interval)} days, by ${expected}.`,
+    noPattern: 'The visits behind the pattern are no longer in the record.',
+    closedBy: 'Closed by',
+    noteBy: (author) => `by ${author}`,
+    value: (value, interpretation) =>
+      interpretation === undefined ? value : `${value} · ${interpretation}`,
+    interpretations: {
+      normal: 'normal',
+      abnormal: 'abnormal',
+      unknown: 'no interpretation',
+      critical: 'critical',
+    },
+    noKnownAllergy: 'No known allergies',
+    cancelled: 'cancelled',
+    verification: { confirmed: 'confirmed', provisional: 'provisional' },
+    durationDays: (days) => `${String(days)} days`,
+  },
+
   sources: {
     types: {
       ServiceRequest: 'Order',

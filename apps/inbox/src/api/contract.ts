@@ -7,6 +7,7 @@
  */
 
 import type { PlanItemView } from './plan-item-contract.ts';
+import type { ReasonWhyView } from './why-contract.ts';
 
 export const LAYERS = ['universal', 'doctor_plan', 'cadence', 'protocol'] as const;
 export type Layer = (typeof LAYERS)[number];
@@ -251,6 +252,8 @@ export interface CaseReasonView {
   evidence?: ReasonEvidence;
   /** Doctor's-plan reasons: the AI reading and its review (HIP-141). */
   planItem?: PlanItemView;
+  /** Case detail only: the evidence behind the reason, "Why this?" (HIP-142). */
+  why?: ReasonWhyView;
 }
 
 export const ESCALATION_ACTIONS = [
@@ -442,6 +445,8 @@ export interface PatientExpectationView {
   evidence?: { quote: string; documentId: string };
   /** Doctor's-plan expectations: the AI reading and its review (HIP-141). */
   planItem?: PlanItemView;
+  /** The evidence behind the expectation, "Why this?" (HIP-142). */
+  why?: ReasonWhyView;
 }
 
 export interface QualityFindingView {

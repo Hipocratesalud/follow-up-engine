@@ -5,6 +5,7 @@ import '../metrics/schemas.ts';
 import './patient-queue-schemas.ts';
 import './plan-item-schemas.ts';
 import './admin-schemas.ts';
+import './why-schemas.ts';
 
 /*
  * OpenAPI 3.1 document of the API. Component schemas are generated from the
@@ -400,6 +401,20 @@ const OPERATIONS: readonly Operation[] = [
     summary: 'Patient: conditions, expectations, findings',
     params: [id('Patient id')],
     response: 'PatientDetail',
+    errors: [404],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/patients/{id}/documents',
+    tag: 'Inbox',
+    summary: 'Every document of the patient, oldest first (the case\'s "View documents" drawer)',
+    description:
+      'Notes with their full text, orders, results with value and interpretation, ' +
+      'prescriptions, visits, appointments, diagnoses and allergy records: the latest version ' +
+      'of each resource, `withdrawn` when the host withdrew it later. What a clinician verifies ' +
+      'a case against (HIP-142).',
+    params: [id('Patient id')],
+    response: 'PatientDocumentList',
     errors: [404],
   },
   {

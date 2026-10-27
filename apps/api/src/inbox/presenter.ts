@@ -13,6 +13,7 @@ import {
   UNREACHED_OUTCOMES,
   type EscalationPolicy,
   type Expectation,
+  type ExpectationExplanation,
   type FhirResourceJson,
   type FollowUpCase,
   isActiveCaseStatus,
@@ -55,6 +56,8 @@ import {
 } from './labels.ts';
 import { planItemView } from './plan-item-presenter.ts';
 import { icd10Label, loincLabel } from './terminology.ts';
+import { WhyPresenter } from './why-presenter.ts';
+import type { PatientDocumentView } from '../http/why-schemas.ts';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -304,6 +307,10 @@ export class InboxPresenter {
   readonly #notes: (patientId: PatientId) => Promise<readonly NoteReceivedEvent[]>;
   readonly #contact: (patientId: PatientId) => Promise<PatientContactStatus>;
   readonly #contacts: (patientId: PatientId) => Promise<PatientContacts>;
+  readonly #explanations: (
+    patientId: PatientId,
+  ) => Promise<ReadonlyMap<string, ExpectationExplanation>>;
+  readonly #why: WhyPresenter;
 
   private constructor(
     runtime: EngineRuntime,
@@ -337,6 +344,11 @@ export class InboxPresenter {
     this.#contacts = memo((patientId: PatientId) =>
       runtime.engine.contacts.forPatient(clinicId, patientId),
     );
+    this.#explanations = memo(async (patientId: PatientId) => {
+      const explained = await runtime.engine.explain(clinicId, patientId);
+      return new Map(explained.map((item) => [item.expectationId, item]));
+    });
+    this.#why = new WhyPresenter(t, timeZone, this.resource, (id) => this.userName(id));
   }
 
   static async create(
@@ -450,12 +462,16 @@ export class InboxPresenter {
   async caseView(followUpCase: FollowUpCase, withExcerpts = false): Promise<CaseView> {
     await this.prefetch([followUpCase]);
     const expectations = this.expectationsOf(followUpCase);
+    // The case detail explains every reason ("Why this?"); lists do not.
+    const explained = withExcerpts ? await this.#explanations(followUpCase.patientId) : undefined;
     const [patientResource, contact, contacts, assignee, reasons] = await Promise.all([
       this.resource(`Patient/${followUpCase.patientId}`),
       this.#contact(followUpCase.patientId),
       this.#contacts(followUpCase.patientId),
       this.personName(followUpCase.assignee),
-      Promise.all(expectations.map((item) => this.reasonView(item, withExcerpts))),
+      Promise.all(
+        expectations.map((item) => this.reasonView(item, withExcerpts, explained?.get(item.id))),
+      ),
     ]);
     const patient = patientSummary(this.t, followUpCase.patientId, patientResource, this.now);
     return {
@@ -789,13 +805,18 @@ export class InboxPresenter {
       : undefined;
   }
 
-  async reasonView(expectation: Expectation, withExcerpt: boolean): Promise<CaseReasonView> {
-    const [source, evidence, planItem] = await Promise.all([
+  async reasonView(
+    expectation: Expectation,
+    withExcerpt: boolean,
+    explanation?: ExpectationExplanation,
+  ): Promise<CaseReasonView> {
+    const protocol = this.protocolRef(expectation);
+    const [source, evidence, planItem, why] = await Promise.all([
       this.resource(`${expectation.source.resourceType}/${expectation.source.id}`),
       this.#evidence(expectation, withExcerpt),
       planItemView(this.t, expectation, (id) => this.userName(id)),
+      explanation === undefined ? undefined : this.#why.why(expectation, explanation, protocol),
     ]);
-    const protocol = this.protocolRef(expectation);
     return {
       expectationId: expectation.id,
       ruleId: expectation.ruleId,
@@ -813,14 +834,42 @@ export class InboxPresenter {
       },
       ...(evidence === undefined ? {} : { evidence }),
       ...(planItem === undefined ? {} : { planItem }),
+      ...(why === undefined ? {} : { why }),
     };
   }
 
-  /** {@link expectationView} with the review of a doctor's-plan item (HIP-141). */
-  async reviewedExpectationView(expectation: Expectation): Promise<PatientExpectationView> {
-    const planItem = await planItemView(this.t, expectation, (id) => this.userName(id));
+  /**
+   * {@link expectationView} with the review of a doctor's-plan item
+   * (HIP-141) and, given the engine's explanation, its "Why this?" (HIP-142).
+   */
+  async reviewedExpectationView(
+    expectation: Expectation,
+    explanation?: ExpectationExplanation,
+  ): Promise<PatientExpectationView> {
+    const [planItem, why] = await Promise.all([
+      planItemView(this.t, expectation, (id) => this.userName(id)),
+      explanation === undefined
+        ? undefined
+        : this.#why.why(expectation, explanation, this.protocolRef(expectation)),
+    ]);
     const view = this.expectationView(expectation);
-    return planItem === undefined ? view : { ...view, planItem };
+    return {
+      ...view,
+      ...(planItem === undefined ? {} : { planItem }),
+      ...(why === undefined ? {} : { why }),
+    };
+  }
+
+  /** Every document of the patient, oldest first, for the "View documents" drawer (HIP-142). */
+  async patientDocuments(patientId: PatientId): Promise<PatientDocumentView[] | undefined> {
+    const events = await this.#runtime.storage.stores.clinicalRecords.listEventsForPatient(
+      this.#clinicId,
+      patientId,
+    );
+    if (events.length === 0 && (await this.resource(`Patient/${patientId}`)) === undefined) {
+      return undefined;
+    }
+    return this.#why.documents(events);
   }
 
   async #evidence(
@@ -916,9 +965,14 @@ export class InboxPresenter {
       conditions: withoutConfirmedDuplicates(conditions)
         .filter((condition) => condition.status !== 'entered_in_error')
         .map((condition) => conditionView(this.t, condition)),
-      expectations: await Promise.all(
-        expectations.map((expectation) => this.reviewedExpectationView(expectation)),
-      ),
+      expectations: await (async () => {
+        const explained = await this.#explanations(patientId);
+        return Promise.all(
+          expectations.map((expectation) =>
+            this.reviewedExpectationView(expectation, explained.get(expectation.id)),
+          ),
+        );
+      })(),
       qualityFindings: findings.map((finding) => ({
         id: finding.id,
         code: finding.kind,
