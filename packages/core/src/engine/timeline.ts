@@ -3,6 +3,7 @@ import type {
   ClinicalEventOf,
   EncounterFinishedEvent,
 } from '../domain/clinical-event.ts';
+import type { PractitionerId } from '../domain/ids.ts';
 import type { ResourceRef } from '../domain/resource.ts';
 
 export function refKey(ref: ResourceRef): string {
@@ -93,12 +94,48 @@ export class PatientTimeline {
     return this.events.some((event) => event.type === 'patient.opted_out');
   }
 
-  /** The specialty of the encounter an event belongs to, if known. */
+  /**
+   * The specialty an event belongs to, if known: an encounter's or
+   * appointment's own, a note's practice setting, else the specialty of the
+   * consultation it belongs to (for a result without one, the consultation
+   * that ordered it).
+   */
   specialtyOf(event: ClinicalEvent): string | undefined {
     if (event.type === 'encounter.finished' || event.type === 'appointment.booked') {
       return event.specialty;
     }
-    const encounterId = event.encounterId;
-    return encounterId === undefined ? undefined : this.encounter(encounterId)?.specialty;
+    if (event.type === 'note.received' && event.specialty !== undefined) {
+      return event.specialty;
+    }
+    const consultation = this.#consultationOf(event);
+    if (consultation !== undefined) {
+      return consultation.specialty;
+    }
+    if (event.type === 'plan.extracted') {
+      const note = this.bySource(event.source);
+      return note?.type === 'note.received' ? note.specialty : undefined;
+    }
+    return undefined;
+  }
+
+  /** The practitioner an event belongs to, if known (an encounter's or appointment's own, else its consultation's). */
+  practitionerOf(event: ClinicalEvent): PractitionerId | undefined {
+    if (event.type === 'encounter.finished' || event.type === 'appointment.booked') {
+      return event.practitionerId;
+    }
+    return this.#consultationOf(event)?.practitionerId;
+  }
+
+  /** The finished consultation an event belongs to; for a result, else the one that ordered it. */
+  #consultationOf(event: ClinicalEvent): EncounterFinishedEvent | undefined {
+    const own = event.encounterId === undefined ? undefined : this.encounter(event.encounterId);
+    if (own !== undefined || event.type !== 'result.received') {
+      return own;
+    }
+    const order =
+      event.basedOnOrderId === undefined
+        ? undefined
+        : this.bySource({ resourceType: 'ServiceRequest', id: event.basedOnOrderId });
+    return order?.encounterId === undefined ? undefined : this.encounter(order.encounterId);
   }
 }

@@ -35,6 +35,14 @@ export interface ExpectationDefinition {
   readonly escalationPolicy: EscalationPolicy;
   readonly suggestedAction: SuggestedAction;
   readonly protocol?: { readonly id: string; readonly version: string; readonly itemKey: string };
+  /**
+   * Specialties whose visits fulfill a visit expectation of this definition
+   * (a protocol's `specialties`). When absent, the specialty of the
+   * expectation's own anchor decides (see `correlates`).
+   */
+  readonly specialties?: readonly string[];
+  /** What triggers a rule (absent for protocol items, which follow enrollment). */
+  readonly trigger?: EventMatcher;
 }
 
 /** Rule id of a protocol item, for example `protocol_diabetes_hba1c`. */
@@ -74,6 +82,7 @@ function fromRule(rule: Rule): ExpectationDefinition {
     priority: rule.priority,
     escalationPolicy: rule.escalationPolicy,
     suggestedAction: rule.suggestedAction,
+    trigger: rule.trigger,
   };
 }
 
@@ -101,6 +110,7 @@ function fromProtocolItem(protocol: Protocol, item: ProtocolItem): ExpectationDe
     escalationPolicy: protocol.escalationPolicy,
     suggestedAction: item.suggestedAction,
     protocol: { id: protocol.id, version: protocol.version, itemKey: item.key },
+    ...(protocol.specialties === undefined ? {} : { specialties: protocol.specialties }),
   };
 }
 

@@ -29,6 +29,9 @@ import { doctorPlanDrafts } from './layers/doctor-plan.ts';
 import { protocolDrafts } from './layers/protocol.ts';
 import { universalDrafts } from './layers/universal.ts';
 
+/** `Expectation.closedReason` of an expectation whose source was withdrawn (cancelled, revoked, in error). */
+export const SOURCE_WITHDRAWN = 'source_withdrawn';
+
 /** Everything one annotation run needs, bound to an open transaction. */
 export interface AnnotationContext {
   readonly clinicId: ClinicId;
@@ -104,6 +107,7 @@ export async function annotate(
   created.push(...(await createExpectations(context, state.live, firstDrafts)));
 
   const closed = await applyFulfillment(context, state.timeline, state.live, ordered);
+  closed.push(...(await cancelWithdrawn(context, state, ordered)));
   const reopened = await reopenCancelled(context, state, ordered);
 
   // The doctor's explicit plan beats the inferred visit pattern for what it
@@ -280,6 +284,49 @@ async function applyFulfillment(
         closed.push({ expectation: next, closedBy: event.type });
       }
     }
+  }
+  return closed;
+}
+
+/** Resources the batch withdraws: cancelled, no-show or erroneous bookings. */
+function withdrawnSources(events: readonly ClinicalEvent[]): Map<string, ClinicalEvent> {
+  const withdrawn = new Map<string, ClinicalEvent>();
+  for (const event of events) {
+    if (event.type === 'appointment.cancelled') {
+      withdrawn.set(refKey(event.source), event);
+    }
+  }
+  return withdrawn;
+}
+
+/**
+ * An expectation anchored on a withdrawn resource (the protocol's next visit
+ * counted from a booking that was then cancelled) has nothing to stand on:
+ * it is cancelled (`source_withdrawn`). The layers that run next re-create
+ * what is still due from what remains in the record.
+ */
+async function cancelWithdrawn(
+  context: AnnotationContext,
+  state: PatientState,
+  events: readonly ClinicalEvent[],
+): Promise<ClosedExpectation[]> {
+  const withdrawn = withdrawnSources(events);
+  const closed: ClosedExpectation[] = [];
+  for (const expectation of state.live.list()) {
+    const by = withdrawn.get(refKey(expectation.source));
+    if (by === undefined) {
+      continue;
+    }
+    const next = await closeExpectation(
+      context.stores,
+      expectation,
+      'cancelled',
+      SOURCE_WITHDRAWN,
+      context.now,
+      by.source,
+    );
+    state.live.put(next);
+    closed.push({ expectation: next, closedBy: by.type });
   }
   return closed;
 }

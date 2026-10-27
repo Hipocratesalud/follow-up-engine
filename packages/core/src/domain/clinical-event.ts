@@ -60,10 +60,20 @@ export interface AppointmentBookedEvent extends ClinicalEventBase {
   readonly specialty?: string;
 }
 
-/** A booked appointment was cancelled. */
+/** Why a booked appointment no longer counts (FHIR `Appointment.status`). */
+export const APPOINTMENT_WITHDRAWAL_REASONS = ['cancelled', 'no_show', 'entered_in_error'] as const;
+export type AppointmentWithdrawalReason = (typeof APPOINTMENT_WITHDRAWAL_REASONS)[number];
+
+/**
+ * A booked appointment will not happen or did not happen: cancelled, the
+ * patient did not show up, or it was entered in error. Whatever its booking
+ * fulfilled is open again.
+ */
 export interface AppointmentCancelledEvent extends ClinicalEventBase {
   readonly type: 'appointment.cancelled';
   readonly scheduledFor: Date;
+  /** Absent means `cancelled`. */
+  readonly reason?: AppointmentWithdrawalReason;
 }
 
 /** A lab, imaging or other order was placed (FHIR `ServiceRequest`). */

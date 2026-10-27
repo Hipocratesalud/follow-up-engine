@@ -3,7 +3,7 @@ import type { ClinicalEvent } from '../../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../../domain/condition.ts';
 import type { Expectation } from '../../../domain/expectation.ts';
 import { type Catalog, type ExpectationDefinition, protocolRuleId } from '../../catalog.ts';
-import { matchesShape } from '../../matching/correlation.ts';
+import { definitionVisitFits, matchesShape } from '../../matching/correlation.ts';
 import { matchKeyFor } from '../../matching/match-key.ts';
 import { addDays } from '../../support/time.ts';
 import { eventInstant, type PatientTimeline } from '../../timeline.ts';
@@ -19,9 +19,10 @@ function latestFulfillingEvent(
 ): ClinicalEvent | undefined {
   let latest: ClinicalEvent | undefined;
   for (const event of timeline.events) {
-    const matches = definition.fulfilledBy.some((correlation) =>
-      matchesShape(correlation, event, definition.code),
-    );
+    const matches =
+      definition.fulfilledBy.some((correlation) =>
+        matchesShape(correlation, event, definition.code),
+      ) && definitionVisitFits(definition, event, timeline);
     if (matches && (latest === undefined || eventInstant(event) >= eventInstant(latest))) {
       latest = event;
     }
