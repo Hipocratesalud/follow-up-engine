@@ -2,16 +2,26 @@
   "name": "@follow-up-engine/worker",
   "version": "0.0.0",
   "private": true,
-  "description": "Background worker: job queue, outbox delivery, scheduled sweeps. Composition root.",
+  "description": "Engine runtime and background worker: composition root (adapters from env), job runner, deadline and escalation sweeps, outbox delivery through signed webhooks.",
   "type": "module",
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "start": "node --experimental-strip-types --no-warnings=ExperimentalWarning src/main.ts",
+    "webhook-sink": "node --experimental-strip-types --no-warnings=ExperimentalWarning src/webhooks/sink-main.ts"
   },
   "dependencies": {
-    "@follow-up-engine/core": "workspace:*"
+    "@follow-up-engine/adapter-memory": "workspace:*",
+    "@follow-up-engine/adapter-postgres": "workspace:*",
+    "@follow-up-engine/core": "workspace:*",
+    "@follow-up-engine/fhir": "workspace:*",
+    "@follow-up-engine/llm": "workspace:*",
+    "@hono/node-server": "^2.1.5",
+    "hono": "^4.13.14",
+    "pino": "^10.4.0",
+    "zod": "^4.6.7"
   }
 }

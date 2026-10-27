@@ -1,0 +1,86 @@
+import type { DomainEvent } from '@follow-up-engine/core';
+
+/** JSON body of a webhook. Ids, codes and dates only: never a diagnosis, a test name or note text. */
+export interface WebhookBody {
+  /** The domain event id; also sent as `X-FollowUp-Delivery`. Deduplicate on it. */
+  readonly id: string;
+  readonly type: DomainEvent['type'];
+  readonly clinicId: string;
+  readonly occurredAt: string;
+  readonly data: Readonly<Record<string, string | number | null>>;
+}
+
+function caseLink(caseId: string): string {
+  return `Task/${caseId}`;
+}
+
+/**
+ * Builds the webhook body of a domain event. Payloads are deliberately thin:
+ * reason codes and labels can name a condition (`protocol_diabetes_hba1c`),
+ * so they are left out; the host fetches the details it needs from
+ * `GET /fhir/Task/<caseId>` with its API key.
+ */
+export function toWebhookBody(event: DomainEvent): WebhookBody {
+  const base = {
+    id: event.id,
+    type: event.type,
+    clinicId: event.clinicId,
+    occurredAt: event.occurredAt.toISOString(),
+  };
+  switch (event.type) {
+    case 'case.opened':
+      return {
+        ...base,
+        data: {
+          caseId: event.payload.caseId,
+          patientId: event.payload.patientId,
+          priority: event.payload.priority,
+          origin: event.payload.origin,
+          reasonCount: event.payload.reasons.length,
+          task: caseLink(event.payload.caseId),
+        },
+      };
+    case 'case.escalated':
+      return {
+        ...base,
+        data: {
+          caseId: event.payload.caseId,
+          patientId: event.payload.patientId,
+          escalationStep: event.payload.escalationStep,
+          priority: event.payload.priority,
+          task: caseLink(event.payload.caseId),
+        },
+      };
+    case 'case.resolved':
+      return {
+        ...base,
+        data: {
+          caseId: event.payload.caseId,
+          patientId: event.payload.patientId,
+          resolution: event.payload.resolution,
+          task: caseLink(event.payload.caseId),
+        },
+      };
+    case 'patient_contact.requested':
+      return {
+        ...base,
+        data: {
+          caseId: event.payload.caseId,
+          patientId: event.payload.patientId,
+          purpose: event.payload.purpose,
+          dueBy: event.payload.dueBy?.toISOString() ?? null,
+          task: caseLink(event.payload.caseId),
+        },
+      };
+    case 'backfill.completed':
+      return {
+        ...base,
+        data: {
+          runId: event.payload.runId,
+          patientsScanned: event.payload.patientsScanned,
+          expectationsCreated: event.payload.expectationsCreated,
+          casesOpened: event.payload.casesOpened,
+        },
+      };
+  }
+}
