@@ -1,5 +1,5 @@
 import { firstDate } from '../../support/datetime.ts';
-import { decodeBase64Utf8, normalizeWhitespace, xhtmlToText } from '../../support/text.ts';
+import { decodeBase64Text, normalizeWhitespace, xhtmlToText } from '../../support/text.ts';
 import { specialtyOf, withdrawal, type EntryContext, type MappedResource } from '../context.ts';
 import type { CompositionSectionInput, ParsedResourceOf } from '../schemas.ts';
 
@@ -21,18 +21,39 @@ function attachmentText(
       ctx.report('warning', 'not-supported', `attachment of type ${contentType} is not read`, path);
       return;
     }
-    const decoded = decodeBase64Utf8(attachment.data);
+    const decoded = decodeBase64Text(attachment.data, contentType);
     if (decoded === undefined) {
+      ctx.report('warning', 'value', 'attachment data is not base64-encoded', `${path}.data`);
+      return;
+    }
+    if (decoded.repaired.includes('charset')) {
       ctx.report(
         'warning',
         'value',
-        'attachment data is not base64-encoded UTF-8 text',
+        `unknown charset in contentType "${contentType}"; read as UTF-8`,
+        `${path}.contentType`,
+      );
+    }
+    if (decoded.repaired.includes('bytes')) {
+      ctx.report(
+        'warning',
+        'value',
+        'attachment text has bytes that are not valid in its charset; replaced by U+FFFD',
         `${path}.data`,
       );
-      return;
+    }
+    if (decoded.repaired.includes('control')) {
+      ctx.report(
+        'warning',
+        'invalid',
+        'control characters (or invalid Unicode) removed from the text',
+        `${path}.data`,
+      );
     }
     parts.push(
-      MARKUP_TYPES.test(contentType) ? xhtmlToText(decoded) : normalizeWhitespace(decoded),
+      MARKUP_TYPES.test(contentType)
+        ? xhtmlToText(decoded.text)
+        : normalizeWhitespace(decoded.text),
     );
   });
   const text = parts.filter((part) => part !== '').join('\n\n');

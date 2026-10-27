@@ -169,6 +169,7 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
         'Content-Location',
         'ETag',
         'Retry-After',
+        'X-FollowUp-Stale',
       ],
       maxAge: 600,
     }),

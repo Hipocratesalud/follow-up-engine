@@ -69,6 +69,8 @@ export interface BundleMappingResult {
    * every string (see `issues`). What to keep or re-map later (job payloads).
    */
   readonly bundle: unknown;
+  /** `Bundle.type`; `undefined` when the envelope itself is invalid. */
+  readonly bundleType?: 'transaction' | 'batch';
 }
 
 /** Resource types that only give context (resolved by reference) and are never reported. */
@@ -248,6 +250,7 @@ export function mapBundleToBatches(
       issues: toOperationOutcome(issues),
       entryRefs,
       bundle: sanitized.value,
+      bundleType: index.type,
     };
   }
 
@@ -310,6 +313,7 @@ export function mapBundleToBatches(
     issues: toOperationOutcome(issues),
     entryRefs,
     bundle: sanitized.value,
+    bundleType: index.type,
   };
 }
 

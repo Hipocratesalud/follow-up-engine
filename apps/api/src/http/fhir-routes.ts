@@ -130,26 +130,48 @@ function summarize(reports: readonly IngestReport[]): string {
 
 /** What the engine did, for the `X-FollowUp-Summary` header. */
 function summaryOf(acceptance: BundleAcceptance, mode: IngestMode): string {
-  return mode === 'async'
-    ? `Accepted: ${String(acceptance.batches)} consultation batch(es) queued for the engine`
-    : `Processed: ${summarize(acceptance.reports ?? [])}`;
+  const stale = staleCount(acceptance);
+  const summary =
+    mode === 'async'
+      ? `Accepted: ${String(acceptance.batches)} consultation batch(es) queued for the engine`
+      : `Processed: ${summarize(acceptance.reports ?? [])}`;
+  return stale === 0
+    ? summary
+    : `${summary}; ${String(stale)} stale version(s) not stored (older than the stored one)`;
+}
+
+/** Issue of an entry whose resource is older than the stored version (not stored). */
+function staleIssue(stored: NonNullable<EntryResult['stored']>): OperationOutcome['issue'][number] {
+  return {
+    severity: 'warning',
+    code: 'conflict',
+    diagnostics:
+      `stale: ${stored.resourceType}/${stored.id} is older than the stored version ` +
+      `${stored.versionId}; not stored and its events not ingested`,
+    details: { coding: [{ code: 'stale', display: 'Older than the stored version' }] },
+  };
+}
+
+function isFailure(issue: OperationOutcome['issue'][number]): boolean {
+  return issue.severity === 'error' || issue.severity === 'fatal';
 }
 
 function entryResponse(result: EntryResult): BundleEntryResponse {
-  const outcome: OperationOutcome | undefined =
-    result.issues.length === 0
-      ? undefined
-      : { resourceType: 'OperationOutcome', issue: [...result.issues] };
-  const failed = result.issues.some(
-    (issue) => issue.severity === 'error' || issue.severity === 'fatal',
-  );
   const stored = result.stored;
+  const issues = [...result.issues, ...(stored?.stale === true ? [staleIssue(stored)] : [])];
+  const outcome: OperationOutcome | undefined =
+    issues.length === 0 ? undefined : { resourceType: 'OperationOutcome', issue: issues };
+  const failures = result.issues.filter(isFailure);
+  const failed = failures.length > 0;
+  const status = !failed
+    ? stored?.changed === true && stored.versionId === '1'
+      ? '201 Created'
+      : '200 OK'
+    : failures.some((issue) => issue.code === 'not-supported')
+      ? '405 Method Not Allowed'
+      : '400 Bad Request';
   return {
-    status: failed
-      ? '400 Bad Request'
-      : stored?.changed === true && stored.versionId === '1'
-        ? '201 Created'
-        : '200 OK',
+    status,
     ...(stored === undefined || failed
       ? {}
       : {
@@ -158,6 +180,18 @@ function entryResponse(result: EntryResult): BundleEntryResponse {
         }),
     ...(outcome === undefined ? {} : { outcome }),
   };
+}
+
+/** Whether every request entry failed (a batch answered entry by entry, nothing stored). */
+function everyEntryFailed(acceptance: BundleAcceptance): boolean {
+  return (
+    acceptance.entries.length > 0 &&
+    acceptance.entries.every((entry) => entry.issues.some(isFailure))
+  );
+}
+
+function staleCount(acceptance: BundleAcceptance): number {
+  return acceptance.stored.filter((entry) => entry.stale === true).length;
 }
 
 /**
@@ -215,30 +249,78 @@ function mergeOutcomes(
   return issue.length === 0 ? undefined : { resourceType: 'OperationOutcome', issue };
 }
 
-const patientReference = z
-  .string()
-  .min(1)
-  .transform((value) => value.replace(/^Patient\//, ''));
+/**
+ * Search parameters given more than once. FHIR combines repeats with AND
+ * (a comma inside one value is OR): with `Prefer: handling=strict` a repeat
+ * is a 400, so a host that meant OR finds out; by default it is applied as
+ * AND with a warning (`_count` / `_offset` take the first value).
+ */
+function repeatedParams(c: Context, known: readonly string[]): OperationOutcome | undefined {
+  const repeated = Object.entries(c.req.queries())
+    .filter(([name, values]) => known.includes(name) && values.length > 1)
+    .map(([name]) => name);
+  if (repeated.length === 0) {
+    return undefined;
+  }
+  const message =
+    `Repeated search parameter(s): ${repeated.join(', ')}. FHIR combines repeated ` +
+    'parameters with AND; separate values with a comma for OR';
+  if (strictHandling(c)) {
+    throw new HttpError(400, 'repeated_search_parameter', message);
+  }
+  return {
+    resourceType: 'OperationOutcome',
+    issue: [
+      {
+        severity: 'warning',
+        code: 'processing',
+        diagnostics: `${message}; applied with AND (_count and _offset use the first value)`,
+      },
+    ],
+  };
+}
+
+/** Every value of a parameter, each one split on commas (OR inside a value). */
+function paramValues(c: Context, name: string): string[][] {
+  return (c.req.queries(name) ?? []).map((value) =>
+    value
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item !== ''),
+  );
+}
+
+/**
+ * The patients a search names through `patient` (and `subject`): each value
+ * is an OR list of ids (`Patient/` prefix optional), repeats are ANDed.
+ * `undefined` when no patient parameter was given.
+ */
+function searchedPatients(c: Context, names: readonly string[]): string[] | undefined {
+  const lists = names.flatMap((name) => paramValues(c, name));
+  if (lists.length === 0) {
+    return undefined;
+  }
+  const ids = lists.map((list) => list.map((value) => value.replace(/^Patient\//, '')));
+  const [first = [], ...rest] = ids;
+  return [...new Set(first)].filter((id) => rest.every((list) => list.includes(id)));
+}
+
+function requiredPatients(c: Context): string[] {
+  const patients = searchedPatients(c, ['patient']);
+  if (patients === undefined) {
+    throw new HttpError(400, 'invalid_search', 'patient is required');
+  }
+  return patients;
+}
 
 const TASK_SEARCH_PARAMS = ['patient', 'subject', 'status', 'code', '_count', '_offset'];
 
-const TaskSearchSchema = z.object({
-  patient: patientReference.optional(),
-  subject: patientReference.optional(),
-  status: z.string().optional(),
-  code: z.string().optional(),
+const TaskPagingSchema = z.object({
   _count: z.coerce.number().int().min(0).max(500).optional().default(100),
   _offset: z.coerce.number().int().min(0).optional().default(0),
 });
 
 const PATIENT_SEARCH_PARAMS = ['patient'];
-
-const PatientSearchSchema = z.object({
-  patient: z
-    .string({ error: 'patient is required' })
-    .min(1)
-    .transform((value) => value.replace(/^Patient\//, '')),
-});
 
 /** FHIR token search: `code`, `system|code`, or `|code` (a coding without system). */
 function tokenMatches(token: string, codings: readonly Coding[]): boolean {
@@ -255,19 +337,22 @@ function tokenMatches(token: string, codings: readonly Coding[]): boolean {
   );
 }
 
-function taskMatches(task: Task, status: string | undefined, code: string | undefined): boolean {
-  const statusOk =
-    status === undefined ||
-    status
-      .split(',')
-      .some(
-        (wanted) =>
-          task.status === wanted ||
-          (task.businessStatus?.coding ?? []).some((coding) => coding.code === wanted),
-      );
-  const codeOk =
-    code === undefined ||
-    code.split(',').some((wanted) => tokenMatches(wanted, task.code?.coding ?? []));
+/** Each repeated value must match (AND); inside a value, any comma-separated item (OR). */
+function taskMatches(
+  task: Task,
+  statuses: readonly string[][],
+  codes: readonly string[][],
+): boolean {
+  const statusOk = statuses.every((any) =>
+    any.some(
+      (wanted) =>
+        task.status === wanted ||
+        (task.businessStatus?.coding ?? []).some((coding) => coding.code === wanted),
+    ),
+  );
+  const codeOk = codes.every((any) =>
+    any.some((wanted) => tokenMatches(wanted, task.code?.coding ?? [])),
+  );
   return statusOk && codeOk;
 }
 
@@ -398,9 +483,14 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
       c.header('content-location', jobLocation(c, acceptance.jobId));
     }
     c.header('x-followup-summary', summaryOf(acceptance, mode));
+    if (staleCount(acceptance) > 0) {
+      c.header('x-followup-stale', String(staleCount(acceptance)));
+    }
     const bundleType =
       typeof bundle === 'object' && bundle !== null && 'type' in bundle ? bundle.type : undefined;
-    return fhirJson(c, transactionResponse(bundleType, acceptance), mode === 'async' ? 202 : 200);
+    // Nothing was queued when every entry of a batch failed: the answer is final.
+    const status = mode === 'async' && !everyEntryFailed(acceptance) ? 202 : 200;
+    return fhirJson(c, transactionResponse(bundleType, acceptance), status);
   });
 
   /** Create (`POST /fhir/:type`) or update (`PUT /fhir/:type/:id`) one resource. */
@@ -468,6 +558,10 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
     });
     c.header('location', `${fhirBase(c)}/${type}/${stored.id}/_history/${stored.versionId}`);
     c.header('etag', `W/"${stored.versionId}"`);
+    if (stored.stale === true) {
+      // The body is the newer stored version: this one was not stored.
+      c.header('x-followup-stale', 'true');
+    }
     return fhirJson(
       c,
       (saved?.resource ?? { resourceType: type, id: stored.id }) as unknown as FhirResource,
@@ -480,27 +574,29 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
 
   app.get('/fhir/Task', async (c) => {
     const ignored = unknownParams(c, TASK_SEARCH_PARAMS);
-    const query = TaskSearchSchema.parse(c.req.query());
-    if (
-      query.patient !== undefined &&
-      query.subject !== undefined &&
-      query.patient !== query.subject
-    ) {
-      throw new HttpError(400, 'invalid_search', 'patient and subject name different patients');
-    }
-    const patient = query.patient ?? query.subject;
-    const expectations =
-      patient === undefined
-        ? []
-        : await stores.expectations.listByPatient(c.var.clinicId, toPatientId(patient));
-    const cases = await allCases(runtime, c, patient);
+    const repeated = repeatedParams(c, TASK_SEARCH_PARAMS);
+    const query = TaskPagingSchema.parse(c.req.query());
+    const patients = searchedPatients(c, ['patient', 'subject']);
+    const expectations = (
+      await Promise.all(
+        (patients ?? []).map((patient) =>
+          stores.expectations.listByPatient(c.var.clinicId, toPatientId(patient)),
+        ),
+      )
+    ).flat();
+    const cases =
+      patients === undefined
+        ? await allCases(runtime, c, undefined)
+        : (await Promise.all(patients.map((patient) => allCases(runtime, c, patient)))).flat();
+    const statuses = paramValues(c, 'status');
+    const codes = paramValues(c, 'code');
     const tasks = [...cases.map(caseToTask), ...expectations.map(expectationToTask)].filter(
-      (task) => taskMatches(task, query.status, query.code),
+      (task) => taskMatches(task, statuses, codes),
     );
     const { _offset: offset, _count: count } = query;
     const page = tasks.slice(offset, offset + count);
     const notice: OperationOutcome | undefined =
-      patient === undefined
+      patients === undefined
         ? {
             resourceType: 'OperationOutcome',
             issue: [
@@ -513,7 +609,7 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
             ],
           }
         : undefined;
-    const outcome = mergeOutcomes(ignored, notice);
+    const outcome = mergeOutcomes(ignored, repeated, notice);
     return fhirJson(
       c,
       toSearchsetBundle(page, {
@@ -546,32 +642,45 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
   });
 
   app.get('/fhir/Condition', async (c) => {
-    const ignored = unknownParams(c, PATIENT_SEARCH_PARAMS);
-    const { patient } = PatientSearchSchema.parse(c.req.query());
-    const conditions = await stores.conditions.listByPatient(c.var.clinicId, toPatientId(patient));
+    const outcome = mergeOutcomes(
+      unknownParams(c, PATIENT_SEARCH_PARAMS),
+      repeatedParams(c, PATIENT_SEARCH_PARAMS),
+    );
+    const conditions = (
+      await Promise.all(
+        requiredPatients(c).map((patient) =>
+          stores.conditions.listByPatient(c.var.clinicId, toPatientId(patient)),
+        ),
+      )
+    ).flat();
     return fhirJson(
       c,
       toSearchsetBundle(exportableConditions(conditions).map(patientConditionToFhir), {
         baseUrl: fhirBase(c),
         selfUrl: c.req.url,
-        ...(ignored === undefined ? {} : { outcome: ignored }),
+        ...(outcome === undefined ? {} : { outcome }),
       }),
     );
   });
 
   app.get('/fhir/DetectedIssue', async (c) => {
-    const ignored = unknownParams(c, PATIENT_SEARCH_PARAMS);
-    const { patient } = PatientSearchSchema.parse(c.req.query());
-    const findings = await stores.qualityFindings.listByPatient(
-      c.var.clinicId,
-      toPatientId(patient),
+    const outcome = mergeOutcomes(
+      unknownParams(c, PATIENT_SEARCH_PARAMS),
+      repeatedParams(c, PATIENT_SEARCH_PARAMS),
     );
+    const findings = (
+      await Promise.all(
+        requiredPatients(c).map((patient) =>
+          stores.qualityFindings.listByPatient(c.var.clinicId, toPatientId(patient)),
+        ),
+      )
+    ).flat();
     return fhirJson(
       c,
       toSearchsetBundle(findings.map(qualityFindingToDetectedIssue), {
         baseUrl: fhirBase(c),
         selfUrl: c.req.url,
-        ...(ignored === undefined ? {} : { outcome: ignored }),
+        ...(outcome === undefined ? {} : { outcome }),
       }),
     );
   });

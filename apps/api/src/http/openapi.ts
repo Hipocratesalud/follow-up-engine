@@ -56,7 +56,8 @@ const preferHandling: Param = {
   in: 'header',
   enum: ['handling=lenient', 'handling=strict'],
   description:
-    'Unknown search parameters: a warning in the searchset outcome entry (lenient, default) or 400 (strict)',
+    'Unknown or repeated search parameters: a warning in the searchset outcome entry (lenient, ' +
+    'default; repeats are ANDed) or 400 (strict). A comma inside a value is OR',
 };
 const preferSync: Param = {
   name: 'Prefer',
@@ -98,7 +99,11 @@ const OPERATIONS: readonly Operation[] = [
     description:
       'Validates and stores the Bundle, then runs the engine: asynchronously by default (202, the ' +
       'engine runs in the worker; `X-FollowUp-Job` has the job id), synchronously with `?sync=true` ' +
-      'or `Prefer: respond-sync` (200). Invalid Bundles get a 400 OperationOutcome.',
+      'or `Prefer: respond-sync` (200). An invalid transaction gets a 400 OperationOutcome; a ' +
+      'batch is answered entry by entry (a batch-response, 200 when every entry failed). Entries ' +
+      'with request.method DELETE, GET, HEAD or PATCH get 405 (a transaction with one is ' +
+      'rejected). A version older than the stored one is not stored: `stale` warning in its ' +
+      'entry and `X-FollowUp-Stale`.',
     params: [{ name: 'sync', in: 'query', enum: ['true'] }, preferSync],
     body: 'fhir',
     response: 'fhir',
@@ -363,7 +368,7 @@ const OPERATIONS: readonly Operation[] = [
 ];
 
 const ERROR_DESCRIPTIONS: Readonly<Record<number, string>> = {
-  400: 'Bad request: invalid JSON or Bundle, invalid cursor, control characters in the URL, unsupported search parameter with handling=strict',
+  400: 'Bad request: invalid JSON or Bundle, invalid cursor, control characters in the URL, unsupported or repeated search parameter with handling=strict',
   401: 'Missing or invalid API key',
   403: 'The API key lacks the scope this operation needs',
   404: 'Not found',

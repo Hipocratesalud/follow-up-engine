@@ -70,6 +70,7 @@ describe('envelope', () => {
       issues: undefined,
       entryRefs: [],
       bundle: { resourceType: 'Bundle', type: 'transaction' },
+      bundleType: 'transaction',
     });
   });
 });
@@ -180,7 +181,7 @@ describe('entry identity', () => {
     expect(result.batches[0]?.patientId).toBe('p-9');
   });
 
-  it('ignores entries without a resource and unsupported types, silently skips context types', () => {
+  it('refuses a DELETE, ignores unsupported types, silently skips context types', () => {
     const result = map({
       resourceType: 'Bundle',
       type: 'batch',
@@ -197,7 +198,7 @@ describe('entry identity', () => {
       ],
     });
     expect(summary(result)).toEqual([
-      ['information', 'not-supported', 'Bundle.entry[0]'],
+      ['error', 'not-supported', 'Bundle.entry[0]'],
       ['information', 'not-supported', 'Bundle.entry[1].resource'],
     ]);
   });
