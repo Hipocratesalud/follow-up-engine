@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { CaseView, PatientDetail } from './http/schemas.ts';
+import type { CaseView, DemoConsultationResponse, PatientDetail } from './http/schemas.ts';
 import { createHarness, type Harness, KEY_B, STORAGES } from './test/harness.ts';
 
 /**
@@ -128,6 +128,34 @@ describe.each(STORAGES)('language model through the API (%s)', (storage) => {
     expect(reason?.source.display).toBe('HbA1c de control');
     expect(page.body.items[0]?.suggestedAction).toBe(
       'Contactar al paciente para completar el examen',
+    );
+  });
+
+  it('reads each note in its own language and quotes it verbatim', async () => {
+    const consult = (noteText: string) =>
+      h.call<DemoConsultationResponse>('/api/demo/consultations', {
+        body: { specialty: 'diabetology', noteText },
+      });
+    const spanish = await consult(
+      'Paciente con DM2 en tratamiento con metformina. Niega HTA. Plan: control en 3 meses con HbA1c.',
+    );
+    expect(spanish.status).toBe(201);
+    expect(spanish.body.extraction.noteLanguage).toBe('es');
+    const english = await consult(
+      'Pt with T2DM on metformin 1000 mg BID. Denies HTN. Plan: repeat A1c, f/u in 3 months.',
+    );
+    expect(english.status).toBe(201);
+    expect(english.body.extraction.noteLanguage).toBe('en');
+    const quotes = english.body.extraction.planItems.map((item) => item.evidenceQuote);
+    expect(quotes.length).toBeGreaterThan(0);
+    for (const quote of quotes) {
+      expect(
+        'Pt with T2DM on metformin 1000 mg BID. Denies HTN. Plan: repeat A1c, f/u in 3 months.',
+      ).toContain(quote);
+    }
+    // English labels for a Spanish note, by default.
+    expect(spanish.body.expectationsCreated.map((item) => item.label)).toContain(
+      'Follow-up visit in the plan',
     );
   });
 });
