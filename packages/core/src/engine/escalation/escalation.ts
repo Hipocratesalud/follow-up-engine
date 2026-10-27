@@ -47,6 +47,11 @@ export interface EscalationReport {
     readonly caseId: CaseId;
     readonly reason: PatientContactDenial;
   }[];
+  /**
+   * Cases that reached `mark_lost_to_follow_up` without anyone having asked
+   * the patient to come back since they opened: they stay with the team.
+   */
+  readonly lostToFollowUpSkipped: readonly CaseId[];
 }
 
 interface MutableReport {
@@ -54,6 +59,7 @@ interface MutableReport {
   readonly steps: EscalationStepRecord[];
   readonly contactsRequested: CaseId[];
   readonly contactsSkipped: { caseId: CaseId; reason: PatientContactDenial }[];
+  readonly lostToFollowUpSkipped: CaseId[];
 }
 
 /**
@@ -78,6 +84,7 @@ export async function runEscalation(
     steps: [],
     contactsRequested: [],
     contactsSkipped: [],
+    lostToFollowUpSkipped: [],
   };
   const processed = new Set<CaseId>();
   for (;;) {
@@ -265,23 +272,48 @@ class CaseEscalator {
         await this.#emitEscalated(escalated, index + 1);
         return escalated;
       }
-      case 'mark_lost_to_follow_up': {
-        const lost = await this.#writer.transition(current, {
-          to: 'lost_to_follow_up',
-          type: 'lost_to_follow_up',
-          actor,
-          at: now,
-          payload,
-          patch: { resolution: { kind: 'patient_unreachable', resolvedAt: now } },
-        });
-        await this.#writer.emit('case.resolved', now, {
-          caseId: lost.id,
-          patientId: lost.patientId,
-          resolution: 'patient_unreachable',
-        });
-        return lost;
-      }
+      case 'mark_lost_to_follow_up':
+        return this.#markLost(current, actor, payload);
     }
+  }
+
+  /**
+   * Lost to follow-up means the patient was asked to come back and did not:
+   * only when a contact request went out for the patient since the case
+   * opened (automatic or by a user, from any of their cases). Otherwise
+   * nobody tried (the clinic does not contact patients, the patient opted
+   * out, the case rests on a probable condition or comes from the backfill)
+   * and the case stays with the team until someone resolves or dismisses it.
+   * A patient who opted out after being contacted declined.
+   */
+  async #markLost(
+    current: FollowUpCase,
+    actor: CaseEventActor,
+    payload: { readonly step: number; readonly action: EscalationAction },
+  ): Promise<FollowUpCase> {
+    const { stores, clinicId, now, report } = this.#input;
+    const lastContactAt = await lastPatientContactAt(stores, clinicId, current.patientId);
+    if (lastContactAt === undefined || lastContactAt.getTime() < current.createdAt.getTime()) {
+      report.lostToFollowUpSkipped.push(current.id);
+      return current;
+    }
+    const kind = (await hasOptedOut(stores, clinicId, current.patientId))
+      ? 'patient_declined'
+      : 'patient_unreachable';
+    const lost = await this.#writer.transition(current, {
+      to: 'lost_to_follow_up',
+      type: 'lost_to_follow_up',
+      actor,
+      at: now,
+      payload,
+      patch: { resolution: { kind, resolvedAt: now } },
+    });
+    await this.#writer.emit('case.resolved', now, {
+      caseId: lost.id,
+      patientId: lost.patientId,
+      resolution: kind,
+    });
+    return lost;
   }
 
   async #emitEscalated(followUpCase: FollowUpCase, escalationStep: number): Promise<void> {

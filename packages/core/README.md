@@ -123,8 +123,8 @@ stateDiagram-v2
   notified --> dismissed
   snoozed --> dismissed
   escalated --> dismissed
-  notified --> lost_to_follow_up: attempts exhausted
-  escalated --> lost_to_follow_up
+  notified --> lost_to_follow_up: contact attempts exhausted
+  escalated --> lost_to_follow_up: contact attempts exhausted
   resolved --> [*]
   dismissed --> [*]
   lost_to_follow_up --> [*]
@@ -141,9 +141,11 @@ Every transition is appended to the `AuditLog` with its actor (`rule`, `user`, `
 | 0                         | `notify_clinic`: the owner (treating practitioner, else `front_desk`) is notified once |
 | 14                        | `raise_priority` (+20) and `request_patient_contact`                                   |
 | 21                        | `escalate_to_coordinator`                                                              |
-| 35                        | `mark_lost_to_follow_up`                                                               |
+| 35                        | `mark_lost_to_follow_up`, only if the patient was asked to come back (see below)       |
 
 A user action (notify, assign, end of a snooze) restarts the wait before the next step.
+
+**Lost to follow-up means attempts were made and exhausted.** `mark_lost_to_follow_up` closes the case only when a contact request went out for the patient since the case opened (the automatic step or a user's "Pedir contacto", from any of the patient's cases). The resolution is `patient_unreachable`, or `patient_declined` when the patient opted out after being contacted. When nobody contacted the patient (the clinic does not allow it, the patient opted out first, the case rests on probable conditions, the case comes from the backfill), the step is skipped (`EscalationReport.lostToFollowUpSkipped`) and the case stays escalated with the coordinator until someone resolves or dismisses it.
 
 Patient contact rules (`patient-contact/policy.ts`): only if the clinic allows it; never after `patient.opted_out`; never for cases resting only on probable conditions; at most one request per patient per 14 days whatever the number of cases.
 
