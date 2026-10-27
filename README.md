@@ -79,7 +79,7 @@ The demo clinic has two keys, both synthetic and refused on a real clock: `demo-
 ```sh
 docker compose up -d postgres                                   # Postgres 16 on localhost:54329
 export DATABASE_URL=postgres://postgres:postgres@localhost:54329/follow_up_engine
-pnpm demo                 # migrates, seeds through the backfill (about 11 s; a no-op once seeded), serves
+pnpm demo                 # migrates, seeds through the backfill (about 20 s; a no-op once seeded), serves
 pnpm e2e                  # end-to-end suite: API + worker against Postgres, real signed webhooks
 pnpm test                 # with DATABASE_URL set, the contract and acceptance suites also run on Postgres
 ```
