@@ -1,0 +1,128 @@
+import { ChevronRight, History } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Link } from 'react-router';
+import type { CaseView, Layer } from '../../api/contract.ts';
+import {
+  EscalationMeter,
+  LayerChip,
+  PriorityBadge,
+  StatusBadge,
+  overdueTone,
+} from '../../components/case-badges.tsx';
+import { cx } from '../../lib/cx.ts';
+import { formatDate, formatOverdue, initials } from '../../lib/format.ts';
+
+const AVATAR_TONES: Record<CaseView['priorityLabel'], string> = {
+  urgente: 'bg-danger-soft text-danger',
+  alta: 'bg-warning-soft text-warning',
+  media: 'bg-info-soft text-info',
+  baja: 'bg-surface-2 text-muted',
+};
+
+export function patientMeta(patient: CaseView['patient']): string {
+  const parts: string[] = [];
+  if (patient.age !== undefined) parts.push(`${String(patient.age)} años`);
+  if (patient.sex === 'female') parts.push('F');
+  if (patient.sex === 'male') parts.push('M');
+  return parts.join(' · ');
+}
+
+function uniqueLayers(item: CaseView): Layer[] {
+  return [...new Set(item.reasons.map((reason) => reason.layer))];
+}
+
+export function CaseRow({
+  item,
+  to,
+  selected = false,
+  showRelease = false,
+}: {
+  readonly item: CaseView;
+  readonly to: string;
+  readonly selected?: boolean;
+  readonly showRelease?: boolean;
+}): ReactNode {
+  const top = item.reasons[0];
+  const extra = item.reasons.length - 1;
+  return (
+    <Link
+      to={to}
+      aria-current={selected ? 'page' : undefined}
+      className={cx(
+        'group relative flex gap-3 rounded-xl border px-3.5 py-3 transition-colors',
+        selected
+          ? 'border-primary/50 bg-primary-soft/60 shadow-card'
+          : 'border-transparent hover:border-border hover:bg-surface',
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cx(
+          'mt-0.5 grid size-9 shrink-0 place-items-center rounded-full text-xs font-semibold',
+          AVATAR_TONES[item.priorityLabel],
+        )}
+      >
+        {initials(item.patient.name)}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span className="flex items-start justify-between gap-2">
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold text-fg">
+              {item.patient.name}
+            </span>
+            <span className="block text-xs text-muted">{patientMeta(item.patient)}</span>
+          </span>
+          <PriorityBadge label={item.priorityLabel} priority={item.priority} />
+        </span>
+        {top ? (
+          <span className="text-sm text-fg">
+            {top.label}
+            {extra > 0 ? (
+              <span className="ml-1.5 text-xs font-medium text-muted">
+                +{extra} {extra === 1 ? 'motivo' : 'motivos'}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
+        <span className="flex flex-wrap items-center gap-1.5">
+          {uniqueLayers(item).map((layer) => (
+            <LayerChip key={layer} layer={layer} />
+          ))}
+        </span>
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+          {top ? (
+            <span className={cx('font-medium', overdueTone(top.overdueDays))}>
+              {formatOverdue(top.overdueDays)}
+            </span>
+          ) : null}
+          <StatusBadge status={item.status} />
+          {item.escalationStep > 0 ? <EscalationMeter step={item.escalationStep} /> : null}
+          {showRelease && item.releaseAt ? (
+            <span className="inline-flex items-center gap-1 text-muted">
+              <History className="size-3" aria-hidden="true" />
+              Entra a la bandeja el {formatDate(item.releaseAt)}
+            </span>
+          ) : null}
+          {item.assignee ? <span className="truncate text-muted">{item.assignee}</span> : null}
+        </span>
+      </span>
+      <ChevronRight
+        aria-hidden="true"
+        className="mt-2 size-4 shrink-0 text-subtle transition-transform group-hover:translate-x-0.5 lg:hidden"
+      />
+    </Link>
+  );
+}
+
+export function CaseRowSkeleton(): ReactNode {
+  return (
+    <div className="flex gap-3 px-3.5 py-3" aria-hidden="true">
+      <div className="skeleton size-9 rounded-full" />
+      <div className="flex flex-1 flex-col gap-2">
+        <div className="skeleton h-4 w-2/5" />
+        <div className="skeleton h-4 w-4/5" />
+        <div className="skeleton h-4 w-3/5" />
+      </div>
+    </div>
+  );
+}
