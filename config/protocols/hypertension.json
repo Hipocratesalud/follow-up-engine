@@ -5,7 +5,7 @@
   "description": "Arterial hypertension follow-up: a control visit at least every 6 months and basic labs (creatinine, potassium) yearly. Fills only what the doctor's plan did not cover.",
   "reason": {
     "code": "protocol_hypertension",
-    "label": "Control de hipertensión"
+    "label": "Hypertension follow-up"
   },
   "sources": [
     {
@@ -62,7 +62,7 @@
       "kind": "follow_up_visit",
       "reason": {
         "code": "protocol_hypertension_visit",
-        "label": "Sin control de hipertensión en 6 meses"
+        "label": "No hypertension visit in 6 months"
       },
       "everyDays": 180,
       "fulfilledBy": [
@@ -78,7 +78,7 @@
       "priority": 30,
       "suggestedAction": {
         "code": "schedule_follow_up",
-        "label": "Agendar control de hipertensión",
+        "label": "Schedule a hypertension visit",
         "patientContactPurpose": "schedule_follow_up"
       }
     },
@@ -92,7 +92,7 @@
       },
       "reason": {
         "code": "protocol_hypertension_labs",
-        "label": "Laboratorio anual pendiente (creatinina, potasio)"
+        "label": "Yearly labs due (creatinine, potassium)"
       },
       "everyDays": 365,
       "fulfilledBy": [
@@ -116,7 +116,7 @@
       "priority": 20,
       "suggestedAction": {
         "code": "order_lab",
-        "label": "Indicar creatinina y potasio",
+        "label": "Order creatinine and potassium",
         "patientContactPurpose": "complete_pending_test"
       }
     }

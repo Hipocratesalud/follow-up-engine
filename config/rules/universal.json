@@ -4,7 +4,7 @@
     "version": "1.1.0",
     "layer": "universal",
     "description": "A laboratory order should have a result within 15 days. A result of the same measurement under any equivalent LOINC code fulfills it (HbA1c 17856-6 or IFCC 59261-8 for a 4548-4 order; a lipid panel by its components). A newer order of the same test supersedes it; a visit does not fulfill it.",
-    "reason": { "code": "lab_order_result_pending", "label": "Resultado de laboratorio pendiente" },
+    "reason": { "code": "lab_order_result_pending", "label": "Lab result pending" },
     "trigger": { "event": "service_request.created", "filter": { "category": "laboratory" } },
     "dueInDays": 15,
     "expects": "lab",
@@ -24,7 +24,7 @@
     "escalationPolicy": "default_v1",
     "suggestedAction": {
       "code": "contact_patient_pending_test",
-      "label": "Contactar al paciente para completar el examen",
+      "label": "Contact the patient to complete the test",
       "patientContactPurpose": "complete_pending_test"
     }
   },
@@ -33,7 +33,7 @@
     "version": "1.0.0",
     "layer": "universal",
     "description": "An imaging order should have a result within 30 days. A newer order of the same study supersedes it; a visit does not fulfill it.",
-    "reason": { "code": "imaging_order_result_pending", "label": "Resultado de imagen pendiente" },
+    "reason": { "code": "imaging_order_result_pending", "label": "Imaging result pending" },
     "trigger": { "event": "service_request.created", "filter": { "category": "imaging" } },
     "dueInDays": 30,
     "expects": "imaging",
@@ -53,7 +53,7 @@
     "escalationPolicy": "default_v1",
     "suggestedAction": {
       "code": "contact_patient_pending_study",
-      "label": "Contactar al paciente para completar el estudio",
+      "label": "Contact the patient to complete the study",
       "patientContactPurpose": "complete_pending_test"
     }
   },
@@ -62,7 +62,7 @@
     "version": "1.2.0",
     "layer": "universal",
     "description": "A short treatment (30 days or less, no refills; a clearly acute drug class, or 14 days or less of a drug of no known class; never a chronic ATC class; not taken only when needed) should be followed by a visit within 3 days of its end. One control per consultation (the longest treatment); none when the note makes the return conditional ('reconsultar si persiste') or the doctor's plan already asks for a control by then.",
-    "reason": { "code": "short_treatment_followup", "label": "Control al terminar el tratamiento" },
+    "reason": { "code": "short_treatment_followup", "label": "Visit at the end of treatment" },
     "trigger": { "event": "medication.prescribed", "filter": { "durationDays": { "lte": 30 } } },
     "treatment": {
       "maxRefills": 0,
@@ -192,7 +192,7 @@
     "escalationPolicy": "default_v1",
     "suggestedAction": {
       "code": "schedule_follow_up",
-      "label": "Agendar control de fin de tratamiento",
+      "label": "Schedule an end-of-treatment visit",
       "patientContactPurpose": "medication_review"
     }
   },
@@ -203,7 +203,7 @@
     "description": "An abnormal result should be followed by a consultation within 7 days, unless it is at the target for a condition the patient is known to have (HbA1c below 8 % in a known diabetic, under any HbA1c LOINC code; an IFCC value in mmol/mol is converted, 8 % is about 64 mmol/mol) or a control is already planned by then.",
     "reason": {
       "code": "abnormal_result_followup",
-      "label": "Resultado alterado sin consulta posterior"
+      "label": "Abnormal result with no visit since"
     },
     "trigger": { "event": "result.received", "filter": { "interpretation": "abnormal" } },
     "resultTargets": [
@@ -226,7 +226,7 @@
     "escalationPolicy": "default_v1",
     "suggestedAction": {
       "code": "review_results",
-      "label": "Revisar el resultado con el paciente",
+      "label": "Review the result with the patient",
       "patientContactPurpose": "review_results"
     }
   }

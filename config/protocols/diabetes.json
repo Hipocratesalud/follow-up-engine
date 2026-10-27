@@ -5,7 +5,7 @@
   "description": "Diabetes mellitus follow-up: a control visit at least every 6 months, HbA1c every 3 months, lipid panel and fundus exam yearly. Fills only what the doctor's plan did not cover.",
   "reason": {
     "code": "protocol_diabetes",
-    "label": "Control de diabetes"
+    "label": "Diabetes follow-up"
   },
   "sources": [
     {
@@ -64,7 +64,7 @@
       "kind": "follow_up_visit",
       "reason": {
         "code": "protocol_diabetes_visit",
-        "label": "Sin control de diabetes en 6 meses"
+        "label": "No diabetes visit in 6 months"
       },
       "everyDays": 180,
       "fulfilledBy": [
@@ -80,7 +80,7 @@
       "priority": 40,
       "suggestedAction": {
         "code": "schedule_follow_up",
-        "label": "Agendar control de diabetes",
+        "label": "Schedule a diabetes visit",
         "patientContactPurpose": "schedule_follow_up"
       }
     },
@@ -94,7 +94,7 @@
       },
       "reason": {
         "code": "protocol_diabetes_hba1c",
-        "label": "Sin HbA1c reciente (cada 3 meses)"
+        "label": "No recent HbA1c (every 3 months)"
       },
       "everyDays": 90,
       "fulfilledBy": [
@@ -119,7 +119,7 @@
       "priority": 40,
       "suggestedAction": {
         "code": "order_lab",
-        "label": "Indicar HbA1c",
+        "label": "Order HbA1c",
         "patientContactPurpose": "complete_pending_test"
       }
     },
@@ -133,7 +133,7 @@
       },
       "reason": {
         "code": "protocol_diabetes_lipids",
-        "label": "Perfil lipídico anual pendiente"
+        "label": "Yearly lipid panel due"
       },
       "everyDays": 365,
       "fulfilledBy": [
@@ -166,7 +166,7 @@
       "priority": 20,
       "suggestedAction": {
         "code": "order_lab",
-        "label": "Indicar perfil lipídico",
+        "label": "Order a lipid panel",
         "patientContactPurpose": "complete_pending_test"
       }
     },
@@ -180,7 +180,7 @@
       },
       "reason": {
         "code": "protocol_diabetes_fundus",
-        "label": "Fondo de ojo anual pendiente"
+        "label": "Yearly eye fundus exam due"
       },
       "everyDays": 365,
       "fulfilledBy": [
@@ -200,7 +200,7 @@
       "priority": 20,
       "suggestedAction": {
         "code": "refer_ophthalmology",
-        "label": "Referir a oftalmología para fondo de ojo",
+        "label": "Refer to ophthalmology for a fundus exam",
         "patientContactPurpose": "complete_pending_test"
       }
     }

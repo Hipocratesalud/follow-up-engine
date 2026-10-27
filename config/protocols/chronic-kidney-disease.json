@@ -5,7 +5,7 @@
   "description": "Chronic kidney disease (KDIGO): enrolled by N18, or by an eGFR below 60 or a urine albumin/creatinine ratio of 30 mg/g or more on two results at least 90 days apart. Creatinine/eGFR and urine albumin/creatinine ratio as often as the KDIGO 2012 heat map asks for the patient's stage (1 to 4 times a year: G3a A1 yearly, G4 every 3 to 4 months), and a control visit every 6 months up to G3a, every 4 months at G3b, every 3 months at G4-G5. Fills only what the doctor's plan did not cover.",
   "reason": {
     "code": "protocol_chronic_kidney_disease",
-    "label": "Control de enfermedad renal crónica"
+    "label": "Chronic kidney disease follow-up"
   },
   "sources": [
     {
@@ -74,7 +74,7 @@
       },
       "reason": {
         "code": "protocol_chronic_kidney_disease_renal_function",
-        "label": "Creatinina y filtrado glomerular pendientes"
+        "label": "Creatinine and eGFR due"
       },
       "schedule": {
         "type": "ckd_stage",
@@ -161,7 +161,7 @@
       "priority": 30,
       "suggestedAction": {
         "code": "order_lab",
-        "label": "Indicar creatinina con filtrado glomerular",
+        "label": "Order creatinine with eGFR",
         "patientContactPurpose": "complete_pending_test"
       }
     },
@@ -175,7 +175,7 @@
       },
       "reason": {
         "code": "protocol_chronic_kidney_disease_albuminuria",
-        "label": "Relación albúmina/creatinina en orina pendiente"
+        "label": "Urine albumin/creatinine ratio due"
       },
       "schedule": {
         "type": "ckd_stage",
@@ -249,7 +249,7 @@
       "priority": 25,
       "suggestedAction": {
         "code": "order_lab",
-        "label": "Indicar relación albúmina/creatinina en orina",
+        "label": "Order a urine albumin/creatinine ratio",
         "patientContactPurpose": "complete_pending_test"
       }
     },
@@ -258,7 +258,7 @@
       "kind": "follow_up_visit",
       "reason": {
         "code": "protocol_chronic_kidney_disease_visit",
-        "label": "Control renal pendiente"
+        "label": "Kidney follow-up visit due"
       },
       "schedule": {
         "type": "ckd_stage",
@@ -291,7 +291,7 @@
       "priority": 30,
       "suggestedAction": {
         "code": "schedule_follow_up",
-        "label": "Agendar control renal",
+        "label": "Schedule a kidney follow-up visit",
         "patientContactPurpose": "schedule_follow_up"
       }
     }
