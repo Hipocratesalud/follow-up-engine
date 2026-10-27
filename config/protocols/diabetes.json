@@ -1,8 +1,20 @@
 {
   "id": "diabetes",
-  "version": "1.2.0",
+  "version": "1.2.1",
+  "status": "draft",
   "description": "Diabetes mellitus follow-up: a control visit at least every 6 months, HbA1c every 3 months, lipid panel and fundus exam yearly. Fills only what the doctor's plan did not cover.",
-  "reason": { "code": "protocol_diabetes", "label": "Control de diabetes" },
+  "reason": {
+    "code": "protocol_diabetes",
+    "label": "Control de diabetes"
+  },
+  "sources": [
+    {
+      "title": "Standards of Care in Diabetes—2025",
+      "organization": "American Diabetes Association",
+      "year": 2025,
+      "url": "https://diabetesjournals.org/care/issue/48/Supplement_1"
+    }
+  ],
   "specialties": [
     "diabetology",
     "endocrinology",
@@ -37,7 +49,10 @@
     ],
     "results": [
       {
-        "code": { "system": "http://loinc.org", "code": "4548-4" },
+        "code": {
+          "system": "http://loinc.org",
+          "code": "4548-4"
+        },
         "gte": 6.5,
         "conditionCode": "E14"
       }
@@ -53,8 +68,14 @@
       },
       "everyDays": 180,
       "fulfilledBy": [
-        { "event": "encounter.finished", "match": "any" },
-        { "event": "appointment.booked", "match": "any" }
+        {
+          "event": "encounter.finished",
+          "match": "any"
+        },
+        {
+          "event": "appointment.booked",
+          "match": "any"
+        }
       ],
       "priority": 40,
       "suggestedAction": {
@@ -66,13 +87,22 @@
     {
       "key": "hba1c",
       "kind": "lab",
-      "code": { "system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c" },
-      "reason": { "code": "protocol_diabetes_hba1c", "label": "Sin HbA1c reciente (cada 3 meses)" },
+      "code": {
+        "system": "http://loinc.org",
+        "code": "4548-4",
+        "display": "Hemoglobin A1c"
+      },
+      "reason": {
+        "code": "protocol_diabetes_hba1c",
+        "label": "Sin HbA1c reciente (cada 3 meses)"
+      },
       "everyDays": 90,
       "fulfilledBy": [
         {
           "event": "result.received",
-          "filter": { "code.code": ["4548-4", "17856-6", "4549-2", "62388-4", "59261-8"] },
+          "filter": {
+            "code.code": ["4548-4", "17856-6", "4549-2", "62388-4", "59261-8"]
+          },
           "match": "any"
         }
       ],
@@ -96,8 +126,15 @@
     {
       "key": "lipids",
       "kind": "lab",
-      "code": { "system": "http://loinc.org", "code": "24331-1", "display": "Lipid panel" },
-      "reason": { "code": "protocol_diabetes_lipids", "label": "Perfil lipídico anual pendiente" },
+      "code": {
+        "system": "http://loinc.org",
+        "code": "24331-1",
+        "display": "Lipid panel"
+      },
+      "reason": {
+        "code": "protocol_diabetes_lipids",
+        "label": "Perfil lipídico anual pendiente"
+      },
       "everyDays": 365,
       "fulfilledBy": [
         {
@@ -141,13 +178,21 @@
         "code": "fundus-exam",
         "display": "Fundus exam"
       },
-      "reason": { "code": "protocol_diabetes_fundus", "label": "Fondo de ojo anual pendiente" },
+      "reason": {
+        "code": "protocol_diabetes_fundus",
+        "label": "Fondo de ojo anual pendiente"
+      },
       "everyDays": 365,
       "fulfilledBy": [
-        { "event": "result.received", "match": "same_code" },
+        {
+          "event": "result.received",
+          "match": "same_code"
+        },
         {
           "event": "encounter.finished",
-          "filter": { "specialty": "ophthalmology" },
+          "filter": {
+            "specialty": "ophthalmology"
+          },
           "match": "any"
         }
       ],

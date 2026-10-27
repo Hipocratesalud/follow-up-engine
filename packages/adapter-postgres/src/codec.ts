@@ -1,4 +1,9 @@
-import type { ClinicalEvent, DomainEvent, PlanItem } from '@follow-up-engine/core';
+import type {
+  ClinicalEvent,
+  DomainEvent,
+  PlanItem,
+  ResultReceivedEvent,
+} from '@follow-up-engine/core';
 
 /**
  * `jsonb` stores dates as ISO 8601 strings. These decoders turn a stored
@@ -51,9 +56,17 @@ export function decodeClinicalEvent(payload: Stored<ClinicalEvent>): ClinicalEve
   const event = withRecordedAt(payload);
   const occurredAt = reviveDate(payload.occurredAt, 'occurredAt');
   switch (event.type) {
+    case 'result.received': {
+      const valueDate = reviveOptionalDate(
+        (payload as Stored<ResultReceivedEvent>).valueDate,
+        'valueDate',
+      );
+      return valueDate === undefined
+        ? { ...event, occurredAt }
+        : { ...event, occurredAt, valueDate };
+    }
     case 'encounter.finished':
     case 'service_request.created':
-    case 'result.received':
     case 'condition.recorded':
     case 'patient.opted_out':
     case 'record.withdrawn':

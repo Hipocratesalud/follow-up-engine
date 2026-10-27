@@ -123,18 +123,22 @@ export function Badge({
   children,
   className,
   title,
+  wrap = false,
 }: {
   readonly tone?: Tone;
   readonly icon?: ReactNode;
   readonly children: ReactNode;
   readonly className?: string;
   readonly title?: string;
+  /** Long text: lets it wrap on narrow screens instead of overflowing. */
+  readonly wrap?: boolean;
 }): ReactNode {
   return (
     <span
       title={title}
       className={cx(
-        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+        'inline-flex gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+        wrap ? 'max-w-full items-start' : 'items-center whitespace-nowrap',
         TONES[tone],
         className,
       )}

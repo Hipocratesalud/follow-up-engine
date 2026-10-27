@@ -21,6 +21,7 @@ import {
 import { type PatientTimeline, refKey } from '../timeline.ts';
 import { conditionCandidates, mergeCondition } from './conditions.ts';
 import type { AnnotationContext, AnnotationHints, ClosedExpectation } from './context.ts';
+import { endEpisodes, RESCHEDULED_BY_PROTOCOL } from './episodes.ts';
 import { type ExpectationDraft, materializeExpectation, movedIdempotencyKey } from './draft.ts';
 import { cadenceDrafts } from './layers/cadence.ts';
 import { doctorPlanDrafts } from './layers/doctor-plan.ts';
@@ -114,6 +115,11 @@ export async function annotate(
 
   // An amended note's plan replaces the earlier version's.
   const closed = await supersedeAmendedPlans(context, state, ordered, firstDrafts);
+  // A delivery or a loss ends a pregnancy: nothing prenatal is expected
+  // after it (decided before fulfillment, so the delivery's own encounter
+  // is never read as the prenatal visit).
+  const ended = await endEpisodes(context, state, conditions.all);
+  closed.push(...ended.closed);
   closed.push(...(await applyFulfillment(context, state.timeline, state.live, ordered)));
   // What withdrawn resources triggered goes; what they fulfilled is open again.
   closed.push(...(await cancelWithdrawn(context, state, ordered)));
@@ -149,6 +155,20 @@ export async function annotate(
     live: state.live.list(),
     now: context.now,
   });
+  // A protocol schedule moved (gestational age, a dose change): what it
+  // replaces closes; the new dates are drafted like any other protocol item
+  // and respect this patient's suppressions.
+  for (const expectation of protocols.replaced) {
+    state.live.put(
+      await closeExpectation(
+        context.stores,
+        expectation,
+        'superseded',
+        RESCHEDULED_BY_PROTOCOL,
+        context.now,
+      ),
+    );
+  }
   afterFulfillment.push(...(await create(protocols.drafts, lateHistory)));
   created.push(...afterFulfillment);
   closed.push(
@@ -183,7 +203,7 @@ export async function annotate(
     expectationsClosed: closed,
     expectationsReopened: reopened,
     casesResolved,
-    conditionsUpserted: [...conditions.upserted, ...unenrolled.resolved],
+    conditionsUpserted: [...conditions.upserted, ...unenrolled.resolved, ...ended.resolved],
     optedOut: state.timeline.optedOut,
   };
 }
@@ -227,6 +247,7 @@ async function upsertConditions(
     existing: state.conditions,
     extractedConfidence: hints.extractedConfidence ?? new Map(),
     extractedMedications: hints.extractedMedications ?? [],
+    history: state.timeline.events,
   });
   for (const candidate of candidates) {
     const key = `${candidate.code.system}|${candidate.code.code}`;

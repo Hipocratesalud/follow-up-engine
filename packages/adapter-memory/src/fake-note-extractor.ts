@@ -131,6 +131,7 @@ export class FakeNoteExtractor implements NoteExtractor {
       medications: canned.medications ?? [],
       planItems,
       ...(canned.discharged === undefined ? {} : { discharged: canned.discharged }),
+      ...(canned.pregnancy === undefined ? {} : { pregnancy: canned.pregnancy }),
       model: canned.model ?? this.#options.model,
       promptVersion: canned.promptVersion ?? this.#options.promptVersion,
       costUsd: canned.costUsd ?? this.#options.costUsd,

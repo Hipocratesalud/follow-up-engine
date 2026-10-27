@@ -53,6 +53,9 @@ export interface FieldScores {
   readonly conditions: Scores;
   readonly medications: Scores;
   readonly planItems: Scores;
+  /** Optional in older summaries. */
+  readonly pregnancyOutcome?: Scores;
+  readonly pregnancyDating?: Scores;
 }
 
 export interface Aggregate {
@@ -86,18 +89,22 @@ export interface EvalRun {
   readonly summary: EvalSummary;
 }
 
-const NO_COUNTS: FieldCounts = {
+const NO_COUNTS: Required<FieldCounts> = {
   conditions: ZERO_COUNTS,
   medications: ZERO_COUNTS,
   planItems: ZERO_COUNTS,
+  pregnancyOutcome: ZERO_COUNTS,
+  pregnancyDating: ZERO_COUNTS,
 };
 
-function sumFieldCounts(results: readonly NoteResult[]): FieldCounts {
-  return results.reduce<FieldCounts>(
+function sumFieldCounts(results: readonly NoteResult[]): Required<FieldCounts> {
+  return results.reduce<Required<FieldCounts>>(
     (acc, r) => ({
       conditions: addCounts(acc.conditions, r.counts.conditions),
       medications: addCounts(acc.medications, r.counts.medications),
       planItems: addCounts(acc.planItems, r.counts.planItems),
+      pregnancyOutcome: addCounts(acc.pregnancyOutcome, r.counts.pregnancyOutcome ?? ZERO_COUNTS),
+      pregnancyDating: addCounts(acc.pregnancyDating, r.counts.pregnancyDating ?? ZERO_COUNTS),
     }),
     NO_COUNTS,
   );
@@ -117,6 +124,8 @@ export function aggregate(results: readonly NoteResult[]): Aggregate {
       conditions: scores(counts.conditions),
       medications: scores(counts.medications),
       planItems: scores(counts.planItems),
+      pregnancyOutcome: scores(counts.pregnancyOutcome),
+      pregnancyDating: scores(counts.pregnancyDating),
     },
     hasPlanAccuracy:
       results.length === 0 ? 0 : results.filter((r) => r.hasPlanCorrect).length / results.length,
@@ -229,6 +238,7 @@ export async function runExtractionEval(options: RunEvalOptions): Promise<EvalRu
         };
       } catch (error) {
         const missed = (items: readonly unknown[]): Counts => ({ tp: 0, fp: 0, fn: items.length });
+        const expectedPregnancy = note.expected.pregnancy;
         result = {
           id: note.id,
           specialty: note.specialty,
@@ -237,6 +247,14 @@ export async function runExtractionEval(options: RunEvalOptions): Promise<EvalRu
             conditions: missed(note.expected.conditions),
             medications: missed(note.expected.medications),
             planItems: missed(note.expected.planItems),
+            pregnancyOutcome: missed(expectedPregnancy?.outcome ? [expectedPregnancy.outcome] : []),
+            pregnancyDating: missed(
+              [
+                expectedPregnancy?.gestationalWeeks,
+                expectedPregnancy?.lastMenstrualPeriod,
+                expectedPregnancy?.estimatedDeliveryDate,
+              ].filter((value) => value !== undefined),
+            ),
           },
           hasPlanCorrect: false,
           dischargeCorrect: false,

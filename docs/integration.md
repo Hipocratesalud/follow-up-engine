@@ -674,14 +674,14 @@ The initial scan of the clinic's history finished. Counters only: how much histo
   "data": {
     "runId": "backfill-2026-01-05",
     "shadow": false,
-    "patientsScanned": 120,
-    "eventsProcessed": 5074,
-    "documentsProcessed": 671,
-    "expectationsCreated": 1870,
-    "expectationsFulfilled": 1342,
-    "casesOpened": 85,
+    "patientsScanned": 148,
+    "eventsProcessed": 6291,
+    "documentsProcessed": 867,
+    "expectationsCreated": 2713,
+    "expectationsFulfilled": 2055,
+    "casesOpened": 104,
     "llmCostUsd": 0,
-    "casesScheduled": 85,
+    "casesScheduled": 104,
     "casesNotNotified": 0
   }
 }

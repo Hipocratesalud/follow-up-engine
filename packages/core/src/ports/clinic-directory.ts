@@ -11,12 +11,20 @@ export interface ClinicSettings {
   /** IANA time zone. */
   readonly timezone: string;
   /**
+  /**
    * The clinic's escalation policy (a named, versioned policy such as
    * `default_v2`): replaces the named policy every rule and protocol
    * references. Absent: each rule's own (`default_v1`). Cases keep the
    * policy they opened with.
    */
   readonly escalationPolicyId?: string;
+  /**
+   * Ids of the care protocols the clinic runs (config/protocols). Absent:
+   * `DEFAULT_ENABLED_PROTOCOLS` (diabetes and hypertension). Draft protocols
+   * stay off until the clinic lists them, once its clinical team validated
+   * them (docs/protocols.md).
+   */
+  readonly enabledProtocols?: readonly string[];
 }
 
 /** A tenant of the engine. */

@@ -18,12 +18,18 @@ import {
   matchCounts,
   medicationsMatch,
   percentile,
+  pregnancyDatingCounts,
+  pregnancyOutcomeCounts,
   scores,
 } from './metrics.ts';
 import { renderComparison, renderReport, reportFileName, reportSidecar } from './report.ts';
 import { mapWithConcurrency, runExtractionEval, summarize, type NoteResult } from './run.ts';
 
 const GOLD_DIR = fileURLToPath(new URL('../../test/fixtures/gold-notes', import.meta.url));
+/** The shared gold set the eval CLI reads by default (files only: the package does not import testkit). */
+const SHARED_GOLD_DIR = fileURLToPath(
+  new URL('../../../testkit/fixtures/gold-notes', import.meta.url),
+);
 
 describe('metric math', () => {
   it('computes precision, recall and F1', () => {
@@ -111,9 +117,48 @@ describe('metric math', () => {
       conditions: { tp: 1, fp: 1, fn: 1 },
       medications: { tp: 1, fp: 0, fn: 0 },
       planItems: { tp: 1, fp: 1, fn: 1 },
+      pregnancyOutcome: { tp: 0, fp: 0, fn: 0 },
+      pregnancyDating: { tp: 0, fp: 0, fn: 0 },
       hasPlanCorrect: true,
       dischargeCorrect: true,
     });
+  });
+
+  it('scores pregnancy outcomes on kind and dating values exactly', () => {
+    const cesarean = { kind: 'cesarean_delivery' as const, evidenceQuote: 'x' };
+    expect(pregnancyOutcomeCounts({ outcome: cesarean }, { outcome: cesarean })).toEqual({
+      tp: 1,
+      fp: 0,
+      fn: 0,
+    });
+    expect(
+      pregnancyOutcomeCounts({ outcome: cesarean }, { outcome: { ...cesarean, kind: 'loss' } }),
+    ).toEqual({ tp: 0, fp: 1, fn: 1 });
+    // An outcome read from obstetric history is a false positive.
+    expect(pregnancyOutcomeCounts(undefined, { outcome: cesarean })).toEqual({
+      tp: 0,
+      fp: 1,
+      fn: 0,
+    });
+    expect(pregnancyOutcomeCounts({ outcome: cesarean }, undefined)).toEqual({
+      tp: 0,
+      fp: 0,
+      fn: 1,
+    });
+    expect(
+      pregnancyDatingCounts(
+        { gestationalWeeks: 20, lastMenstrualPeriod: '2026-04-03' },
+        {
+          gestationalWeeks: 21,
+          lastMenstrualPeriod: new Date('2026-04-03T12:00:00Z'),
+          estimatedDeliveryDate: new Date('2027-01-08T12:00:00Z'),
+        },
+      ),
+    ).toEqual({ tp: 1, fp: 2, fn: 1 });
+    // A routine FUM read as a pregnancy is a false positive.
+    expect(
+      pregnancyDatingCounts(undefined, { lastMenstrualPeriod: new Date('2026-01-10T12:00:00Z') }),
+    ).toEqual({ tp: 0, fp: 1, fn: 0 });
   });
 
   it('aggregates hallucinated quotes, cost and latency', () => {
@@ -224,6 +269,39 @@ describe('eval harness on the gold notes', () => {
     expect(overall.hallucinatedQuoteRate).toBe(0);
   });
 
+  it('scores 100% with the oracle on the shared gold set, pregnancy included', async () => {
+    const notes = await loadGoldNotes(SHARED_GOLD_DIR);
+    const withPregnancy = notes.filter((n) => n.expected.pregnancy !== undefined);
+    expect(
+      withPregnancy.filter((n) => n.expected.pregnancy?.outcome).length,
+    ).toBeGreaterThanOrEqual(3);
+    for (const note of withPregnancy) {
+      const { datingEvidenceQuote, outcome } = note.expected.pregnancy ?? {};
+      if (datingEvidenceQuote !== undefined) expect(note.text).toContain(datingEvidenceQuote);
+      if (outcome !== undefined) expect(note.text).toContain(outcome.evidenceQuote);
+    }
+    const oracle = createNoteFixtureResponder(
+      notes.map((n) => ({ text: n.text, output: modelOutputFromExpected(n.expected) })),
+    );
+    const { overall } = (await evaluate(notes, oracle)).summary;
+    expect(overall.errors).toBe(0);
+    expect(overall.scores.conditions.f1).toBe(1);
+    expect(overall.scores.medications.f1).toBe(1);
+    expect(overall.scores.planItems.f1).toBe(1);
+    expect(overall.scores.pregnancyOutcome?.f1).toBe(1);
+    expect(overall.scores.pregnancyDating?.f1).toBe(1);
+    expect(overall.counts.pregnancyOutcome?.tp).toBeGreaterThanOrEqual(3);
+    expect(overall.hasPlanAccuracy).toBe(1);
+    expect(overall.dischargeAccuracy).toBe(1);
+  });
+
+  it('never reads an outcome or a dating the shared gold set does not label (heuristic)', async () => {
+    const notes = await loadGoldNotes(SHARED_GOLD_DIR);
+    const { overall } = (await evaluate(notes, heuristicResponder)).summary;
+    expect(overall.scores.pregnancyOutcome?.precision).toBe(1);
+    expect(overall.scores.pregnancyDating?.precision).toBe(1);
+  });
+
   it('produces a Markdown report for the rule-based baseline', async () => {
     const notes = await loadGoldNotes(GOLD_DIR);
     const run = await evaluate(notes, heuristicResponder);
@@ -232,6 +310,7 @@ describe('eval harness on the gold notes', () => {
     expect(report).toContain('# Note extraction eval: fake / fake-extractor');
     expect(report).toContain('Hallucinated-quote rate');
     expect(report).toContain('## By specialty');
+    expect(report).toContain('| Pregnancy outcome (kind) |');
     expect(report).toContain('| gold-llm-001 |');
     const sidecar = reportSidecar(run, 'seed (6 notes)');
     expect(JSON.stringify(sidecar)).not.toContain(notes[0]?.text.slice(0, 20));

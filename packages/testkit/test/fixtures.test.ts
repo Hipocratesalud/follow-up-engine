@@ -29,7 +29,7 @@ function resourcesOf(bundle: { readonly entry: readonly { readonly resource: Fhi
 const asJson = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 
 describe('synthetic clinic', () => {
-  // About 3.5 s on an idle machine (1,680 bundles against the full R4
+  // About 4.5 s on an idle machine (2,185 bundles against the full R4
   // schema): past the 5 s default when the machine is busy, so 30 s.
   it('validates every bundle and directory resource against FHIR R4', { timeout: 30_000 }, () => {
     const invalid: string[] = [];
@@ -52,19 +52,63 @@ describe('synthetic clinic', () => {
     expect(invalid).toEqual([]);
   });
 
-  it('has ~120 patients across the four specialties', () => {
+  it('has ~150 patients across the four specialties', () => {
     const bySpecialty = Object.fromEntries(
       SPECIALTIES.map((s) => [s, clinic.patients.filter((p) => p.specialty === s).length]),
     );
-    expect(clinic.patients).toHaveLength(120);
+    expect(clinic.patients).toHaveLength(148);
     expect(bySpecialty).toEqual({
       diabetology: 35,
-      internal_medicine: 30,
-      psychology: 30,
-      gynecology: 25,
+      internal_medicine: 43,
+      psychology: 35,
+      gynecology: 35,
     });
     expect(clinic.clinic.practitioners).toHaveLength(8);
-    expect(clinic.clinic.stats.patients).toBe(120);
+    expect(clinic.clinic.stats.patients).toBe(148);
+  });
+
+  it('has patients for every protocol: dated pregnancies, deliveries, losses, dose changes, kidney labs', () => {
+    const all = clinic.patients.flatMap((patient) =>
+      patient.entries.flatMap((entry) =>
+        resourcesOf(entry.bundle).map((resource) => ({ patient, entry, resource })),
+      ),
+    );
+    const codeOf = (resource: FhirResource) =>
+      (resource['code'] as { coding: { code: string }[] } | undefined)?.coding[0]?.code ?? '';
+    const conditions = all.filter(({ resource }) => resource.resourceType === 'Condition');
+    for (const prefix of ['O80', 'O82', 'O03', 'E03', 'E78', 'N18.3', 'N18.4', 'F32.1'])
+      expect(
+        conditions.some(({ resource }) => codeOf(resource).startsWith(prefix)),
+        prefix,
+      ).toBe(true);
+    // A delivery the hospital reported: on the problem list, with no encounter.
+    const reported = conditions.filter(({ entry }) => entry.kind === 'diagnosis');
+    expect(reported.length).toBeGreaterThan(0);
+    expect(reported.every(({ resource }) => resource['encounter'] === undefined)).toBe(true);
+    // FUM and FPP as date-valued Observations.
+    const dates = all.filter(({ resource }) => typeof resource['valueDateTime'] === 'string');
+    expect(new Set(dates.map(({ resource }) => codeOf(resource)))).toEqual(
+      new Set(['8665-2', '11778-8']),
+    );
+    // A dose change: the same drug prescribed at a different strength.
+    const texts = new Set(
+      all
+        .filter(({ resource }) => resource.resourceType === 'MedicationRequest')
+        .map(
+          ({ resource }) =>
+            (resource['medicationCodeableConcept'] as { text: string } | undefined)?.text,
+        ),
+    );
+    for (const text of ['Sertralina 100 mg', 'Levotiroxina 75 mcg', 'Atorvastatina 40 mg'])
+      expect(texts.has(text), text).toBe(true);
+    // Kidney function and albuminuria results, and the OGTT.
+    for (const loinc of ['62238-1', '9318-7', '1518-0'])
+      expect(
+        all.some(
+          ({ resource }) => resource.resourceType === 'Observation' && codeOf(resource) === loinc,
+        ),
+        loinc,
+      ).toBe(true);
   });
 
   it('covers two years of history ending at the base date, oldest first', () => {
@@ -175,6 +219,12 @@ describe('gold notes', () => {
         ...note.expected.medications.map((m) => m.evidenceQuote),
         ...note.expected.planItems.map((p) => p.evidenceQuote),
         ...(note.expected.discharge ? [note.expected.discharge.evidenceQuote] : []),
+        ...(note.expected.pregnancy?.datingEvidenceQuote
+          ? [note.expected.pregnancy.datingEvidenceQuote]
+          : []),
+        ...(note.expected.pregnancy?.outcome
+          ? [note.expected.pregnancy.outcome.evidenceQuote]
+          : []),
       ];
       for (const quote of quotes)
         if (!note.text.includes(quote)) missing.push(`${note.id}: "${quote}"`);
@@ -203,6 +253,26 @@ describe('gold notes', () => {
     expect(texts.some((text) => /<\/clinical_note>|IGNORA LAS INSTRUCCIONES/i.test(text))).toBe(
       true,
     );
+  });
+
+  it('labels pregnancy dating and outcomes, and the traps that are neither', () => {
+    const pregnancy = goldNotes.flatMap((note) =>
+      note.expected.pregnancy ? [note.expected.pregnancy] : [],
+    );
+    expect(new Set(pregnancy.flatMap((p) => (p.outcome ? [p.outcome.kind] : [])))).toEqual(
+      new Set(['vaginal_delivery', 'cesarean_delivery', 'loss']),
+    );
+    expect(pregnancy.filter((p) => p.gestationalWeeks !== undefined).length).toBeGreaterThanOrEqual(
+      3,
+    );
+    expect(pregnancy.some((p) => p.lastMenstrualPeriod !== undefined)).toBe(true);
+    expect(pregnancy.some((p) => p.estimatedDeliveryDate !== undefined)).toBe(true);
+    // A pregnancy that ended is not dated in the same note.
+    expect(pregnancy.every((p) => !p.outcome || p.gestationalWeeks === undefined)).toBe(true);
+    // Traps: a routine FUM and obstetric history ("cesárea previa") without a pregnancy label.
+    const unlabeled = goldNotes.filter((note) => !note.expected.pregnancy).map((note) => note.text);
+    expect(unlabeled.filter((text) => /\bFUM\b/.test(text)).length).toBeGreaterThanOrEqual(2);
+    expect(unlabeled.some((text) => text.includes('cesárea previa'))).toBe(true);
   });
 
   it('resolves absolute dates in plan items against authoredAt', () => {

@@ -1,7 +1,7 @@
 import type { EscalationPolicy } from '../../config/common.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
 import type { Expectation } from '../../domain/expectation.ts';
-import { enrollingConditions } from '../annotator/conditions.ts';
+import { protocolConditions } from '../annotator/conditions.ts';
 import type { Catalog, ExpectationDefinition } from '../catalog.ts';
 import { kindOfMatchKey } from '../matching/match-key.ts';
 import { daysBetween } from '../support/time.ts';
@@ -171,7 +171,7 @@ export function confirmedProtocols(
   return new Set(
     catalog.protocols
       .filter((protocol) =>
-        enrollingConditions(protocol, conditions).some(
+        protocolConditions(protocol, conditions).some(
           (condition) => condition.status === 'confirmed',
         ),
       )

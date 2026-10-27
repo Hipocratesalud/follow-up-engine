@@ -213,11 +213,29 @@ export interface ReasonEvidence {
   noteExcerpt?: string;
 }
 
+export type ProtocolStatus = 'draft' | 'validated';
+
+/**
+ * The care protocol behind a `protocol` layer reason. `name` (Spanish) and
+ * `status` describe the protocol the clinic runs today; both are absent when
+ * the protocol is no longer enabled for the clinic.
+ */
+export interface ProtocolRef {
+  id: string;
+  /** Version of the protocol that created the expectation. */
+  version: string;
+  name?: string;
+  /** `draft`: not yet validated by the clinic's clinical team. */
+  status?: ProtocolStatus;
+}
+
 export interface CaseReasonView {
   expectationId: string;
   ruleId: string;
   layer: Layer;
   label: string;
+  /** Only for protocol layer reasons. */
+  protocol?: ProtocolRef;
   dueAt: string;
   overdueDays: number;
   /**
@@ -409,6 +427,8 @@ export interface PatientExpectationView {
   ruleId: string;
   layer: Layer;
   label: string;
+  /** Only for protocol layer expectations. */
+  protocol?: ProtocolRef;
   status: ExpectationStatus;
   dueAt: string;
   /** Why the engine closed it, in Spanish. */
@@ -496,6 +516,8 @@ export interface CreatedExpectation {
   ruleId: string;
   layer: Layer;
   label: string;
+  /** Only for protocol layer expectations. */
+  protocol?: ProtocolRef;
   dueAt: string;
 }
 

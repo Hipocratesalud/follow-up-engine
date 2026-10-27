@@ -1,0 +1,87 @@
+{
+  "id": "dyslipidemia",
+  "version": "0.1.0",
+  "status": "draft",
+  "description": "Dyslipidemia: a lipid panel 4 to 12 weeks after a statin or ezetimibe (ATC C10) is started or its dose changes (a panel sooner than 4 weeks does not count), then yearly. One lipid panel is expected per patient across protocols: the diabetes protocol's yearly panel and this one never both. Fills only what the doctor's plan did not cover.",
+  "reason": { "code": "protocol_dyslipidemia", "label": "Control de dislipidemia" },
+  "sources": [
+    {
+      "title": "2019 ESC/EAS Guidelines for the management of dyslipidaemias",
+      "organization": "European Society of Cardiology and European Atherosclerosis Society",
+      "year": 2019,
+      "url": "https://doi.org/10.1093/eurheartj/ehz455"
+    },
+    {
+      "title": "2018 AHA/ACC Guideline on the Management of Blood Cholesterol",
+      "organization": "American Heart Association and American College of Cardiology",
+      "year": 2018,
+      "url": "https://doi.org/10.1161/CIR.0000000000000625"
+    }
+  ],
+  "specialties": [
+    "internal_medicine",
+    "cardiology",
+    "endocrinology",
+    "diabetology",
+    "general_practice",
+    "family_medicine"
+  ],
+  "caseGroup": "follow_up",
+  "enrollment": {
+    "conditionCodes": ["E78"],
+    "minimumStatus": "probable",
+    "medications": [{ "atc": ["C10"], "conditionCode": "E78.5" }]
+  },
+  "items": [
+    {
+      "key": "lipids",
+      "kind": "lab",
+      "code": { "system": "http://loinc.org", "code": "24331-1", "display": "Lipid panel" },
+      "reason": {
+        "code": "protocol_dyslipidemia_lipids",
+        "label": "Perfil lipídico de control pendiente"
+      },
+      "schedule": {
+        "type": "treatment_change",
+        "medications": { "atc": ["C10"] },
+        "afterChangeDays": 84,
+        "minDaysAfterChange": 28,
+        "everyDays": 365
+      },
+      "fulfilledBy": [
+        {
+          "event": "result.received",
+          "filter": {
+            "code.code": [
+              "24331-1",
+              "57698-3",
+              "57696-7",
+              "2093-3",
+              "2085-9",
+              "13457-7",
+              "18262-6",
+              "2089-1",
+              "2571-8"
+            ]
+          },
+          "match": "any"
+        }
+      ],
+      "planTerms": [
+        "perfil lipidico",
+        "lipidograma",
+        "lipidos",
+        "colesterol",
+        "trigliceridos",
+        "lipid panel"
+      ],
+      "priority": 25,
+      "suggestedAction": {
+        "code": "order_lab",
+        "label": "Indicar perfil lipídico",
+        "patientContactPurpose": "complete_pending_test"
+      }
+    }
+  ],
+  "escalationPolicy": "default_v1"
+}

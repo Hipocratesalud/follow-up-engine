@@ -40,6 +40,7 @@ import {
   type PatientDetail,
   type PatientSummary,
   type PriorityLabel,
+  type ProtocolRef,
   type RecoveryPage,
   type Sex,
   type SuppressionView,
@@ -60,6 +61,7 @@ import {
   ASSIGNEES,
   CLINIC_NAME,
   DEFAULT_SUGGESTED_ACTION,
+  mockProtocolRef,
   SEED_PATIENTS,
   SPECIALTY_LABELS,
   SUGGESTED_ACTIONS,
@@ -124,6 +126,7 @@ interface MockExpectation {
   ruleId: string;
   layer: Layer;
   label: string;
+  protocol?: ProtocolRef;
   dueAt: Date;
   status: ExpectationStatus;
   source: { resourceType: string; id: string; display: string };
@@ -241,6 +244,12 @@ interface MockQualityFinding {
 interface MockLlmCall {
   at: Date;
   costUsd: number;
+}
+
+/** `{ protocol }` for a protocol layer rule id, as the API adds it; `{}` otherwise. */
+function protocolOf(ruleId: string): { protocol?: ProtocolRef } {
+  const protocol = mockProtocolRef(ruleId);
+  return protocol === undefined ? {} : { protocol };
 }
 
 const CLOSED_STATUSES: readonly CaseStatus[] = ['resolved', 'dismissed', 'lost_to_follow_up'];
@@ -495,6 +504,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         ruleId: reason.ruleId,
         layer: reason.layer,
         label: reason.label,
+        ...protocolOf(reason.ruleId),
         dueAt: addDays(now, -reason.overdueDays),
         status: caseId ? (closed ? 'fulfilled' : 'expired') : 'open',
         source: {
@@ -519,6 +529,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         ruleId: past.ruleId,
         layer: past.layer,
         label: past.label,
+        ...protocolOf(past.ruleId),
         dueAt: addDays(now, -past.daysAgo),
         status: past.status,
         source: { resourceType: 'ServiceRequest', id: `servicerequest-${id}`, display: past.label },
@@ -735,6 +746,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       ruleId: expectation.ruleId,
       layer: expectation.layer,
       label: expectation.label,
+      ...(expectation.protocol ? { protocol: { ...expectation.protocol } } : {}),
       dueAt: expectation.dueAt.toISOString(),
       overdueDays: Math.max(0, daysBetween(expectation.dueAt, now)),
       suppressible: isSuppressible(expectation.layer),
@@ -1514,12 +1526,14 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     fields: Omit<MockExpectation, 'id' | 'patientId' | 'status' | 'origin'>,
   ): CreatedExpectation {
     const id = nextId('exp', 'exp');
-    expectations.set(id, { id, patientId, status: 'open', origin: 'live', ...fields });
+    const protocol = protocolOf(fields.ruleId);
+    expectations.set(id, { id, patientId, status: 'open', origin: 'live', ...fields, ...protocol });
     return {
       id,
       ruleId: fields.ruleId,
       layer: fields.layer,
       label: fields.label,
+      ...protocol,
       dueAt: fields.dueAt.toISOString(),
     };
   }
@@ -1624,9 +1638,9 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     if (extracted.conditions.some((condition) => condition.code.code === 'E11') && !coversHba1c) {
       created.push(
         createExpectation(patientId, {
-          ruleId: 'protocol_hba1c_quarterly',
+          ruleId: 'protocol_diabetes_hba1c',
           layer: 'protocol',
-          label: 'HbA1c trimestral (protocolo DM2)',
+          label: 'Sin HbA1c reciente (cada 3 meses)',
           dueAt: addDays(now, 90),
           source: {
             resourceType: 'PlanDefinition',
@@ -1843,6 +1857,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
             ruleId: expectation.ruleId,
             layer: expectation.layer,
             label: expectation.label,
+            ...(expectation.protocol ? { protocol: { ...expectation.protocol } } : {}),
             status: expectation.status,
             dueAt: expectation.dueAt.toISOString(),
             ...(expectation.evidence ? { evidence: { ...expectation.evidence } } : {}),

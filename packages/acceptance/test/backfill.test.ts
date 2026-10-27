@@ -106,10 +106,10 @@ function backfillSuite(make: (options: HarnessOptions) => Promise<EngineHarness>
     reference = { harness, report, state: await readClinicState(harness, PATIENT_IDS) };
   }, TIMEOUT);
 
-  it('replays all 120 patients into a plausible, prioritized recovery list', () => {
+  it('replays all 148 patients into a plausible, prioritized recovery list', () => {
     const { report, state } = reference;
     expect(report.progress.status).toBe('completed');
-    expect(report.progress.patientsScanned).toBe(120);
+    expect(report.progress.patientsScanned).toBe(148);
     expect(report.progress.documentsProcessed).toBeGreaterThan(600);
     // History closes most of what it expected; what is left are real gaps.
     expect(report.progress.expectationsFulfilled).toBeGreaterThan(
@@ -168,7 +168,7 @@ function backfillSuite(make: (options: HarnessOptions) => Promise<EngineHarness>
       const again = await harness.engine.backfill.run(harness.clinicId, { runId: 'second' });
       expect(again.progress).toMatchObject({
         status: 'completed',
-        patientsScanned: 120,
+        patientsScanned: 148,
         expectationsCreated: 0,
         expectationsFulfilled: 0,
         casesOpened: 0,

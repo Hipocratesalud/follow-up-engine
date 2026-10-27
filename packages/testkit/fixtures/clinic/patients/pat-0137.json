@@ -1,0 +1,884 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0137",
+  "name": "Yeferson Gómez Romero",
+  "gender": "male",
+  "birthDate": "1970-04-23",
+  "specialty": "internal_medicine",
+  "pattern": "hypothyroidism",
+  "entries": [
+    {
+      "at": "2024-02-14T16:29:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0137-bundle01",
+        "type": "transaction",
+        "timestamp": "2024-02-14T16:29:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:2bd13d41-4f19-5ccd-943a-6767b602aaec",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0137-dr01",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "3016-3",
+                    "display": "Thyrotropin [Units/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "TSH"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "effectiveDateTime": "2024-02-13T12:34:00.000Z",
+              "issued": "2024-02-14T16:29:00.000Z",
+              "result": [{ "reference": "Observation/pat-0137-dr01-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0137-dr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:a9e6c6c4-9b7b-5402-8155-8b786bdebdec",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0137-dr01-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "3016-3",
+                    "display": "Thyrotropin [Units/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "effectiveDateTime": "2024-02-13T12:34:00.000Z",
+              "issued": "2024-02-14T16:29:00.000Z",
+              "valueQuantity": {
+                "value": 1.55,
+                "unit": "mUI/L",
+                "system": "http://unitsofmeasure.org",
+                "code": "m[IU]/L"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.4,
+                    "unit": "mUI/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "m[IU]/L"
+                  },
+                  "high": {
+                    "value": 4,
+                    "unit": "mUI/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "m[IU]/L"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0137-dr01-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-02-19T12:25:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0137-bundle02",
+        "type": "transaction",
+        "timestamp": "2024-02-19T12:25:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:455988b3-3e39-57a1-8d96-0d0ee0292c9d",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0137",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://hipocratesalud.com/fhir/NamingSystem/demo-patient",
+                  "value": "HC-15069"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Yeferson Gómez Romero",
+                  "family": "Gómez Romero",
+                  "given": ["Yeferson"]
+                }
+              ],
+              "gender": "male",
+              "birthDate": "1970-04-23",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0137" }
+          },
+          {
+            "fullUrl": "urn:uuid:cfc771fb-015d-5060-abe9-562d40aa23ae",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0137-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2024-02-19T12:00:00.000Z", "end": "2024-02-19T12:25:00.000Z" },
+              "reasonCode": [{ "text": "Control de tiroides" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0137-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:96358ff0-f2df-5c51-84ef-9c47f1ed8842",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0137-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "date": "2024-02-19T12:25:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBtYXNjdWxpbm8gNTNhLCBoaXBvdGlyb2lkaXNtbyBwcmltYXJpbyBkZSA1IGHDsW9zIGVuIHR0byBjb24gbGV2b3Rpcm94aW5hIDUwIG1jZy4gVHJhZSBUU0ggMS41NSBtVUkvTCwgZW4gcmFuZ28uIEFzaW50b23DoXRpY28uCkVGOiBUQSAxMTcvNzkgbW1IZywgRkMgNjUgbHBtLiBUaXJvaWRlcyBubyBwYWxwYWJsZS4KRHg6IGhpcG90aXJvaWRpc21vIHByaW1hcmlvIGNvbnRyb2xhZG8uClBsYW46IENvbnRpbnVhciBsZXZvdGlyb3hpbmEgNTAgbWNnIFZPIGVuIGF5dW5hcy4gVFNIIGFudWFsLiBWb2x2ZXIgYSBjb25zdWx0YSBlbiAxMiBtZXNlcy4=",
+                    "title": "Nota de evolución",
+                    "creation": "2024-02-19T12:25:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0137-enc01" }],
+                "period": {
+                  "start": "2024-02-19T12:00:00.000Z",
+                  "end": "2024-02-19T12:25:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0137-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:b5f75cc0-1ab2-545a-be0b-ec0ac94acdc5",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0137-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "H03AA01",
+                    "display": "levothyroxine sodium"
+                  }
+                ],
+                "text": "Levotiroxina 50 mcg"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "encounter": { "reference": "Encounter/pat-0137-enc01" },
+              "authoredOn": "2024-02-19T12:25:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO en ayunas" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0137-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:cec421f0-b942-5e3a-9aec-7273b8d97ca1",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0137-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E03.9",
+                    "display": "Hypothyroidism, unspecified"
+                  }
+                ],
+                "text": "hipotiroidismo"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "encounter": { "reference": "Encounter/pat-0137-enc01" },
+              "recordedDate": "2024-02-19T12:25:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0137-cond01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-02-21T17:35:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0137-bundle03",
+        "type": "transaction",
+        "timestamp": "2025-02-21T17:35:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:ba846a19-fe08-5f5f-8400-34acff2185cb",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0137-dr02",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "3016-3",
+                    "display": "Thyrotropin [Units/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "TSH"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "effectiveDateTime": "2025-02-20T14:06:00.000Z",
+              "issued": "2025-02-21T17:35:00.000Z",
+              "result": [{ "reference": "Observation/pat-0137-dr02-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0137-dr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:b2212f96-b0d6-5b77-8229-7cdf251b90e1",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0137-dr02-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "3016-3",
+                    "display": "Thyrotropin [Units/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "effectiveDateTime": "2025-02-20T14:06:00.000Z",
+              "issued": "2025-02-21T17:35:00.000Z",
+              "valueQuantity": {
+                "value": 2.51,
+                "unit": "mUI/L",
+                "system": "http://unitsofmeasure.org",
+                "code": "m[IU]/L"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.4,
+                    "unit": "mUI/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "m[IU]/L"
+                  },
+                  "high": {
+                    "value": 4,
+                    "unit": "mUI/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "m[IU]/L"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0137-dr02-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-02-24T13:40:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0137-bundle04",
+        "type": "transaction",
+        "timestamp": "2025-02-24T13:40:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:0cfbf1e0-b041-55ef-91bf-fc6d74ab21e3",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0137-enc02",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2025-02-24T13:15:00.000Z", "end": "2025-02-24T13:40:00.000Z" },
+              "reasonCode": [{ "text": "Control de tiroides" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0137-enc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:da3839a0-204a-51a8-8b06-8aa543dd7116",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0137-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "date": "2025-02-24T13:40:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGFjaWVudGUgbWFzY3VsaW5vIGRlIDU0IGHDsW9zLCBoaXBvdGlyb2lkaXNtbyBwcmltYXJpbyBkZSA1IGHDsW9zIGVuIHR0byBjb24gbGV2b3Rpcm94aW5hIDUwIG1jZy4gVHJhZSBUU0ggMi41MSBtVUkvTCwgZW4gcmFuZ28uIEFzaW50b23DoXRpY28uCkVGOiBUQSAxMjgvNzggbW1IZywgRkMgNjYgbHBtLiBUaXJvaWRlcyBubyBwYWxwYWJsZS4KRHg6IGhpcG90aXJvaWRpc21vIHByaW1hcmlvIGNvbnRyb2xhZG8uClBsYW46IENvbnRpbnVhciBsZXZvdGlyb3hpbmEgNTAgbWNnIFZPIGVuIGF5dW5hcy4gVFNIIGFudWFsLiBQcsOzeGltbyBjb250cm9sIGVuIDEyIG1lc2VzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-02-24T13:40:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0137-enc02" }],
+                "period": {
+                  "start": "2025-02-24T13:15:00.000Z",
+                  "end": "2025-02-24T13:40:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0137-doc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:11801409-57b4-5794-b45b-081e33ed412e",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0137-mr02",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "H03AA01",
+                    "display": "levothyroxine sodium"
+                  }
+                ],
+                "text": "Levotiroxina 50 mcg"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "encounter": { "reference": "Encounter/pat-0137-enc02" },
+              "authoredOn": "2025-02-24T13:40:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO en ayunas" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0137-mr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:6b50ad89-8a0f-5836-952d-b7617c027926",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0137-cond02",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E03.9",
+                    "display": "Hypothyroidism, unspecified"
+                  }
+                ],
+                "text": "hipotiroidismo"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "encounter": { "reference": "Encounter/pat-0137-enc02" },
+              "recordedDate": "2025-02-24T13:40:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0137-cond02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-10T22:25:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0137-bundle05",
+        "type": "transaction",
+        "timestamp": "2025-09-10T22:25:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:1b24483e-63e0-5e9a-8edf-89c4373ce7d7",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0137-dr03",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "3016-3",
+                    "display": "Thyrotropin [Units/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "TSH"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "effectiveDateTime": "2025-09-09T21:04:00.000Z",
+              "issued": "2025-09-10T22:25:00.000Z",
+              "result": [{ "reference": "Observation/pat-0137-dr03-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0137-dr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:3e408e1b-9c15-561a-8c0c-d84279acca78",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0137-dr03-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "3016-3",
+                    "display": "Thyrotropin [Units/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "effectiveDateTime": "2025-09-09T21:04:00.000Z",
+              "issued": "2025-09-10T22:25:00.000Z",
+              "valueQuantity": {
+                "value": 7.94,
+                "unit": "mUI/L",
+                "system": "http://unitsofmeasure.org",
+                "code": "m[IU]/L"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "H",
+                      "display": "High"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.4,
+                    "unit": "mUI/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "m[IU]/L"
+                  },
+                  "high": {
+                    "value": 4,
+                    "unit": "mUI/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "m[IU]/L"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0137-dr03-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-12T21:10:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0137-bundle06",
+        "type": "transaction",
+        "timestamp": "2025-09-12T21:10:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:8cdad14b-0436-59a1-bd89-bf3ec2fd826b",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0137-enc03",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2025-09-12T20:45:00.000Z", "end": "2025-09-12T21:10:00.000Z" },
+              "reasonCode": [{ "text": "Control de tiroides" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0137-enc03" }
+          },
+          {
+            "fullUrl": "urn:uuid:9de24032-897d-53d6-9cae-4877c71d796b",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0137-doc03",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "date": "2025-09-12T21:10:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBtYXNjIDU1YSwgaGlwb3Rpcm9pZGlzbW8gcHJpbWFyaW8gZGUgNSBhw7FvcyBlbiB0dG8gY29uIGxldm90aXJveGluYSA1MCBtY2cuIFRyYWUgVFNIIDcuOTQgbVVJL0wuIFJlZmllcmUgYXN0ZW5pYSB5IHNvbW5vbGVuY2lhLgpFRjogVEEgMTE1LzgxIG1tSGcsIEZDIDgyIGxwbS4gVGlyb2lkZXMgbm8gcGFscGFibGUuCkR4OiBoaXBvdGlyb2lkaXNtbyBwcmltYXJpbyBubyBjb250cm9sYWRvLgpQbGFuOiBTZSBhanVzdGEgbGV2b3Rpcm94aW5hIGEgNzUgbWNnL2TDrWEgZW4gYXl1bmFzLiBUU0ggZW4gNiBhIDggc2VtYW5hcy4gQ2l0YSBjb250cm9sIGVuIDIgbWVzZXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-09-12T21:10:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0137-enc03" }],
+                "period": {
+                  "start": "2025-09-12T20:45:00.000Z",
+                  "end": "2025-09-12T21:10:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0137-doc03" }
+          },
+          {
+            "fullUrl": "urn:uuid:82773512-33b0-5c71-a621-c170caa040f8",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0137-mr03",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "H03AA01",
+                    "display": "levothyroxine sodium"
+                  }
+                ],
+                "text": "Levotiroxina 75 mcg"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "encounter": { "reference": "Encounter/pat-0137-enc03" },
+              "authoredOn": "2025-09-12T21:10:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO en ayunas" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0137-mr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:fe7f4da3-f3b1-5be6-9b4d-9db3020783e3",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0137-cond03",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E03.9",
+                    "display": "Hypothyroidism, unspecified"
+                  }
+                ],
+                "text": "hipotiroidismo"
+              },
+              "subject": { "reference": "Patient/pat-0137" },
+              "encounter": { "reference": "Encounter/pat-0137-enc03" },
+              "recordedDate": "2025-09-12T21:10:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0137-cond03" }
+          }
+        ]
+      }
+    }
+  ]
+}

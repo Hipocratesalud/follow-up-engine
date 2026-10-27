@@ -1,0 +1,82 @@
+{
+  "id": "treatment_followup",
+  "version": "0.1.0",
+  "status": "draft",
+  "description": "Depression and anxiety on treatment (id and every label deliberately neutral: nothing it shows or sends names the condition). Enrolled by F32/F33/F41 or an antidepressant (ATC N06A). A control 2 to 4 weeks after an antidepressant is started or its dose changes, then monthly until 3 consecutive controls without a change, then every 3 months. Fills only what the doctor's plan did not cover.",
+  "reason": {
+    "code": "protocol_treatment_followup",
+    "label": "Seguimiento de tratamiento"
+  },
+  "sources": [
+    {
+      "title": "Depression in adults: treatment and management (NG222)",
+      "organization": "National Institute for Health and Care Excellence",
+      "year": 2022,
+      "url": "https://www.nice.org.uk/guidance/ng222"
+    },
+    {
+      "title": "Generalised anxiety disorder and panic disorder in adults: management (CG113)",
+      "organization": "National Institute for Health and Care Excellence",
+      "year": 2011,
+      "url": "https://www.nice.org.uk/guidance/cg113"
+    }
+  ],
+  "sensitive": true,
+  "specialties": [
+    "psychiatry",
+    "psychology",
+    "general_practice",
+    "family_medicine",
+    "internal_medicine"
+  ],
+  "caseGroup": "follow_up",
+  "enrollment": {
+    "conditionCodes": ["F32", "F33", "F41"],
+    "minimumStatus": "probable",
+    "medications": [
+      {
+        "atc": ["N06A"],
+        "conditionCode": "F32"
+      }
+    ]
+  },
+  "items": [
+    {
+      "key": "visit",
+      "kind": "follow_up_visit",
+      "reason": {
+        "code": "protocol_treatment_followup_visit",
+        "label": "Control de seguimiento pendiente"
+      },
+      "schedule": {
+        "type": "treatment_change",
+        "medications": {
+          "atc": ["N06A"]
+        },
+        "afterChangeDays": 28,
+        "untilStable": {
+          "everyDays": 30,
+          "controls": 3
+        },
+        "everyDays": 90
+      },
+      "fulfilledBy": [
+        {
+          "event": "encounter.finished",
+          "match": "any"
+        },
+        {
+          "event": "appointment.booked",
+          "match": "any"
+        }
+      ],
+      "priority": 40,
+      "suggestedAction": {
+        "code": "schedule_follow_up",
+        "label": "Agendar control de seguimiento",
+        "patientContactPurpose": "schedule_follow_up"
+      }
+    }
+  ],
+  "escalationPolicy": "default_v1"
+}

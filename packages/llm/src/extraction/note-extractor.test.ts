@@ -45,6 +45,7 @@ function setup(respond: FakeResponder) {
 const reply: ModelExtraction = {
   hasPlan: true,
   discharge: null,
+  pregnancy: null,
   conditions: [{ icd10: 'E11', display: 'type 2 diabetes', confidence: 0.9, evidenceQuote: 'DM2' }],
   medications: [
     { text: 'metformina 850 mg c/12h', duration: null, evidenceQuote: 'metformina 850 mg c/12h' },

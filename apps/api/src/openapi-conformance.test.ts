@@ -91,6 +91,15 @@ describe('OpenAPI document', () => {
     ).toContain(String(response.status));
   });
 
+  it('documents the protocol behind a reason, with its validation status', () => {
+    const reason = JSON.stringify(doc.components.schemas['CaseReasonView']);
+    expect(reason).toContain('"protocol":{');
+    expect(reason).toContain('#/components/schemas/ProtocolRef');
+    const protocol = JSON.stringify(doc.components.schemas['ProtocolRef']);
+    expect(protocol).toContain('"enum":["draft","validated"]');
+    expect(protocol).toMatch(/"required":\["id","version"\]/);
+  });
+
   it('says that a reason is required when a case was not useful', () => {
     const schema = JSON.stringify(doc.components.schemas['FeedbackRequest']);
     expect(schema).toMatch(/"required":\["useful","reason"\]|"required":\["reason","useful"\]/);

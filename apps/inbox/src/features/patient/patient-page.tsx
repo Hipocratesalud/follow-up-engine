@@ -24,7 +24,7 @@ import {
   usePatient,
   useReactivateSuppression,
 } from '../../api/queries.ts';
-import { LayerChip } from '../../components/case-badges.tsx';
+import { LayerChip, ReasonProtocol } from '../../components/case-badges.tsx';
 import { InlineQuote } from '../../components/evidence.tsx';
 import { ErrorState, InlineError, NotFoundState } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, Skeleton, type Tone } from '../../components/ui.tsx';
@@ -189,6 +189,10 @@ function ExpectationItem({
           {EXPECTATION_STATUS_LABELS[expectation.status]}
         </Badge>
       </div>
+      <ReasonProtocol
+        protocol={expectation.protocol}
+        withDraftBadge={expectation.status === 'open' || expectation.status === 'expired'}
+      />
       <p className="text-xs text-muted">Fecha límite: {formatDate(expectation.dueAt)}</p>
       {expectation.closedReason ? (
         <p className="text-xs text-muted">Motivo del cierre: {expectation.closedReason}</p>

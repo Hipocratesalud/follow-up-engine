@@ -12,7 +12,12 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ACTIVE_CASE_STATUSES, type DemoConsultationResponse } from '../../api/contract.ts';
 import { useCases } from '../../api/queries.ts';
-import { LayerChip, StatusBadge } from '../../components/case-badges.tsx';
+import {
+  DraftProtocolBadge,
+  LayerChip,
+  StatusBadge,
+  isDraftProtocol,
+} from '../../components/case-badges.tsx';
 import { Badge, Card, SectionTitle } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatDate, formatMs, formatPercent, formatUsd } from '../../lib/format.ts';
@@ -326,6 +331,7 @@ export function ExtractionResult({
               <span className="flex flex-wrap items-center gap-2 text-sm text-fg">
                 <LayerChip layer={expectation.layer} />
                 {expectation.label}
+                {isDraftProtocol(expectation.protocol) ? <DraftProtocolBadge /> : null}
               </span>
               <span className="text-xs text-muted">Antes del {formatDate(expectation.dueAt)}</span>
             </li>

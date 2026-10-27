@@ -1,53 +1,23 @@
 import type { Protocol, ProtocolItem } from '../../../config/protocol.ts';
-import type { ClinicalEvent } from '../../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../../domain/condition.ts';
 import type { Expectation } from '../../../domain/expectation.ts';
-import { type Catalog, type ExpectationDefinition, protocolRuleId } from '../../catalog.ts';
-import { definitionVisitFits, matchesShape } from '../../matching/correlation.ts';
+import { type Catalog, protocolRuleId } from '../../catalog.ts';
 import { codeMatchKey, matchKeyFor } from '../../matching/match-key.ts';
+import { type ProtocolEpisode, protocolEpisode } from '../../protocols/episodes.ts';
+import { scheduleItem } from '../../protocols/schedule.ts';
 import { containsPhrase } from '../../support/text.ts';
-import { addDays } from '../../support/time.ts';
-import { eventInstant, type PatientTimeline } from '../../timeline.ts';
-import { enrollingConditions } from '../conditions.ts';
+import type { PatientTimeline } from '../../timeline.ts';
 import { type ExpectationDraft, expectationIdempotencyKey } from '../draft.ts';
 
 /** Layers whose expectations are explicit enough to make a protocol item redundant. */
 const COVERING_LAYERS: ReadonlySet<Expectation['layer']> = new Set(['doctor_plan', 'universal']);
 
 /**
- * The last time a protocol item happened: a visit, a result. A booking is a
- * promise, not a visit: it fulfills the item's expectation (until it is
- * cancelled or its date passes with no visit, when that expectation opens
- * again) but never anchors the next one, so the next item is always counted
- * from something that took place, live or replayed by the backfill, whether
- * the booking came in its own Bundle or with the consultation.
- */
-function latestFulfillingEvent(
-  definition: ExpectationDefinition,
-  timeline: PatientTimeline,
-): ClinicalEvent | undefined {
-  let latest: ClinicalEvent | undefined;
-  for (const event of timeline.events) {
-    if (event.type === 'appointment.booked') {
-      continue;
-    }
-    const matches =
-      definition.fulfilledBy.some((correlation) =>
-        matchesShape(correlation, event, definition.code),
-      ) && definitionVisitFits(definition, event, timeline);
-    if (matches && (latest === undefined || eventInstant(event) >= eventInstant(latest))) {
-      latest = event;
-    }
-  }
-  return latest;
-}
-
-/**
  * Match keys that ask for the same test as a protocol item: its own code and
  * every code its `fulfilledBy` filters accept (the item's equivalence group:
  * any lipid panel LOINC covers the lipid item).
  */
-function equivalentMatchKeys(item: ProtocolItem, matchKey: string): Set<string> {
+export function equivalentMatchKeys(item: ProtocolItem, matchKey: string): Set<string> {
   const keys = new Set([matchKey]);
   if (item.code === undefined) {
     return keys;
@@ -112,22 +82,54 @@ export function protocolExpectationCovered(
   );
 }
 
-/** Why a protocol item did not produce an expectation. Useful in reports and tests. */
-export type ProtocolSkipReason = 'already_expected' | 'covered_by_plan';
+/**
+ * Why a protocol item did not produce an expectation. Useful in reports and
+ * tests. `covered_by_protocol`: another protocol already expects the same
+ * test no later (a diabetic on a statin gets one lipid panel, not two).
+ */
+export type ProtocolSkipReason = 'already_expected' | 'covered_by_plan' | 'covered_by_protocol';
 
 export interface ProtocolEvaluation {
   readonly drafts: readonly ExpectationDraft[];
   readonly skipped: readonly { readonly ruleId: string; readonly reason: ProtocolSkipReason }[];
+  /**
+   * Open protocol expectations a draft replaces because it is due sooner:
+   * the same item after a treatment change (a new dose restarts the 2-4
+   * week control), or the same test another protocol expected later. The
+   * annotator supersedes them (`rescheduled_by_protocol`).
+   */
+  readonly replaced: readonly Expectation[];
+}
+
+/** A protocol expectation in play during one evaluation: live, or drafted by it. */
+interface PlannedTest {
+  readonly ruleId: string;
+  readonly protocolId: string | undefined;
+  readonly matchKey: string;
+  readonly dueAt: Date;
+  /** Every match key asking for the same test (its equivalence group). */
+  readonly keys: ReadonlySet<string>;
+  /** The live expectation, absent for a draft of this evaluation. */
+  readonly expectation?: Expectation;
+}
+
+/** The protocol item behind a protocol rule id, if still in the catalog. */
+function itemOfRule(catalog: Catalog, ruleId: string): ProtocolItem | undefined {
+  const origin = catalog.definition(ruleId)?.protocol;
+  return catalog.protocols
+    .find((protocol) => protocol.id === origin?.id)
+    ?.items.find((item) => item.key === origin?.itemKey);
 }
 
 /**
  * Protocol layer, applied after the doctor's plan: for each protocol the
- * patient is enrolled in (by a confirmed or probable condition), each item
- * is expected `everyDays` after the last time it happened (or after
- * enrollment). An item is skipped when it is already expected, or when the
- * doctor's plan or a universal rule already asks for the same thing (same
- * match key, a code of the item's equivalence group, or an uncoded plan item
- * that names the test): the protocol only fills gaps.
+ * patient is in (an active episode, or an ended one for its after-outcome
+ * items), each item is expected when its schedule says (see
+ * `scheduleItem`). An item is skipped when it is already expected, when
+ * the doctor's plan or a universal rule already asks for the same thing
+ * (same match key, a code of the item's equivalence group, or an uncoded
+ * plan item that names the test): the protocol only fills gaps; and when
+ * another protocol expects the same test no later.
  */
 export function protocolDrafts(input: {
   readonly catalog: Catalog;
@@ -138,51 +140,137 @@ export function protocolDrafts(input: {
 }): ProtocolEvaluation {
   const drafts: ExpectationDraft[] = [];
   const skipped: { ruleId: string; reason: ProtocolSkipReason }[] = [];
+  const replaced = new Map<string, Expectation>();
+  const planned: PlannedTest[] = input.live.flatMap((expectation) => {
+    const item =
+      expectation.layer === 'protocol' ? itemOfRule(input.catalog, expectation.ruleId) : undefined;
+    return item?.code === undefined
+      ? []
+      : [
+          {
+            ruleId: expectation.ruleId,
+            protocolId: expectation.protocolId,
+            matchKey: expectation.matchKey,
+            dueAt: expectation.dueAt,
+            keys: equivalentMatchKeys(item, expectation.matchKey),
+            expectation,
+          },
+        ];
+  });
   for (const protocol of input.catalog.protocols) {
-    const [enrolledBy] = enrollingConditions(protocol, input.conditions).sort(
-      (left, right) => Number(right.status === 'confirmed') - Number(left.status === 'confirmed'),
-    );
-    if (enrolledBy === undefined) {
+    const episode = protocolEpisode(protocol, input.conditions, input.timeline);
+    if (episode === undefined) {
       continue;
     }
     for (const item of protocol.items) {
-      const draft = itemDraft(protocol, item.key, enrolledBy, input);
+      const draft = itemDraft(protocol, item, episode, input);
       if (draft === undefined) {
         continue;
       }
       const ruleId = draft.definition.ruleId;
-      if (input.live.some((expectation) => expectation.ruleId === ruleId)) {
+      const sameItem = input.live.filter((expectation) => expectation.ruleId === ruleId);
+      const sooner = sameItem.every(
+        (expectation) =>
+          expectation.status === 'open' &&
+          expectation.idempotencyKey !== draft.idempotencyKey &&
+          draft.dueAt.getTime() < expectation.dueAt.getTime(),
+      );
+      if (sameItem.length > 0 && !sooner) {
         skipped.push({ ruleId, reason: 'already_expected' });
-      } else if (input.live.some((expectation) => coversItem(expectation, item, draft.matchKey))) {
+        continue;
+      }
+      if (input.live.some((expectation) => coversItem(expectation, item, draft.matchKey))) {
         skipped.push({ ruleId, reason: 'covered_by_plan' });
-      } else {
-        drafts.push(draft);
+        continue;
+      }
+      const keys = equivalentMatchKeys(item, draft.matchKey);
+      const others =
+        item.code === undefined
+          ? []
+          : planned.filter(
+              (other) =>
+                other.protocolId !== protocol.id &&
+                (keys.has(other.matchKey) || other.keys.has(draft.matchKey)),
+            );
+      if (
+        others.some(
+          (other) =>
+            other.dueAt.getTime() <= draft.dueAt.getTime() ||
+            other.expectation?.status === 'expired',
+        )
+      ) {
+        skipped.push({ ruleId, reason: 'covered_by_protocol' });
+        continue;
+      }
+      for (const expectation of sameItem) {
+        replaced.set(expectation.id, expectation);
+        const index = planned.findIndex((test) => test.expectation === expectation);
+        if (index >= 0) {
+          planned.splice(index, 1);
+        }
+      }
+      for (const other of others) {
+        if (other.expectation === undefined) {
+          dropDraft(drafts, other.ruleId);
+        } else {
+          replaced.set(other.expectation.id, other.expectation);
+        }
+        planned.splice(planned.indexOf(other), 1);
+      }
+      drafts.push(draft);
+      if (item.code !== undefined) {
+        planned.push({
+          ruleId,
+          protocolId: protocol.id,
+          matchKey: draft.matchKey,
+          dueAt: draft.dueAt,
+          keys,
+        });
       }
     }
   }
-  return { drafts, skipped };
+  return { drafts, skipped, replaced: [...replaced.values()] };
+}
+
+/** Removes this evaluation's draft of a rule (another protocol's draft due sooner replaces it). */
+function dropDraft(drafts: ExpectationDraft[], ruleId: string): void {
+  const index = drafts.findIndex((draft) => draft.definition.ruleId === ruleId);
+  if (index >= 0) {
+    drafts.splice(index, 1);
+  }
 }
 
 function itemDraft(
   protocol: Protocol,
-  itemKey: string,
-  enrolledBy: PatientCondition,
-  input: { readonly catalog: Catalog; readonly timeline: PatientTimeline; readonly now: Date },
+  item: ProtocolItem,
+  episode: ProtocolEpisode,
+  input: {
+    readonly catalog: Catalog;
+    readonly conditions: readonly PatientCondition[];
+    readonly timeline: PatientTimeline;
+    readonly now: Date;
+  },
 ): ExpectationDraft | undefined {
-  const item = protocol.items.find((candidate) => candidate.key === itemKey);
-  const definition = item && input.catalog.definition(protocolRuleId(protocol, item));
-  if (definition === undefined || item === undefined) {
+  const definition = input.catalog.definition(protocolRuleId(protocol, item));
+  if (definition === undefined) {
     return undefined;
   }
-  const last = latestFulfillingEvent(definition, input.timeline);
-  const enrollment = input.timeline.bySource(enrolledBy.source);
-  const anchorAt = last === undefined ? (enrollment?.occurredAt ?? input.now) : eventInstant(last);
-  const source = last?.source ?? enrolledBy.source;
+  const scheduled = scheduleItem({
+    item,
+    definition,
+    episode,
+    conditions: input.conditions,
+    timeline: input.timeline,
+    now: input.now,
+  });
+  if (scheduled === undefined) {
+    return undefined;
+  }
   return {
     definition,
-    source,
+    source: scheduled.anchor,
     matchKey: matchKeyFor(item.kind, definition.code),
-    dueAt: addDays(anchorAt, item.everyDays),
-    idempotencyKey: expectationIdempotencyKey(source, definition.ruleId),
+    dueAt: scheduled.dueAt,
+    idempotencyKey: expectationIdempotencyKey(scheduled.anchor, definition.ruleId),
   };
 }

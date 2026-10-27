@@ -41,6 +41,7 @@ import {
 } from '../backfill/release.ts';
 import type { CaseId } from '../../domain/ids.ts';
 import { type CaseCommands, createCaseCommands } from '../case-manager/commands.ts';
+import { protocolEnabled } from '../../config/protocol.ts';
 import { Catalog } from '../catalog.ts';
 import { type EscalationReport, runEscalation } from '../escalation/escalation.ts';
 import {
@@ -181,11 +182,17 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
       deps.escalationPolicies?.listPolicies(clinicId) ?? Promise.resolve([]),
       deps.clinics.get(clinicId),
     ]);
+    // Per-clinic opt-in: a protocol runs only where the clinic enabled it.
+    const enabled = clinic?.settings.enabledProtocols;
     const clinicPolicyId = clinic?.settings.escalationPolicyId;
-    return new Catalog(rules, protocols, {
-      policies,
-      ...(clinicPolicyId === undefined ? {} : { clinicPolicyId }),
-    });
+    return new Catalog(
+      rules,
+      protocols.filter((protocol) => protocolEnabled(protocol.id, enabled)),
+      {
+        policies,
+        ...(clinicPolicyId === undefined ? {} : { clinicPolicyId }),
+      },
+    );
   }
   const shared = { unitOfWork: deps.unitOfWork, ids: deps.ids, settings, loadCatalog };
   const ingestDeps = { ...shared, noteExtractor: deps.noteExtractor, clock: deps.clock };

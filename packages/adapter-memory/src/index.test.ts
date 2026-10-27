@@ -509,8 +509,13 @@ describe(PACKAGE_NAME, () => {
         'short_treatment_followup',
       ]);
       expect(config.protocols.map((protocol) => protocol.id).sort()).toEqual([
+        'chronic_kidney_disease',
         'diabetes',
+        'dyslipidemia',
         'hypertension',
+        'hypothyroidism',
+        'pregnancy',
+        'treatment_followup',
       ]);
       expect(config.escalationPolicies.map((policy) => policy.id)).toEqual([
         'default_v1',
@@ -535,7 +540,7 @@ describe(PACKAGE_NAME, () => {
       const protocols = new StaticProtocolSource(loadConfigDirectory().protocols, {
         enabledClinics: [CLINIC],
       });
-      expect((await protocols.getProtocol(CLINIC, 'diabetes'))?.version).toBe('1.2.0');
+      expect((await protocols.getProtocol(CLINIC, 'diabetes'))?.version).toBe('1.2.1');
       expect(await protocols.listProtocols(OTHER)).toEqual([]);
     });
 

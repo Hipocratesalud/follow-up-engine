@@ -10,7 +10,8 @@ import { closeExpectation } from '../case-manager/reconcile.ts';
 import { sameCoding } from '../matching/match-key.ts';
 import type { PatientState } from '../patient-state.ts';
 import { type PatientTimeline, refKey } from '../timeline.ts';
-import { enrollingConditions, mergeCondition, recordedCandidate } from './conditions.ts';
+import { itemApplies, protocolEpisode } from '../protocols/episodes.ts';
+import { mergeCondition, recordedCandidate } from './conditions.ts';
 import type { AnnotationContext, ClosedExpectation } from './context.ts';
 import { type ExpectationDraft, movedIdempotencyKey } from './draft.ts';
 
@@ -118,9 +119,9 @@ function afterWithdrawal(
  * records of the same diagnosis that remain (another record of it keeps the
  * patient enrolled, whichever is withdrawn first); with none left it is
  * `rejected` (refuted by the host) or `entered_in_error`. A clinician's
- * review is never overridden by automation. The protocol expectations of
- * every protocol the patient is no longer enrolled in are cancelled
- * (`source_withdrawn`).
+ * review is never overridden by automation. The protocol expectations
+ * that no longer apply (the patient is no longer in that protocol) are
+ * cancelled (`source_withdrawn`).
  *
  * @returns the conditions it changed and the expectations it cancelled.
  */
@@ -165,15 +166,18 @@ export async function withdrawConditions(
   if (by === undefined) {
     return { resolved, closed };
   }
-  const enrolled = new Set(
-    context.catalog.protocols
-      .filter((protocol) => enrollingConditions(protocol, conditions).length > 0)
-      .map((protocol) => protocol.id),
+  const episodes = new Map(
+    context.catalog.protocols.map((protocol) => [
+      protocol.id,
+      { protocol, episode: protocolEpisode(protocol, conditions, state.timeline) },
+    ]),
   );
-  const known = new Set(context.catalog.protocols.map((protocol) => protocol.id));
   for (const expectation of state.live.list()) {
-    const protocolId = expectation.protocolId;
-    if (protocolId === undefined || !known.has(protocolId) || enrolled.has(protocolId)) {
+    const entry =
+      expectation.protocolId === undefined ? undefined : episodes.get(expectation.protocolId);
+    const itemKey = context.catalog.definition(expectation.ruleId)?.protocol?.itemKey;
+    const item = entry?.protocol.items.find((candidate) => candidate.key === itemKey);
+    if (entry === undefined || item === undefined || itemApplies(item, entry.episode)) {
       continue;
     }
     const next = await closeExpectation(

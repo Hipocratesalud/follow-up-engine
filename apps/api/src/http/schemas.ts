@@ -9,6 +9,7 @@ import {
   EXPECTATION_LAYERS,
   EXPECTATION_STATUSES,
   PLAN_ITEM_KINDS,
+  PROTOCOL_STATUSES,
 } from '@follow-up-engine/core';
 import { z } from 'zod';
 import { CONTACT_LOOP_MESSAGES } from '../inbox/labels.ts';
@@ -94,12 +95,38 @@ export const PatientContactSchema = z
   })
   .meta({ id: 'PatientContact' });
 
+/**
+ * The care protocol behind a `protocol` layer expectation. `name` and
+ * `status` come from the protocol the clinic runs today; both are absent
+ * when the protocol is no longer enabled for the clinic (only the id and the
+ * version that created the expectation are known then).
+ */
+export const ProtocolRefViewSchema = z
+  .object({
+    id: z.string().meta({ example: 'pregnancy' }),
+    version: z
+      .string()
+      .meta({ description: 'Version of the protocol that created the expectation' }),
+    name: z.string().optional().meta({
+      description:
+        'Spanish name of the protocol, ready to show ("Embarazo y puerperio"). Absent when the protocol is no longer enabled for the clinic',
+    }),
+    status: z.enum(PROTOCOL_STATUSES).optional().meta({
+      description:
+        'draft: not yet validated by the clinical team (the inbox flags it); validated: approved. Status of the version the clinic runs today; absent when the protocol is no longer enabled for the clinic',
+    }),
+  })
+  .meta({ id: 'ProtocolRef' });
+
 export const CaseReasonViewSchema = z
   .object({
     expectationId: z.string(),
     ruleId: z.string(),
     layer: LayerSchema,
     label: z.string().meta({ description: 'Spanish; never includes a day count' }),
+    protocol: ProtocolRefViewSchema.optional().meta({
+      description: 'Only for protocol layer reasons: the protocol it comes from',
+    }),
     dueAt: isoDate,
     overdueDays: z.number().int(),
     suppressible: z.boolean().meta({
@@ -414,6 +441,9 @@ export const PatientExpectationViewSchema = z.object({
   ruleId: z.string(),
   layer: LayerSchema,
   label: z.string(),
+  protocol: ProtocolRefViewSchema.optional().meta({
+    description: 'Only for protocol layer expectations: the protocol it comes from',
+  }),
   status: z.enum(EXPECTATION_STATUSES),
   dueAt: isoDate,
   closedReason: z.string().optional().meta({
@@ -501,6 +531,9 @@ export const CreatedExpectationSchema = z.object({
   ruleId: z.string(),
   layer: LayerSchema,
   label: z.string(),
+  protocol: ProtocolRefViewSchema.optional().meta({
+    description: 'Only for protocol layer expectations: the protocol it comes from',
+  }),
   dueAt: isoDate,
 });
 
@@ -570,6 +603,7 @@ export type EscalationView = z.infer<typeof EscalationViewSchema>;
 export type EscalationStepView = z.infer<typeof EscalationStepViewSchema>;
 export type OwnerView = z.infer<typeof OwnerViewSchema>;
 export type CaseReasonView = z.infer<typeof CaseReasonViewSchema>;
+export type ProtocolRefView = z.infer<typeof ProtocolRefViewSchema>;
 export type CaseDetail = z.infer<typeof CaseDetailSchema>;
 export type CaseTimelineEntry = z.infer<typeof CaseTimelineEntrySchema>;
 export type ConditionView = z.infer<typeof ConditionViewSchema>;

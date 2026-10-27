@@ -88,6 +88,7 @@ export function createNoteExtractor(options: NoteExtractorOptions): DetailedNote
       conditions: processed.conditions,
       medications: processed.medications,
       planItems: processed.planItems,
+      ...(processed.pregnancy === undefined ? {} : { pregnancy: processed.pregnancy }),
       ...(processed.discharged ? { discharged: true } : {}),
       ...(prepared.truncated ? { truncated: true } : {}),
       ...(processed.dischargeEvidenceQuote === undefined

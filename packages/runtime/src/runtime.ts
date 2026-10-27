@@ -1,6 +1,7 @@
 import {
   FileEscalationPolicySource,
   FileProtocolSource,
+  loadConfigDirectory,
   FileRuleSource,
   UuidIdGenerator,
 } from '@follow-up-engine/adapter-memory';
@@ -329,7 +330,8 @@ export async function createRuntime(
  * `fhir:write`). Patient contact is enabled so the demo shows
  * `patient_contact.requested` webhooks; the release cap is
  * {@link DEMO_DAILY_CASE_CAP_PER_OWNER}; the escalation policy is
- * {@link DEMO_ESCALATION_POLICY}.
+ * {@link DEMO_ESCALATION_POLICY}; every protocol of config/protocols is
+ * enabled, drafts included.
  */
 export async function registerDemoClinic(
   runtime: EngineRuntime,
@@ -345,6 +347,10 @@ export async function registerDemoClinic(
       timezone: 'America/Caracas',
       dailyCaseCapPerOwner: DEMO_DAILY_CASE_CAP_PER_OWNER,
       escalationPolicyId: DEMO_ESCALATION_POLICY,
+      // The synthetic clinic shows every protocol, drafts included (their
+      // reasons carry the draft badge). A real clinic enables a draft only
+      // once its clinical team validated it.
+      enabledProtocols: [...availableProtocolIds()],
     },
   });
   if (inboxApiKey !== undefined) {
@@ -356,6 +362,11 @@ export async function registerDemoClinic(
     });
   }
   return clinic;
+}
+
+/** Ids of every protocol in config/protocols, drafts included (what a clinic may enable). */
+export function availableProtocolIds(): readonly string[] {
+  return loadConfigDirectory().protocols.map((protocol) => protocol.id);
 }
 
 /** Active clinics, for the sweeps. */

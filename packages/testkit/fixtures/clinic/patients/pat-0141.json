@@ -1,0 +1,498 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0141",
+  "name": "Gabriela Elizabeth Castillo Echeverría",
+  "gender": "female",
+  "birthDate": "1949-06-05",
+  "specialty": "internal_medicine",
+  "pattern": "dyslipidemia_statin",
+  "entries": [
+    {
+      "at": "2025-09-04T19:08:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0141-bundle01",
+        "type": "transaction",
+        "timestamp": "2025-09-04T19:08:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:918fe924-dd7f-553a-bcce-b36fcd48d553",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0141-dr01",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "57698-3",
+                    "display": "Lipid panel with direct LDL - Serum or Plasma"
+                  }
+                ],
+                "text": "Perfil lipídico"
+              },
+              "subject": { "reference": "Patient/pat-0141" },
+              "effectiveDateTime": "2025-09-03T18:00:00.000Z",
+              "issued": "2025-09-04T19:08:00.000Z",
+              "result": [
+                { "reference": "Observation/pat-0141-dr01-obs1" },
+                { "reference": "Observation/pat-0141-dr01-obs2" },
+                { "reference": "Observation/pat-0141-dr01-obs3" },
+                { "reference": "Observation/pat-0141-dr01-obs4" }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0141-dr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:4aecf9ac-eb01-50cc-8d86-c0ab5f12eefc",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0141-dr01-obs1",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2093-3",
+                    "display": "Cholesterol [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0141" },
+              "effectiveDateTime": "2025-09-03T18:00:00.000Z",
+              "issued": "2025-09-04T19:08:00.000Z",
+              "valueQuantity": {
+                "value": 288,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "H",
+                      "display": "High"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 200,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0141-dr01-obs1" }
+          },
+          {
+            "fullUrl": "urn:uuid:9b8d8616-b268-5a85-bb23-001edfd733bb",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0141-dr01-obs2",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2571-8",
+                    "display": "Triglyceride [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0141" },
+              "effectiveDateTime": "2025-09-03T18:00:00.000Z",
+              "issued": "2025-09-04T19:08:00.000Z",
+              "valueQuantity": {
+                "value": 202,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "H",
+                      "display": "High"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 150,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0141-dr01-obs2" }
+          },
+          {
+            "fullUrl": "urn:uuid:e94f05f8-4806-50f5-9a50-cc2d6bb9d43b",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0141-dr01-obs3",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2085-9",
+                    "display": "Cholesterol in HDL [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0141" },
+              "effectiveDateTime": "2025-09-03T18:00:00.000Z",
+              "issued": "2025-09-04T19:08:00.000Z",
+              "valueQuantity": {
+                "value": 41,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 40,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0141-dr01-obs3" }
+          },
+          {
+            "fullUrl": "urn:uuid:50d37600-74c4-5830-877c-b49aec6177ab",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0141-dr01-obs4",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "18262-6",
+                    "display": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by Direct assay"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0141" },
+              "effectiveDateTime": "2025-09-03T18:00:00.000Z",
+              "issued": "2025-09-04T19:08:00.000Z",
+              "valueQuantity": {
+                "value": 183,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "H",
+                      "display": "High"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 130,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0141-dr01-obs4" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-08T18:25:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0141-bundle02",
+        "type": "transaction",
+        "timestamp": "2025-09-08T18:25:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:a6f328b8-432e-517a-93d5-0449ad84609c",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0141",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://hipocratesalud.com/fhir/NamingSystem/demo-patient",
+                  "value": "HC-15217"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Gabriela Elizabeth Castillo Echeverría",
+                  "family": "Castillo Echeverría",
+                  "given": ["Gabriela", "Elizabeth"]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "1949-06-05",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0141" }
+          },
+          {
+            "fullUrl": "urn:uuid:18b80a5f-e396-5586-a738-5682fdfca364",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0141-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Primera consulta" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0141" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2025-09-08T18:00:00.000Z", "end": "2025-09-08T18:25:00.000Z" },
+              "reasonCode": [{ "text": "Dislipidemia" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0141-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:80aa063b-b3f5-521c-aae9-2df58da52a4e",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0141-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0141" },
+              "date": "2025-09-08T18:25:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBmZW0gNzZhLCBjb25zdWx0YSBjb24gbGFib3JhdG9yaW8gZGUgY2hlcXVlby4gUGFkcmUgY29uIElBTSBhIGxvcyA1OCBhw7Fvcy4gU2VkZW50YXJpc21vLiBUcmFlIHBlcmZpbCBsaXBpZGljbzogQ1QgMjg4LCBURyAyMDIsIEhETCA0MSwgTERMIDE4MyBtZy9kTC4gRUY6IFRBIDExNi83MCBtbUhnLCBJTUMgMjcuIER4OiBkaXNsaXBpZGVtaWEuIFJpZXNnbyBjYXJkaW92YXNjdWxhciBhbHRvLiBQbGFuOiBEaWV0YSBiYWphIGVuIGdyYXNhcyBzYXR1cmFkYXMsIGFjdGl2aWRhZCBmaXNpY2EgMTUwIG1pbi9zZW1hbmEuIFNlIGluaWNpYSByb3N1dmFzdGF0aW5hIDEwIG1nLCAxIHRhYiBWTyBIUy4gUGVyZmlsIGxpcGlkaWNvIGVuIDggc2VtYW5hcy4gQ29udHJvbCBlbiAyIG1lc2VzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-09-08T18:25:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0141-enc01" }],
+                "period": {
+                  "start": "2025-09-08T18:00:00.000Z",
+                  "end": "2025-09-08T18:25:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0141-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:824ab6ef-294a-52f7-9491-d14578f55837",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0141-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA07",
+                    "display": "rosuvastatin"
+                  }
+                ],
+                "text": "Rosuvastatina 10 mg"
+              },
+              "subject": { "reference": "Patient/pat-0141" },
+              "encounter": { "reference": "Encounter/pat-0141-enc01" },
+              "authoredOn": "2025-09-08T18:25:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0141-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:7e8e5145-c77e-5fea-b44f-b1e9a39bf8fc",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0141-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0141" },
+              "encounter": { "reference": "Encounter/pat-0141-enc01" },
+              "recordedDate": "2025-09-08T18:25:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0141-cond01" }
+          }
+        ]
+      }
+    }
+  ]
+}

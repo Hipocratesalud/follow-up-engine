@@ -72,7 +72,7 @@ describe('dismiss dialog', () => {
     });
     // The checkbox names which reminders it stops.
     expect(checkbox).toHaveAccessibleDescription(
-      /Deja de recordar:.*Sin consulta de diabetología en 5 meses.*Examen de pie diabético anual vencido/,
+      /Deja de recordar:.*Sin consulta de diabetología en 5 meses.*Fondo de ojo anual pendiente/,
     );
     await user.click(checkbox);
     await user.click(within(dialog).getByRole('button', { name: 'Descartar caso' }));
@@ -83,7 +83,7 @@ describe('dismiss dialog', () => {
     const suppressions = store.getPatient(patientId).suppressions;
     expect(suppressions.map((item) => item.ruleId).sort()).toEqual([
       'cadence_diabetology_visit',
-      'protocol_diabetic_foot_annual',
+      'protocol_diabetes_fundus',
     ]);
     expect(suppressions.every((item) => item.active)).toBe(true);
   });
