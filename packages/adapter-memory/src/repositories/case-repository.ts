@@ -94,6 +94,16 @@ export class MemoryCaseRepository implements CaseRepository {
     return Promise.resolve();
   }
 
+  setPriority(clinicId: ClinicId, id: CaseId, priority: number): Promise<boolean> {
+    const key = tenantKey(clinicId, id);
+    const stored = this.#db.state.cases.get(key);
+    if (stored === undefined || !isActive(stored)) {
+      return Promise.resolve(false);
+    }
+    this.#db.setIn(this.#db.state.cases, key, { ...stored, priority });
+    return Promise.resolve(true);
+  }
+
   list(clinicId: ClinicId, query: CaseListQuery): Promise<CasePage> {
     const matching = this.#all(clinicId)
       .filter(

@@ -40,6 +40,14 @@ export interface CaseRepository {
   /** Replaces a stored case. Throws `NotFoundError` if it does not exist. */
   update(clinicId: ClinicId, value: FollowUpCase): Promise<void>;
 
+  /**
+   * Sets the priority of an active case, and nothing else (no `updatedAt`):
+   * the derived priority is recomputed on every watcher tick without
+   * overwriting what a concurrent command changed. `false` when the case is
+   * missing or no longer active.
+   */
+  setPriority(clinicId: ClinicId, id: CaseId, priority: number): Promise<boolean>;
+
   list(clinicId: ClinicId, query: CaseListQuery): Promise<CasePage>;
 
   /**

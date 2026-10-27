@@ -5,9 +5,9 @@ import type { Expectation } from '../../domain/expectation.ts';
 import { type CaseId, caseId, type ClinicId, type PatientId } from '../../domain/ids.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { TransactionalStores, UnitOfWork } from '../../ports/unit-of-work.ts';
-import { enrollingConditions } from '../annotator/conditions.ts';
+import type { PatientCondition } from '../../domain/condition.ts';
 import { CaseWriter } from '../case-manager/case-writer.ts';
-import { computeCasePriority } from '../case-manager/priority.ts';
+import { priorityOfCase, refreshCasePriorities } from '../case-manager/case-priority.ts';
 import type { Catalog } from '../catalog.ts';
 import type { EngineSettings } from '../settings.ts';
 import { PatientTimeline } from '../timeline.ts';
@@ -30,6 +30,8 @@ export interface WatcherReport {
   readonly casesOpened: readonly CaseId[];
   /** Cases that received a new reason instead of a new case being opened. */
   readonly casesMerged: readonly CaseId[];
+  /** Active cases whose priority changed when recomputed (the overdue factor moves daily). */
+  readonly prioritiesUpdated: number;
 }
 
 /** One case per patient and case group (`<patientId>:<caseGroup>`). */
@@ -39,7 +41,7 @@ export function caseDedupKey(patientId: PatientId, caseGroup: string): string {
 
 interface PatientContext {
   readonly timeline: PatientTimeline;
-  readonly chronic: boolean;
+  readonly conditions: readonly PatientCondition[];
 }
 
 /**
@@ -78,12 +80,20 @@ export async function runWatcher(
       break;
     }
   }
+  const prioritiesUpdated = await refreshCasePriorities({
+    unitOfWork: deps.unitOfWork,
+    clinicId,
+    catalog,
+    now,
+    pageSize: deps.settings.sweepBatchSize,
+  });
   return {
     clinicId,
     casesReleased,
     expired,
     casesOpened: opened,
     casesMerged: [...merged].filter((id) => !opened.includes(id)),
+    prioritiesUpdated,
   };
 }
 
@@ -184,7 +194,7 @@ class Sweep {
       dedupKey,
       reasons: [{ expectationId: expectation.id, reasonCode: expectation.reason.code }],
       status: 'open',
-      priority: this.#priority([expectation], patient),
+      priority: this.#priority([expectation], patient, 0),
       assignee: caseOwner(expectation, patient.timeline, this.#deps.settings.frontDeskOwner),
       escalationStep: 0,
       // A held backfill case neither escalates nor shows until its release day.
@@ -232,7 +242,7 @@ class Sweep {
           ...active.reasons,
           { expectationId: expectation.id, reasonCode: expectation.reason.code },
         ],
-        priority: Math.max(active.priority, this.#priority(reasons, patient)),
+        priority: this.#priority(reasons, patient, active.escalationStep),
         updatedAt: this.#now,
       },
       {
@@ -253,13 +263,16 @@ class Sweep {
     return updated;
   }
 
-  #priority(reasons: readonly Expectation[], patient: PatientContext): number {
-    return computeCasePriority({
-      reasons: reasons.map((expectation) => ({
-        expectation,
-        definition: this.#catalog.definition(expectation.ruleId),
-      })),
-      chronic: patient.chronic,
+  #priority(
+    reasons: readonly Expectation[],
+    patient: PatientContext,
+    escalationStep: number,
+  ): number {
+    return priorityOfCase({
+      catalog: this.#catalog,
+      reasons,
+      conditions: patient.conditions,
+      escalationStep,
       now: this.#now,
     });
   }
@@ -274,12 +287,7 @@ class Sweep {
       patientId,
     );
     const conditions = await this.#stores.conditions.listByPatient(this.#clinicId, patientId);
-    const context: PatientContext = {
-      timeline: new PatientTimeline(events),
-      chronic: this.#catalog.protocols.some(
-        (protocol) => enrollingConditions(protocol, conditions).length > 0,
-      ),
-    };
+    const context: PatientContext = { timeline: new PatientTimeline(events), conditions };
     this.#patients.set(patientId, context);
     return context;
   }

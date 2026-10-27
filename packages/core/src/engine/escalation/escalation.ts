@@ -9,6 +9,7 @@ import type { CaseId, ClinicId } from '../../domain/ids.ts';
 import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { TransactionalStores, UnitOfWork } from '../../ports/unit-of-work.ts';
+import { priorityOfCase } from '../case-manager/case-priority.ts';
 import { CaseWriter, withoutKey } from '../case-manager/case-writer.ts';
 import { isActiveCaseStatus } from '../case-manager/state-machine.ts';
 import type { Catalog } from '../catalog.ts';
@@ -245,7 +246,7 @@ class CaseEscalator {
           : current;
       case 'raise_priority': {
         const raised = await this.#writer.update(
-          { ...current, priority: current.priority + (step.priorityDelta ?? 10), updatedAt: now },
+          { ...current, priority: await this.#priorityAfter(current, index), updatedAt: now },
           { type: 'escalated', actor, payload },
         );
         await this.#emitEscalated(raised, index + 1);
@@ -275,6 +276,14 @@ class CaseEscalator {
       case 'mark_lost_to_follow_up':
         return this.#markLost(current, actor, payload);
     }
+  }
+
+  /** The case's priority once step `index` ran (the model counts the raises already applied). */
+  async #priorityAfter(current: FollowUpCase, index: number): Promise<number> {
+    const { stores, clinicId, catalog, now } = this.#input;
+    const reasons = await caseExpectations(stores, clinicId, current);
+    const conditions = await stores.conditions.listByPatient(clinicId, current.patientId);
+    return priorityOfCase({ catalog, reasons, conditions, escalationStep: index + 1, now });
   }
 
   /**

@@ -225,6 +225,15 @@ export class PostgresCaseRepository implements CaseRepository {
     }
   }
 
+  async setPriority(clinicId: ClinicId, id: CaseId, priority: number): Promise<boolean> {
+    const result = await this.#ctx.db().query(
+      `UPDATE ${this.#ctx.tables.follow_up_cases} SET priority = $3
+       WHERE clinic_id = $1 AND id = $2 AND ${ACTIVE}`,
+      [clinicId, id, priority],
+    );
+    return result.rowCount === 1;
+  }
+
   async list(clinicId: ClinicId, query: CaseListQuery): Promise<CasePage> {
     const order = query.orderBy ?? 'priority';
     const spec = ORDERS[order];
