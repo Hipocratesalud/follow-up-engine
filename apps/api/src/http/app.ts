@@ -106,19 +106,53 @@ class KnownKeys {
   }
 }
 
+/** Most lookups of one address that wait their turn once its failed-attempt tokens are spent. */
+const MAX_WAITING_LOOKUPS = 16;
+
+/**
+ * Key lookups of one address, one at a time in arrival order, with at most
+ * {@link MAX_WAITING_LOOKUPS} waiting behind the one in flight.
+ */
+class LookupQueues {
+  readonly #queues = new Map<string, { tail: Promise<unknown>; size: number }>();
+
+  /** Runs `lookup` after the address's earlier ones; `undefined` when too many already wait. */
+  enqueue<T>(address: string, lookup: () => Promise<T>): Promise<T> | undefined {
+    const queue = this.#queues.get(address) ?? { tail: Promise.resolve(), size: 0 };
+    if (queue.size > MAX_WAITING_LOOKUPS) {
+      return undefined;
+    }
+    queue.size += 1;
+    this.#queues.set(address, queue);
+    const run = queue.tail.then(lookup, lookup);
+    queue.tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run.finally(() => {
+      queue.size -= 1;
+      if (queue.size === 0) {
+        this.#queues.delete(address);
+      }
+    });
+  }
+}
+
 /**
  * `Authorization: Bearer <api key>` → the clinic and the key's scopes. The
  * clinic never comes from the body. Each key has its own rate limit.
  *
  * Failed attempts (missing or wrong key) are limited per client address,
- * and only failed attempts: a valid key is never refused because someone
- * else at the same address guessed keys.
+ * and only failed attempts: a valid key is not refused because someone else
+ * at the same address guessed keys.
  * - An unknown key takes a token of its address before the lookup
  *   (atomically, so a concurrent burst cannot outrun the limit); the token
  *   is given back when the key turns out valid.
  * - With no token left, unknown keys are still looked up, but one at a time
- *   per address (a valid key is served; a burst of guesses gets 429 without
- *   reaching the database).
+ *   per address, in arrival order: a valid key waits for the lookups ahead
+ *   of it and is served; a wrong one gets 429. Only when more than
+ *   {@link MAX_WAITING_LOOKUPS} already wait is a request refused without
+ *   reaching the database.
  * - A key that authenticated recently skips the limit altogether.
  */
 function authenticate(
@@ -127,7 +161,7 @@ function authenticate(
   limits: RateLimits,
 ): MiddlewareHandler<AppEnv> {
   const known = new KnownKeys();
-  const lookingUp = new Set<string>();
+  const queues = new LookupQueues();
   return async (c, next) => {
     const key = BEARER.exec(c.req.header('authorization') ?? '')?.[1];
     const address = clientAddress(c);
@@ -147,21 +181,17 @@ function authenticate(
       const attempt = limiter.take(bucket, limits.failedAuthPerMinute);
       reserved = attempt.ok;
       retryAfter = attempt.retryAfter;
-      if (!reserved) {
-        if (lookingUp.has(address)) {
-          throw tooManyRequests(c, retryAfter);
-        }
-        lookingUp.add(address);
-        gated = true;
-      }
+      gated = !reserved;
     }
     let principal;
-    try {
-      principal = await runtime.authenticate(key);
-    } finally {
-      if (gated) {
-        lookingUp.delete(address);
+    if (gated) {
+      const queued = queues.enqueue(address, () => runtime.authenticate(key));
+      if (queued === undefined) {
+        throw tooManyRequests(c, retryAfter);
       }
+      principal = await queued;
+    } else {
+      principal = await runtime.authenticate(key);
     }
     if (principal === undefined) {
       known.forget(keyHash);

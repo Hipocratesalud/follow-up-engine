@@ -62,7 +62,41 @@ describe('failed-authentication limit', () => {
     const statuses = responses.map((response) => response.status);
     expect(statuses.filter((status) => status === 401)).toHaveLength(2);
     expect(statuses.filter((status) => status === 429)).toHaveLength(38);
-    expect(lookups.count()).toBeLessThanOrEqual(3);
+    // Two within the limit, then one at a time with at most 16 waiting: the rest never reach it.
+    expect(lookups.count()).toBeLessThanOrEqual(2 + 1 + 16);
+  });
+
+  it('a valid key not seen recently waits for the lookup in flight instead of a 429 (HIP-135)', async () => {
+    // QA round 3, security-verify #0: past the limit, a fresh key arriving
+    // while another lookup of its address was in flight got 429.
+    for (const index of [0, 1]) {
+      expect((await h.call('/api/inbox/stats', { key: `wrong-${String(index)}` })).status).toBe(
+        401,
+      );
+    }
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const original = h.runtime.authenticate.bind(h.runtime);
+    (h.runtime as { authenticate: EngineRuntime['authenticate'] }).authenticate = async (key) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        return await original(key);
+      } finally {
+        inFlight -= 1;
+      }
+    };
+    const responses = await Promise.all([
+      h.call('/api/inbox/stats', { key: 'guess-1' }),
+      h.call('/fhir/Task', { key: KEY_B }),
+      h.call('/api/inbox/stats', { key: 'guess-2' }),
+      h.call('/api/inbox/stats'),
+      h.call('/api/inbox/stats', { key: 'guess-3' }),
+    ]);
+    expect(responses.map((response) => response.status)).toEqual([429, 200, 429, 200, 429]);
+    // Past the limit, the lookups of one address still run one at a time.
+    expect(maxInFlight).toBe(1);
   });
 });
 
