@@ -223,6 +223,9 @@ export const PatientExpectationViewSchema = z.object({
   label: z.string(),
   status: z.enum(EXPECTATION_STATUSES),
   dueAt: isoDate,
+  closedReason: z.string().optional().meta({
+    description: 'Why the engine closed it, in Spanish ("El médico dio de alta al paciente")',
+  }),
   evidence: z.object({ quote: z.string(), documentId: z.string() }).optional(),
 });
 

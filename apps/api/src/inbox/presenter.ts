@@ -30,6 +30,7 @@ import type {
 } from '../http/schemas.ts';
 import { excerptAround, humanName, patientSummary, sourceDisplay } from './fhir-display.ts';
 import {
+  closedReasonLabel,
   COORDINATOR_LABEL,
   DEFAULT_SUGGESTED_ACTION,
   ESCALATION_STEP_LABELS,
@@ -481,6 +482,7 @@ export class InboxPresenter {
   }
 
   expectationView(expectation: Expectation): PatientExpectationView {
+    const closedLabel = closedReasonLabel(expectation.closedReason);
     return {
       id: expectation.id,
       ruleId: expectation.ruleId,
@@ -488,6 +490,7 @@ export class InboxPresenter {
       label: this.reasonLabel(expectation.ruleId, expectation),
       status: expectation.status,
       dueAt: expectation.dueAt.toISOString(),
+      ...(closedLabel === undefined ? {} : { closedReason: closedLabel }),
       ...(expectation.evidence === undefined
         ? {}
         : {

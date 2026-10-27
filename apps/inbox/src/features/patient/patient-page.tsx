@@ -165,6 +165,9 @@ function ExpectationItem({
         </Badge>
       </div>
       <p className="text-xs text-muted">Fecha límite: {formatDate(expectation.dueAt)}</p>
+      {expectation.closedReason ? (
+        <p className="text-xs text-muted">Motivo del cierre: {expectation.closedReason}</p>
+      ) : null}
       {expectation.evidence ? <InlineQuote quote={expectation.evidence.quote} /> : null}
     </li>
   );

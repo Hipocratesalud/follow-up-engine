@@ -74,6 +74,32 @@ const RESOLUTION_LABELS: Record<CaseResolutionKind, string> = {
   patient_unreachable: 'Cerrado: no se pudo contactar al paciente',
 };
 
+/**
+ * Why the engine closed an expectation (`Expectation.closedReason`), as the
+ * team reads it: on the patient's closed expectations and on a case the
+ * engine resolved on its own.
+ */
+const CLOSED_REASON_LABELS: Readonly<Record<string, string>> = {
+  fulfilled_by_result: 'Llegó el resultado',
+  fulfilled_by_encounter: 'El paciente asistió a la consulta',
+  fulfilled_by_appointment: 'El paciente agendó una cita',
+  fulfilled_by_service_request_created: 'Se emitió la orden',
+  fulfilled_by_medication_prescribed: 'Se indicó el tratamiento',
+  superseded_by_new_order: 'La reemplazó una orden nueva',
+  source_withdrawn: 'El registro que la originó fue anulado o retirado',
+  superseded_by_amended_note: 'La nota corregida del médico ya no lo indica',
+  patient_discharged: 'El médico dio de alta al paciente',
+  conditional_return: 'El médico indicó volver solo si hace falta',
+  covered_by_plan: 'Ya lo cubre el plan del médico',
+  covered_by_later_request: 'Ya se pidió en una orden o un plan posterior',
+  condition_rejected: 'El equipo descartó el diagnóstico',
+};
+
+/** Spanish reason an expectation closed, or `undefined` for a code without copy. */
+export function closedReasonLabel(reason: string | undefined): string | undefined {
+  return reason === undefined ? undefined : CLOSED_REASON_LABELS[reason];
+}
+
 /** One step of an escalation policy, as the inbox's escalation meter names it. */
 export const ESCALATION_STEP_LABELS: Record<EscalationAction, string> = {
   notify_clinic: 'Aviso al responsable',
@@ -190,7 +216,17 @@ export function timelineLabel(
       return 'Se pidió al sistema del consultorio contactar al paciente';
     case 'resolved': {
       const kind = text(payload['kind']) as CaseResolutionKind | undefined;
-      return kind === undefined ? 'Resuelto' : RESOLUTION_LABELS[kind];
+      const label = kind === undefined ? 'Resuelto' : RESOLUTION_LABELS[kind];
+      const closedReasons = payload['closedReasons'];
+      const why = [
+        ...new Set(
+          (Array.isArray(closedReasons) ? closedReasons : []).flatMap((reason: JsonValue) => {
+            const reasonLabel = closedReasonLabel(text(reason));
+            return reasonLabel === undefined ? [] : [reasonLabel];
+          }),
+        ),
+      ];
+      return why.length === 0 ? label : `${label} (${why.join('; ').toLowerCase()})`;
     }
     case 'dismissed':
       return 'Descartado por el equipo';

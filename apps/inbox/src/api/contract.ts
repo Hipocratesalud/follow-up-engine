@@ -223,6 +223,8 @@ export interface PatientExpectationView {
   label: string;
   status: ExpectationStatus;
   dueAt: string;
+  /** Why the engine closed it, in Spanish. */
+  closedReason?: string;
   evidence?: { quote: string; documentId: string };
 }
 

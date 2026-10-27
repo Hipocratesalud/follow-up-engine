@@ -161,6 +161,25 @@ describe('inbox API on a seeded clinic', () => {
       expect(steps[3]?.outcome).toBeUndefined();
       expect(steps[1]?.at).toBeDefined();
     });
+
+    it('shows lost to follow-up as skipped when nobody contacted the patient: the case stays with the team', async () => {
+      await advance(h, 90);
+      const page = await h.call<CasePage>('/api/inbox/cases?view=active&origin=backfill&limit=5');
+      const item = page.body.items.find(
+        (candidate) => candidate.escalation.currentStep === candidate.escalation.steps.length,
+      );
+      expect(item).toBeDefined();
+      expect(item?.escalation.next).toBeUndefined();
+      const detail = await h.call<CaseDetail>(`/api/inbox/cases/${item?.id ?? ''}`);
+      expect(detail.body.escalation.steps.map((step) => [step.action, step.outcome])).toEqual([
+        ['notify_clinic', 'done'],
+        ['raise_priority', 'done'],
+        ['request_patient_contact', 'skipped'],
+        ['escalate_to_coordinator', 'done'],
+        ['mark_lost_to_follow_up', 'skipped'],
+      ]);
+      expect(detail.body.timeline.some((entry) => entry.type === 'lost_to_follow_up')).toBe(false);
+    });
   });
 
   describe('HIP-126 patient search', () => {
