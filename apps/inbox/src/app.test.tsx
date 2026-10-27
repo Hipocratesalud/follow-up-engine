@@ -52,7 +52,8 @@ describe('inbox', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
     expect(await screen.findByText(/Este caso está cerrado/)).toBeInTheDocument();
-    expect(screen.getByText('Resuelto: Trajo el resultado')).toBeInTheDocument();
+    expect(screen.getAllByText('Resuelto por el equipo').length).toBeGreaterThan(0);
+    expect(screen.getByText('Trajo el resultado')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByRole('link', { name: /María Fernanda Ortiz/ })).not.toBeInTheDocument();
     });

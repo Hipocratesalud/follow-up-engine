@@ -1,7 +1,18 @@
-import { FileWarning, Pill, Sparkles, Stethoscope, Timer, Wallet } from 'lucide-react';
+import {
+  ArrowRight,
+  FileWarning,
+  Hourglass,
+  Pill,
+  Sparkles,
+  Stethoscope,
+  Timer,
+  Wallet,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { DemoConsultationResponse } from '../../api/contract.ts';
-import { LayerChip } from '../../components/case-badges.tsx';
+import { Link } from 'react-router';
+import { ACTIVE_CASE_STATUSES, type DemoConsultationResponse } from '../../api/contract.ts';
+import { useCases } from '../../api/queries.ts';
+import { LayerChip, StatusBadge } from '../../components/case-badges.tsx';
 import { Badge, Card, SectionTitle } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatDate, formatMs, formatPercent, formatUsd } from '../../lib/format.ts';
@@ -86,6 +97,80 @@ function AnnotatedNote({
   );
 }
 
+/** The patient the consultation was for: the Bundle's `Patient` entry. */
+export function consultationPatientId(bundle: unknown): string | undefined {
+  if (typeof bundle !== 'object' || bundle === null || !('entry' in bundle)) return undefined;
+  const { entry } = bundle;
+  if (!Array.isArray(entry)) return undefined;
+  for (const item of entry as unknown[]) {
+    if (typeof item !== 'object' || item === null || !('resource' in item)) continue;
+    const { resource } = item;
+    if (
+      typeof resource === 'object' &&
+      resource !== null &&
+      'resourceType' in resource &&
+      resource.resourceType === 'Patient' &&
+      'id' in resource &&
+      typeof resource.id === 'string'
+    ) {
+      return resource.id;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Where the consultation's case is, once the engine opened it: a direct
+ * link (in a busy inbox it may sit far down the list). Before that, what
+ * makes it open.
+ */
+function PatientCases({ patientId }: { readonly patientId: string }): ReactNode {
+  const cases = useCases({ view: 'all', patient: patientId, limit: 10 });
+  const items = (cases.data?.items ?? []).filter((item) =>
+    (ACTIVE_CASE_STATUSES as readonly string[]).includes(item.status),
+  );
+  if (cases.isPending) return null;
+  if (items.length === 0) {
+    return (
+      <p className="flex gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm text-muted">
+        <Hourglass className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        Aún no hay un caso abierto para este paciente: se abre cuando una expectativa vence sin
+        cumplirse. Adelanta el reloj para verlo.
+      </p>
+    );
+  }
+  return (
+    <section
+      aria-labelledby="patient-cases-title"
+      className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary-soft/40 p-3"
+    >
+      <h3 id="patient-cases-title" className="text-sm font-semibold text-fg">
+        {items.length === 1
+          ? 'El motor abrió un caso para este paciente'
+          : `El motor abrió ${String(items.length)} casos para este paciente`}
+      </h3>
+      <ul className="flex flex-col gap-1.5">
+        {items.map((item) => (
+          <li key={item.id} className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-fg">
+              <StatusBadge status={item.status} />
+              {item.reasons[0]?.label ?? item.patient.name}
+            </span>
+            <Link
+              to={`/bandeja/${item.id}?buscar=${encodeURIComponent(item.patient.name)}`}
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+            >
+              Ver caso
+              <span className="sr-only"> de {item.patient.name}</span>
+              <ArrowRight className="size-3.5" aria-hidden="true" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function ExtractionResult({
   result,
   noteText,
@@ -94,6 +179,7 @@ export function ExtractionResult({
   readonly noteText: string;
 }): ReactNode {
   const { extraction, expectationsCreated } = result;
+  const patientId = consultationPatientId(result.bundle);
   // The fake provider (`fake-*` models) reads with rules, not with a model.
   const simulated = /^fake/i.test(extraction.model);
   return (
@@ -220,6 +306,8 @@ export function ExtractionResult({
           </ul>
         </section>
       </div>
+
+      {patientId ? <PatientCases patientId={patientId} /> : null}
 
       <section aria-labelledby="expectations-created-title" className="flex flex-col gap-2">
         <SectionTitle id="expectations-created-title" count={expectationsCreated.length}>

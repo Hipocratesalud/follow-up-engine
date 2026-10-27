@@ -32,6 +32,7 @@ function plural(count: number, one: string, many: string): string {
 }
 
 function StatsTiles({ stats }: { readonly stats: InboxStats }): ReactNode {
+  const reader = noteReader(stats.llm);
   const escalated = stats.byStatus['escalated'] ?? 0;
   const snoozed = stats.byStatus['snoozed'] ?? 0;
   return (
@@ -64,17 +65,19 @@ function StatsTiles({ stats }: { readonly stats: InboxStats }): ReactNode {
           {formatPercent(stats.feedback.usefulRate)}
         </p>
         <p className="mt-0.5 text-xs text-muted">
-          de {stats.feedback.total} casos calificados como útiles
+          {stats.feedback.total === 0
+            ? 'Aún no hay casos calificados'
+            : `útiles, de ${plural(stats.feedback.total, 'caso calificado', 'casos calificados')}`}
         </p>
       </Tile>
       <Tile
         className="col-span-2 xl:col-span-1"
         label={
           <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            Costo de IA del mes
+            {reader.simulated ? 'Costo de lectura del mes' : 'Costo de IA del mes'}
             <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-layer-plan-soft px-1.5 py-0.5 text-[11px] font-medium text-layer-plan">
               <Sparkles className="size-3" aria-hidden="true" />
-              {noteReader(stats.llm).label}
+              {reader.label}
             </span>
           </span>
         }
@@ -83,7 +86,8 @@ function StatsTiles({ stats }: { readonly stats: InboxStats }): ReactNode {
           {formatUsd(stats.llm.monthCostUsd)}
         </p>
         <p className="mt-0.5 text-xs text-muted">
-          {stats.llm.calls} notas leídas · {formatUsd(stats.llm.avgCostPerNoteUsd)} por nota
+          {plural(stats.llm.calls, 'nota leída', 'notas leídas')} ·{' '}
+          {formatUsd(stats.llm.avgCostPerNoteUsd)} por nota
         </p>
       </Tile>
     </dl>

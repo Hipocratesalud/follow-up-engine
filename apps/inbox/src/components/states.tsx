@@ -1,5 +1,7 @@
-import { AlertTriangle, RotateCw } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, ArrowLeft, RotateCw, SearchX } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import { isApiError } from '../api/client.ts';
 import { cx } from '../lib/cx.ts';
 import { Button } from './ui.tsx';
@@ -9,20 +11,89 @@ export function errorMessage(error: unknown): string {
   return 'Algo salió mal. Intenta de nuevo.';
 }
 
-/** A failed load, always with a way out: retry in place. */
+function isNotFound(error: unknown): boolean {
+  return isApiError(error) && error.status === 404;
+}
+
+/** Something that does not exist: no retry (it cannot succeed), a way back instead. */
+export function NotFoundState({
+  title,
+  children,
+  backTo = '/bandeja',
+  backLabel = 'Ir a la bandeja',
+  heading: Heading = 'h2',
+  className,
+}: {
+  readonly title: string;
+  readonly children?: ReactNode;
+  readonly backTo?: string;
+  readonly backLabel?: string;
+  /** `h1` when it is the whole page (nothing else titles it). */
+  readonly heading?: 'h1' | 'h2';
+  readonly className?: string | undefined;
+}): ReactNode {
+  return (
+    <div
+      className={cx(
+        'flex flex-col items-center gap-3 rounded-xl border border-dashed border-border-strong px-6 py-10 text-center',
+        className,
+      )}
+    >
+      <span className="grid size-10 place-items-center rounded-full bg-surface-2 text-muted">
+        <SearchX className="size-5" aria-hidden="true" />
+      </span>
+      <div>
+        <Heading className="font-semibold text-fg">{title}</Heading>
+        {children ? <p className="mt-1 text-sm text-muted">{children}</p> : null}
+      </div>
+      <Link
+        to={backTo}
+        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border-strong px-3 text-[13px] font-medium text-fg hover:bg-surface-2"
+      >
+        <ArrowLeft className="size-3.5" aria-hidden="true" />
+        {backLabel}
+      </Link>
+    </div>
+  );
+}
+
+/**
+ * A failed load, always with a way out. A 404 offers the way back (retrying
+ * cannot help); anything else retries in place and also every other query
+ * that failed meanwhile (after an outage the shell's clinic name, clock and
+ * counts come back too, not only this list).
+ */
 export function ErrorState({
   error,
   onRetry,
   title = 'No pudimos cargar esta información',
+  notFoundTitle,
+  notFoundHeading,
   className,
 }: {
   readonly error: unknown;
   readonly onRetry: () => void;
   readonly title?: string;
+  /** Title when the API answered 404 (the thing does not exist). */
+  readonly notFoundTitle?: string;
+  readonly notFoundHeading?: 'h1' | 'h2';
   readonly className?: string;
 }): ReactNode {
+  const queryClient = useQueryClient();
   function handleRetry(): void {
     onRetry();
+    void queryClient.refetchQueries({ predicate: (query) => query.state.status === 'error' });
+  }
+  if (notFoundTitle !== undefined && isNotFound(error)) {
+    return (
+      <NotFoundState
+        title={notFoundTitle}
+        className={className}
+        {...(notFoundHeading ? { heading: notFoundHeading } : {})}
+      >
+        Puede que el enlace esté mal o que ya no exista.
+      </NotFoundState>
+    );
   }
   return (
     <div

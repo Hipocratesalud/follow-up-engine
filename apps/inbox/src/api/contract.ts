@@ -74,6 +74,36 @@ export interface CaseReasonView {
   evidence?: ReasonEvidence;
 }
 
+export const ESCALATION_ACTIONS = [
+  'notify_clinic',
+  'request_patient_contact',
+  'raise_priority',
+  'escalate_to_coordinator',
+  'mark_lost_to_follow_up',
+] as const;
+export type EscalationAction = (typeof ESCALATION_ACTIONS)[number];
+
+/** One step of the case's escalation policy. `outcome` and `at` only in the case detail. */
+export interface EscalationStepView {
+  action: EscalationAction;
+  /** Spanish label from the API. */
+  label: string;
+  afterDays: number;
+  /** For steps already passed: it ran, or it could not happen and was skipped. */
+  outcome?: 'done' | 'skipped';
+  at?: string;
+}
+
+/** The case's escalation policy as the engine applies it. */
+export interface EscalationView {
+  policyId: string;
+  /** Steps already passed. */
+  currentStep: number;
+  steps: EscalationStepView[];
+  /** The next step and when it runs; absent on closed or snoozed cases. */
+  next?: { action: EscalationAction; label: string; at: string };
+}
+
 export interface CaseView {
   id: string;
   patient: PatientSummary;
@@ -81,7 +111,11 @@ export interface CaseView {
   priority: number;
   priorityLabel: PriorityLabel;
   escalationStep: number;
+  escalation: EscalationView;
+  /** Display name of the owner. */
   assignee?: string;
+  /** Owner id, as the `assignee` filter takes it. */
+  assigneeId?: string;
   origin: Origin;
   openedAt: string;
   nextActionAt?: string;
@@ -99,6 +133,8 @@ export interface CaseTimelineEntry {
   type: string;
   actor: { type: ActorType; id?: string };
   label: string;
+  /** The internal note the team wrote with the action. */
+  note?: string;
 }
 
 export const FEEDBACK_REASONS = [
@@ -126,7 +162,12 @@ export type CaseListView = 'active' | 'closed' | 'all';
 export interface CaseListQuery {
   view?: CaseListView;
   origin?: Origin;
+  /** Owner id, from `GET /api/inbox/owners`. */
   assignee?: string;
+  /** Patient name or id contains this text. */
+  q?: string;
+  /** Only the cases of this patient id. */
+  patient?: string;
   cursor?: string;
   limit?: number;
 }
@@ -134,10 +175,17 @@ export interface CaseListQuery {
 export interface Page<T> {
   items: T[];
   nextCursor?: string;
+  /** Items matching the query across every page. */
+  total: number;
 }
 
-export interface RecoveryPage extends Page<CaseView> {
-  total: number;
+export type RecoveryPage = Page<CaseView>;
+
+/** An owner of cases, for the "Responsable" filter (`GET /api/inbox/owners`). */
+export interface OwnerView {
+  id: string;
+  name: string;
+  activeCases: number;
 }
 
 export type CaseAction = 'notify' | 'snooze' | 'resolve' | 'dismiss';
@@ -154,7 +202,7 @@ export interface FeedbackRequest {
   comment?: string;
 }
 
-export type ConditionStatus = 'confirmed' | 'probable' | 'resolved';
+export type ConditionStatus = 'confirmed' | 'probable' | 'resolved' | 'rejected';
 
 export interface ConditionView {
   id: string;

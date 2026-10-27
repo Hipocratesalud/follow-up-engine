@@ -13,7 +13,7 @@ import type { ConditionView, PatientDetail, PatientExpectationView } from '../..
 import { useConditionReview, useNoteReader, useNow, usePatient } from '../../api/queries.ts';
 import { LayerChip } from '../../components/case-badges.tsx';
 import { InlineQuote } from '../../components/evidence.tsx';
-import { EmptyState, ErrorState, InlineError } from '../../components/states.tsx';
+import { ErrorState, InlineError, NotFoundState } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, Skeleton, type Tone } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatDate, formatPercent, formatRelative, initials } from '../../lib/format.ts';
@@ -28,6 +28,7 @@ const CONDITION_TONES: Record<ConditionView['status'], Tone> = {
   confirmed: 'success',
   probable: 'warning',
   resolved: 'neutral',
+  rejected: 'neutral',
 };
 
 function ConfidenceBar({ value }: { readonly value: number }): ReactNode {
@@ -92,7 +93,7 @@ function ConditionItem({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ConfidenceBar value={condition.confidence} />
+          {condition.status === 'rejected' ? null : <ConfidenceBar value={condition.confidence} />}
           <Badge tone={CONDITION_TONES[condition.status]}>
             {CONDITION_STATUS_LABELS[condition.status]}
           </Badge>
@@ -180,6 +181,9 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
   );
   const contact = patient.contact;
   const probable = detail.conditions.filter((condition) => condition.status === 'probable').length;
+  // Rejected readings stay on record but out of the way: a collapsed group.
+  const current = detail.conditions.filter((condition) => condition.status !== 'rejected');
+  const rejected = detail.conditions.filter((condition) => condition.status === 'rejected');
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
@@ -238,26 +242,37 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
       </Card>
 
       <section aria-labelledby="conditions-title" className="flex flex-col gap-3">
-        <SectionTitle id="conditions-title" count={detail.conditions.length}>
+        <SectionTitle id="conditions-title" count={current.length}>
           Condiciones
         </SectionTitle>
         {probable > 0 ? (
           <p className="text-sm text-muted">
             {probable === 1
-              ? 'Hay una condición probable leída de las notas'
-              : `Hay ${String(probable)} condiciones probables leídas de las notas`}
-            . Revísalas: mientras no las confirmes, nadie contacta al paciente por ellas.
+              ? 'Hay una condición probable leída de las notas. Revísala: mientras no la confirmes, nadie contacta al paciente por ella.'
+              : `Hay ${String(probable)} condiciones probables leídas de las notas. Revísalas: mientras no las confirmes, nadie contacta al paciente por ellas.`}
           </p>
         ) : null}
-        {detail.conditions.length === 0 ? (
+        {current.length === 0 ? (
           <Card className="p-4 text-sm text-muted">Sin condiciones registradas.</Card>
         ) : (
           <ul className="flex flex-col gap-2.5">
-            {detail.conditions.map((condition) => (
+            {current.map((condition) => (
               <ConditionItem key={condition.id} condition={condition} patientId={patient.id} />
             ))}
           </ul>
         )}
+        {rejected.length > 0 ? (
+          <details className="group rounded-xl border border-border bg-surface">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-muted hover:text-fg">
+              Descartadas ({rejected.length})
+            </summary>
+            <ul className="flex flex-col gap-2.5 px-4 pb-4">
+              {rejected.map((condition) => (
+                <ConditionItem key={condition.id} condition={condition} patientId={patient.id} />
+              ))}
+            </ul>
+          </details>
+        ) : null}
       </section>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -349,6 +364,8 @@ export function PatientPage(): ReactNode {
           error={query.error}
           onRetry={handleRetry}
           title="No pudimos cargar el paciente"
+          notFoundTitle="No encontramos ese paciente"
+          notFoundHeading="h1"
         />
       </div>
     );
@@ -358,13 +375,10 @@ export function PatientPage(): ReactNode {
 
 export function NotFoundPage(): ReactNode {
   return (
-    <EmptyState
-      icon={<FileWarning className="size-5" aria-hidden="true" />}
-      title="Esta página no existe"
-    >
-      <Link to="/bandeja" className="font-medium text-primary hover:underline">
-        Ir a la bandeja
-      </Link>
-    </EmptyState>
+    <div className="mx-auto max-w-4xl">
+      <NotFoundState title="Esta página no existe" heading="h1">
+        Revisa la dirección o vuelve a la bandeja.
+      </NotFoundState>
+    </div>
   );
 }

@@ -2,17 +2,27 @@ import {
   ArrowLeft,
   Bot,
   CalendarX,
+  Check,
+  CircleDashed,
   CircleUser,
+  Clock,
   Cog,
   Lightbulb,
   MessageSquareOff,
   MessageSquareText,
+  Minus,
   ScrollText,
+  StickyNote,
   UserRound,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
-import type { CaseDetail, CaseReasonView, CaseTimelineEntry } from '../../api/contract.ts';
+import type {
+  CaseDetail,
+  CaseReasonView,
+  CaseTimelineEntry,
+  EscalationView,
+} from '../../api/contract.ts';
 import { ACTIVE_CASE_STATUSES } from '../../api/contract.ts';
 import { useCase, useNow } from '../../api/queries.ts';
 import {
@@ -27,7 +37,7 @@ import { ErrorState } from '../../components/states.tsx';
 import { Badge, Card, SectionTitle, Skeleton } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatDate, formatDateTime, formatOverdue, formatRelative } from '../../lib/format.ts';
-import { STATUS_LABELS, actorLabel, escalationLabel } from '../../lib/labels.ts';
+import { STATUS_LABELS, actorLabel } from '../../lib/labels.ts';
 import { patientMeta } from '../inbox/case-row.tsx';
 import { CaseActions } from './case-actions.tsx';
 import { FeedbackPanel } from './feedback-panel.tsx';
@@ -102,15 +112,71 @@ function Timeline({
             </span>
             <div className="min-w-0 pt-0.5">
               <p className="text-sm text-fg">{entry.label}</p>
+              {entry.note ? (
+                <p className="mt-1.5 flex gap-1.5 rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm text-fg">
+                  <StickyNote className="mt-0.5 size-3.5 shrink-0 text-muted" aria-hidden="true" />
+                  <span>
+                    <span className="sr-only">Nota interna: </span>
+                    {entry.note}
+                  </span>
+                </p>
+              ) : null}
               <p className="mt-0.5 text-xs text-muted">
-                {actorLabel(entry.actor)}
-                {entry.actor.type === 'rule' && entry.actor.id ? (
-                  <code className="ml-1 font-mono text-[11px] text-subtle">{entry.actor.id}</code>
-                ) : null}{' '}
-                · <time dateTime={entry.at}>{formatDateTime(entry.at)}</time> (
+                {actorLabel(entry.actor)} ·{' '}
+                <time dateTime={entry.at}>{formatDateTime(entry.at)}</time> (
                 {formatRelative(entry.at, now)})
               </p>
             </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** The case's escalation policy, step by step: what already happened, what was skipped, what comes next. */
+function EscalationSteps({ escalation }: { readonly escalation: EscalationView }): ReactNode {
+  return (
+    <ol className="flex flex-col gap-2">
+      {escalation.steps.map((step, index) => {
+        const passed = index < escalation.currentStep;
+        const isNext = !passed && index === escalation.currentStep && escalation.next;
+        const state = passed
+          ? step.outcome === 'skipped'
+            ? 'No aplicó en este caso'
+            : step.at
+              ? `Hecho el ${formatDate(step.at)}`
+              : 'Hecho'
+          : isNext && escalation.next
+            ? `Programado para el ${formatDate(escalation.next.at)}`
+            : `A los ${String(step.afterDays)} ${step.afterDays === 1 ? 'día' : 'días'} sin respuesta`;
+        const Icon = passed
+          ? step.outcome === 'skipped'
+            ? Minus
+            : Check
+          : isNext
+            ? Clock
+            : CircleDashed;
+        return (
+          <li key={`${step.action}-${String(index)}`} className="flex items-start gap-2.5">
+            <span
+              className={cx(
+                'mt-0.5 grid size-5 shrink-0 place-items-center rounded-full',
+                passed && step.outcome !== 'skipped'
+                  ? 'bg-primary-soft text-primary'
+                  : isNext
+                    ? 'bg-warning-soft text-warning'
+                    : 'bg-surface-2 text-muted',
+              )}
+            >
+              <Icon className="size-3" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 text-sm">
+              <span className={cx('font-medium', passed || isNext ? 'text-fg' : 'text-muted')}>
+                {step.label}
+              </span>
+              <span className="block text-xs text-muted">{state}</span>
+            </span>
           </li>
         );
       })}
@@ -157,6 +223,12 @@ function CaseDetailView({
   const now = useNow();
   const active = (ACTIVE_CASE_STATUSES as readonly string[]).includes(detail.status);
   const planReasons = detail.reasons.filter((reason) => reason.evidence).length;
+  const heading = useRef<HTMLHeadingElement>(null);
+
+  // Opening a case moves the keyboard focus to it (not left on the list row).
+  useEffect(() => {
+    heading.current?.focus();
+  }, [detail.id]);
 
   return (
     <article aria-labelledby="case-title" className="flex flex-col gap-4">
@@ -173,7 +245,12 @@ function CaseDetailView({
       <Card className="flex flex-col gap-4 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 id="case-title" className="text-lg font-semibold tracking-tight text-fg">
+            <h2
+              id="case-title"
+              ref={heading}
+              tabIndex={-1}
+              className="text-lg font-semibold tracking-tight text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+            >
               {detail.patient.name}
             </h2>
             <p className="mt-0.5 text-sm text-muted">
@@ -196,9 +273,8 @@ function CaseDetailView({
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={detail.status} />
           <PriorityBadge label={detail.priorityLabel} priority={detail.priority} />
-          <span className="inline-flex items-center gap-1.5 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
-            <EscalationMeter step={detail.escalationStep} />
-            {escalationLabel(detail.escalationStep)}
+          <span className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
+            <EscalationMeter escalation={detail.escalation} showLabel />
           </span>
           {detail.origin === 'backfill' ? (
             <Badge tone="info">Recuperado del historial</Badge>
@@ -252,6 +328,15 @@ function CaseDetailView({
         </ul>
       </section>
 
+      <Card className="flex flex-col gap-3 p-5" aria-labelledby="escalation-title">
+        <SectionTitle id="escalation-title">Escalamiento</SectionTitle>
+        <p className="text-xs text-muted">
+          Lo que hace el motor si nadie responde, según la política de este caso. Pedir contacto o
+          posponer el caso reinicia la espera.
+        </p>
+        <EscalationSteps escalation={detail.escalation} />
+      </Card>
+
       <Card className="flex flex-col gap-3 p-5">
         <h3 className="text-sm font-semibold text-fg">¿Te sirvió este caso?</h3>
         <FeedbackPanel caseId={detail.id} feedback={detail.feedback} />
@@ -289,7 +374,12 @@ export function CaseDetailPanel({
   if (query.isPending) return <CaseDetailSkeleton />;
   if (query.isError) {
     return (
-      <ErrorState error={query.error} onRetry={handleRetry} title="No pudimos cargar el caso" />
+      <ErrorState
+        error={query.error}
+        onRetry={handleRetry}
+        title="No pudimos cargar el caso"
+        notFoundTitle="No encontramos ese caso"
+      />
     );
   }
   return <CaseDetailView detail={query.data} {...(backTo ? { backTo } : {})} />;

@@ -12,8 +12,10 @@ import type {
   DemoConsultationResponse,
   FeedbackRequest,
   InboxStats,
+  OwnerView,
   Page,
   PatientDetail,
+  PatientSummary,
   RecoveryPage,
   WebhookDelivery,
 } from './contract.ts';
@@ -73,6 +75,8 @@ export interface ApiClient {
   getCase(id: string): Promise<CaseDetail>;
   actOnCase(id: string, body: CaseActionRequest): Promise<CaseDetail>;
   sendFeedback(id: string, body: FeedbackRequest): Promise<unknown>;
+  listOwners(): Promise<{ items: OwnerView[] }>;
+  listPatients(query: { query?: string; limit?: number }): Promise<{ items: PatientSummary[] }>;
   getPatient(id: string): Promise<PatientDetail>;
   confirmCondition(id: string): Promise<ConditionView>;
   rejectCondition(id: string): Promise<ConditionView>;
@@ -131,6 +135,8 @@ export function createApiClient(config: ApiConfig): ApiClient {
       request('POST', `/inbox/cases/${encodeURIComponent(id)}/actions`, { body }),
     sendFeedback: (id, body) =>
       request('POST', `/inbox/cases/${encodeURIComponent(id)}/feedback`, { body }),
+    listOwners: () => request('GET', '/inbox/owners'),
+    listPatients: (query) => request('GET', '/inbox/patients', { query: { ...query } }),
     getPatient: (id) => request('GET', `/inbox/patients/${encodeURIComponent(id)}`),
     confirmCondition: (id) =>
       request('POST', `/inbox/conditions/${encodeURIComponent(id)}/confirm`),

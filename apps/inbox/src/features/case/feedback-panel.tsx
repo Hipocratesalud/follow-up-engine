@@ -69,6 +69,7 @@ export function FeedbackPanel({
   const [reasonError, setReasonError] = useState<string>();
 
   function submit(request: FeedbackRequest): void {
+    if (mutation.isPending) return;
     mutation.mutate(request, {
       onSuccess: () => {
         setEditing(false);
@@ -122,6 +123,7 @@ export function FeedbackPanel({
           variant="secondary"
           onClick={handleUseful}
           loading={mutation.isPending && !notUseful}
+          disabled={mutation.isPending}
           icon={<ThumbsUp className="size-3.5" aria-hidden="true" />}
         >
           Útil
@@ -191,6 +193,7 @@ export function FeedbackPanel({
               size="sm"
               variant="primary"
               loading={mutation.isPending}
+              disabled={mutation.isPending}
               onClick={handleSubmitNotUseful}
             >
               Enviar comentario
