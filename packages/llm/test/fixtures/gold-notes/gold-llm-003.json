@@ -1,0 +1,20 @@
+{
+  "id": "gold-llm-003",
+  "specialty": "endocrinology",
+  "authoredAt": "2025-05-20",
+  "text": "Pcte fem 34a, hipotiroidismo primario dx hace 1 año. Refiere fatiga. TSH 7.9 mUI/L. Se ajusta levotiroxina de 50 a 75 mcg en ayunas. Repetir TSH en 6 sem. Control el próximo mes para revisar síntomas.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [{ "icd10": "E03", "evidenceQuote": "hipotiroidismo primario" }],
+    "medications": [
+      {
+        "text": "levotiroxina 75 mcg en ayunas",
+        "evidenceQuote": "levotiroxina de 50 a 75 mcg en ayunas"
+      }
+    ],
+    "planItems": [
+      { "kind": "lab", "dueInDays": 42, "evidenceQuote": "Repetir TSH en 6 sem" },
+      { "kind": "follow_up_visit", "dueInDays": 31, "evidenceQuote": "Control el próximo mes" }
+    ]
+  }
+}

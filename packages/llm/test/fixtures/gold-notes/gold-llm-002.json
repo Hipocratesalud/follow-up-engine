@@ -1,0 +1,22 @@
+{
+  "id": "gold-llm-002",
+  "specialty": "cardiology",
+  "authoredAt": "2025-04-02",
+  "text": "Masc 71a con fibrilación auricular permanente, FC 88 lpm, asintomático. CHA2DS2-VASc 3. Se inicia apixabán 5 mg c/12h. Se mantiene bisoprolol 2.5 mg/día. Solicito ecocardiograma transtorácico en 6 semanas. Cita de control en 2 meses con resultado.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [{ "icd10": "I48", "evidenceQuote": "fibrilación auricular permanente" }],
+    "medications": [
+      { "text": "apixabán 5 mg c/12h", "evidenceQuote": "apixabán 5 mg c/12h" },
+      { "text": "bisoprolol 2.5 mg/día", "evidenceQuote": "bisoprolol 2.5 mg/día" }
+    ],
+    "planItems": [
+      {
+        "kind": "imaging",
+        "dueInDays": 42,
+        "evidenceQuote": "ecocardiograma transtorácico en 6 semanas"
+      },
+      { "kind": "follow_up_visit", "dueInDays": 61, "evidenceQuote": "Cita de control en 2 meses" }
+    ]
+  }
+}
