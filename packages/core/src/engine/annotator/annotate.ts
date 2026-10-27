@@ -23,7 +23,8 @@ import { type ExpectationDraft, materializeExpectation } from './draft.ts';
 import { cadenceDrafts } from './layers/cadence.ts';
 import { doctorPlanDrafts } from './layers/doctor-plan.ts';
 import { protocolDrafts } from './layers/protocol.ts';
-import { universalDrafts } from './layers/universal.ts';
+import { plannedItems, universalDrafts } from './layers/universal.ts';
+import { retractByLaterInformation } from './retract.ts';
 import {
   cancelWithdrawn,
   supersedeAmendedPlans,
@@ -75,9 +76,20 @@ export async function annotate(
 
   const conditions = await upsertConditions(context, state, ordered, hints);
   const created: Expectation[] = [];
+  const planDrafts = doctorPlanDrafts(
+    ordered,
+    context.catalog,
+    context.settings.minPlanItemConfidence,
+  );
   const firstDrafts = [
-    ...universalDrafts(ordered, context.catalog),
-    ...doctorPlanDrafts(ordered, context.catalog, context.settings.minPlanItemConfidence),
+    ...universalDrafts({
+      events: ordered,
+      catalog: context.catalog,
+      timeline: state.timeline,
+      conditions: conditions.all,
+      planned: plannedItems(state.live.list(), planDrafts),
+    }),
+    ...planDrafts,
   ];
   created.push(...(await createExpectations(context, state.live, firstDrafts)));
 
@@ -89,6 +101,19 @@ export async function annotate(
   const unenrolled = await withdrawConditions(context, state, ordered, conditions.all);
   closed.push(...unenrolled.closed);
   const reopened = await reopenCancelled(context, state, ordered);
+  // Information that arrives after what it decides (a discharge or a
+  // conditional return in a later note, the doctor's own control, an order
+  // of the test a protocol expected) withdraws it, as if it came together.
+  closed.push(
+    ...(await retractByLaterInformation({
+      stores: context.stores,
+      catalog: context.catalog,
+      now: context.now,
+      timeline: state.timeline,
+      live: state.live,
+      batch: ordered,
+    })),
+  );
 
   // The doctor's explicit plan beats the inferred visit pattern for what it
   // covers; checked after fulfillment, so a visit that fulfills the plan
@@ -144,13 +169,15 @@ function createdByThisReplayStep(expectation: Expectation, asOf: Date | undefine
   return expectation.closedAt === undefined || expectation.closedAt.getTime() >= at;
 }
 
-/** Whether a live doctor's-plan expectation already asks for the same thing. */
+/**
+ * Whether a live doctor's-plan expectation already asks for the same thing.
+ * A planned session (psychology, physiotherapy) is the patient's next visit.
+ */
 function coveredByPlan(live: LiveExpectations, matchKey: string): boolean {
+  const asked = matchKey === 'visit' ? new Set(['visit', 'session']) : new Set([matchKey]);
   return live
     .list()
-    .some(
-      (expectation) => expectation.layer === 'doctor_plan' && expectation.matchKey === matchKey,
-    );
+    .some((expectation) => expectation.layer === 'doctor_plan' && asked.has(expectation.matchKey));
 }
 
 async function upsertConditions(

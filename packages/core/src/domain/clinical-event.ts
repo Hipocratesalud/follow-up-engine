@@ -101,7 +101,14 @@ export interface MedicationPrescribedEvent extends ClinicalEventBase {
   readonly type: 'medication.prescribed';
   readonly medication: { readonly code?: Coding; readonly text: string };
   readonly startAt: Date;
+  /** Days the prescription covers (`dispenseRequest.expectedSupplyDuration` or the dosage bounds). */
   readonly durationDays?: number;
+  /** Refills allowed after the first dispense (`dispenseRequest.numberOfRepeatsAllowed`). */
+  readonly refills?: number;
+  /** Taken only when needed (FHIR `dosageInstruction.asNeeded[x]`). */
+  readonly asNeeded?: boolean;
+  /** Free-text dosage as the prescriber wrote it (`dosageInstruction.text`), for example `c/8h PRN dolor`. */
+  readonly dosageText?: string;
 }
 
 /** A diagnosis was recorded (FHIR `Condition`). */

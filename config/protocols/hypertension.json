@@ -1,6 +1,6 @@
 {
   "id": "hypertension",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Arterial hypertension follow-up: a control visit at least every 6 months and basic labs (creatinine, potassium) yearly. Fills only what the doctor's plan did not cover.",
   "reason": { "code": "protocol_hypertension", "label": "Control de hipertensión" },
   "specialties": [
@@ -73,6 +73,15 @@
           "filter": { "code.code": ["2160-0", "2823-3"] },
           "match": "any"
         }
+      ],
+      "planTerms": [
+        "creatinina",
+        "potasio",
+        "funcion renal",
+        "quimica sanguinea",
+        "electrolitos",
+        "creatinine",
+        "potassium"
       ],
       "priority": 20,
       "suggestedAction": {

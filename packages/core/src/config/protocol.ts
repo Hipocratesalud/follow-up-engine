@@ -68,6 +68,16 @@ export const ProtocolSchema = z.strictObject({
         /** The test the item expects, for lab and imaging items (match key and coverage). */
         code: CodingSchema.optional(),
         fulfilledBy: z.array(EventCorrelationSchema).min(1),
+        /**
+         * Terms that name the item's test in the quote of an uncoded plan
+         * item ("control en 3 meses con HbA1c"), so the doctor's plan covers
+         * the protocol item even when the extractor gave no code. Case and
+         * accents are ignored. Coded orders and plan items cover the item
+         * when their code is the item's or one its `fulfilledBy` filters
+         * accept (the item's equivalence group, for example every lipid
+         * panel LOINC).
+         */
+        planTerms: z.array(z.string().min(1)).min(1).optional(),
         priority: z.number().int().nonnegative(),
         suggestedAction: SuggestedActionSchema,
       }),

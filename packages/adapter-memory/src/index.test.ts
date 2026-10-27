@@ -532,7 +532,7 @@ describe(PACKAGE_NAME, () => {
       const protocols = new StaticProtocolSource(loadConfigDirectory().protocols, {
         enabledClinics: [CLINIC],
       });
-      expect((await protocols.getProtocol(CLINIC, 'diabetes'))?.version).toBe('1.0.0');
+      expect((await protocols.getProtocol(CLINIC, 'diabetes'))?.version).toBe('1.1.0');
       expect(await protocols.listProtocols(OTHER)).toEqual([]);
     });
 

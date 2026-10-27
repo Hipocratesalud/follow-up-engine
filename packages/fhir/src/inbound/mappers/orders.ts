@@ -244,6 +244,14 @@ export function mapMedicationRequest(
     authoredOn ??
     ctx.receivedAt;
   const durationDays = prescriptionDurationDays(request);
+  const refills = request.dispenseRequest?.numberOfRepeatsAllowed;
+  const dosages = request.dosageInstruction ?? [];
+  const asNeeded = dosages.some(
+    (dosage) => dosage.asNeededBoolean === true || dosage.asNeededCodeableConcept !== undefined,
+  );
+  const dosageText = dosages
+    .flatMap((dosage) => (dosage.text === undefined ? [] : [dosage.text]))
+    .join('; ');
   return {
     ...scope,
     events: [
@@ -252,6 +260,9 @@ export function mapMedicationRequest(
         medication,
         startAt,
         ...(durationDays === undefined ? {} : { durationDays }),
+        ...(refills === undefined ? {} : { refills }),
+        ...(asNeeded ? { asNeeded } : {}),
+        ...(dosageText === '' ? {} : { dosageText }),
       },
     ],
   };
