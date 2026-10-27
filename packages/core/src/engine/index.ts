@@ -156,6 +156,11 @@ export {
   parseCodeMatchKey,
 } from './matching/match-key.ts';
 export { matchesFilter } from './matching/filter.ts';
+export {
+  type ConclusionFinding,
+  type ConclusionReading,
+  readConclusion,
+} from './terminology/conclusions.ts';
 export { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from './settings.ts';
 
 export * from './reviewer/index.ts';

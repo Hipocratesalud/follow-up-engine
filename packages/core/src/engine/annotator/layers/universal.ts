@@ -37,6 +37,9 @@ function dueAtFor(rule: Rule, event: ClinicalEvent): Date | undefined {
     }
     return addDays(event.startAt, event.durationDays + rule.dueInDays);
   }
+  if (rule.dueFrom === 'recommended_follow_up' && event.type === 'result.received') {
+    return addDays(event.occurredAt, event.recommendedFollowUpDays ?? rule.dueInDays);
+  }
   return addDays(event.occurredAt, rule.dueInDays);
 }
 

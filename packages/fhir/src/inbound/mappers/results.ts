@@ -1,10 +1,11 @@
-import type {
-  Coding,
-  RecordWithdrawalReason,
-  ResourceRef,
-  ResultInterpretation,
-  ResultReceivedEvent,
-  ResultSeverity,
+import {
+  readConclusion,
+  type Coding,
+  type RecordWithdrawalReason,
+  type ResourceRef,
+  type ResultInterpretation,
+  type ResultReceivedEvent,
+  type ResultSeverity,
 } from '@follow-up-engine/core';
 import { TERMINOLOGY } from '../../terminology.ts';
 import { firstDate } from '../../support/datetime.ts';
@@ -93,6 +94,30 @@ export function interpretationOf(
     return 'normal';
   }
   return 'unknown';
+}
+
+/** SNOMED CT codes of a report conclusion that say abnormal (263654008) or normal (17621005). */
+const SNOMED_ABNORMAL = ['263654008'] as const;
+const SNOMED_NORMAL = ['17621005'] as const;
+
+/**
+ * Interpretation of a report's `conclusionCode`: SNOMED CT Abnormal or
+ * Normal, or a v3 ObservationInterpretation code (`A`, `H`, `N`, ...).
+ */
+function conclusionCodeInterpretation(
+  codes: readonly ConceptInput[] | undefined,
+): ResultInterpretation {
+  const all = codes ?? [];
+  if (all.some((concept) => hasCode(concept, SNOMED_ABNORMAL, TERMINOLOGY.snomed))) {
+    return 'abnormal';
+  }
+  const v3 = interpretationOf(all);
+  if (v3 !== 'unknown') {
+    return v3;
+  }
+  return all.some((concept) => hasCode(concept, SNOMED_NORMAL, TERMINOLOGY.snomed))
+    ? 'normal'
+    : 'unknown';
 }
 
 /** The numeric value of an Observation (`valueQuantity`), with its unit (`unit`, else the UCUM `code`). */
@@ -252,6 +277,18 @@ export function mapDiagnosticReport(
       ? [{ resourceType: target.resourceType, id: target.id }]
       : [];
   });
+  // What the report itself concludes: its coded conclusion, and its
+  // free-text conclusion read with the engine's lexicon (an imaging report
+  // has no Observation to flag: "BI-RADS 3", "por debajo del percentil 10").
+  const conclusion = report.conclusion?.trim();
+  const reading = readConclusion(conclusion);
+  const recommendedFollowUpDays = reading.followUpDays;
+  const interpretation = combine([
+    ...members.map((observation) => interpretationOf(observation.interpretation)),
+    ...[conclusionCodeInterpretation(report.conclusionCode), reading.interpretation].filter(
+      (read) => read !== 'unknown',
+    ),
+  ]);
   return {
     ...scope,
     events: [
@@ -266,15 +303,18 @@ export function mapDiagnosticReport(
           ),
         ),
         code,
-        interpretation: combine(
-          members.map((observation) => interpretationOf(observation.interpretation)),
-        ),
+        interpretation,
         ...optionalSeverity(
-          worstSeverity(members.map((observation) => severityOf(observation.interpretation))),
+          worstSeverity([
+            ...members.map((observation) => severityOf(observation.interpretation)),
+            interpretation === 'abnormal' ? 'mild' : undefined,
+          ]),
         ),
         ...(orderId === undefined ? {} : { basedOnOrderId: orderId }),
         ...(value === undefined ? {} : { value }),
         ...(listedResults.length === 0 ? {} : { listedResults }),
+        ...(conclusion === undefined || conclusion === '' ? {} : { conclusion }),
+        ...(recommendedFollowUpDays === undefined ? {} : { recommendedFollowUpDays }),
       },
     ],
   };

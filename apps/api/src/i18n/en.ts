@@ -94,6 +94,10 @@ const RULES: Readonly<Record<string, RuleText>> = {
     reason: 'Abnormal result with no visit since',
     action: 'Review the result with the patient',
   },
+  abnormal_imaging_followup_study: {
+    reason: 'Follow-up study the report recommends',
+    action: 'Order the follow-up study the report recommends',
+  },
 };
 
 function plural(count: number, one: string, many: string): string {

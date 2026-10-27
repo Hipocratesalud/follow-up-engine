@@ -3,7 +3,7 @@
     "id": "lab_order_result_pending",
     "version": "1.1.0",
     "layer": "universal",
-    "description": "A laboratory order should have a result within 15 days. A result of the same measurement under any equivalent LOINC code fulfills it (HbA1c 17856-6 or IFCC 59261-8 for a 4548-4 order; a lipid panel by its components). A newer order of the same test supersedes it; a visit does not fulfill it.",
+    "description": "A laboratory order should have a result within 15 days. A result of the same measurement under any equivalent LOINC code fulfills it (HbA1c 17856-6 or IFCC 59261-8 for a 4548-4 order; a lipid panel by its components). A newer order of the same test supersedes it (during a pregnancy, only in the same trimester: prenatal tests repeat by trimester); a visit does not fulfill it.",
     "reason": { "code": "lab_order_result_pending", "label": "Lab result pending" },
     "trigger": { "event": "service_request.created", "filter": { "category": "laboratory" } },
     "dueInDays": 15,
@@ -32,7 +32,7 @@
     "id": "imaging_order_result_pending",
     "version": "1.0.0",
     "layer": "universal",
-    "description": "An imaging order should have a result within 30 days. A newer order of the same study supersedes it; a visit does not fulfill it.",
+    "description": "An imaging order should have a result within 30 days. A newer order of the same study supersedes it (during a pregnancy, only in the same trimester: the 32-week growth scan is not the 20-week anatomy scan); a visit does not fulfill it.",
     "reason": { "code": "imaging_order_result_pending", "label": "Imaging result pending" },
     "trigger": { "event": "service_request.created", "filter": { "category": "imaging" } },
     "dueInDays": 30,
@@ -275,6 +275,33 @@
       "code": "review_results",
       "label": "Review the result with the patient",
       "patientContactPurpose": "review_results"
+    }
+  },
+  {
+    "id": "abnormal_imaging_followup_study",
+    "version": "1.0.0",
+    "layer": "universal",
+    "description": "A report whose conclusion calls for a follow-up study expects that study by the date the finding calls for: BI-RADS 3 a short-interval study at 6 months, BI-RADS 0 additional imaging within 30 days, BI-RADS 4 or 5 a tissue diagnosis within 14 days, fetal biometry below the 10th percentile or growth restriction a growth scan with Doppler within 2 weeks (the conclusion is read with the engine's lexicon; ACR BI-RADS Atlas, 5th edition; ACOG Practice Bulletin 227). A result of the same study fulfills it; a new order of it replaces it and waits for its own result; a visit does not (that is abnormal_result_followup).",
+    "reason": {
+      "code": "abnormal_imaging_followup_study",
+      "label": "Follow-up study the report recommends"
+    },
+    "trigger": {
+      "event": "result.received",
+      "filter": { "recommendedFollowUpDays": { "exists": true } }
+    },
+    "dueInDays": 180,
+    "dueFrom": "recommended_follow_up",
+    "expects": "imaging",
+    "caseGroup": "follow_up",
+    "fulfilledBy": [{ "event": "result.received", "match": "same_code" }],
+    "supersededBy": [{ "event": "service_request.created", "match": "same_code" }],
+    "priority": 60,
+    "escalationPolicy": "default_v1",
+    "suggestedAction": {
+      "code": "order_follow_up_study",
+      "label": "Order the follow-up study the report recommends",
+      "patientContactPurpose": "complete_pending_test"
     }
   }
 ]

@@ -96,6 +96,10 @@ const RULES: Readonly<Record<string, RuleText>> = {
     reason: 'Resultado alterado sin consulta posterior',
     action: 'Revisar el resultado con el paciente',
   },
+  abnormal_imaging_followup_study: {
+    reason: 'Estudio de control que recomienda el informe',
+    action: 'Pedir el estudio de control que recomienda el informe',
+  },
 };
 
 function plural(count: number, one: string, many: string): string {
