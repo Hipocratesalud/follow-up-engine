@@ -1,24 +1,27 @@
-import { ICD10_SYSTEM, type PlanItem } from '@follow-up-engine/core';
+import { ICD10_SYSTEM, type PlanItem, type PlanItemKind } from '@follow-up-engine/core';
 import { DEFAULT_CONDITION_TERMS, type ConditionTermTable } from './condition-terms.ts';
 import { daysBetween, durationInDays, parseIsoDate, resolveDueAt } from './due-date.ts';
+import { testGroup, testGroupOfLoinc, testGroupsIn } from './lab-tests.ts';
 import { prepareNote, type PreparedNote } from './prepare.ts';
 import { createQuoteIndex, normalizeForMatch, type QuoteSpan } from './quote.ts';
-import type { ModelExtraction } from './schema.ts';
+import type { ModelExtraction, ModelPlanItem } from './schema.ts';
 import {
-  approxDays,
   clauseAround,
   clauseBoundsAround,
+  conditionContext,
   findDischarge,
-  forwardIntervals,
+  findKindKeyword,
   hasKindKeyword,
   hasTimeExpression,
   isConditional,
   isHedgedMention,
   isNegatedMention,
+  isVerifiable,
   looksLikeMeasurement,
   segmentAround,
+  statedTiming,
   termsPattern,
-  writtenDates,
+  type StatedTiming,
 } from './signals.ts';
 import type { ExtractedCondition, ExtractedMedication, RejectedItem } from './types.ts';
 
@@ -135,6 +138,95 @@ export interface PostProcessOptions {
   readonly conditionTerms?: ConditionTermTable;
 }
 
+const MS_PER_DAY = 86_400_000;
+/** A due date this close to a written month ("en abril") still counts as that month. */
+const MONTH_EDGE_DAYS = 3;
+
+const GENERIC_DESCRIPTIONS: Readonly<Record<PlanItemKind, string>> = {
+  follow_up_visit: 'follow-up visit',
+  lab: 'laboratory tests',
+  imaging: 'imaging study',
+  session: 'therapy sessions',
+  other: 'other follow-up',
+};
+
+/** What the engine keeps of a plan item once its quote has been read. */
+interface PlanReading {
+  readonly kind: PlanItemKind;
+  readonly description: string;
+  readonly loinc?: string;
+  /** What makes two items of the same kind and day the same item. */
+  readonly key: string;
+  /** The quote does not name what the model said (a lab quoted as "Control en 3 meses"). */
+  readonly downgraded: boolean;
+}
+
+/**
+ * Reads what a plan item is from its quote, not from the model's word:
+ *
+ * - a lab or imaging item whose quote has no lab or imaging wording at all
+ *   ("HIV test" quoted as "Control en 3 meses"), or an `other` item whose
+ *   quote names no referral or procedure, becomes a generic follow-up visit;
+ * - a lab or imaging item keeps the model's description only when it names
+ *   tests the quote names (`lab-tests.ts`); otherwise the description is
+ *   the label of the tests the quote names, or a generic one;
+ * - a LOINC code is kept only on lab items, only when well formed and only
+ *   when its test is one the quote names.
+ */
+function readPlanItem(item: ModelPlanItem, quote: string): PlanReading {
+  const description = item.description.trim();
+  const visit: PlanReading = {
+    kind: 'follow_up_visit',
+    description: GENERIC_DESCRIPTIONS.follow_up_visit,
+    key: '',
+    downgraded: true,
+  };
+  if (item.kind === 'lab' || item.kind === 'imaging') {
+    if (!hasKindKeyword(item.kind, quote)) return visit;
+    const named = testGroupsIn(quote, item.kind);
+    const described = testGroupsIn(normalizeForMatch(description), item.kind);
+    if (named.size === 0) {
+      return {
+        kind: item.kind,
+        description: GENERIC_DESCRIPTIONS[item.kind],
+        key: '',
+        downgraded: false,
+      };
+    }
+    const both = [...described].filter((id) => named.has(id));
+    const resolved = both.length > 0 ? both : [...named];
+    const keepsDescription = described.size > 0 && both.length === described.size;
+    const code = item.kind === 'lab' ? normalizeLoinc(item.loincCode) : undefined;
+    const codeGroup = code === undefined ? undefined : testGroupOfLoinc(code);
+    return {
+      kind: item.kind,
+      description: keepsDescription
+        ? description
+        : resolved.map((id) => testGroup(id)?.label ?? id).join(' and '),
+      ...(code !== undefined && codeGroup !== undefined && resolved.includes(codeGroup.id)
+        ? { loinc: code }
+        : {}),
+      key: [...resolved].sort().join('+'),
+      downgraded: false,
+    };
+  }
+  if (item.kind === 'other' && findKindKeyword('other', quote) === null) return visit;
+  if (item.kind === 'follow_up_visit') {
+    return {
+      kind: item.kind,
+      description: description || GENERIC_DESCRIPTIONS.follow_up_visit,
+      key: '',
+      downgraded: false,
+    };
+  }
+  return {
+    kind: item.kind,
+    description: description || GENERIC_DESCRIPTIONS[item.kind],
+    key: normalizeForMatch(description),
+    downgraded: false,
+  };
+}
+
 /** The note as the model read it, or a plain note (then nothing was masked). */
 export type PostProcessNote =
   | { readonly text: string; readonly authoredAt: Date }
@@ -151,14 +243,23 @@ export type PostProcessNote =
  *   its ICD-10 category (`condition-terms.ts`), a medication quote contains
  *   the drug's name, a plan quote contains the item's wording ("ctrl",
  *   "HbA1c", "eco") or its timing ("en 3 meses");
- * - denied conditions ("niega HTA") are dropped, suspected ones get a
- *   confidence below every engine threshold; measurements are never
- *   medications; conditional returns ("volver si fiebre") are not plan;
+ * - denied conditions ("niega HTA", "Diabetes: no") are dropped, and so are
+ *   a relative's ("madre con DM2", "AHF: HTA (padre)") and non-current ones
+ *   ("riesgo de diabetes", gestational diabetes or a past pregnancy);
+ *   suspected ones get a confidence below every engine threshold;
+ *   measurements are never medications; conditional returns ("volver si
+ *   fiebre", "volver en 1 mes si no mejora", "si no mejora en 1 semana,
+ *   reconsultar") are not plan;
+ * - a lab or imaging item is what its quote names (`readPlanItem`): its
+ *   description and LOINC code survive only when the quote names that test,
+ *   and a lab quoted as "Control en 3 meses" becomes a generic follow-up;
  * - plan due dates are computed here from `authoredAt`, never by the model,
  *   and only from timing the note states where the item is quoted (or, with
  *   a lower confidence, elsewhere in the note); an interval that contradicts
- *   the quoted one is rejected; an untimed lab or imaging item inherits the
- *   earliest follow-up visit ("traer HbA1c al proximo control");
+ *   the quoted one is rejected (`timing_mismatch`), and so is an explicit
+ *   date that is neither written there nor follows from the interval written
+ *   there (`timing_unsupported`); an untimed lab or imaging item, or one due
+ *   "antes de la proxima consulta", inherits the earliest follow-up visit;
  * - confidences are the model's, clamped to {@link MAX_ITEM_CONFIDENCE} and
  *   capped by those checks;
  * - a discharge needs a quote that states one ("se da de alta");
@@ -191,16 +292,18 @@ export function postProcessExtraction(
   const quoteText = (span: QuoteSpan): string =>
     noteText.slice(span.normalizedStart, span.normalizedEnd);
 
-  // Conditions
+  // Conditions. A short quote ("HTA") can occur more than once: the first
+  // occurrence that is about this patient backs the item ("Antecedente: madre
+  // con HTA. Dx: HTA estadio 2").
   const conditionsByCode = new Map<string, ExtractedCondition>();
   for (const item of raw.conditions) {
-    const span = index.locate(item.evidenceQuote);
-    if (span === undefined) {
+    const spans = index.locateAll(item.evidenceQuote);
+    const first = spans[0];
+    if (first === undefined) {
       reject('condition', 'quote_not_found', item.evidenceQuote);
       continue;
     }
-    const quote = quoteText(span);
-    if (alnumCount(quote) < MIN_QUOTE_ALNUM) {
+    if (alnumCount(quoteText(first)) < MIN_QUOTE_ALNUM) {
       reject('condition', 'quote_too_short', item.evidenceQuote);
       continue;
     }
@@ -209,25 +312,38 @@ export function postProcessExtraction(
       reject('condition', 'invalid_code', item.evidenceQuote);
       continue;
     }
-    const term = firstMatch(conditionPattern(terms, code.slice(0, 3)), quote);
-    if (!term) {
-      reject('condition', 'quote_unrelated', item.evidenceQuote);
+    const pattern = conditionPattern(terms, code.slice(0, 3));
+    let backing: { span: QuoteSpan; termStart: number; termEnd: number } | undefined;
+    let firstReason: RejectedItem['reason'] | undefined;
+    for (const span of spans) {
+      const term = firstMatch(pattern, quoteText(span));
+      if (!term) {
+        firstReason ??= 'quote_unrelated';
+        continue;
+      }
+      const termStart = span.normalizedStart + term.index;
+      const termEnd = termStart + term[0].length;
+      const reason = isNegatedMention(noteText, termStart, termEnd)
+        ? 'negated'
+        : conditionContext(noteText, termStart, termEnd, code.slice(0, 3));
+      if (reason === undefined) {
+        backing = { span, termStart, termEnd };
+        break;
+      }
+      firstReason ??= reason;
+    }
+    if (backing === undefined) {
+      reject('condition', firstReason ?? 'quote_unrelated', item.evidenceQuote);
       continue;
     }
-    const termStart = span.normalizedStart + term.index;
-    const termEnd = termStart + term[0].length;
-    if (isNegatedMention(noteText, termStart, termEnd)) {
-      reject('condition', 'negated', item.evidenceQuote);
-      continue;
-    }
-    const cap = isHedgedMention(noteText, termStart, termEnd)
+    const cap = isHedgedMention(noteText, backing.termStart, backing.termEnd)
       ? HEDGED_CONDITION_CONFIDENCE
       : MAX_ITEM_CONFIDENCE;
     const display = item.display.trim();
     const condition: ExtractedCondition = {
       code: { system: ICD10_SYSTEM, code, ...(display ? { display } : {}) },
       confidence: Math.min(cap, clampConfidence(item.confidence)),
-      evidenceQuote: verbatim(span),
+      evidenceQuote: verbatim(backing.span),
     };
     const existing = conditionsByCode.get(code);
     if (existing) {
@@ -301,16 +417,34 @@ export function postProcessExtraction(
     }
   }
 
-  // Plan items: quote checks and timing first, then untimed items inherit
-  // the earliest follow-up visit, then dedupe.
+  // Plan items: quote checks, what the quote says the item is, and timing
+  // first; then untimed items inherit the earliest follow-up visit; then dedupe.
   interface Candidate {
-    readonly item: ModelExtraction['planItems'][number];
+    readonly item: ModelPlanItem;
+    readonly reading: PlanReading;
     readonly quote: string;
     readonly cap: number;
     dueAt?: Date;
   }
-  const noteIntervals = forwardIntervals(noteText);
-  const noteDates = new Set(writtenDates(noteText));
+  const noteDay = utcDay(note.authoredAt);
+  const noteTiming = statedTiming(noteText, noteDay);
+  const supports = (timing: StatedTiming, dueAt: Date, fromDate: boolean): boolean => {
+    const days = daysBetween(note.authoredAt, dueAt);
+    const near = (expected: number): boolean =>
+      Math.abs(days - expected) <= Math.max(2, expected * TIMING_TOLERANCE);
+    if (timing.days.some(near)) return true;
+    for (const written of timing.dates) {
+      const date = parseIsoDate(written);
+      if (date === undefined) continue;
+      const expected = daysBetween(note.authoredAt, date);
+      if (fromDate ? Math.abs(days - expected) <= 1 : near(expected)) return true;
+    }
+    const dueMonth = utcDay(dueAt).slice(0, 7);
+    const nearMonth = [-MONTH_EDGE_DAYS, MONTH_EDGE_DAYS].map((shift) =>
+      utcDay(new Date(dueAt.getTime() + shift * MS_PER_DAY)).slice(0, 7),
+    );
+    return timing.months.some((month) => month === dueMonth || nearMonth.includes(month));
+  };
   const candidates: Candidate[] = [];
   for (const item of raw.planItems) {
     const span = index.locate(item.evidenceQuote);
@@ -327,78 +461,90 @@ export function postProcessExtraction(
       reject('planItem', 'quote_unrelated', item.evidenceQuote);
       continue;
     }
-    if (isConditional(segmentAround(noteText, span.normalizedStart, span.normalizedEnd))) {
+    const clause = clauseAround(noteText, span.normalizedStart, span.normalizedEnd);
+    if (isConditional(segmentAround(noteText, span.normalizedStart, span.normalizedEnd), clause)) {
       reject('planItem', 'conditional', item.evidenceQuote);
       continue;
     }
+    const reading = readPlanItem(item, quote);
     const resolution = resolveDueAt(note.authoredAt, item.timing);
     if (!resolution.ok) {
       if (resolution.reason === 'due_before_note') {
         reject('planItem', 'due_before_note', item.evidenceQuote);
       } else {
-        candidates.push({ item, quote: verbatim(span), cap: INHERITED_TIMING_CONFIDENCE });
+        candidates.push({ item, reading, quote: verbatim(span), cap: INHERITED_TIMING_CONFIDENCE });
       }
       continue;
     }
-    const days = daysBetween(note.authoredAt, resolution.dueAt);
-    const agrees = (expected: number): boolean =>
-      Math.abs(days - expected) <= Math.max(2, expected * TIMING_TOLERANCE);
-    const clause = clauseAround(noteText, span.normalizedStart, span.normalizedEnd);
-    if (hasTimeExpression(clause)) {
-      const stated = forwardIntervals(clause).map(approxDays);
-      if (item.timing?.date === null && stated.length > 0 && !stated.some(agrees)) {
-        reject('planItem', 'timing_mismatch', item.evidenceQuote);
-        continue;
+    const fromDate = item.timing?.date ? parseIsoDate(item.timing.date) !== undefined : false;
+    const timed = (cap: number): Candidate => ({
+      item,
+      reading,
+      quote: verbatim(span),
+      cap,
+      dueAt: resolution.dueAt,
+    });
+    const untimed: Candidate = {
+      item,
+      reading,
+      quote: verbatim(span),
+      cap: INHERITED_TIMING_CONFIDENCE,
+    };
+    // The timing written where the item is quoted decides; an explicit date
+    // must be written there too (or follow from the interval written there).
+    const clauseTiming = statedTiming(clause, noteDay);
+    if (isVerifiable(clauseTiming)) {
+      if (supports(clauseTiming, resolution.dueAt, fromDate)) {
+        candidates.push(timed(MAX_ITEM_CONFIDENCE));
+      } else {
+        reject('planItem', fromDate ? 'timing_unsupported' : 'timing_mismatch', item.evidenceQuote);
       }
-      candidates.push({
-        item,
-        quote: verbatim(span),
-        cap: MAX_ITEM_CONFIDENCE,
-        dueAt: resolution.dueAt,
-      });
       continue;
     }
-    // Timing not stated where the item is quoted: keep the model's only if
-    // the note states that interval or date somewhere else.
-    const explicit = item.timing?.date ? parseIsoDate(item.timing.date) : undefined;
-    const statedElsewhere = explicit
-      ? noteDates.has(utcDay(explicit))
-      : noteIntervals.map(approxDays).some(agrees);
-    candidates.push(
-      statedElsewhere
-        ? { item, quote: verbatim(span), cap: DETACHED_TIMING_CONFIDENCE, dueAt: resolution.dueAt }
-        : { item, quote: verbatim(span), cap: INHERITED_TIMING_CONFIDENCE },
-    );
+    const inherits = reading.kind === 'lab' || reading.kind === 'imaging';
+    if (clauseTiming.nextVisit && inherits) {
+      // "antes de la proxima consulta": due with the next visit, whatever the model computed.
+      candidates.push(untimed);
+    } else if (clauseTiming.targetAge && !fromDate) {
+      // "a las 20 semanas": a target age the code cannot check.
+      candidates.push(timed(MAX_ITEM_CONFIDENCE));
+    } else if (supports(noteTiming, resolution.dueAt, fromDate)) {
+      // Stated elsewhere in the note, not where the item is quoted.
+      candidates.push(timed(DETACHED_TIMING_CONFIDENCE));
+    } else if (fromDate) {
+      reject('planItem', 'timing_unsupported', item.evidenceQuote);
+    } else {
+      candidates.push(untimed);
+    }
   }
   const nextVisit = candidates
-    .flatMap((c) => (c.item.kind === 'follow_up_visit' && c.dueAt ? [c.dueAt] : []))
+    .flatMap((c) => (c.reading.kind === 'follow_up_visit' && c.dueAt ? [c.dueAt] : []))
     .sort((a, b) => a.getTime() - b.getTime())[0];
 
   const planItems: PlanItem[] = [];
   const planKeys = new Set<string>();
   for (const candidate of candidates) {
-    const { item } = candidate;
-    const inherits = item.kind === 'lab' || item.kind === 'imaging';
+    const { item, reading } = candidate;
+    const inherits = reading.kind === 'lab' || reading.kind === 'imaging';
     const dueAt = candidate.dueAt ?? (inherits ? nextVisit : undefined);
     if (!dueAt) {
       reject('planItem', 'no_due_date', item.evidenceQuote);
       continue;
     }
-    const description = item.description.trim() || item.kind.replaceAll('_', ' ');
-    const key = `${item.kind}|${utcDay(dueAt)}|${normalizeForMatch(description)}`;
+    if (reading.downgraded) reject('planItem', 'test_not_named', item.evidenceQuote);
+    const key = `${reading.kind}|${utcDay(dueAt)}|${reading.key}`;
     if (planKeys.has(key)) {
       reject('planItem', 'duplicate', item.evidenceQuote);
       continue;
     }
     planKeys.add(key);
-    const loinc = item.kind === 'lab' ? normalizeLoinc(item.loincCode) : undefined;
     planItems.push({
-      kind: item.kind,
-      description,
+      kind: reading.kind,
+      description: reading.description,
       dueAt,
       evidenceQuote: candidate.quote,
       confidence: Math.min(candidate.cap, clampConfidence(item.confidence)),
-      ...(loinc ? { code: { system: LOINC_SYSTEM, code: loinc } } : {}),
+      ...(reading.loinc ? { code: { system: LOINC_SYSTEM, code: reading.loinc } } : {}),
     });
   }
 

@@ -137,4 +137,60 @@ describe('patient name masking context (HIP-121, security #2)', () => {
       await runtime.close();
     }
   });
+
+  it('a given name that is also a clinical word does not hide the discharge (clinical #11)', async () => {
+    const runtime = await createRuntime(
+      loadRuntimeConfig({ LOG_LEVEL: 'silent', CLOCK: 'fake', DEMO_API_KEY: 'k' }),
+    );
+    try {
+      const patient = {
+        resourceType: 'Patient',
+        id: 'pat-alta',
+        name: [{ family: 'Rivas', given: ['Alta', 'Gracia'] }],
+        telecom: [{ system: 'phone', value: '+58 412 555 1234' }],
+        identifier: [{ value: 'V-15.120.850' }],
+      };
+      const text =
+        'Sesion 4. Paciente Alta Gracia Rivas refiere mejoria, TA 120/80, sertralina 50 mg. Se da de alta.';
+      const bundle = {
+        resourceType: 'Bundle',
+        type: 'transaction',
+        entry: [
+          {
+            fullUrl: 'urn:uuid:p',
+            resource: patient,
+            request: { method: 'PUT', url: 'Patient/pat-alta' },
+          },
+          {
+            fullUrl: 'urn:uuid:d',
+            resource: {
+              resourceType: 'DocumentReference',
+              id: 'doc-alta',
+              status: 'current',
+              subject: { reference: 'Patient/pat-alta' },
+              date: '2026-01-05T12:00:00Z',
+              content: [
+                {
+                  attachment: {
+                    contentType: 'text/plain',
+                    data: Buffer.from(text).toString('base64'),
+                  },
+                },
+              ],
+            },
+            request: { method: 'PUT', url: 'DocumentReference/doc-alta' },
+          },
+        ],
+      };
+      const accepted = await runtime.ingestion.accept(CLINIC, bundle, 'sync');
+      expect(accepted.ok).toBe(true);
+      const note = accepted.reports?.flatMap((report) => report.notes)[0];
+      expect(note?.status).toBe('extracted');
+      expect(note?.extraction?.discharged).toBe(true);
+      const warnings = (note?.extraction as { warnings?: readonly string[] } | undefined)?.warnings;
+      expect(warnings).toContain('names_masked');
+    } finally {
+      await runtime.close();
+    }
+  });
 });

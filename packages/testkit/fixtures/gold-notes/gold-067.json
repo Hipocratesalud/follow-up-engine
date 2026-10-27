@@ -1,0 +1,28 @@
+{
+  "id": "gold-067",
+  "specialty": "internal_medicine",
+  "authoredAt": "2025-10-17",
+  "text": "Paciente dado de alta del hospital hace 5 días tras neumonía. Estable, sin disnea, afebril.\nPlan: completar amoxicilina 500 mg c/8h por 5 días. Control en 2 semanas.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [
+      {
+        "icd10": "J18",
+        "evidenceQuote": "neumonía"
+      }
+    ],
+    "medications": [
+      {
+        "text": "amoxicilina 500 mg c/8h por 5 días",
+        "evidenceQuote": "amoxicilina 500 mg c/8h por 5 días"
+      }
+    ],
+    "planItems": [
+      {
+        "kind": "follow_up_visit",
+        "dueInDays": 14,
+        "evidenceQuote": "Control en 2 semanas"
+      }
+    ]
+  }
+}

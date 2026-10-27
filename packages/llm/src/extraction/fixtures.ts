@@ -1,6 +1,7 @@
 import { PLAN_ITEM_KINDS } from '@follow-up-engine/core';
 import { z } from 'zod';
 import type { FakeResponder } from '../providers/fake.ts';
+import { namedTests } from './lab-tests.ts';
 import { readNoteFromMessages } from './prompt.ts';
 import { REDACTION_PLACEHOLDER, defangTags } from './prepare.ts';
 import { normalizeForMatch } from './quote.ts';
@@ -48,6 +49,25 @@ export type ExpectedExtraction = z.infer<typeof ExpectedExtractionSchema>;
  * that checks the eval harness itself scores 100%.
  */
 export function modelOutputFromExpected(expected: ExpectedExtraction): ModelExtraction {
+  // Gold notes label one lab item per named test and may share one quote
+  // ("control en 1 mes con creatinina y potasio"): the n-th item of a kind
+  // with that quote describes the n-th test the quote names.
+  const seen = new Map<string, number>();
+  const describe = (p: ExpectedExtraction['planItems'][number]): string => {
+    if (p.description !== undefined) return p.description;
+    if (p.kind !== 'lab' && p.kind !== 'imaging') return p.kind.replaceAll('_', ' ');
+    const key = `${p.kind}|${p.evidenceQuote}`;
+    const nth = seen.get(key) ?? 0;
+    seen.set(key, nth + 1);
+    const groups = [
+      ...new Set(
+        namedTests(normalizeForMatch(p.evidenceQuote))
+          .filter((test) => test.group.kind === p.kind)
+          .map((test) => test.group.label),
+      ),
+    ];
+    return groups[nth] ?? p.kind;
+  };
   return {
     hasPlan: expected.hasPlan,
     discharge: expected.discharge ? { evidenceQuote: expected.discharge.evidenceQuote } : null,
@@ -64,7 +84,7 @@ export function modelOutputFromExpected(expected: ExpectedExtraction): ModelExtr
     })),
     planItems: expected.planItems.map((p) => ({
       kind: p.kind,
-      description: p.description ?? p.kind.replaceAll('_', ' '),
+      description: describe(p),
       timing: { amount: p.dueInDays, unit: 'day', date: null },
       loincCode: null,
       evidenceQuote: p.evidenceQuote,

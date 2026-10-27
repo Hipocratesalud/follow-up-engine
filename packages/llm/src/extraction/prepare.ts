@@ -1,79 +1,40 @@
+import { findDelimiterTags, findPatientMentions, type MaskSpan } from './masking.ts';
 import { createQuoteIndex } from './quote.ts';
 
 /**
  * What leaves for a third-party model is the note, minus what the engine can
  * mask: the patient's names and identifiers (the host sends them in the same
  * Bundle, see `NoteExtractionInput.redactTerms`), anything shaped like one of
- * the prompt's own delimiters, and anything past {@link MAX_NOTE_CHARS}.
+ * the prompt's own delimiters, and, for a note longer than
+ * {@link MAX_NOTE_CHARS}, its middle (the head and the tail are kept, since
+ * the plan is usually at the end).
  *
  * The prepared text keeps a map back to the original, so evidence quotes the
  * model copies from the prepared text are stored verbatim from the original
  * note.
  */
 
-/** Longest note (UTF-16 code units) sent to a model; the rest is cut and reported. */
+/** Longest note (UTF-16 code units) sent to a model; past it, the middle is cut and reported. */
 export const MAX_NOTE_CHARS = 20_000;
+/** Share of {@link MAX_NOTE_CHARS} kept from the start of a long note; the rest comes from its end. */
+export const NOTE_HEAD_SHARE = 0.4;
 
 /** What a masked name or identifier becomes in the prompt. */
 export const REDACTION_PLACEHOLDER = '[REDACTADO]';
 /** What a delimiter-shaped tag inside host text becomes. */
 export const DEFANGED_TAG = '[etiqueta]';
+/** What replaces the middle of a note longer than the cap. */
+export const ELISION_MARKER = '\n[... parte central de la nota omitida por longitud ...]\n';
 
-/**
- * Tags shaped like the prompt's delimiters, whatever their case or spacing:
- * `</clinical_note>`, `</CLINICAL_NOTE >`, `< /clinical-note>`, `<note_metadata>`.
- */
-const DELIMITER_TAG = /<\s*\/?\s*(?:clinical|note)[\s_-]*(?:note|metadata)\s*\/?\s*>/gi;
-
-/**
- * Given names that are also everyday clinical words: masked only as part of
- * the full name, never alone ("refiere dolores articulares").
- */
-const AMBIGUOUS_NAME_PARTS = new Set([
-  'alta',
-  'amparo',
-  'angeles',
-  'blanca',
-  'caridad',
-  'consuelo',
-  'cruz',
-  'dolores',
-  'esperanza',
-  'fe',
-  'gloria',
-  'luz',
-  'mar',
-  'mercedes',
-  'paz',
-  'pilar',
-  'remedios',
-  'rosa',
-  'salud',
-  'socorro',
-  'sol',
-]);
-const NAME_PARTICLES = new Set([
-  'de',
-  'del',
-  'la',
-  'las',
-  'los',
-  'y',
-  'da',
-  'do',
-  'dos',
-  'van',
-  'von',
-]);
-const MIN_PART_LENGTH = 3;
-const MIN_ID_DIGITS = 5;
+/** How far a cut may move to land on whitespace instead of inside a word. */
+const CUT_SLACK = 200;
 
 export interface PreparedNote {
   /** The text the model sees. */
   readonly text: string;
   /** The note as the host sent it. */
   readonly original: string;
-  /** Whether the note was longer than {@link MAX_NOTE_CHARS} and was cut. */
+  /** Whether the note was longer than the cap and its middle was cut. */
   readonly truncated: boolean;
   /** How many spans were masked (names, identifiers). */
   readonly redactions: number;
@@ -89,51 +50,13 @@ interface Edit {
   readonly replacement: string;
 }
 
-/** Where the variants of one redaction term appear in the note. */
-function termEdits(index: ReturnType<typeof createQuoteIndex>, term: string): Edit[] {
-  const normalized = index.normalized.text;
-  const needles = new Set<string>();
-  const full = createQuoteIndex(term).normalized.text;
-  if (full.replace(/[^a-z0-9]/g, '').length >= MIN_PART_LENGTH) needles.add(full);
-  for (const part of full.split(/[\s,.;]+/)) {
-    const letters = part.replace(/[^a-z0-9]/g, '');
-    if (
-      letters.length >= MIN_PART_LENGTH &&
-      !NAME_PARTICLES.has(part) &&
-      !AMBIGUOUS_NAME_PARTS.has(part)
-    ) {
-      needles.add(part);
-    }
-  }
-  const edits: Edit[] = [];
-  const isWordChar = (char: string | undefined): boolean =>
-    char !== undefined && /[\p{L}\p{N}]/u.test(char);
-  for (const needle of needles) {
-    for (let at = normalized.indexOf(needle); at >= 0; at = normalized.indexOf(needle, at + 1)) {
-      if (isWordChar(normalized[at - 1]) || isWordChar(normalized[at + needle.length])) continue;
-      const span = index.spanOf(at, at + needle.length);
-      if (span)
-        edits.push({ start: span.start, end: span.end, replacement: REDACTION_PLACEHOLDER });
-    }
-  }
-  // Identifiers: the same digits however they are punctuated (V-12.345.678, 12345678).
-  const digits = term.replace(/\D/g, '');
-  if (digits.length >= MIN_ID_DIGITS) {
-    const source = index.source;
-    for (const match of source.matchAll(/\d(?:[\d.\-\s]*\d)?/g)) {
-      if (match[0].replace(/\D/g, '').includes(digits)) {
-        edits.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          replacement: REDACTION_PLACEHOLDER,
-        });
-      }
-    }
-  }
-  return edits;
-}
+const PRIORITY: Readonly<Record<string, number>> = {
+  [ELISION_MARKER]: 3,
+  [REDACTION_PLACEHOLDER]: 2,
+  [DEFANGED_TAG]: 1,
+};
 
-/** Overlapping or touching edits become one (the placeholder wins over a tag). */
+/** Overlapping or touching edits become one (elision over placeholder over tag). */
 function mergeEdits(edits: readonly Edit[]): Edit[] {
   const sorted = [...edits].sort((a, b) => a.start - b.start || b.end - a.end);
   const merged: Edit[] = [];
@@ -144,8 +67,8 @@ function mergeEdits(edits: readonly Edit[]): Edit[] {
         start: last.start,
         end: Math.max(last.end, edit.end),
         replacement:
-          last.replacement === REDACTION_PLACEHOLDER || edit.replacement === REDACTION_PLACEHOLDER
-            ? REDACTION_PLACEHOLDER
+          (PRIORITY[edit.replacement] ?? 0) > (PRIORITY[last.replacement] ?? 0)
+            ? edit.replacement
             : last.replacement,
       };
     } else {
@@ -155,16 +78,52 @@ function mergeEdits(edits: readonly Edit[]): Edit[] {
   return merged;
 }
 
-/** Cuts at `max` code units without splitting a surrogate pair. */
-function cutAt(text: string, max: number): string {
-  if (text.length <= max) return text;
-  const code = text.charCodeAt(max - 1);
-  return text.slice(0, code >= 0xd800 && code <= 0xdbff ? max - 1 : max);
+function isHighSurrogate(text: string, at: number): boolean {
+  const code = text.charCodeAt(at);
+  return code >= 0xd800 && code <= 0xdbff;
 }
 
-/** Neutralizes delimiter-shaped tags in any host text (specialty, note). */
-export function defangTags(text: string): string {
-  return text.replace(DELIMITER_TAG, DEFANGED_TAG);
+/** A cut at `at`, moved back (or forward) to whitespace within the slack, never inside a surrogate pair. */
+function cutPoint(text: string, at: number, direction: 'back' | 'forward'): number {
+  const limit =
+    direction === 'back' ? Math.max(0, at - CUT_SLACK) : Math.min(text.length, at + CUT_SLACK);
+  for (
+    let i = at;
+    direction === 'back' ? i > limit : i < limit;
+    i += direction === 'back' ? -1 : 1
+  ) {
+    if (/\s/.test(text.charAt(i))) return i;
+  }
+  return isHighSurrogate(text, at - 1) ? at - 1 : at;
+}
+
+/** Text ranges the model reads: the whole note, or its head and tail when it is longer than `maxChars`. */
+function keptRanges(text: string, maxChars: number): [number, number][] {
+  if (text.length <= maxChars) return [[0, text.length]];
+  const budget = Math.max(0, maxChars - ELISION_MARKER.length);
+  const headEnd = cutPoint(text, Math.floor(budget * NOTE_HEAD_SHARE), 'back');
+  const tailStart = cutPoint(text, text.length - (budget - headEnd), 'forward');
+  return [
+    [0, headEnd],
+    [Math.max(headEnd, tailStart), text.length],
+  ];
+}
+
+function editsIn(
+  text: string,
+  [from, to]: [number, number],
+  redactTerms: readonly string[],
+): Edit[] {
+  const index = createQuoteIndex(text.slice(from, to));
+  const shift = (span: MaskSpan, replacement: string): Edit => ({
+    start: span.start + from,
+    end: span.end + from,
+    replacement,
+  });
+  return [
+    ...findPatientMentions(index, redactTerms).map((span) => shift(span, REDACTION_PLACEHOLDER)),
+    ...findDelimiterTags(index).map((span) => shift(span, DEFANGED_TAG)),
+  ];
 }
 
 interface Segment {
@@ -175,46 +134,67 @@ interface Segment {
   readonly literal: boolean;
 }
 
+/** Applies non-overlapping, sorted edits to `text`. */
+function applyEdits(text: string, edits: readonly Edit[]): { text: string; segments: Segment[] } {
+  const parts: string[] = [];
+  const segments: Segment[] = [];
+  let cursor = 0;
+  let length = 0;
+  const push = (
+    value: string,
+    originalFrom: number,
+    originalTo: number,
+    literal: boolean,
+  ): void => {
+    if (value.length === 0) return;
+    parts.push(value);
+    segments.push({ from: length, to: length + value.length, originalFrom, originalTo, literal });
+    length += value.length;
+  };
+  for (const edit of edits) {
+    push(text.slice(cursor, edit.start), cursor, edit.start, true);
+    push(edit.replacement, edit.start, edit.end, false);
+    cursor = edit.end;
+  }
+  push(text.slice(cursor), cursor, text.length, true);
+  return { text: parts.join(''), segments };
+}
+
 /**
- * Masks `redactTerms` (names and identifiers, compared without case or
- * accents, as whole words; each name part of three letters or more is masked
- * on its own too), neutralizes delimiter-shaped tags and cuts the note at
- * `maxChars`. Linear in the note length per term.
+ * Neutralizes delimiter-shaped tags in any host text (specialty, note),
+ * whatever their case, spacing, attributes, invisible characters, fullwidth
+ * brackets or HTML entities.
+ */
+export function defangTags(text: string): string {
+  const edits = mergeEdits(
+    findDelimiterTags(createQuoteIndex(text)).map((span) => ({
+      ...span,
+      replacement: DEFANGED_TAG,
+    })),
+  );
+  return applyEdits(text, edits).text;
+}
+
+/**
+ * Masks `redactTerms` (see `masking.ts`: full names and name runs, distinctive
+ * name parts, whole identifiers), neutralizes delimiter-shaped tags and, past
+ * `maxChars`, keeps the head and the tail of the note with an elision marker
+ * between them. Linear in the note length per term.
  */
 export function prepareNote(
   original: string,
   options: { readonly redactTerms?: readonly string[]; readonly maxChars?: number } = {},
 ): PreparedNote {
-  const maxChars = options.maxChars ?? MAX_NOTE_CHARS;
-  const kept = cutAt(original, maxChars);
-  const truncated = kept.length < original.length;
-  const index = createQuoteIndex(kept);
-  const redactionEdits = (options.redactTerms ?? []).flatMap((term) =>
-    term.trim() === '' ? [] : termEdits(index, term),
-  );
-  const tagEdits: Edit[] = [...kept.matchAll(DELIMITER_TAG)].map((match) => ({
-    start: match.index,
-    end: match.index + match[0].length,
-    replacement: DEFANGED_TAG,
-  }));
-  const edits = mergeEdits([...redactionEdits, ...tagEdits]);
-
-  const parts: string[] = [];
-  const segments: Segment[] = [];
-  let cursor = 0;
-  let length = 0;
-  const push = (text: string, originalFrom: number, originalTo: number, literal: boolean): void => {
-    if (text.length === 0) return;
-    parts.push(text);
-    segments.push({ from: length, to: length + text.length, originalFrom, originalTo, literal });
-    length += text.length;
-  };
-  for (const edit of edits) {
-    push(kept.slice(cursor, edit.start), cursor, edit.start, true);
-    push(edit.replacement, edit.start, edit.end, false);
-    cursor = edit.end;
-  }
-  push(kept.slice(cursor), cursor, kept.length, true);
+  const ranges = keptRanges(original, options.maxChars ?? MAX_NOTE_CHARS);
+  const truncated = ranges.length > 1;
+  const redactTerms = options.redactTerms ?? [];
+  const edits = mergeEdits([
+    ...ranges.flatMap((range) => editsIn(original, range, redactTerms)),
+    ...(truncated && ranges[0] && ranges[1]
+      ? [{ start: ranges[0][1], end: ranges[1][0], replacement: ELISION_MARKER }]
+      : []),
+  ]);
+  const { text, segments } = applyEdits(original, edits);
 
   const segmentAt = (position: number): Segment | undefined => {
     let low = 0;
@@ -231,7 +211,7 @@ export function prepareNote(
   };
 
   return {
-    text: parts.join(''),
+    text,
     original,
     truncated,
     redactions: edits.filter((edit) => edit.replacement === REDACTION_PLACEHOLDER).length,

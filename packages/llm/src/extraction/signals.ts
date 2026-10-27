@@ -122,6 +122,145 @@ export function forwardIntervals(text: string): Interval[] {
   return out;
 }
 
+const MONTHS: Readonly<Record<string, number>> = {
+  enero: 1,
+  febrero: 2,
+  marzo: 3,
+  abril: 4,
+  mayo: 5,
+  junio: 6,
+  julio: 7,
+  agosto: 8,
+  septiembre: 9,
+  setiembre: 9,
+  octubre: 10,
+  noviembre: 11,
+  diciembre: 12,
+};
+const MONTH_NAMES = Object.keys(MONTHS).join('|');
+/** "15/04/2026", "15-04-26", "15/04". */
+const NUMERIC_DAY = /(?<![0-9/])(\d{1,2})[/-](\d{1,2})(?:[/-](\d{4}|\d{2}))?(?![0-9/])/g;
+/** "15 de abril", "15 de abril de 2026", "15 abril 2026". */
+const NAMED_DAY = new RegExp(
+  String.raw`(?<![0-9])(\d{1,2})(?: de)? (${MONTH_NAMES})(?:,? (?:de |del )?(\d{4}))?(?![a-z0-9])`,
+  'g',
+);
+/** "en abril", "para abril de 2026", "a fines de abril" (no day). */
+const NAMED_MONTH = new RegExp(
+  String.raw`(?<![a-z0-9])(?:en|para|a|hasta|durante|finales de|fines de|inicios de|principios de|mediados de|el mes de) (${MONTH_NAMES})(?:,? (?:de |del )?(\d{4}))?(?![a-z0-9])`,
+  'g',
+);
+/** "proximo mes", "la semana que viene": a stated interval. */
+const NEXT_PERIOD =
+  /(?<![a-z0-9])(?:prox(?:im[oa])?\.? (semana|mes|ano)|(semana|mes|ano) (?:que viene|proxim[oa]|entrante))(?![a-z])/g;
+/** "proximo control", "antes de la proxima cita": the next visit, whenever it is. */
+const NEXT_VISIT =
+  /(?<![a-z0-9])prox(?:im[oa]s?)?\.? (?:control|ctrl|cita|consulta|visita|sesion|evaluacion|valoracion|reevaluacion)(?![a-z])/;
+const PERIODIC_DAYS: Readonly<Record<string, number>> = {
+  semanal: 7,
+  semanalmente: 7,
+  quincenal: 15,
+  mensual: 30,
+  mensualmente: 30,
+  bimestral: 60,
+  trimestral: 90,
+  semestral: 180,
+  anual: 365,
+  anualmente: 365,
+};
+const PERIODIC_WORDS = new RegExp(
+  String.raw`(?<![a-z])(${Object.keys(PERIODIC_DAYS).join('|')})(?![a-z])`,
+  'g',
+);
+
+/** What a text says about when something is due, in forms the code can check. */
+export interface StatedTiming {
+  /** Approximate days from the note date: intervals ("en 3 meses"), "proximo mes", "mensual". */
+  readonly days: readonly number[];
+  /** Calendar days written in the text, `YYYY-MM-DD` (a missing year is the next such day on or after the note). */
+  readonly dates: readonly string[];
+  /** Calendar months written without a day ("en abril"), `YYYY-MM`. */
+  readonly months: readonly string[];
+  /** It points at the next visit ("al proximo control") without saying when. */
+  readonly nextVisit: boolean;
+  /** It states a target age ("a las 20 semanas") the code cannot turn into days. */
+  readonly targetAge: boolean;
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+function validDay(year: number, month: number, day: number): boolean {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+/** A written day with an optional year, as `YYYY-MM-DD`; without a year, the first such day on or after `noteDay`. */
+function dayKey(noteDay: string, day: number, month: number, rawYear?: string): string | undefined {
+  const noteYear = Number(noteDay.slice(0, 4));
+  if (rawYear !== undefined && rawYear !== '') {
+    const year = rawYear.length === 2 ? 2000 + Number(rawYear) : Number(rawYear);
+    return validDay(year, month, day) ? `${String(year)}-${pad(month)}-${pad(day)}` : undefined;
+  }
+  for (const year of [noteYear, noteYear + 1]) {
+    const key = `${String(year)}-${pad(month)}-${pad(day)}`;
+    if (validDay(year, month, day) && key >= noteDay) return key;
+  }
+  return undefined;
+}
+
+/**
+ * Reads the timing a text states (normalized text; `noteDay` is the note's
+ * `YYYY-MM-DD`). Used to check that a model's due date or interval is the
+ * one written where it quotes.
+ */
+export function statedTiming(text: string, noteDay: string): StatedTiming {
+  const days = forwardIntervals(text).map(approxDays);
+  for (const match of text.matchAll(NEXT_PERIOD)) {
+    const unit = match[1] ?? match[2];
+    days.push(unit === 'semana' ? 7 : unit === 'ano' ? 365 : 30);
+  }
+  for (const match of text.matchAll(PERIODIC_WORDS)) {
+    const value = PERIODIC_DAYS[match[1] ?? ''];
+    if (value !== undefined) days.push(value);
+  }
+  const dates: string[] = [];
+  for (const match of text.matchAll(NUMERIC_DAY)) {
+    const key = dayKey(noteDay, Number(match[1]), Number(match[2]), match[3]);
+    if (key) dates.push(key);
+  }
+  for (const match of text.matchAll(NAMED_DAY)) {
+    const month = MONTHS[match[2] ?? ''];
+    const key = month ? dayKey(noteDay, Number(match[1]), month, match[3]) : undefined;
+    if (key) dates.push(key);
+  }
+  const months: string[] = [];
+  const noteMonth = noteDay.slice(0, 7);
+  for (const match of text.matchAll(NAMED_MONTH)) {
+    const month = MONTHS[match[1] ?? ''];
+    if (month === undefined) continue;
+    const year = match[2]
+      ? Number(match[2])
+      : `${noteDay.slice(0, 4)}-${pad(month)}` >= noteMonth
+        ? Number(noteDay.slice(0, 4))
+        : Number(noteDay.slice(0, 4)) + 1;
+    months.push(`${String(year)}-${pad(month)}`);
+  }
+  return {
+    days,
+    dates,
+    months,
+    nextVisit: NEXT_VISIT.test(text),
+    targetAge: TARGET_AGE.test(text),
+  };
+}
+
+/** Whether `timing` states anything the code can compare with a due date. */
+export function isVerifiable(timing: StatedTiming): boolean {
+  return timing.days.length > 0 || timing.dates.length > 0 || timing.months.length > 0;
+}
+
 /** Whether `text` states when something will happen: an interval, a date, "proximo control", "mensual". */
 export function hasTimeExpression(text: string): boolean {
   return (
@@ -274,6 +413,11 @@ const KIND_TERMS: Readonly<Record<PlanItemKind, readonly string[]>> = {
   ],
 };
 
+/** Every plan word of every kind, normalized (used to tell clinical words from names). */
+export function planVocabulary(): Iterable<string> {
+  return Object.values(KIND_TERMS).flat();
+}
+
 const KIND_PATTERNS = Object.fromEntries(
   Object.entries(KIND_TERMS).map(([kind, terms]) => [kind, termsPattern(terms)]),
 ) as Readonly<Record<PlanItemKind, RegExp>>;
@@ -304,17 +448,28 @@ export function hasKindKeyword(kind: PlanItemKind, quote: string): boolean {
   return test(kind === 'other' ? ANY_PLAN_PATTERN : KIND_PATTERNS[kind], quote);
 }
 
-const CONDITIONAL =
-  /(?<![a-z])(?:solo si|solamente si|unicamente si|en caso de|si persiste|si persisten|si presenta|si empeora|si aparece|si aparecen|si hay|de ser necesario|si es necesario|segun necesidad|a necesidad|prn|sos|si lo requiere|si lo desea|si requiere)(?![a-z])/;
+/** What follows a conditional "si" ("si no mejora", "si persiste", "si fiebre"). */
+const SI_CONDITION = String.raw`si (?:no )?(?:mejora|mejoria|cede|ceden|resuelve|remite|remiten|responde|evoluciona|empeora|empeoran|persiste|persisten|continua|continuan|sigue|siguen|reaparece|reaparecen|recurre|aumenta|aumentan|aparece|aparecen|presenta|presentara|hay|tiene|nota|siente|lo requiere|lo desea|lo amerita|requiere|es necesario|fuese necesario|fuera necesario|fiebre|dolor|sangrado|sintomas|signos|molestias|complicaciones|cambios)`;
+const CONDITIONAL = new RegExp(
+  String.raw`(?<![a-z])(?:(?:solo|solamente|unicamente) si|${SI_CONDITION}|en caso de|de no (?:mejorar|haber mejoria|ceder|resolver)|ante (?:cualquier|la presencia|la aparicion|signos|sintomas|empeoramiento)|de ser necesario|segun necesidad|segun evolucion|a necesidad|prn|sos|a demanda|libre demanda)(?![a-z])`,
+);
+/** A clause that opens with its condition ("Si no mejora en 1 semana, reconsultar"). */
+const CONDITION_FIRST = new RegExp(
+  String.raw`^\s*(?:[a-z]{1,15}\s?:\s*)?(?:y |o |pero )?(?:(?:solo|solamente|unicamente) si|si|en caso de|de no|de persistir|de presentar|de empeorar)(?![a-z])`,
+);
 const SCHEDULED_ANYWAY = /(?<![a-z])(?:o antes|antes si|antes de ser necesario)(?![a-z])/;
 
 /**
  * Whether a plan phrase only applies on a condition ("ctrl en 1 semana solo
- * si persisten los sintomas", "volver en caso de fiebre"): not a scheduled
- * follow-up. "Control en 1 mes o antes si empeora" is scheduled.
+ * si persisten los sintomas", "volver en caso de fiebre", "volver en 1 mes
+ * si no mejora"): not a scheduled follow-up. "Control en 1 mes o antes si
+ * empeora" is scheduled. `clause`, when given, is the sentence around the
+ * segment: a sentence that opens with its condition ("Si no mejora en 1
+ * semana, reconsultar") makes every segment of it conditional.
  */
-export function isConditional(segment: string): boolean {
-  return CONDITIONAL.test(segment) && !SCHEDULED_ANYWAY.test(segment);
+export function isConditional(segment: string, clause?: string): boolean {
+  if (SCHEDULED_ANYWAY.test(segment)) return false;
+  return CONDITIONAL.test(segment) || (clause !== undefined && CONDITION_FIRST.test(clause));
 }
 
 // ---------------------------------------------------------------- clauses
@@ -361,7 +516,8 @@ export function clauseBoundsAround(text: string, start: number, end: number): [n
 const NEGATION_CUES =
   /(?<![a-z])(?:niega|niegan|nego|negando|descarta|descartado|descartada|descartandose|no presenta|no refiere|no tiene|no hay|no se evidencia|no se observa|no impresiona|negativo para|negativa para|ausencia de|libre de|sin antecedentes? de|sin evidencia de|sin signos de)(?![a-z])/g;
 const SIN = /(?<![a-z])sin(?![a-z])/g;
-const NEGATION_AFTER = /^\s*(?:[:(]\s*)?(?:descartad[oa]s?|negativ[oa]s?|\(-\)|-\s|ausente)/;
+const NEGATION_AFTER =
+  /^\s*(?:[:(]\s*)?(?:descartad[oa]s?|negativ[oa]s?|negad[oa]s?|neg(?![a-z])|\(-\)|-\s|ausente|no\s*(?:[.,;)]|$))/;
 const HEDGE_CUES =
   /(?<![a-z])(?:sospecha|sospechoso|sospechosa|probable|posible|presunto|presunta|a descartar|descartar|d\/c|r\/o|impresion diagnostica de posible)(?![a-z])/g;
 const HEDGE_AFTER = /^\s*(?:\?|en estudio|a descartar|por descartar|vs\.?(?![a-z]))/;
@@ -393,6 +549,97 @@ export function isNegatedMention(text: string, start: number, end: number): bool
   return NEGATION_AFTER.test(text.slice(end, end + 24));
 }
 
+const RELATIVE = String.raw`(?:madre|padre|mama|papa|progenitora?|hermanos?|hermanas?|abuelos?|abuelas?|tios?|tias?|primos?|primas?|hijos?|hijas?|sobrinos?|sobrinas?|familiares?|familia)`;
+/** A family-history section header ("AHF:", "Antecedentes familiares:"), or the direct form ("antecedentes familiares de HTA"). */
+const FAMILY_SECTION =
+  /(?<![a-z])(?:antecedentes? (?:heredo)?familiares?|antecedentes? heredofamiliares?|historia familiar|historia clinica familiar|hx familiar|a\.? ?h\.? ?f\.?|ahf)(?![a-z])/g;
+const FAMILY_SECTION_EMPTY =
+  /^\s*(?:sin importancia|de importancia|no contributorios?|negativos?|negados?|no relevantes?|sin datos)/;
+const PERSONAL_SECTION =
+  /(?<![a-z])(?:antecedentes? personales?|personales|a\.? ?p\.? ?p\.?|app|paciente|pcte|pte|dx|idx|diagnostico|impresion|motivo de consulta|enfermedad actual|ea)(?![a-z])/g;
+const RELATIVE_BEFORE = new RegExp(String.raw`(?<![a-z])${RELATIVE}(?![a-z])`);
+const REPORTED_BY =
+  /(?<![a-z])(?:refiere|refieren|comenta|comentan|informa|dice|relata|trae|acompana|acude)(?![a-z])/;
+const RELATIVE_AFTER = new RegExp(
+  String.raw`^\s*(?:\(\s*(?:en (?:la |el |su )?)?${RELATIVE}|(?:en|de) (?:la |el |su |sus |los |las )?${RELATIVE}(?![a-z]))`,
+);
+const SEGMENT_START = /[,;(\n]|\.(?!\d)|(?<![a-z])(?:y|e|pero)(?![a-z])/g;
+
+function lastMatchIndex(pattern: RegExp, text: string): { index: number; end: number } | undefined {
+  let found: { index: number; end: number } | undefined;
+  pattern.lastIndex = 0;
+  for (const match of text.matchAll(pattern)) {
+    found = { index: match.index, end: match.index + match[0].length };
+  }
+  pattern.lastIndex = 0;
+  return found;
+}
+
+/**
+ * Whether the mention at `[start, end)` is a relative's disease, not the
+ * patient's: under a family-history header ("AHF: diabetes (madre), HTA
+ * (padre)"), in the direct form ("antecedentes familiares de HTA"), next to a
+ * relative ("madre con DM2", "padre hipertenso", "DM2 (madre)", "HTA en el
+ * padre"). A relative who only reports ("la madre refiere que...") does not count.
+ */
+export function isFamilyHistoryMention(text: string, start: number, end: number): boolean {
+  const [clauseStart] = clauseBoundsAround(text, start, end);
+  const before = text.slice(clauseStart, start);
+  const family = lastMatchIndex(FAMILY_SECTION, before);
+  if (family && !FAMILY_SECTION_EMPTY.test(before.slice(family.end))) {
+    const personal = lastMatchIndex(PERSONAL_SECTION, before);
+    if (personal === undefined || personal.index < family.index) return true;
+  }
+  const segmentStart = lastMatchIndex(SEGMENT_START, before)?.end ?? 0;
+  const segment = before.slice(segmentStart);
+  if (RELATIVE_BEFORE.test(segment) && !REPORTED_BY.test(segment)) return true;
+  return RELATIVE_AFTER.test(text.slice(end, end + 40));
+}
+
+const RISK_BEFORE =
+  /(?<![a-z])(?:riesgo (?:alto |elevado |aumentado )?(?:de|para)|alto riesgo de|predisposicion (?:a|para)|propenso a|propensa a|prevencion de|prevenir|tamizaje (?:de|para)|despistaje (?:de|para)|cribado (?:de|para)|screening (?:de|para)|pesquisa de)(?: (?:desarrollar|padecer|presentar|tener))?\s*$/;
+const PRE_PREFIX = /(?<![a-z])pre[\s-]?$/;
+const GESTATIONAL_AFTER = /^\s*(?:gestacional|del embarazo|en el embarazo)(?![a-z])/;
+const PAST_PREGNANCY =
+  /(?<![a-z])(?:embarazos? (?:previos?|anteriores?|pasados?)|(?:ultimo|primer|anterior|previo) embarazo|gestacion(?:es)? (?:previas?|anteriores?)|embarazo de su (?:primer|ultimo|anterior)|en (?:su|el) (?:embarazo|parto) (?:anterior|previo))(?![a-z])/;
+
+/** ICD-10 categories that are diabetes proper (not gestational, not prediabetes). */
+const DIABETES_CATEGORIES = new Set(['E10', 'E11', 'E13', 'E14']);
+
+/**
+ * Why the mention at `[start, end)` is not a current condition of this
+ * patient, if it is not: a relative's disease (`family_history`), a risk or
+ * screening statement ("riesgo de desarrollar diabetes"), "pre-diabetes"
+ * read as diabetes, gestational diabetes read as diabetes, or a past
+ * pregnancy read as a current one ("diabetes gestacional en embarazo
+ * previo") (`not_current`).
+ */
+export function conditionContext(
+  text: string,
+  start: number,
+  end: number,
+  category: string,
+): 'family_history' | 'not_current' | undefined {
+  if (isFamilyHistoryMention(text, start, end)) return 'family_history';
+  const [clauseStart, clauseEnd] = clauseBoundsAround(text, start, end);
+  const before = text.slice(clauseStart, start);
+  if (RISK_BEFORE.test(lastTokens(before, 5) + (before.endsWith(' ') ? ' ' : ''))) {
+    return 'not_current';
+  }
+  if (DIABETES_CATEGORIES.has(category)) {
+    if (PRE_PREFIX.test(before) || GESTATIONAL_AFTER.test(text.slice(end, end + 24))) {
+      return 'not_current';
+    }
+  }
+  if (
+    /^(?:O\d|Z3[2-9])/.test(category) &&
+    PAST_PREGNANCY.test(text.slice(clauseStart, clauseEnd))
+  ) {
+    return 'not_current';
+  }
+  return undefined;
+}
+
 /** Whether the mention is only suspected ("sospecha de hipotiroidismo", "DM2?", "astenia en estudio"). */
 export function isHedgedMention(text: string, start: number, end: number): boolean {
   const [clauseStart] = clauseBoundsAround(text, start, end);
@@ -405,7 +652,10 @@ export function isHedgedMention(text: string, start: number, end: number): boole
 // ---------------------------------------------------------------- discharge
 
 const DISCHARGE =
-  /(?<![a-z])(?:se (?:le )?(?:da|otorga|indica|decide|firma) (?:el )?(?:de )?alta|dad[oa] de alta|doy de alta|damos de alta|alta (?:medica|definitiva|terapeutica|del servicio|por mejoria|de (?:psicologia|fisioterapia|terapia|consulta|ginecologia|medicina interna|la consulta|la especialidad))|egreso del (?:programa|proceso|servicio)|cierre del proceso(?: terapeutico)?|fin del (?:proceso|tratamiento|seguimiento)(?: terapeutico)?)(?![a-z])/g;
+  /(?<![a-z])(?:se (?:le )?(?:da|otorga|indica|decide|firma) (?:el )?(?:de )?alta|dad[oa] de alta|doy de alta|damos de alta|alta (?:medica|definitiva|terapeutica|del servicio|por mejoria|de (?:psicologia|psicoterapia|fisioterapia|terapia|consulta|ginecologia|medicina interna|la consulta|la especialidad|la terapia|tratamiento))|egreso del (?:programa|proceso|servicio)|(?:se cierra|cerramos|se concluye|se finaliza|se termina|finaliza|concluye|termina) (?:el )?(?:proceso(?: terapeutico| psicoterapeutico| de psicoterapia)?|seguimiento|tratamiento (?:terapeutico|psicoterapeutico|de psicoterapia))|cierre del proceso(?: terapeutico)?|fin del (?:proceso|tratamiento|seguimiento)(?: terapeutico)?|no (?:requiere|amerita|necesita) (?:mas |nuevos |otros )?(?:controles|seguimiento|consultas|citas)(?: (?:por|en) (?:esta|la) (?:especialidad|consulta|servicio))?|sin necesidad de (?:mas |nuevos )?controles)(?![a-z])/g;
+/** "dado de alta del hospital", "alta hospitalaria": a hospital discharge, not the end of follow-up here. */
+const HOSPITAL_AFTER =
+  /^\s*(?:hospitalari[oa]|hace \d|hace (?:un|una|dos|tres|unos|unas|pocos|varios)(?![a-z])|(?:del?|en el|de la) (?:hospital|clinica|hospitalizacion|emergencia|urgencias?|uci|uti|terapia intensiva|sala|internacion|piso))(?![a-z])/;
 const DISCHARGE_CLAUSE = /^(?:plan\s*:?\s*)?alta(?:\s+(?:medica|definitiva|por mejoria))?\s*$/;
 const DISCHARGE_NEGATION =
   /(?<![a-z])(?:no|aun no|todavia no|sin|pendiente|se difiere|difiere)\s+(?:se\s+(?:le\s+)?)?$/;
@@ -415,7 +665,8 @@ export function findDischarge(text: string): { start: number; end: number } | un
   DISCHARGE.lastIndex = 0;
   for (let match = DISCHARGE.exec(text); match; match = DISCHARGE.exec(text)) {
     const before = text.slice(Math.max(0, match.index - 24), match.index);
-    if (!DISCHARGE_NEGATION.test(before)) {
+    const after = text.slice(match.index + match[0].length, match.index + match[0].length + 40);
+    if (!DISCHARGE_NEGATION.test(before) && !HOSPITAL_AFTER.test(after)) {
       DISCHARGE.lastIndex = 0;
       return { start: match.index, end: match.index + match[0].length };
     }

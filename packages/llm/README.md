@@ -12,8 +12,8 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
  ─────────────                 ────────────                                  ───────
  NoteExtractor.extract ──▶ createNoteExtractor
    (clinicId, note,          │ prepareNote: mask patient names/ids (redactTerms), neutralize
-    redactTerms)             │   delimiter-like tags, cap at 20,000 chars
-                             │ prompt note-extraction@2 (metadata and note fenced as data)
+    redactTerms)             │   delimiter-like tags, past 20,000 chars keep head + tail
+                             │ prompt note-extraction@3 (metadata and note fenced as data)
                              │ output schema: ModelExtractionSchema (zod)
                              ▼
                         createLlmGateway ── budget check (usage log, UTC month)
@@ -108,16 +108,27 @@ the real gateway, validation and post-checks.
 - **Privacy.** Only the note text, its specialty and its date go to a model. No clinic, patient or
   document ids. The patient's names, identifiers and phone numbers (`NoteExtractionInput.redactTerms`,
   filled by `packages/runtime` from the Patient resource of the Bundle) are replaced by `[REDACTADO]`
-  before the call: whole words, case and accent insensitive, each name part of 3+ letters on its own
-  (everyday words such as "Dolores" or "Luz" only inside the full name), identifiers by their digits
-  however punctuated. Quotes the model copies from the masked text are mapped back to the original
-  note. Contributor-mode Meta models (`*-contributor`, Meta may train on the data) are refused unless
-  `allowContributorMode` is set, which only the eval CLI exposes (`--allow-contributor`).
+  before the call (`masking.ts`). Matching is on tokens of the normalized note: no case, accents,
+  invisible characters (soft hyphens, zero-width spaces), compatibility forms (fullwidth) or
+  Cyrillic/Greek look-alikes, at word boundaries. Name parts next to each other ("Julio César
+  Rangel", "Pérez-Gómez", "Alta Gracia") are masked as one span; a lone part is masked only when it
+  is distinctive ("Rangel", "Gómez"). A part that is also an everyday or clinical word (months,
+  weekdays, "Alta", "Dolores", "Delgado", "HTA", any condition, plan or test term) is masked alone only
+  when capitalized right after a form of address ("Sra. Alta", "Paciente Julio"), so "se da de alta"
+  and "control el 15 de julio" reach the model intact. Identifiers are masked as whole numbers
+  however punctuated ("V-15.120.850", "15120850"); phones also in national or international format
+  ("0412-555-1234" for "+58 412 555 1234" and the reverse). Loose digit groups are never masked:
+  "TA 120/80" and "metformina 850 mg" stay. Identifiers with letters ("SECMARK-77") and emails are
+  masked as their whole token sequence. Quotes the model copies from the masked text are mapped back
+  to the original note. Contributor-mode Meta models (`*-contributor`, Meta may train on the data) are
+  refused unless `allowContributorMode` is set, which only the eval CLI exposes (`--allow-contributor`).
 - **Prompt injection.** The prompt frames the task as extraction, never advice. Every piece of host
   text is fenced as data: the note in `<clinical_note>`, the date and specialty in `<note_metadata>`,
   with an instruction to ignore instructions inside them. The specialty is reduced to its first line,
-  letters, digits, spaces, `_` and `-`, 40 characters at most. Any tag shaped like a delimiter, in any
-  case or spacing (`</CLINICAL_NOTE >`, `< /clinical-note>`), is replaced by `[etiqueta]`.
+  letters, digits, spaces, `_` and `-`, 40 characters at most. Anything a model could read as one of
+  the delimiters is replaced by `[etiqueta]`: an opening bracket (raw, fullwidth `＜` or an HTML entity
+  `&lt;` / `&#60;`) followed by "clinical" or "note", through its closing bracket, in any case or
+  spacing, with attributes, zero-width characters or look-alike letters inside, or without `>` at all.
 - **Evidence checks.** A model (hallucinating, or obeying an injected instruction) is untrusted, so an
   item survives only when the note backs it (`post-process.ts`): its quote is in the note (normalized
   match, else `quote_not_found`), has at least 2 letters or digits (4 for medications and plan items,
@@ -126,29 +137,53 @@ the real gateway, validation and post-checks.
   abbreviations: "DM2", "diabetes", "HTA", "hipertensión"...; a category missing from the table is
   never accepted from free text, add it there with a gold note), a medication quote contains the drug
   name, a plan quote contains the item's wording ("ctrl", "HbA1c", "eco", "sesión") or its timing.
-  Denied conditions ("niega HTA y diabetes", "sin antecedentes de DM2") are `negated`; measurements
-  ("Hemoglobina 10,8 g/dL", "HbA1c 7.4%") are `not_a_medication`; conditional returns ("volver si
-  fiebre", "ctrl en 1 semana solo si persisten los síntomas") are `conditional`, while "control en 1 mes
-  o antes si empeora" stays.
+  Conditions: denied ones ("niega HTA y diabetes", "sin antecedentes de DM2", checklist answers
+  "Diabetes: no", "DM: negativo", "sin DM ni HTA") are `negated`; a relative's ("madre con DM2", "AHF:
+  diabetes (madre), HTA (padre)", "antecedentes familiares de HTA") is `family_history`; a risk
+  ("riesgo de desarrollar diabetes"), gestational diabetes or "pre-diabetes" read as diabetes, and a
+  past pregnancy read as a current one ("diabetes gestacional en embarazo previo") are `not_current`.
+  When a short quote ("HTA") occurs more than once, the first occurrence about the patient backs it.
+  Measurements ("Hemoglobina 10,8 g/dL", "HbA1c 7.4%") are `not_a_medication`. Conditional returns in
+  any word order ("volver si fiebre", "ctrl en 1 semana solo si persisten los síntomas", "volver en 1
+  mes si no mejora", "si no mejora en 1 semana, reconsultar") are `conditional`, while "control en 1
+  mes o antes si empeora" stays.
+- **What a plan item is.** Decided by its quote, not by the model's word (`lab-tests.ts`, a lexicon of
+  Spanish test names and abbreviations, the English words a model writes, and LOINC codes per test).
+  A lab or imaging item keeps the model's description only when it names tests the quote names
+  ("Solicito HbA1c" backs "repeat HbA1c"), else it gets the label of the tests the quote names, or a
+  generic one; its LOINC code is kept only when well formed (check digit) and of a test the quote
+  names. A lab or imaging item whose quote has no test wording at all ("HIV-1/2 antibody", 7918-6,
+  quoted as "Control en 3 meses"), or an `other` item whose quote names no referral or procedure,
+  becomes a generic follow-up visit without code (`test_not_named` in `rejected`). Lab and imaging
+  items are deduplicated by test, follow-up visits by day.
 - **Confidence.** The model's number is self-reported: it is clamped to `MAX_ITEM_CONFIDENCE` (0.9),
   then capped by what the code checked: a suspected condition ("sospecha de", "probable", "en
   estudio") gets 0.4, below every engine threshold; a plan item whose timing is only stated elsewhere
   in the note gets 0.7; an untimed lab or imaging item that inherits the next visit gets 0.8.
 - **Dates.** The model never computes dates: it returns `{ amount, unit }` or an ISO date and
   `resolveDueAt` computes `dueAt` from `authoredAt` (calendar months, clamped at month end; explicit
-  dates before the note are rejected). The timing must be stated where the item is quoted (its
-  sentence); an interval that contradicts the one written there is `timing_mismatch` ("HIV test in 1
-  day" quoting "Control en 3 meses"). Timing stated only elsewhere in the note is kept with a lower
-  confidence; otherwise the item is untimed. Untimed lab/imaging items inherit the earliest follow-up
-  visit of the same note ("traer HbA1c al próximo control"); other untimed items are dropped. LOINC
-  codes are kept only on lab items and only when the check digit is valid.
+  dates before the note are rejected). The timing must be the one written where the item is quoted
+  (its sentence): an interval ("en 3 meses", "próximo mes", "mensual"), a day ("15/04/2026", "15 de
+  julio", year inferred) or a month ("en abril"). An interval that contradicts it is
+  `timing_mismatch` ("HIV test in 1 day" quoting "Control en 3 meses"); an explicit date that is
+  neither written there nor follows from the interval written there is `timing_unsupported`
+  ("Control en 3 meses" due 2031-01-01 or tomorrow), and so is a date written nowhere in the note.
+  Timing stated only elsewhere in the note is kept with a lower confidence; otherwise the item is
+  untimed. Untimed lab/imaging items, and those due "antes de la próxima consulta" or "al próximo
+  control", inherit the earliest follow-up visit of the same note; other untimed items are dropped.
 - **Discharge.** `discharge: { evidenceQuote } | null` in the model schema. `discharged` is set only
-  when the quote states a discharge ("se da de alta", "alta médica", "cierre del proceso"; not "IRA
-  alta" nor "no se da de alta"); a discharge counts as a plan (`hasPlan`). The engine then anchors no
-  visit cadence on that note.
-- **Long notes.** Notes are cut at `MAX_NOTE_CHARS` (20,000 UTF-16 units, `maxNoteChars` to change)
-  and the result carries the `note_truncated` warning. Quote matching is linear in the note length and
-  works on UTF-16 offsets that emoji and other astral characters cannot shift.
+  when the quote states a discharge ("se da de alta", "alta médica", "alta de psicoterapia", "se
+  cierra el proceso terapéutico", "cierre del proceso", "fin del tratamiento", "no requiere más
+  controles"); not "IRA alta", "no se da de alta", nor a past hospital discharge ("dado de alta del
+  hospital hace 5 días", "alta hospitalaria", "dado de alta hace 3 días"). A discharge counts as a
+  plan (`hasPlan`). The engine then anchors no visit cadence on that note.
+- **Long notes.** Past `MAX_NOTE_CHARS` (20,000 UTF-16 units, `maxNoteChars` to change) the model reads
+  the first 40% and the last 60% of the budget (about 8,000 + 12,000 characters, cut at whitespace),
+  with an elision marker between them, since the plan is usually at the end. The result carries the
+  `note_truncated` warning in `DetailedNoteExtraction.warnings` (also `names_masked`,
+  `tags_neutralized`): the engine and the API should show it next to the extraction, because the
+  middle of the note was not read. Quote matching is linear in the note length and works on UTF-16
+  offsets that emoji and other astral characters cannot shift.
 - **Log-safe errors.** Error messages never contain model output (a reply can quote the note): an
   invalid reply is reported as "reply is not valid JSON" or as schema paths and issue codes
   (`LlmSchemaError.summary`); refusal text is dropped. The raw reply and the full zod issues stay on
@@ -193,6 +228,17 @@ without plan (050), emoji (051) and prompt injection with fake closing tags (052
 before and after HIP-121/122 on the same 54 notes: conditions F1 72.1% → 78.9%, medications 75.3% →
 80.9%, plan items 75.7% → 92.3%, hasPlan 87.0% → 92.6%, discharge 94.4% → 98.1% (the miss is the
 injected "dado de alta" in gold-053, which only a model can see through).
+
+QA round 2 added gold-055 to 070: checklist negation ("Diabetes: no", "DM: negativo", "sin DM ni
+HTA"), family history (057, 058, 061), past gestational diabetes (059), risk of diabetes (060),
+prediabetes (061, R73.03), conditional returns in any word order (062, 063), new discharge wording
+(064 to 066), hospital discharges that are not discharges (067, 068), one lab item per named test
+(068, 069, the "Diabetes con plan" demo note) and a written date with a month name (070). Heuristic
+baseline on the 70 notes, before and after the round-2 fixes: conditions F1 70.9% → 78.8%,
+medications 82.2% → 82.2%, plan items 88.7% → 92.2%, hasPlan 91.4% → 94.3%, discharge 92.9% → 98.6%.
+The older gold notes label "perfil lipídico y creatinina" as one lab item; the extractor now returns
+one item per test (each with its own code, so each is fulfilled by its own result), which shows as
+four plan false positives on gold-003, 014, 022 and 039.
 
 Real-network smoke test, never run by `pnpm verify`:
 

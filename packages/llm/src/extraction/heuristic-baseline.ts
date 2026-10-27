@@ -1,6 +1,7 @@
 import type { PlanItemKind } from '@follow-up-engine/core';
 import type { FakeResponder } from '../providers/fake.ts';
-import { readNoteFromMessages } from './prompt.ts';
+import { namedTests } from './lab-tests.ts';
+import { readNoteDateFromMessages, readNoteFromMessages } from './prompt.ts';
 import { createQuoteIndex } from './quote.ts';
 import type {
   ModelCondition,
@@ -12,12 +13,14 @@ import type {
 import {
   NUMBER_WORDS,
   UNIT_WORDS,
+  conditionContext,
   findDischarge,
   isConditional,
   isNegatedMention,
   looksLikeMeasurement,
   parseAmount,
   segmentAround,
+  statedTiming,
 } from './signals.ts';
 
 /**
@@ -26,9 +29,13 @@ import {
  * harness an honest, offline baseline: the number a Meta model has to beat.
  * Regexes over normalized text (lowercase, no accents); quotes are taken
  * from the original note so they pass the verbatim check. It shares the
- * post-checks' reading of negation ("niega HTA"), conditional returns
- * ("volver si fiebre"), measurements ("Hemoglobina 10,8 g/dL") and
- * discharge ("se da de alta").
+ * post-checks' reading of negation ("niega HTA", "Diabetes: no"), family
+ * history ("madre con DM2"), risk and past pregnancy, conditional returns
+ * ("volver si fiebre", "volver en 1 mes si no mejora"), measurements
+ * ("Hemoglobina 10,8 g/dL"), discharge ("se da de alta", "se cierra el
+ * proceso terapeutico", not "dado de alta del hospital") and named tests
+ * (one lab item per test, "perfil lipidico y microalbuminuria antes de la
+ * proxima consulta" due with the next control).
  */
 
 interface ConditionPattern {
@@ -38,6 +45,16 @@ interface ConditionPattern {
 }
 
 const CONDITION_PATTERNS: readonly ConditionPattern[] = [
+  {
+    pattern: /\b(prediabetes|pre-diabetes|pre diabetes|prediabetic[oa])\b/,
+    icd10: 'R73.03',
+    display: 'prediabetes',
+  },
+  {
+    pattern: /\b(diabetes gestacional|dmg)\b/,
+    icd10: 'O24',
+    display: 'gestational diabetes',
+  },
   {
     pattern: /\b(dm ?2|dm tipo 2|diabetes mellitus tipo 2|diabetes tipo 2|diabetes)\b/,
     icd10: 'E11',
@@ -106,7 +123,7 @@ const NEXT_TIMING = /\b(proximo mes|proxima semana|proximo ano|mes que viene)\b/
 const KIND_PATTERNS: readonly (readonly [PlanItemKind, RegExp])[] = [
   [
     'lab',
-    /\b(hba1c|laboratorio|labs?|perfil lipidico|hemograma|tsh|t4|creatinina|glicemia|glucemia|examen de orina|uroanalisis|urocultivo|psa|ferritina|microalbuminuria|citologia)\b/,
+    /\b(hba1c|laboratorio|laboratorios|labs?|examenes|perfil lipidico|hemograma|tsh|t4|creatinina|potasio|glicemia|glucemia|examen de orina|uroanalisis|urocultivo|psa|ferritina|microalbuminuria|citologia)\b/,
   ],
   [
     'imaging',
@@ -151,6 +168,11 @@ const NOT_DRUGS = new Set([
   'peso',
 ]);
 const ABSOLUTE_DATE = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/;
+const NAMED_DATE =
+  /\b(\d{1,2}) de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b/;
+/** "antes de la proxima consulta", "al proximo control": due with the next visit. */
+const WITH_NEXT_VISIT =
+  /\b(?:antes de|para|a|al|en) (?:la |el )?prox(?:im[oa])?\.? (?:control|ctrl|cita|consulta|visita)\b/;
 
 function sentences(normalized: string): { text: string; start: number }[] {
   const out: { text: string; start: number }[] = [];
@@ -161,8 +183,11 @@ function sentences(normalized: string): { text: string; start: number }[] {
   return out;
 }
 
-/** Runs the rule-based extraction on a note. Linear in the note length. */
-export function heuristicExtraction(note: string): ModelExtraction {
+/**
+ * Runs the rule-based extraction on a note. `noteDay` (`YYYY-MM-DD`) dates
+ * a written day without a year ("el 15 de julio"). Linear in the note length.
+ */
+export function heuristicExtraction(note: string, noteDay?: string): ModelExtraction {
   const index = createQuoteIndex(note);
   const normalized = index.normalized.text;
   const quoteOf = (start: number, end: number): string => index.spanOf(start, end)?.text ?? '';
@@ -173,6 +198,7 @@ export function heuristicExtraction(note: string): ModelExtraction {
     for (const match of normalized.matchAll(global)) {
       const end = match.index + match[0].length;
       if (isNegatedMention(normalized, match.index, end)) continue;
+      if (conditionContext(normalized, match.index, end, icd10.slice(0, 3)) !== undefined) continue;
       conditions.push({
         icd10,
         display,
@@ -200,54 +226,91 @@ export function heuristicExtraction(note: string): ModelExtraction {
   }
 
   const planItems: ModelPlanItem[] = [];
+  const keyword = (kind: PlanItemKind, text: string): RegExpExecArray | null =>
+    KIND_PATTERNS.find(([k]) => k === kind)?.[1].exec(text) ?? null;
   for (const sentence of sentences(normalized)) {
     const relative = RELATIVE_TIMING.exec(sentence.text);
     const next = NEXT_TIMING.exec(sentence.text);
     const absolute = ABSOLUTE_DATE.exec(sentence.text);
-    const timingMatch = relative ?? next ?? absolute;
+    const named = noteDay === undefined ? null : NAMED_DATE.exec(sentence.text);
+    const withNextVisit = WITH_NEXT_VISIT.exec(sentence.text);
+    const timingMatch = relative ?? next ?? absolute ?? named ?? withNextVisit;
     if (!timingMatch) continue;
     const timingStart = sentence.start + timingMatch.index;
-    if (
-      isConditional(segmentAround(normalized, timingStart, timingStart + timingMatch[0].length))
-    ) {
-      continue;
-    }
-    let amount: number | null = 1;
-    let unit: TimeUnit | null = 'month';
-    let date: string | null = null;
-    if (absolute && timingMatch === absolute) {
+    const segment = segmentAround(normalized, timingStart, timingStart + timingMatch[0].length);
+    if (isConditional(segment, sentence.text)) continue;
+    let timing: ModelPlanItem['timing'] = { amount: 1, unit: 'month', date: null };
+    if (timingMatch === absolute) {
       const [, d = '', m = '', y = ''] = absolute;
-      date = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-      amount = null;
-      unit = null;
+      timing = {
+        amount: null,
+        unit: null,
+        date: `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`,
+      };
+    } else if (timingMatch === named && noteDay !== undefined) {
+      const date = statedTiming(named[0], noteDay).dates[0];
+      timing = date === undefined ? null : { amount: null, unit: null, date };
+    } else if (timingMatch === withNextVisit) {
+      timing = null;
     } else if (relative?.[1] && relative[2]) {
-      amount = parseAmount(relative[1]);
-      unit = UNIT_WORDS[relative[2]] ?? 'day';
+      timing = {
+        amount: parseAmount(relative[1]),
+        unit: UNIT_WORDS[relative[2]] ?? 'day',
+        date: null,
+      };
     } else if (next?.[1]) {
-      unit = next[1].includes('semana') ? 'week' : next[1].includes('ano') ? 'year' : 'month';
+      const unit: TimeUnit = next[1].includes('semana')
+        ? 'week'
+        : next[1].includes('ano')
+          ? 'year'
+          : 'month';
+      timing = { amount: 1, unit, date: null };
     }
+    // Quote from the item's words (or sentence start) through the timing phrase.
+    const quoteAround = (from: number, to: number): string =>
+      quoteOf(
+        sentence.start + Math.min(from, timingMatch.index),
+        sentence.start + Math.max(to, timingMatch.index + timingMatch[0].length),
+      );
+    const add = (kind: PlanItemKind, description: string, quote: string, loinc: string | null) => {
+      planItems.push({
+        kind,
+        description,
+        timing,
+        loincCode: loinc,
+        evidenceQuote: quote,
+        confidence: 0.5,
+      });
+    };
     const kinds = KIND_PATTERNS.filter(([, pattern]) => pattern.test(sentence.text)).map(
       ([kind]) => kind,
     );
-    for (const kind of kinds.length > 0 ? kinds.slice(0, 2) : (['other'] as const)) {
-      const pattern = KIND_PATTERNS.find(([k]) => k === kind)?.[1];
-      const keyword = pattern?.exec(sentence.text);
-      // Quote from the keyword (or sentence start) through the timing phrase.
-      const from = sentence.start + Math.min(keyword?.index ?? 0, timingMatch.index);
-      const to =
-        sentence.start +
-        Math.max(
-          timingMatch.index + timingMatch[0].length,
-          (keyword?.index ?? 0) + (keyword?.[0].length ?? 0),
-        );
-      planItems.push({
+    const tests = namedTests(sentence.text);
+    for (const kind of kinds.length > 0 ? kinds : (['other'] as const)) {
+      if (timing === null && kind !== 'lab' && kind !== 'imaging') continue;
+      const testsOfKind = tests.filter((test) => test.group.kind === kind);
+      if ((kind === 'lab' || kind === 'imaging') && testsOfKind.length > 0) {
+        // One item per named test ("perfil lipidico y microalbuminuria").
+        const seen = new Set<string>();
+        for (const test of testsOfKind) {
+          if (seen.has(test.group.id)) continue;
+          seen.add(test.group.id);
+          add(
+            kind,
+            test.group.label,
+            quoteAround(test.start, test.end),
+            kind === 'lab' ? (test.group.loinc[0] ?? null) : null,
+          );
+        }
+        continue;
+      }
+      const match = keyword(kind, sentence.text);
+      add(
         kind,
-        description: DESCRIPTIONS[kind],
-        timing: { amount, unit, date },
-        loincCode: null,
-        evidenceQuote: quoteOf(from, to),
-        confidence: 0.5,
-      });
+        DESCRIPTIONS[kind],
+        quoteAround(match?.index ?? 0, (match?.index ?? 0) + (match?.[0].length ?? 0)),
+        null,
+      );
     }
   }
 
@@ -268,5 +331,7 @@ export function heuristicExtraction(note: string): ModelExtraction {
 /** Fake-provider responder backed by {@link heuristicExtraction}. */
 export const heuristicResponder: FakeResponder = (request) => {
   const note = readNoteFromMessages(request.messages);
-  return note === undefined ? undefined : heuristicExtraction(note);
+  return note === undefined
+    ? undefined
+    : heuristicExtraction(note, readNoteDateFromMessages(request.messages));
 };

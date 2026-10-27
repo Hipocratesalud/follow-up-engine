@@ -59,12 +59,31 @@ export type RejectionReason =
   | 'quote_too_short'
   /** The quote does not support the item (no term linked to the ICD-10 code, no drug name, no plan wording). */
   | 'quote_unrelated'
-  /** The note denies the condition ("niega HTA"). */
+  /** The note denies the condition ("niega HTA", "Diabetes: no", "sin DM ni HTA"). */
   | 'negated'
+  /** The condition is a relative's ("madre con DM2", "AHF: HTA (padre)"). */
+  | 'family_history'
+  /**
+   * Not a current condition of the patient: a risk ("riesgo de diabetes"),
+   * gestational diabetes or prediabetes read as diabetes, a past pregnancy
+   * read as a current one.
+   */
+  | 'not_current'
   /** A conditional or as-needed return ("volver si presenta fiebre"), not scheduled follow-up. */
   | 'conditional'
   /** The model's interval disagrees with the interval stated where it quotes. */
   | 'timing_mismatch'
+  /**
+   * The model's explicit date is not written in the note, nor follows from
+   * the interval written where it quotes ("Control en 3 meses" due in 2031).
+   */
+  | 'timing_unsupported'
+  /**
+   * The quote does not name what the model said: a lab or imaging item whose
+   * quote has no test wording, an `other` item whose quote names no referral
+   * or procedure. The item is kept as a generic follow-up visit, without code.
+   */
+  | 'test_not_named'
   /** A measurement reported as a medication ("Hemoglobina 10,8 g/dL"). */
   | 'not_a_medication'
   | 'invalid_code'
@@ -96,9 +115,11 @@ export interface DetailedNoteExtraction extends NoteExtraction {
   /** Verbatim note text that discharges the patient, when `discharged`. */
   readonly dischargeEvidenceQuote?: string;
   /**
-   * What the extractor did to the note before sending it: `note_truncated`
-   * (longer than the cap; the tail was not read), `names_masked` (patient
-   * names or identifiers replaced), `tags_neutralized` (delimiter-shaped tags).
+   * What the extractor did to the note before sending it, for the engine and
+   * the API to show next to the extraction: `note_truncated` (longer than
+   * the cap: its head and its tail were read, the middle was not),
+   * `names_masked` (patient names or identifiers replaced),
+   * `tags_neutralized` (delimiter-shaped tags).
    */
   readonly warnings: readonly ExtractionWarning[];
 }

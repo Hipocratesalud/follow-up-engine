@@ -1,110 +1,110 @@
 {
   "provider": "fake",
   "model": "fake-extractor",
-  "promptVersion": "note-extraction@2",
-  "startedAt": "2026-10-27T05:44:08.599Z",
-  "dataset": "packages/testkit/fixtures/gold-notes (54 of 54 notes)",
+  "promptVersion": "note-extraction@3",
+  "startedAt": "2026-10-27T07:29:59.340Z",
+  "dataset": "packages/testkit/fixtures/gold-notes (70 of 70 notes)",
   "report": "2026-10-27-fake-fake-extractor.md",
   "summary": {
     "overall": {
-      "notes": 54,
+      "notes": 70,
       "errors": 0,
       "counts": {
         "conditions": {
-          "tp": 43,
-          "fp": 1,
-          "fn": 22
+          "tp": 52,
+          "fp": 0,
+          "fn": 28
         },
         "medications": {
-          "tp": 36,
+          "tp": 44,
           "fp": 6,
-          "fn": 11
+          "fn": 13
         },
         "planItems": {
-          "tp": 48,
-          "fp": 4,
-          "fn": 4
+          "tp": 65,
+          "fp": 8,
+          "fn": 3
         }
       },
       "scores": {
         "conditions": {
-          "precision": 0.9772727272727273,
-          "recall": 0.6615384615384615,
-          "f1": 0.7889908256880733
+          "precision": 1,
+          "recall": 0.65,
+          "f1": 0.787878787878788
         },
         "medications": {
-          "precision": 0.8571428571428571,
-          "recall": 0.7659574468085106,
-          "f1": 0.8089887640449439
+          "precision": 0.88,
+          "recall": 0.7719298245614035,
+          "f1": 0.822429906542056
         },
         "planItems": {
-          "precision": 0.9230769230769231,
-          "recall": 0.9230769230769231,
-          "f1": 0.9230769230769231
+          "precision": 0.8904109589041096,
+          "recall": 0.9558823529411765,
+          "f1": 0.9219858156028369
         }
       },
-      "hasPlanAccuracy": 0.9259259259259259,
-      "dischargeAccuracy": 0.9814814814814815,
+      "hasPlanAccuracy": 0.9428571428571428,
+      "dischargeAccuracy": 0.9857142857142858,
       "hallucinatedQuoteRate": 0,
-      "modelItems": 149,
+      "modelItems": 189,
       "quoteRejected": 0,
       "evidenceRejected": 0
     },
     "bySpecialty": [
       {
         "specialty": "diabetology",
-        "notes": 13,
+        "notes": 17,
         "errors": 0,
         "counts": {
           "conditions": {
-            "tp": 21,
-            "fp": 1,
-            "fn": 1
+            "tp": 27,
+            "fp": 0,
+            "fn": 0
           },
           "medications": {
-            "tp": 17,
+            "tp": 20,
             "fp": 2,
-            "fn": 5
+            "fn": 6
           },
           "planItems": {
-            "tp": 16,
-            "fp": 0,
-            "fn": 1
+            "tp": 25,
+            "fp": 1,
+            "fn": 0
           }
         },
         "scores": {
           "conditions": {
-            "precision": 0.9545454545454546,
-            "recall": 0.9545454545454546,
-            "f1": 0.9545454545454546
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
           },
           "medications": {
-            "precision": 0.8947368421052632,
-            "recall": 0.7727272727272727,
-            "f1": 0.8292682926829269
+            "precision": 0.9090909090909091,
+            "recall": 0.7692307692307693,
+            "f1": 0.8333333333333333
           },
           "planItems": {
-            "precision": 1,
-            "recall": 0.9411764705882353,
-            "f1": 0.9696969696969697
+            "precision": 0.9615384615384616,
+            "recall": 1,
+            "f1": 0.9803921568627451
           }
         },
-        "hasPlanAccuracy": 0.9230769230769231,
+        "hasPlanAccuracy": 0.9411764705882353,
         "dischargeAccuracy": 1,
         "hallucinatedQuoteRate": 0,
-        "modelItems": 61,
+        "modelItems": 79,
         "quoteRejected": 0,
         "evidenceRejected": 0
       },
       {
         "specialty": "gynecology",
-        "notes": 13,
+        "notes": 14,
         "errors": 0,
         "counts": {
           "conditions": {
             "tp": 3,
             "fp": 0,
-            "fn": 11
+            "fn": 12
           },
           "medications": {
             "tp": 2,
@@ -112,16 +112,16 @@
             "fn": 4
           },
           "planItems": {
-            "tp": 11,
-            "fp": 1,
+            "tp": 13,
+            "fp": 2,
             "fn": 2
           }
         },
         "scores": {
           "conditions": {
             "precision": 1,
-            "recall": 0.21428571428571427,
-            "f1": 0.35294117647058826
+            "recall": 0.2,
+            "f1": 0.33333333333333337
           },
           "medications": {
             "precision": 0.5,
@@ -129,66 +129,66 @@
             "f1": 0.4
           },
           "planItems": {
-            "precision": 0.9166666666666666,
-            "recall": 0.8461538461538461,
-            "f1": 0.8799999999999999
+            "precision": 0.8666666666666667,
+            "recall": 0.8666666666666667,
+            "f1": 0.8666666666666667
           }
         },
-        "hasPlanAccuracy": 0.8461538461538461,
+        "hasPlanAccuracy": 0.8571428571428571,
         "dischargeAccuracy": 1,
         "hallucinatedQuoteRate": 0,
-        "modelItems": 20,
+        "modelItems": 23,
         "quoteRejected": 0,
         "evidenceRejected": 0
       },
       {
         "specialty": "internal_medicine",
-        "notes": 15,
+        "notes": 24,
         "errors": 0,
         "counts": {
           "conditions": {
-            "tp": 14,
+            "tp": 17,
             "fp": 0,
-            "fn": 6
+            "fn": 12
           },
           "medications": {
-            "tp": 16,
+            "tp": 21,
             "fp": 2,
-            "fn": 2
+            "fn": 3
           },
           "planItems": {
-            "tp": 12,
-            "fp": 2,
+            "tp": 18,
+            "fp": 4,
             "fn": 0
           }
         },
         "scores": {
           "conditions": {
             "precision": 1,
-            "recall": 0.7,
-            "f1": 0.8235294117647058
+            "recall": 0.5862068965517241,
+            "f1": 0.7391304347826086
           },
           "medications": {
-            "precision": 0.8888888888888888,
-            "recall": 0.8888888888888888,
-            "f1": 0.8888888888888888
+            "precision": 0.9130434782608695,
+            "recall": 0.875,
+            "f1": 0.8936170212765957
           },
           "planItems": {
-            "precision": 0.8571428571428571,
+            "precision": 0.8181818181818182,
             "recall": 1,
-            "f1": 0.923076923076923
+            "f1": 0.9
           }
         },
-        "hasPlanAccuracy": 0.9333333333333333,
+        "hasPlanAccuracy": 0.9583333333333334,
         "dischargeAccuracy": 1,
         "hallucinatedQuoteRate": 0,
-        "modelItems": 49,
+        "modelItems": 66,
         "quoteRejected": 0,
         "evidenceRejected": 0
       },
       {
         "specialty": "psychology",
-        "notes": 13,
+        "notes": 15,
         "errors": 0,
         "counts": {
           "conditions": {
@@ -225,16 +225,16 @@
           }
         },
         "hasPlanAccuracy": 1,
-        "dischargeAccuracy": 0.9230769230769231,
+        "dischargeAccuracy": 0.9333333333333333,
         "hallucinatedQuoteRate": 0,
-        "modelItems": 19,
+        "modelItems": 21,
         "quoteRejected": 0,
         "evidenceRejected": 0
       }
     ],
     "tokens": {
-      "inputPerNote": 1302.2222222222222,
-      "outputPerNote": 105.72222222222223
+      "inputPerNote": 1715.2428571428572,
+      "outputPerNote": 105.67142857142858
     },
     "cost": {
       "totalUsd": 0,
@@ -242,7 +242,7 @@
     },
     "latencyMs": {
       "p50": 0,
-      "p95": 6
+      "p95": 10
     }
   }
 }
