@@ -1,5 +1,6 @@
 import type { FollowUpCase } from '../../domain/case.ts';
 import type {
+  AllergyRecordedEvent,
   AppointmentBookedEvent,
   ClinicalEvent,
   ConditionRecordedEvent,
@@ -117,6 +118,16 @@ export function condition(offset: number, code: string, display: string): Condit
     type: 'condition.recorded',
     code: { system: ICD10_SYSTEM, code, display },
     verification: 'confirmed',
+  };
+}
+
+/** An AllergyIntolerance (SNOMED CT): a substance, or "no known allergy" (716186003). */
+export function allergy(offset: number, snomed: string, display: string): AllergyRecordedEvent {
+  return {
+    ...base('allergy.recorded', day(offset), 'AllergyIntolerance'),
+    type: 'allergy.recorded',
+    code: { system: 'http://snomed.info/sct', code: snomed, display },
+    noKnownAllergy: snomed === '716186003',
   };
 }
 

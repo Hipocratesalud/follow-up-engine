@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type {
   ClinicalEvent,
   ConditionRecordedEvent,
+  EncounterFinishedEvent,
   MedicationPrescribedEvent,
+  NoteReceivedEvent,
   ResultReceivedEvent,
 } from '../../domain/clinical-event.ts';
 import { clinicId, patientId } from '../../domain/ids.ts';
@@ -73,6 +75,35 @@ function prescription(
     ...(dosageText === undefined ? {} : { dosageText }),
     ...(encounterId === undefined ? {} : { encounterId }),
   };
+}
+
+function consultation(
+  id: string,
+  at: string,
+  noteText: string,
+): [EncounterFinishedEvent, NoteReceivedEvent] {
+  return [
+    {
+      ...base,
+      type: 'encounter.finished',
+      source: { resourceType: 'Encounter', id },
+      encounterId: id,
+      occurredAt: day(at),
+      idempotencyKey: `Encounter/${id}/1#encounter.finished`,
+      specialty: 'internal_medicine',
+    },
+    {
+      ...base,
+      type: 'note.received',
+      source: { resourceType: 'DocumentReference', id: `${id}-note` },
+      encounterId: id,
+      occurredAt: day(at),
+      idempotencyKey: `DocumentReference/${id}-note/1#note.received`,
+      documentId: `${id}-note`,
+      text: noteText,
+      authoredAt: day(at),
+    },
+  ];
 }
 
 describe('gestational age', () => {
@@ -212,6 +243,7 @@ describe('treatment changes', () => {
   it('finds the start, ignores a renewal at the same dose, and finds a dose change', () => {
     const changes = treatmentChanges(
       [
+        ...consultation('enc-0', '2025-12-01', 'Primera consulta.'),
         prescription('Sertralina 50 mg', '2026-01-05', '1 tab VO OD'),
         prescription('Sertralina 50 mg', '2026-02-05', '1 tab VO OD'),
         prescription('Sertralina 100 mg', '2026-03-05', '1 tab VO OD'),
@@ -230,12 +262,107 @@ describe('treatment changes', () => {
   it('counts a switch to another antidepressant as a start', () => {
     const changes = treatmentChanges(
       [
+        ...consultation('enc-0', '2025-12-01', 'Primera consulta.'),
         prescription('Sertralina 50 mg', '2026-01-05'),
         prescription('Escitalopram 10 mg', '2026-02-05'),
       ],
       antidepressants,
     );
     expect(changes.map((change) => change.kind)).toEqual(['started', 'started']);
+  });
+});
+
+describe('treatment starts in a record seen for the first time (HIP-139)', () => {
+  const statins = { atc: ['C10'] };
+  const atorvastatin = (at: string, encounterId?: string) =>
+    prescription('Atorvastatina 20 mg', at, '1 tab VO HS', encounterId);
+  const kinds = (changes: ReturnType<typeof treatmentChanges>) =>
+    changes.map((change) => [change.kind, change.event.occurredAt.toISOString().slice(0, 10)]);
+
+  it('a drug prescribed at the first consultation the record has is already in course, not a start', () => {
+    const events = [
+      ...consultation('enc-1', '2024-03-14', 'DM2 y dislipidemia. Plan: continuar tratamiento.'),
+      atorvastatin('2024-03-14', 'enc-1'),
+      ...consultation('enc-2', '2024-06-12', 'Control. En tto con atorvastatina 20 mg.'),
+      atorvastatin('2024-06-12', 'enc-2'),
+    ];
+    expect(treatmentChanges(events, statins)).toEqual([]);
+  });
+
+  it('the note of the first consultation says it starts ("se inicia"): a start', () => {
+    for (const text of [
+      'Plan: dieta. Se inicia atorvastatina 20 mg, 1 tab VO HS.',
+      'Se indica atorvastatina 20 mg VO HS.',
+      'Started atorvastatin. Lipid panel in 8 weeks.',
+    ]) {
+      const events = [
+        ...consultation('enc-1', '2024-10-07', text),
+        atorvastatin('2024-10-07', 'enc-1'),
+      ];
+      expect(kinds(treatmentChanges(events, statins)), text).toEqual([['started', '2024-10-07']]);
+    }
+  });
+
+  it('a start phrase about another drug, or a continuation, does not make it a start', () => {
+    const events = [
+      ...consultation(
+        'enc-1',
+        '2024-03-14',
+        'Continuar atorvastatina 20 mg. Se inicia metformina 850 mg c/12h.',
+      ),
+      atorvastatin('2024-03-14', 'enc-1'),
+    ];
+    expect(treatmentChanges(events, statins)).toEqual([]);
+  });
+
+  it('a drug first prescribed after earlier consultations is a start, unless the note says it is in course', () => {
+    const earlier = consultation('enc-0', '2024-01-10', 'Primera consulta. HTA.');
+    expect(
+      kinds(
+        treatmentChanges(
+          [
+            ...earlier,
+            ...consultation('enc-1', '2024-04-02', 'Control.'),
+            atorvastatin('2024-04-02', 'enc-1'),
+          ],
+          statins,
+        ),
+      ),
+    ).toEqual([['started', '2024-04-02']]);
+    expect(
+      treatmentChanges(
+        [
+          ...earlier,
+          ...consultation('enc-1', '2024-04-02', 'Toma losartan 50 mg y atorvastatina 20 mg.'),
+          atorvastatin('2024-04-02', 'enc-1'),
+        ],
+        statins,
+      ),
+    ).toEqual([]);
+  });
+
+  it('a dose change of a drug already in course is still a change', () => {
+    const events = [
+      ...consultation('enc-1', '2024-02-19', 'En tto con levotiroxina 50 mcg. Continuar.'),
+      prescription('Levotiroxina 50 mcg', '2024-02-19', '1 tab VO en ayunas', 'enc-1'),
+      ...consultation('enc-2', '2025-09-12', 'Se ajusta levotiroxina a 75 mcg/día.'),
+      prescription('Levotiroxina 75 mcg', '2025-09-12', '1 tab VO en ayunas', 'enc-2'),
+    ];
+    expect(kinds(treatmentChanges(events, { atc: ['H03AA'] }))).toEqual([
+      ['dose_changed', '2025-09-12'],
+    ]);
+  });
+
+  it('after `since` (an episode closed by a discharge), the first prescription starts again', () => {
+    const events = [
+      ...consultation('enc-1', '2024-01-10', 'Se inicia sertralina 50 mg.'),
+      prescription('Sertralina 50 mg', '2024-01-10', '1 tab VO OD', 'enc-1'),
+      ...consultation('enc-2', '2024-09-10', 'Recaida. Sertralina 50 mg.'),
+      prescription('Sertralina 50 mg', '2024-09-10', '1 tab VO OD', 'enc-2'),
+    ];
+    expect(kinds(treatmentChanges(events, { atc: ['N06A'] }, day('2024-06-01')))).toEqual([
+      ['started', '2024-09-10'],
+    ]);
   });
 });
 

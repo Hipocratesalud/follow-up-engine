@@ -17,6 +17,7 @@ import { foldText } from '../support/text.ts';
 import { latestAppointmentVersions, refKey, withoutWithdrawnRecords } from '../timeline.ts';
 import type { CitationKind } from '../../domain/clinical-finding.ts';
 import type { ReviewInput, SignalView, TrendView } from '../../ports/clinical-review-agent.ts';
+import type { RecordCapability } from '../../ports/clinic-directory.ts';
 import {
   BLOOD_PRESSURE_PANEL_LOINC,
   LOINC,
@@ -73,6 +74,18 @@ export interface PatientRecordSnapshot {
    */
   readonly expectationTestCodes?: ReadonlyMap<string, ReadonlySet<string>>;
   readonly activeCases: readonly FollowUpCase[];
+  /**
+   * What the clinic's host sends in full (`ClinicSettings.recordCapabilities`):
+   * only then is a missing allergy status a finding. Absent: nothing assumed.
+   */
+  readonly recordCapabilities?: readonly RecordCapability[];
+  /**
+   * The patient's fulfilled expectations: which past visits a doctor's
+   * plan or a protocol asked for (a prenatal control, the control after a
+   * dose change), so they are not read as a change in how often the
+   * patient comes. Absent: every visit counts as unplanned.
+   */
+  readonly fulfilledExpectations?: readonly Expectation[];
   /** Components of panel Observations (systolic and diastolic of a BP panel), by `Observation/<id>`. */
   readonly components?: ReadonlyMap<string, readonly ObservationComponent[]>;
 }
@@ -134,6 +147,11 @@ export interface ReviewDossier {
   readonly conditions: readonly ConditionEntry[];
   readonly conditionCodes: readonly string[];
   readonly encounters: readonly EncounterFinishedEvent[];
+  /**
+   * Visits a doctor's plan or a protocol asked for, by `Encounter/<id>`:
+   * the visit or booking that fulfilled a visit expectation of those layers.
+   */
+  readonly expectedVisits: ReadonlyMap<string, Expectation>;
   readonly orders: readonly ServiceRequestCreatedEvent[];
   readonly upcomingAppointmentAt?: Date;
   readonly ageYears?: number;
@@ -401,6 +419,7 @@ export function buildDossier(
   const orders = events.filter(
     (event): event is ServiceRequestCreatedEvent => event.type === 'service_request.created',
   );
+  const expectedVisits = visitsAskedFor(snapshot.fulfilledExpectations ?? [], events, encounters);
   const upcoming = latestAppointmentVersions(snapshot.events)
     .filter((event) => event.type === 'appointment.booked')
     .map((event) => event.scheduledFor)
@@ -434,6 +453,7 @@ export function buildDossier(
     conditions,
     conditionCodes: conditions.map((condition) => condition.code),
     encounters,
+    expectedVisits,
     orders,
     ...(upcoming === undefined ? {} : { upcomingAppointmentAt: upcoming }),
     ...(ageYears === undefined ? {} : { ageYears }),
@@ -444,6 +464,59 @@ export function buildDossier(
     specialties,
     handleOf: (source) => handles.get(refKey(source)),
   };
+}
+
+/** Layers whose visit expectations are asked for explicitly: the doctor's plan and the protocols. */
+const PLANNED_LAYERS: ReadonlySet<Expectation['layer']> = new Set(['doctor_plan', 'protocol']);
+const VISIT_MATCH_KEYS: ReadonlySet<string> = new Set(['visit', 'session']);
+
+/**
+ * The visits a fulfilled doctor's-plan or protocol visit expectation asked
+ * for, by `Encounter/<id>`: the encounter that fulfilled it, or the visit
+ * that kept the booking that did (the visit on the booked day, or the day
+ * after).
+ */
+function visitsAskedFor(
+  fulfilled: readonly Expectation[],
+  events: readonly ClinicalEvent[],
+  encounters: readonly EncounterFinishedEvent[],
+): Map<string, Expectation> {
+  const asked = new Map<string, Expectation>();
+  for (const expectation of fulfilled) {
+    const by = expectation.closedBy;
+    if (
+      expectation.status !== 'fulfilled' ||
+      by === undefined ||
+      !PLANNED_LAYERS.has(expectation.layer) ||
+      !VISIT_MATCH_KEYS.has(expectation.matchKey)
+    ) {
+      continue;
+    }
+    if (by.resourceType === 'Encounter') {
+      asked.set(refKey(by), expectation);
+      continue;
+    }
+    const booking = events.find(
+      (event) => event.type === 'appointment.booked' && refKey(event.source) === refKey(by),
+    );
+    if (booking?.type !== 'appointment.booked') {
+      continue;
+    }
+    const day = Date.UTC(
+      booking.scheduledFor.getUTCFullYear(),
+      booking.scheduledFor.getUTCMonth(),
+      booking.scheduledFor.getUTCDate(),
+    );
+    const kept = encounters.find(
+      (encounter) =>
+        encounter.occurredAt.getTime() >= day &&
+        encounter.occurredAt.getTime() < day + 2 * MS_PER_DAY,
+    );
+    if (kept !== undefined) {
+      asked.set(refKey(kept.source), expectation);
+    }
+  }
+  return asked;
 }
 
 function trendView(trend: TrendSummary): TrendView {

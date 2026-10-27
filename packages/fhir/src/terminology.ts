@@ -168,12 +168,25 @@ export const TERMINOLOGY = {
   conditionVerification: 'http://terminology.hl7.org/CodeSystem/condition-ver-status',
   conditionClinical: 'http://terminology.hl7.org/CodeSystem/condition-clinical',
   conditionCategory: 'http://terminology.hl7.org/CodeSystem/condition-category',
+  allergyVerification: 'http://terminology.hl7.org/CodeSystem/allergyintolerance-verification',
+  allergyClinical: 'http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical',
   participationType: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
   provenanceParticipantType: 'http://terminology.hl7.org/CodeSystem/provenance-participant-type',
   consentScope: 'http://terminology.hl7.org/CodeSystem/consentscope',
   participationMode: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationMode',
   ucum: 'http://unitsofmeasure.org',
 } as const;
+
+/**
+ * SNOMED CT concepts that record the absence of allergies ("no known
+ * allergy", "no known drug allergy", ...): an allergy status, not a substance.
+ */
+export const SNOMED_NO_KNOWN_ALLERGY: ReadonlySet<string> = new Set([
+  '716186003', // No known allergy
+  '409137002', // No known drug allergy
+  '428607008', // No known environmental allergy
+  '429625007', // No known food allergy
+]);
 
 /** SNOMED CT codes that classify a `ServiceRequest.category`. */
 export const SNOMED_SERVICE_CATEGORY = {

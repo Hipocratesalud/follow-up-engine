@@ -224,6 +224,9 @@ export const ES = {
     // ended, never how (delivery or loss).
     protocol_closed: 'El protocolo terminó: se registró el fin del embarazo',
     rescheduled_by_protocol: 'Reprogramado: el protocolo pide el mismo control antes',
+    // A treatment protocol whose patient has no active prescription left (HIP-139).
+    // Neutral: never names the drug or the condition.
+    treatment_ended: 'Terminó el tratamiento que lo motivaba',
   },
   escalationSteps: {
     notify_clinic: 'Aviso al responsable',

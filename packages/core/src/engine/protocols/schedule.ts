@@ -98,9 +98,11 @@ function treatmentChangeSchedule(
   input: ScheduleInput,
   episode: ActiveEpisode,
 ): ScheduledItem {
-  const fulfilled = fulfillingEvents(input.definition, input.timeline);
+  const fulfilled = fulfillingEvents(input.definition, input.timeline, episode.since);
   const last = fulfilled.at(-1);
-  const change = treatmentChanges(input.timeline.events, schedule.medications).at(-1);
+  const change = treatmentChanges(input.timeline.events, schedule.medications, episode.since).at(
+    -1,
+  );
   if (change === undefined) {
     return fromLast(last, episode, input.now, schedule.everyDays);
   }

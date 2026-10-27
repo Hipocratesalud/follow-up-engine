@@ -209,6 +209,9 @@ export async function createRuntime(
     // Findings are written in the clinic's language (ClinicSettings.locale), English by default.
     localeOf: async (clinicId) =>
       reviewLocaleOf((await storage.clinics.get(clinicId))?.settings.locale),
+    // What the host sends in full: a missing allergy status is a finding only then.
+    recordCapabilitiesOf: async (clinicId) =>
+      (await storage.clinics.get(clinicId))?.settings.recordCapabilities ?? [],
   });
 
   const { url: webhookUrl, secret: webhookSecret } = config.webhooks;
@@ -380,6 +383,8 @@ export async function registerDemoClinic(
       // reasons carry the draft badge). A real clinic enables a draft only
       // once its clinical team validated it.
       enabledProtocols: [...availableProtocolIds()],
+      // The synthetic host sends every patient's AllergyIntolerance list.
+      recordCapabilities: ['allergies'],
       // Nightly reconciliation of what changed, no weekly full sweep: the fake
       // clock crosses a week in seconds (a full sweep stays a CLI command).
       reconciliation: { fullSweepWeekday: null },

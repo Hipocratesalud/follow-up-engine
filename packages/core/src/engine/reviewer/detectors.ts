@@ -1,4 +1,6 @@
+import type { EncounterFinishedEvent } from '../../domain/clinical-event.ts';
 import type { FindingCategory, FindingSeverity } from '../../domain/clinical-finding.ts';
+import type { Expectation } from '../../domain/expectation.ts';
 import type { SignalTopic, SignalView } from '../../ports/clinical-review-agent.ts';
 import type { CitableDocument, MedicationEntry, NoteDocument, ReviewDossier } from './dossier.ts';
 import { isoDay } from './dossier.ts';
@@ -25,6 +27,7 @@ import {
   sentenceBounds,
 } from './text.ts';
 import { ckdEpi2021, formatValue, type TrendSummary } from './trends.ts';
+import { refKey, withoutWithdrawnRecords } from '../timeline.ts';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -505,12 +508,26 @@ function missingScreenings(dossier: ReviewDossier): SignalDraft[] {
 
 // Record quality -----------------------------------------------------------------------------
 
+/**
+ * Whether the record states the patient's allergy status: an
+ * AllergyIntolerance (a substance, or "no known allergy"), or a note that
+ * mentions it ("alergias: niega").
+ */
+function allergyStatusRecorded(dossier: ReviewDossier): boolean {
+  return (
+    withoutWithdrawnRecords(dossier.snapshot.events).some(
+      (event) => event.type === 'allergy.recorded',
+    ) || dossier.notes.some((note) => findTerms(foldWithMap(note.text), ALLERGY_TERMS).length > 0)
+  );
+}
+
 function recordQuality(dossier: ReviewDossier): SignalDraft[] {
   const signals: SignalDraft[] = [];
   const active = dossier.medications.filter((medication) => medication.active);
-  const allergiesRecorded = dossier.notes.some(
-    (note) => findTerms(foldWithMap(note.text), ALLERGY_TERMS).length > 0,
-  );
+  // Only a host that sends every patient's allergy list makes a missing one mean something.
+  const allergiesRecorded =
+    dossier.snapshot.recordCapabilities?.includes('allergies') !== true ||
+    allergyStatusRecorded(dossier);
   const latestMedication = [...active]
     .sort((left, right) => left.lastPrescribedAt.getTime() - right.lastPrescribedAt.getTime())
     .at(-1);
@@ -562,19 +579,62 @@ function recordQuality(dossier: ReviewDossier): SignalDraft[] {
 
 // Utilization ----------------------------------------------------------------------------------
 
-function utilizationChange(dossier: ReviewDossier): SignalDraft[] {
+/** The last 90 days against the year before, counting only visits no plan or protocol asked for. */
+export interface UtilizationWindow {
+  /** Every visit of the last 90 days. */
+  readonly recent: readonly EncounterFinishedEvent[];
+  /** The visits of the last 90 days no doctor's plan or protocol asked for. */
+  readonly unplanned: readonly EncounterFinishedEvent[];
+  /** Unplanned visits per quarter in the year before (0.5 at least). */
+  readonly baselinePerQuarter: number;
+  /** The expectations that asked for the other visits of the last 90 days. */
+  readonly explainedBy: readonly Expectation[];
+  /** Unplanned visits far above the patient's own pattern. */
+  readonly frequent: boolean;
+}
+
+export function utilizationWindow(dossier: ReviewDossier): UtilizationWindow {
   const windowStart = daysAgo(dossier, 90);
   const baselineStart = daysAgo(dossier, 90 + 365);
+  const planned = (encounter: EncounterFinishedEvent): boolean =>
+    dossier.expectedVisits.has(refKey(encounter.source));
   const recent = dossier.encounters.filter(
     (encounter) => encounter.occurredAt.getTime() >= windowStart,
   );
+  const unplanned = recent.filter((encounter) => !planned(encounter));
   const baseline = dossier.encounters.filter(
     (encounter) =>
       encounter.occurredAt.getTime() >= baselineStart &&
-      encounter.occurredAt.getTime() < windowStart,
+      encounter.occurredAt.getTime() < windowStart &&
+      !planned(encounter),
   );
   const baselinePerQuarter = Math.max(baseline.length / 4, 0.5);
-  if (recent.length < 4 || recent.length < 3 * baselinePerQuarter) return [];
+  const explainedBy = [
+    ...new Set(
+      recent.flatMap((encounter) => {
+        const expectation = dossier.expectedVisits.get(refKey(encounter.source));
+        return expectation === undefined ? [] : [expectation];
+      }),
+    ),
+  ];
+  return {
+    recent,
+    unplanned,
+    baselinePerQuarter,
+    explainedBy,
+    frequent: unplanned.length >= 4 && unplanned.length >= 3 * baselinePerQuarter,
+  };
+}
+
+/**
+ * Far more visits than the patient's own pattern. Visits a doctor's plan
+ * or a protocol asked for (weekly prenatal controls near term, the control
+ * after a dose change) are discounted first: they are the plan working.
+ */
+function utilizationChange(dossier: ReviewDossier): SignalDraft[] {
+  const window = utilizationWindow(dossier);
+  if (!window.frequent) return [];
+  const windowStart = daysAgo(dossier, 90);
   const notes = dossier.notes
     .filter((note) => note.occurredAt.getTime() >= windowStart)
     .slice(-3)
@@ -585,7 +645,10 @@ function utilizationChange(dossier: ReviewDossier): SignalDraft[] {
     {
       category: 'utilization_change',
       severity: 'medium',
-      ...dossier.copy.utilization(recent.length, Math.round(baselinePerQuarter * 10) / 10),
+      ...dossier.copy.utilization(
+        window.unplanned.length,
+        Math.round(window.baselinePerQuarter * 10) / 10,
+      ),
       evidence: notes,
       rule: 'utilization:frequent_visits',
     },

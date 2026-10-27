@@ -26,6 +26,7 @@ export type Medication = fhir4.Medication;
 export type DiagnosticReport = fhir4.DiagnosticReport;
 export type Observation = fhir4.Observation;
 export type Condition = fhir4.Condition;
+export type AllergyIntolerance = fhir4.AllergyIntolerance;
 export type DocumentReference = fhir4.DocumentReference;
 export type Composition = fhir4.Composition;
 export type Consent = fhir4.Consent;

@@ -221,6 +221,9 @@ export const EN = {
     // ended, never how (delivery or loss).
     protocol_closed: 'The protocol ended: the end of the pregnancy was recorded',
     rescheduled_by_protocol: 'Rescheduled: the protocol asks for the same check-up sooner',
+    // A treatment protocol whose patient has no active prescription left (HIP-139).
+    // Neutral: never names the drug or the condition.
+    treatment_ended: 'The treatment it followed ended',
   },
   escalationSteps: {
     notify_clinic: 'Notice to the owner',

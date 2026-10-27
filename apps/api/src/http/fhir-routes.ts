@@ -56,6 +56,7 @@ const WRITABLE_TYPES = new Set([
   'DiagnosticReport',
   'Observation',
   'Condition',
+  'AllergyIntolerance',
   'DocumentReference',
   'Composition',
   'Consent',
