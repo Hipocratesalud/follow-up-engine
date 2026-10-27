@@ -407,8 +407,18 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
     expect(missingReason.status).toBe(422);
     expect(missingReason.body.error).toMatchObject({
       code: 'invalid_request',
-      fields: [{ path: 'reason', message: expect.stringMatching(/motivo/) as unknown }],
+      fields: [{ path: 'reason', message: expect.stringMatching(/reason/) as unknown }],
     });
+    // The inbox user's language decides (HIP-138).
+    const missingReasonEs = await call<{
+      error: { code: string; fields: { path: string; message: string }[] };
+    }>(`/api/inbox/cases/${planCase}/feedback`, {
+      body: { useful: false },
+      headers: { 'accept-language': 'es' },
+    });
+    expect(missingReasonEs.body.error.fields).toEqual([
+      { path: 'reason', message: expect.stringMatching(/motivo/) as unknown },
+    ]);
     const feedback = await call<CaseDetail>(`/api/inbox/cases/${planCase}/feedback`, {
       body: { useful: false, reason: 'already_handled', comment: 'Ya tenía cita' },
     });
