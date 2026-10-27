@@ -19,6 +19,7 @@ export const CLINICAL_EVENT_TYPES = [
   'plan.extracted',
   'patient.opted_out',
   'record.withdrawn',
+  'allergy.recorded',
 ] as const;
 
 export type ClinicalEventType = (typeof CLINICAL_EVENT_TYPES)[number];
@@ -149,6 +150,24 @@ export interface ConditionRecordedEvent extends ClinicalEventBase {
   readonly evidence?: Evidence;
 }
 
+/**
+ * The patient's allergy status was recorded (FHIR `AllergyIntolerance`): an
+ * allergy or intolerance to a substance, or an explicit "no known allergy".
+ * Nothing is expected from it; the clinical reviewer reads it (an allergy
+ * status on record).
+ */
+export interface AllergyRecordedEvent extends ClinicalEventBase {
+  readonly type: 'allergy.recorded';
+  /** The substance, or a "no known allergy" concept (SNOMED CT 716186003), when coded. */
+  readonly code?: Coding;
+  /** The host's label (`AllergyIntolerance.code.text`, else the coding's display). */
+  readonly text?: string;
+  /** The record says the patient has no known allergy (of any kind, or to drugs). */
+  readonly noKnownAllergy: boolean;
+  readonly category?: readonly ('food' | 'medication' | 'environment' | 'biologic')[];
+  readonly criticality?: 'low' | 'high' | 'unable-to-assess';
+}
+
 /** A clinical note arrived (FHIR `DocumentReference`). */
 export interface NoteReceivedEvent extends ClinicalEventBase {
   readonly type: 'note.received';
@@ -239,6 +258,7 @@ export const RETRACTING_WITHDRAWAL_REASONS: ReadonlySet<RecordWithdrawalReason> 
 
 /** A normalized clinical fact. Discriminated by `type`. */
 export type ClinicalEvent =
+  | AllergyRecordedEvent
   | EncounterFinishedEvent
   | AppointmentBookedEvent
   | AppointmentCancelledEvent

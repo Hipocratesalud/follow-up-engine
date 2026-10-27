@@ -70,6 +70,7 @@ export function decodeClinicalEvent(payload: Stored<ClinicalEvent>): ClinicalEve
     case 'condition.recorded':
     case 'patient.opted_out':
     case 'record.withdrawn':
+    case 'allergy.recorded':
       return { ...event, occurredAt };
     case 'appointment.booked':
     case 'appointment.cancelled':

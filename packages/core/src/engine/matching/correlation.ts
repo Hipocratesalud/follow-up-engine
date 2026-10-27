@@ -112,6 +112,7 @@ export function codeOfEvent(event: ClinicalEvent): Coding | undefined {
     case 'service_request.created':
     case 'result.received':
     case 'condition.recorded':
+    case 'allergy.recorded':
       return event.code;
     case 'medication.prescribed':
       return event.medication.code;
@@ -408,6 +409,7 @@ export function fulfillmentReason(event: ClinicalEvent): string {
     case 'plan.extracted':
     case 'patient.opted_out':
     case 'record.withdrawn':
+    case 'allergy.recorded':
       return `fulfilled_by_${event.type.replace('.', '_')}`;
   }
 }

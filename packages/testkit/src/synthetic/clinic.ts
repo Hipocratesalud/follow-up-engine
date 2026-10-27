@@ -26,6 +26,7 @@ import {
   hypertensionNote,
   psychologyNote,
 } from './notes.ts';
+import { withAllergyStatus } from './allergies.ts';
 import { Prng } from './prng.ts';
 import { protocolPatient } from './protocol-patients.ts';
 import { PatientTimeline, type TimelineEntry } from './timeline.ts';
@@ -983,17 +984,26 @@ export function generateSyntheticClinic(seed: number = DEFAULT_SEED): SyntheticC
   let index = 1;
   for (const [specialty, pattern, count] of PATTERN_COUNTS) {
     for (let n = 0; n < count; n++) {
-      patients.push(
-        generatePatient(
-          root.fork(`patient-${String(index)}`),
-          index,
-          n,
-          specialty,
-          pattern,
-          usedNames,
-          counters,
-        ),
+      const patient = generatePatient(
+        root.fork(`patient-${String(index)}`),
+        index,
+        n,
+        specialty,
+        pattern,
+        usedNames,
+        counters,
       );
+      // The allergy status comes from a generator of its own: every other
+      // bundle of the patient stays the same (HIP-139).
+      patients.push({
+        ...patient,
+        entries: withAllergyStatus(
+          patient.patientId,
+          specialty,
+          patient.entries,
+          root.fork(`allergy-${String(index)}`),
+        ),
+      });
       index += 1;
     }
   }

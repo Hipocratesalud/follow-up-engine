@@ -1,6 +1,14 @@
 import type { ClinicId } from '../domain/ids.ts';
 
 /** Per-clinic settings that change engine behavior. */
+/**
+ * Parts of the record a host sends in full. Only then does their absence for
+ * a patient mean something (a record-quality finding); a host that never
+ * sends allergies leaves every patient without one.
+ */
+export const RECORD_CAPABILITIES = ['allergies'] as const;
+export type RecordCapability = (typeof RECORD_CAPABILITIES)[number];
+
 export interface ClinicSettings {
   readonly allowPatientContact: boolean;
   /** Backfill release cap, default 20. */
@@ -25,6 +33,12 @@ export interface ClinicSettings {
    * them (docs/protocols.md).
    */
   readonly enabledProtocols?: readonly string[];
+  /**
+   * What the host's record includes (`allergies`: every patient's
+   * AllergyIntolerance list, "no known allergy" included). Absent: nothing
+   * is assumed, and the reviewer never flags a missing allergy status.
+   */
+  readonly recordCapabilities?: readonly RecordCapability[];
 }
 
 /** A tenant of the engine. */

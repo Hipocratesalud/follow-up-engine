@@ -1,5 +1,26 @@
-import { FakeNoteExtractor, loadConfigDirectory } from '@follow-up-engine/adapter-memory';
-import { clinicId, type Expectation, patientId } from '@follow-up-engine/core';
+import {
+  FakeNoteExtractor,
+  loadConfigDirectory,
+  SequentialIdGenerator,
+} from '@follow-up-engine/adapter-memory';
+import {
+  type ClinicalFinding,
+  clinicId,
+  createClinicalReviewer,
+  type Expectation,
+  patientId,
+  shadowPilotFlags,
+} from '@follow-up-engine/core';
+import {
+  CLINICAL_REVIEW_TASK,
+  createFakeProvider,
+  createLlmGateway,
+  createReviewAgent,
+  DEFAULT_PRICING,
+  FAKE_REVIEWER_MODEL,
+  InMemoryLlmUsageLog,
+  scriptedReviewerResponder,
+} from '@follow-up-engine/llm';
 import {
   BASE_DATE,
   loadReviewerCohort,
@@ -25,7 +46,11 @@ import { POSTGRES_ENABLED, postgresTitle, useIsolatedDatabase } from '../src/pos
  *   discharge, a dropout) are not in the treatment follow-up protocol: a
  *   diagnosis alone does not enroll, and a discharge closes it;
  * - a drug already in course the first time the record sees the patient is
- *   not a start ("en tto con atorvastatina"), while "se inicia" still is.
+ *   not a start ("en tto con atorvastatina"), while "se inicia" still is;
+ * - the reviewer does not read the visits a protocol or a plan asked for (a
+ *   near-term pregnancy, the control after a dose change) as a change in
+ *   utilization, and flags a missing allergy status only for a clinic whose
+ *   host sends allergies, and only for a patient with none on record.
  */
 
 const TIMEOUT = 300_000;
@@ -63,7 +88,16 @@ const REAL_STARTS: readonly (readonly [string, string, string])[] = [
   ['pat-0142', 'pat-0142-mr01', LIPIDS],
 ];
 
+/** Seen more often because the protocol or the plan asked for it: never a utilization change. */
+const EXPECTED_VISITS = ['pat-0105', 'pat-0128', 'pat-0135'];
+/** Prescribed recently, no note names allergies: an AllergyIntolerance or none. */
+const ALLERGY_RECORDED = ['pat-0001', 'pat-0042'];
+const ALLERGY_MISSING = ['pat-0005'];
+
 const WANTED = new Set([
+  ...EXPECTED_VISITS,
+  ...ALLERGY_RECORDED,
+  ...ALLERGY_MISSING,
   ...PSYCHOTHERAPY_ONLY,
   ...ON_ANTIDEPRESSANT,
   ...ALREADY_ON_TREATMENT.map(([id]) => id),
@@ -76,8 +110,31 @@ const PATIENTS: SyntheticPatient[] = [
 
 let sequence = 0;
 
+/** The clinical reviewer as the runtime wires it, on the fake provider's scripted agent. */
+function reviewerFor(harness: EngineHarness) {
+  const gateway = createLlmGateway({
+    providers: { fake: createFakeProvider({ respond: scriptedReviewerResponder }) },
+    tasks: {
+      [CLINICAL_REVIEW_TASK]: { route: [{ provider: 'fake', model: FAKE_REVIEWER_MODEL }] },
+    },
+    usageLog: new InMemoryLlmUsageLog(),
+    pricing: DEFAULT_PRICING,
+    clock: harness.clock,
+  });
+  return createClinicalReviewer({
+    unitOfWork: harness.unitOfWork,
+    clock: harness.clock,
+    ids: new SequentialIdGenerator(),
+    agent: createReviewAgent({ gateway }),
+    loadCatalog: (id) => harness.engine.catalog(id),
+    recordCapabilitiesOf: async (id) =>
+      (await harness.clinics.get(id))?.settings.recordCapabilities ?? [],
+  });
+}
+
 function followUpsSuite(make: (options: HarnessOptions) => Promise<EngineHarness>): void {
   let expectations: readonly Expectation[] = [];
+  const findings = new Map<string, readonly ClinicalFinding[]>();
 
   beforeAll(async () => {
     sequence += 1;
@@ -85,7 +142,8 @@ function followUpsSuite(make: (options: HarnessOptions) => Promise<EngineHarness
       clinicId: clinicId(`clinic-hip139-${String(sequence)}-${String(Date.now())}`),
       start: BASE_DATE,
       extractor: new FakeNoteExtractor(),
-      settings: { enabledProtocols: ALL_PROTOCOLS },
+      // As the demo clinic: every protocol, and a host that sends allergies.
+      settings: { enabledProtocols: ALL_PROTOCOLS, recordCapabilities: ['allergies'] },
     });
     await stageHistory(harness, PATIENTS);
     const report = await harness.engine.backfill.run(harness.clinicId);
@@ -96,7 +154,22 @@ function followUpsSuite(make: (options: HarnessOptions) => Promise<EngineHarness
         PATIENTS.map((patient) => patientId(patient.patientId)),
       )
     ).expectations;
+    await harness.unitOfWork.withTransaction(harness.clinicId, async (stores) => {
+      for (const flag of shadowPilotFlags(harness.clinicId, 'pilot-lead', BASE_DATE)) {
+        await stores.findingFlags.upsert(harness.clinicId, flag);
+      }
+    });
+    const reviewer = reviewerFor(harness);
+    for (const patient of [...EXPECTED_VISITS, ...ALLERGY_RECORDED, ...ALLERGY_MISSING]) {
+      const review = await reviewer.reviewPatient(harness.clinicId, patientId(patient), 'initial');
+      findings.set(patient, review.findings);
+    }
   }, TIMEOUT);
+
+  const categories = (patient: string): string[] =>
+    (findings.get(patient) ?? []).map((finding) => finding.category);
+  const allergyFinding = (patient: string): boolean =>
+    (findings.get(patient) ?? []).some((finding) => finding.summary.includes('Allergies'));
 
   const of = (patient: string, ruleId: string): Expectation[] =>
     expectations.filter(
@@ -125,6 +198,21 @@ function followUpsSuite(make: (options: HarnessOptions) => Promise<EngineHarness
         (expectation) => expectation.source.id === prescription,
       );
       expect(anchored, `${patient} ${ruleId}`).toEqual([]);
+    }
+  });
+
+  it('visits a protocol or the plan asked for are not a utilization change', () => {
+    for (const patient of EXPECTED_VISITS) {
+      expect(categories(patient), patient).not.toContain('utilization_change');
+    }
+  });
+
+  it('a missing allergy status is flagged only for a patient with none on record', () => {
+    for (const patient of ALLERGY_RECORDED) {
+      expect(allergyFinding(patient), patient).toBe(false);
+    }
+    for (const patient of ALLERGY_MISSING) {
+      expect(allergyFinding(patient), patient).toBe(true);
     }
   });
 

@@ -38,6 +38,8 @@ function describeEvent(event: ClinicalEvent): string {
       return 'opted out';
     case 'record.withdrawn':
       return event.reason;
+    case 'allergy.recorded':
+      return event.noKnownAllergy ? 'no known allergy' : (event.code?.code ?? event.text ?? '');
   }
 }
 

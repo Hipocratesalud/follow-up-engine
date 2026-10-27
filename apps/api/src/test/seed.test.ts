@@ -29,7 +29,7 @@ describe('demo seed through the initial backfill', () => {
   }
 
   it('replays every patient and opens backfill cases, day 0 released, the rest held', () => {
-    expect(report).toMatchObject({ seeded: true, patients: 148, bundles: 2185 });
+    expect(report).toMatchObject({ seeded: true, patients: 148, bundles: 2268 });
     expect(report.documentsProcessed).toBeGreaterThan(600);
     expect(report.expectationsFulfilled).toBeGreaterThan(report.expectationsCreated / 2);
     expect(report.casesOpened).toBeGreaterThan(60);

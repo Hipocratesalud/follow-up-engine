@@ -120,11 +120,25 @@ function escapeRegExp(text: string): string {
 
 /** Where each phrase starts as whole words in a folded sentence. */
 function phrasePositions(sentence: string, phrases: readonly string[], prefix = false): number[] {
-  return phrases.flatMap((phrase) => {
+  return phrases.flatMap((phrase) =>
+    [...sentence.matchAll(phrasePattern(phrase, prefix))].map(
+      (match) => match.index + (match[1]?.length ?? 0),
+    ),
+  );
+}
+
+const PHRASE_PATTERNS = new Map<string, RegExp>();
+
+/** A phrase as whole words (or, with `prefix`, at a word start) in folded text; compiled once. */
+function phrasePattern(phrase: string, prefix: boolean): RegExp {
+  const key = `${prefix ? 'prefix' : 'word'}:${phrase}`;
+  let pattern = PHRASE_PATTERNS.get(key);
+  if (pattern === undefined) {
     const end = prefix ? '' : '($|[^\\p{L}\\p{N}])';
-    const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(foldText(phrase))}${end}`, 'gu');
-    return [...sentence.matchAll(pattern)].map((match) => match.index + (match[1]?.length ?? 0));
-  });
+    pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(foldText(phrase))}${end}`, 'gu');
+    PHRASE_PATTERNS.set(key, pattern);
+  }
+  return pattern;
 }
 
 /** Where a sentence names the prescribed drug (its name, or a name of its ATC code), or -1. */

@@ -285,7 +285,7 @@ const EN: ReviewerCopy = {
     suggestion: 'Consider coding the diagnosis (ICD-10) in the record.',
   }),
   utilization: (recent, perQuarter) => ({
-    summary: `${String(recent)} visits in the last 90 days (about ${String(perQuarter)} per quarter before)`,
+    summary: `${String(recent)} unplanned visits in the last 90 days (about ${String(perQuarter)} per quarter before)`,
     rationale:
       'The patient comes in far more often than in their own pattern of the previous year.',
     suggestion: 'Consider whether an unresolved underlying problem is behind the repeated visits.',
@@ -503,7 +503,7 @@ const ES: ReviewerCopy = {
     suggestion: 'Considera codificar el diagnóstico (CIE-10) en la historia.',
   }),
   utilization: (recent, perQuarter) => ({
-    summary: `${String(recent)} consultas en los últimos 90 días (antes, unas ${String(perQuarter)} por trimestre)`,
+    summary: `${String(recent)} consultas no programadas en los últimos 90 días (antes, unas ${String(perQuarter)} por trimestre)`,
     rationale: 'El paciente consulta mucho más seguido que en su patrón del año anterior.',
     suggestion:
       'Considera revisar si hay un problema de fondo sin resolver detrás de las consultas repetidas.',

@@ -389,6 +389,76 @@
       }
     },
     {
+      "at": "2024-03-18T16:46:00.000Z",
+      "kind": "allergy",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0064-allergy01",
+        "type": "transaction",
+        "timestamp": "2024-03-18T16:46:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:f5116083-dfcb-58e1-9238-b510d9516a4f",
+            "resource": {
+              "resourceType": "AllergyIntolerance",
+              "id": "pat-0064-al01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+                    "code": "active",
+                    "display": "Active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+                    "code": "confirmed",
+                    "display": "Confirmed"
+                  }
+                ]
+              },
+              "type": "allergy",
+              "category": ["medication"],
+              "criticality": "low",
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://snomed.info/sct",
+                    "code": "387406002",
+                    "display": "Sulfonamide"
+                  }
+                ],
+                "text": "Sulfas"
+              },
+              "patient": { "reference": "Patient/pat-0064" },
+              "encounter": { "reference": "Encounter/pat-0064-enc01" },
+              "recordedDate": "2024-03-18T16:46:00.000Z",
+              "reaction": [
+                {
+                  "manifestation": [
+                    {
+                      "coding": [
+                        {
+                          "system": "http://snomed.info/sct",
+                          "code": "271807003",
+                          "display": "Eruption of skin"
+                        }
+                      ],
+                      "text": "Erupción cutánea"
+                    }
+                  ]
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "AllergyIntolerance/pat-0064-al01" }
+          }
+        ]
+      }
+    },
+    {
       "at": "2024-03-21T17:27:00.000Z",
       "kind": "result",
       "bundle": {

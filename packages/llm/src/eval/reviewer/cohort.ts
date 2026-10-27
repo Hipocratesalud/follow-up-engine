@@ -115,6 +115,8 @@ export function recordOf(patient: CohortPatient): CohortRecord {
       liveExpectations: [],
       activeCases: [],
       components,
+      // The cohort's host sends allergies: a record without one is a planted finding.
+      recordCapabilities: ['allergies'],
     },
   };
 }

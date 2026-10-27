@@ -323,6 +323,20 @@ export const ConditionSchema = z.object({
   recordedDate: fhirDateTime.optional(),
 }) satisfies z.ZodType<Partial<R4.Condition>>;
 
+export const AllergyIntoleranceSchema = z.object({
+  ...resourceBase('AllergyIntolerance'),
+  clinicalStatus: CodeableConceptSchema.optional(),
+  verificationStatus: CodeableConceptSchema.optional(),
+  type: z.enum(['allergy', 'intolerance']).optional(),
+  category: z.array(z.enum(['food', 'medication', 'environment', 'biologic'])).optional(),
+  criticality: z.enum(['low', 'high', 'unable-to-assess']).optional(),
+  code: UsableConceptSchema.optional(),
+  patient: LiteralReferenceSchema,
+  encounter: ReferenceSchema.optional(),
+  onsetDateTime: fhirDateTime.optional(),
+  recordedDate: fhirDateTime.optional(),
+}) satisfies z.ZodType<Partial<R4.AllergyIntolerance>>;
+
 export const DocumentReferenceSchema = z.object({
   ...resourceBase('DocumentReference'),
   status: z.enum(['current', 'superseded', 'entered-in-error']),
@@ -463,6 +477,7 @@ export const CONSUMED_RESOURCE_SCHEMAS = {
   Observation: ObservationSchema,
   DiagnosticReport: DiagnosticReportSchema,
   Condition: ConditionSchema,
+  AllergyIntolerance: AllergyIntoleranceSchema,
   DocumentReference: DocumentReferenceSchema,
   Composition: CompositionSchema,
   Communication: CommunicationSchema,

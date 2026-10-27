@@ -200,6 +200,9 @@ export async function createRuntime(
     redactTermsOf: patientRedactTerms,
     // What each open expectation asks for: a finding a protocol item already covers says so.
     loadCatalog: (clinicId) => engine.catalog(clinicId),
+    // What the host sends in full: a missing allergy status is a finding only then.
+    recordCapabilitiesOf: async (clinicId) =>
+      (await storage.clinics.get(clinicId))?.settings.recordCapabilities ?? [],
   });
 
   const { url: webhookUrl, secret: webhookSecret } = config.webhooks;
@@ -367,6 +370,8 @@ export async function registerDemoClinic(
       // reasons carry the draft badge). A real clinic enables a draft only
       // once its clinical team validated it.
       enabledProtocols: [...availableProtocolIds()],
+      // The synthetic host sends every patient's AllergyIntolerance list.
+      recordCapabilities: ['allergies'],
     },
   });
   if (inboxApiKey !== undefined) {

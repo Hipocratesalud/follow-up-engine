@@ -463,6 +463,76 @@
       }
     },
     {
+      "at": "2024-02-19T14:28:00.000Z",
+      "kind": "allergy",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0065-allergy01",
+        "type": "transaction",
+        "timestamp": "2024-02-19T14:28:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:28d57519-4c7d-5cd3-a4bc-cc5d648e01f4",
+            "resource": {
+              "resourceType": "AllergyIntolerance",
+              "id": "pat-0065-al01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+                    "code": "active",
+                    "display": "Active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+                    "code": "confirmed",
+                    "display": "Confirmed"
+                  }
+                ]
+              },
+              "type": "allergy",
+              "category": ["medication"],
+              "criticality": "high",
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://snomed.info/sct",
+                    "code": "372665008",
+                    "display": "Non-steroidal anti-inflammatory agent"
+                  }
+                ],
+                "text": "AINEs"
+              },
+              "patient": { "reference": "Patient/pat-0065" },
+              "encounter": { "reference": "Encounter/pat-0065-enc01" },
+              "recordedDate": "2024-02-19T14:28:00.000Z",
+              "reaction": [
+                {
+                  "manifestation": [
+                    {
+                      "coding": [
+                        {
+                          "system": "http://snomed.info/sct",
+                          "code": "41291007",
+                          "display": "Angioedema"
+                        }
+                      ],
+                      "text": "Angioedema"
+                    }
+                  ]
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "AllergyIntolerance/pat-0065-al01" }
+          }
+        ]
+      }
+    },
+    {
       "at": "2024-02-21T15:52:00.000Z",
       "kind": "result",
       "bundle": {

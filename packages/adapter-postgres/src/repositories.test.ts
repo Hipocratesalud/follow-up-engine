@@ -94,6 +94,12 @@ function everyEventType(clinicId: ClinicId, patientId: PatientId): ClinicalEvent
     },
     { ...base('patient.opted_out', 9), type: 'patient.opted_out' },
     { ...base('record.withdrawn', 10), type: 'record.withdrawn', reason: 'revoked' },
+    {
+      ...base('allergy.recorded', 11),
+      type: 'allergy.recorded',
+      code: { system: 'http://snomed.info/sct', code: '716186003', display: 'No known allergy' },
+      noKnownAllergy: true,
+    },
   ];
 }
 

@@ -245,6 +245,57 @@
           }
         ]
       }
+    },
+    {
+      "at": "2024-07-17T13:48:00.000Z",
+      "kind": "allergy",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0058-allergy01",
+        "type": "transaction",
+        "timestamp": "2024-07-17T13:48:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:c93f310f-5672-5353-9e0c-3e983d88e035",
+            "resource": {
+              "resourceType": "AllergyIntolerance",
+              "id": "pat-0058-al01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+                    "code": "active",
+                    "display": "Active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+                    "code": "confirmed",
+                    "display": "Confirmed"
+                  }
+                ]
+              },
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://snomed.info/sct",
+                    "code": "716186003",
+                    "display": "No known allergy"
+                  }
+                ],
+                "text": "Sin alergias conocidas"
+              },
+              "patient": { "reference": "Patient/pat-0058" },
+              "encounter": { "reference": "Encounter/pat-0058-enc01" },
+              "recordedDate": "2024-07-17T13:48:00.000Z"
+            },
+            "request": { "method": "PUT", "url": "AllergyIntolerance/pat-0058-al01" }
+          }
+        ]
+      }
     }
   ]
 }
