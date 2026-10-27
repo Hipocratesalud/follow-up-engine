@@ -15,13 +15,17 @@ import {
   type CreatedExpectation,
   type DemoConsultationRequest,
   type DemoConsultationResponse,
+  type EscalationAction,
+  type EscalationView,
   type ExpectationStatus,
   type FeedbackRequest,
   type InboxStats,
   type Layer,
+  type OwnerView,
   type Page,
   type PatientContact,
   type PatientDetail,
+  type PatientSummary,
   type PriorityLabel,
   type RecoveryPage,
   type Sex,
@@ -102,6 +106,7 @@ interface TimelineEntry {
   type: string;
   actor: { type: ActorType; id?: string };
   label: string;
+  note?: string;
 }
 
 interface MockCase {
@@ -125,7 +130,7 @@ interface MockCondition {
   patientId: string;
   code: string;
   display: string;
-  status: 'confirmed' | 'probable' | 'resolved';
+  status: 'confirmed' | 'probable' | 'resolved' | 'rejected';
   confidence: number;
   sourceType: string;
   evidence?: { quote: string; documentId: string };
@@ -154,11 +159,48 @@ const LAYER_WEIGHT: Record<Layer, number> = {
   cadence: 16,
 };
 
+/** Timeline label of each escalation step the mock runs (index = step reached - 1). */
 const ESCALATION_LABELS = [
-  'Recordatorio al responsable del caso',
+  'Aviso al responsable del caso',
+  'Prioridad aumentada por falta de respuesta',
   'Escalado a coordinación del consultorio',
-  'Escalado al médico tratante',
 ] as const;
+
+/** The mock's escalation policy, shaped like the engine's (`afterDays` from the case opening). */
+const MOCK_POLICY: readonly { action: EscalationAction; afterDays: number }[] = [
+  { action: 'notify_clinic', afterDays: 7 },
+  { action: 'raise_priority', afterDays: 21 },
+  { action: 'escalate_to_coordinator', afterDays: 51 },
+  { action: 'mark_lost_to_follow_up', afterDays: 111 },
+];
+
+/** Same step labels as the API. */
+const ESCALATION_STEP_LABELS: Record<EscalationAction, string> = {
+  notify_clinic: 'Aviso al responsable',
+  raise_priority: 'Aumento de prioridad',
+  request_patient_contact: 'Pedido de contacto al paciente',
+  escalate_to_coordinator: 'Paso a coordinación',
+  mark_lost_to_follow_up: 'Cierre como perdido en seguimiento',
+};
+
+const COORDINATION = 'Coordinación';
+
+/** Owner id of a display name, as the API's owner ids (`recepcion`, `dra-lucia-paredes`). */
+export function mockOwnerId(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function normalized(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+}
 
 /** Learned from the clinic's earlier work, so the stats are not empty on day one. */
 const BASELINE_FEEDBACK = { total: 34, useful: 29 };
@@ -218,6 +260,8 @@ export interface MockStore {
   now(): Date;
   clinic(): ClinicInfo;
   listCases(query: CaseListQuery): Page<CaseView>;
+  listOwners(): { items: OwnerView[] };
+  listPatients(query?: string, limit?: number): { items: PatientSummary[] };
   getCase(id: string): CaseDetail;
   act(id: string, request: CaseActionRequest, actorId?: string): CaseDetail;
   feedback(id: string, request: FeedbackRequest, actorId?: string): CaseFeedbackView;
@@ -542,18 +586,46 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       priority,
       priorityLabel: priorityLabel(priority),
       escalationStep: followUpCase.escalationStep,
+      escalation: escalationView(followUpCase, false),
       origin: followUpCase.origin,
       openedAt: followUpCase.openedAt.toISOString(),
       reasons,
       suggestedAction: SUGGESTED_ACTIONS[topRule] ?? DEFAULT_SUGGESTED_ACTION,
       patientContact: { ...patient.contact },
-      ...(followUpCase.assignee ? { assignee: followUpCase.assignee } : {}),
+      ...(followUpCase.assignee
+        ? { assignee: followUpCase.assignee, assigneeId: mockOwnerId(followUpCase.assignee) }
+        : {}),
       ...(followUpCase.nextActionAt && ACTIVE.includes(followUpCase.status)
         ? { nextActionAt: followUpCase.nextActionAt.toISOString() }
         : {}),
       ...(followUpCase.releaseAt ? { releaseAt: followUpCase.releaseAt.toISOString() } : {}),
       ...(followUpCase.snoozedUntil && followUpCase.status === 'snoozed'
         ? { snoozedUntil: followUpCase.snoozedUntil.toISOString() }
+        : {}),
+    };
+  }
+
+  function escalationView(followUpCase: MockCase, detail: boolean): EscalationView {
+    const current = followUpCase.escalationStep;
+    const nextStep = MOCK_POLICY[current];
+    const active = followUpCase.status !== 'snoozed' && ACTIVE.includes(followUpCase.status);
+    return {
+      policyId: 'mock_v1',
+      currentStep: current,
+      steps: MOCK_POLICY.map((step, index) => ({
+        action: step.action,
+        label: ESCALATION_STEP_LABELS[step.action],
+        afterDays: step.afterDays,
+        ...(detail && index < current ? { outcome: 'done' as const } : {}),
+      })),
+      ...(active && nextStep && followUpCase.nextActionAt && isReleased(followUpCase)
+        ? {
+            next: {
+              action: nextStep.action,
+              label: ESCALATION_STEP_LABELS[nextStep.action],
+              at: followUpCase.nextActionAt.toISOString(),
+            },
+          }
         : {}),
     };
   }
@@ -565,6 +637,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   function caseDetail(followUpCase: MockCase): CaseDetail {
     return {
       ...caseView(followUpCase),
+      escalation: escalationView(followUpCase, true),
       timeline: [...followUpCase.timeline]
         .sort((a, b) => b.at.getTime() - a.at.getTime())
         .map((entry) => ({
@@ -572,6 +645,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           type: entry.type,
           actor: { ...entry.actor },
           label: entry.label,
+          ...(entry.note ? { note: entry.note } : {}),
         })),
       ...(followUpCase.feedback ? { feedback: { ...followUpCase.feedback } } : {}),
     };
@@ -588,7 +662,11 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     const safeStart = Number.isFinite(start) && start > 0 ? start : 0;
     const page = items.slice(safeStart, safeStart + limit);
     const next = safeStart + limit;
-    return { items: [...page], ...(next < items.length ? { nextCursor: String(next) } : {}) };
+    return {
+      items: [...page],
+      total: items.length,
+      ...(next < items.length ? { nextCursor: String(next) } : {}),
+    };
   }
 
   // ----------------------------------------------------------- engine-like
@@ -664,7 +742,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         at: followUpCase.releaseAt,
         type: 'released',
         actor: { type: 'system' },
-        label: 'Publicado en la bandeja (liberación gradual de pacientes por recuperar)',
+        label: 'Entró a la bandeja desde la revisión del historial',
       });
       followUpCase.nextActionAt = addDays(followUpCase.releaseAt, ESCALATION_DELAYS_DAYS[0]);
       emit('case.opened', webhookCasePayload(followUpCase), followUpCase.releaseAt);
@@ -713,6 +791,9 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         }
         followUpCase.escalationStep += 1;
         followUpCase.status = 'escalated';
+        if (MOCK_POLICY[followUpCase.escalationStep - 1]?.action === 'escalate_to_coordinator') {
+          followUpCase.assignee = COORDINATION;
+        }
         const nextDelay = ESCALATION_DELAYS_DAYS[followUpCase.escalationStep] ?? LOST_AFTER_DAYS;
         followUpCase.nextActionAt = addDays(at, nextDelay);
         followUpCase.timeline.push({
@@ -731,18 +812,22 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   const ACTION_LABELS: Record<CaseAction, string> = {
     notify: 'Se pidió al sistema del consultorio contactar al paciente',
     snooze: 'Pospuesto',
-    resolve: 'Resuelto',
-    dismiss: 'Descartado',
+    resolve: 'Resuelto por el equipo',
+    dismiss: 'Descartado por el equipo',
   };
 
   function act(id: string, request: CaseActionRequest, actorId = 'Dra. Lucía Paredes'): CaseDetail {
     const followUpCase = getCaseOrThrow(id);
     if (!ACTIVE.includes(followUpCase.status)) {
-      throw new MockHttpError(409, 'invalid_transition', 'Este caso ya está cerrado.');
+      throw new MockHttpError(
+        409,
+        'invalid_transition',
+        `No se puede cambiar este caso: ya está ${followUpCase.status === 'resolved' ? 'resuelto' : 'cerrado'}.`,
+      );
     }
     const patient = patients.get(followUpCase.patientId);
     const note = request.note?.trim();
-    const suffix = note ? `: ${note}` : '';
+    const withNote = note ? { note } : {};
     switch (request.action) {
       case 'notify': {
         if (!patient?.contact.allowed || patient.contact.optedOut) {
@@ -759,7 +844,8 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           at: now,
           type: 'patient_contact_requested',
           actor: { type: 'user', id: actorId },
-          label: `${ACTION_LABELS.notify}${suffix}`,
+          label: ACTION_LABELS.notify,
+          ...withNote,
         });
         emit('case.patient_contact_requested', {
           ...webhookCasePayload(followUpCase),
@@ -787,7 +873,8 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           at: now,
           type: 'snoozed',
           actor: { type: 'user', id: actorId },
-          label: `Pospuesto ${String(days)} ${days === 1 ? 'día' : 'días'}${suffix}`,
+          label: `Pospuesto ${String(days)} ${days === 1 ? 'día' : 'días'}`,
+          ...withNote,
         });
         emit('case.snoozed', webhookCasePayload(followUpCase));
         break;
@@ -806,7 +893,8 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           at: now,
           type: followUpCase.status,
           actor: { type: 'user', id: actorId },
-          label: `${ACTION_LABELS[request.action]}${suffix}`,
+          label: ACTION_LABELS[request.action],
+          ...withNote,
         });
         emit(`case.${followUpCase.status}`, webhookCasePayload(followUpCase));
         break;
@@ -867,7 +955,8 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     if (decision === 'confirm') {
       condition.status = 'confirmed';
     } else {
-      condition.status = 'resolved';
+      condition.status = 'rejected';
+      condition.confidence = 0;
       condition.rejected = true;
     }
     return conditionView(condition);
@@ -1113,18 +1202,66 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
 
     listCases(query: CaseListQuery): Page<CaseView> {
       const view = query.view ?? 'active';
+      const words = normalized(query.q ?? '')
+        .split(/\s+/)
+        .filter(Boolean);
       const items = [...cases.values()]
         .filter(isReleased)
+        .filter((followUpCase) => !query.patient || followUpCase.patientId === query.patient)
+        .filter((followUpCase) => {
+          if (words.length === 0) return true;
+          const patient = patients.get(followUpCase.patientId);
+          const haystack = normalized(`${followUpCase.patientId} ${patient?.name ?? ''}`);
+          return words.every((word) => haystack.includes(word));
+        })
         .filter((followUpCase) => {
           if (view === 'active') return ACTIVE.includes(followUpCase.status);
           if (view === 'closed') return CLOSED_STATUSES.includes(followUpCase.status);
           return true;
         })
         .filter((followUpCase) => !query.origin || followUpCase.origin === query.origin)
-        .filter((followUpCase) => !query.assignee || followUpCase.assignee === query.assignee)
+        .filter(
+          (followUpCase) =>
+            !query.assignee ||
+            (followUpCase.assignee !== undefined &&
+              mockOwnerId(followUpCase.assignee) === query.assignee),
+        )
         .map(caseView)
         .sort((a, b) => b.priority - a.priority || a.patient.name.localeCompare(b.patient.name));
       return paginate(items, query.cursor, query.limit);
+    },
+
+    listOwners(): { items: OwnerView[] } {
+      const owners = new Map<string, OwnerView>();
+      for (const followUpCase of cases.values()) {
+        if (!isReleased(followUpCase) || !followUpCase.assignee) continue;
+        const id = mockOwnerId(followUpCase.assignee);
+        const owner = owners.get(id) ?? { id, name: followUpCase.assignee, activeCases: 0 };
+        if (ACTIVE.includes(followUpCase.status)) owner.activeCases += 1;
+        owners.set(id, owner);
+      }
+      return {
+        items: [...owners.values()].sort((a, b) => a.name.localeCompare(b.name, 'es')),
+      };
+    },
+
+    listPatients(query?: string, limit = 20): { items: PatientSummary[] } {
+      const words = normalized(query ?? '')
+        .split(/\s+/)
+        .filter(Boolean);
+      return {
+        items: [...patients.values()]
+          .filter((patient) =>
+            words.every((word) => normalized(`${patient.id} ${patient.name}`).includes(word)),
+          )
+          .slice(0, limit)
+          .map((patient) => ({
+            id: patient.id,
+            name: patient.name,
+            sex: patient.sex,
+            ...ageOf(patient),
+          })),
+      };
     },
 
     getCase(id: string): CaseDetail {
@@ -1147,7 +1284,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           contact: { ...patient.contact },
         },
         conditions: [...conditions.values()]
-          .filter((condition) => condition.patientId === id && !condition.rejected)
+          .filter((condition) => condition.patientId === id)
           .sort((a, b) => (a.status === b.status ? 0 : a.status === 'probable' ? -1 : 1))
           .map(conditionView),
         expectations: [...expectations.values()]
@@ -1181,7 +1318,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         .filter((followUpCase) => !isReleased(followUpCase) && ACTIVE.includes(followUpCase.status))
         .map(caseView)
         .sort((a, b) => b.priority - a.priority);
-      return { ...paginate(items, query.cursor, query.limit), total: items.length };
+      return paginate(items, query.cursor, query.limit);
     },
 
     clinic(): ClinicInfo {

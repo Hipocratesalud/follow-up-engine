@@ -11,6 +11,7 @@ import {
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
+import { invalidTransitionMessage } from '../inbox/labels.ts';
 
 /** An error with an HTTP status and a stable code, rendered as `{ error: { code, message } }`. */
 export class HttpError extends Error {
@@ -61,11 +62,7 @@ export function toHttpError(error: unknown): HttpError {
     return new HttpError(422, 'validation_error', zodMessage(error));
   }
   if (error instanceof InvalidCaseTransitionError) {
-    return new HttpError(
-      409,
-      'invalid_transition',
-      `El caso no puede pasar de "${error.from}" a "${error.to}".`,
-    );
+    return new HttpError(409, 'invalid_transition', invalidTransitionMessage(error.from, error.to));
   }
   if (error instanceof PatientContactNotAllowedError) {
     return new HttpError(409, 'patient_contact_not_allowed', CONTACT_DENIAL_MESSAGES[error.reason]);

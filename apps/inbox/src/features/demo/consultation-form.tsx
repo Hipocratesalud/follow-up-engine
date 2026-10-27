@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 import type { DemoConsultationRequest, DemoConsultationResponse } from '../../api/contract.ts';
-import { useCases, useDemoConsultation, useNoteReader } from '../../api/queries.ts';
+import { useDemoConsultation, useNoteReader, usePatientList } from '../../api/queries.ts';
 import { InlineError } from '../../components/states.tsx';
 import { Button, Card, Field, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
@@ -32,7 +32,7 @@ export function ConsultationForm({
   const ids = useId();
   const mutation = useDemoConsultation();
   const reader = useNoteReader();
-  const everyone = useCases({ view: 'all', limit: 200 });
+  const patientList = usePatientList();
   const [patientId, setPatientId] = useState<string>(NEW_PATIENT);
   const [patientName, setPatientName] = useState('');
   const [specialty, setSpecialty] = useState<string>(SPECIALTY_OPTIONS[0].value);
@@ -41,13 +41,11 @@ export function ConsultationForm({
   const [errors, setErrors] = useState<FormErrors>({});
   const [exampleId, setExampleId] = useState<string>();
 
-  const patients = useMemo(() => {
-    const byId = new Map<string, string>();
-    for (const item of everyone.data?.items ?? []) byId.set(item.patient.id, item.patient.name);
-    return [...byId.entries()]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
-  }, [everyone.data]);
+  // Every patient of the clinic, with or without a case.
+  const patients = useMemo(
+    () => [...(patientList.data?.items ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es')),
+    [patientList.data],
+  );
 
   function handleExample(event: MouseEvent<HTMLButtonElement>): void {
     const example = EXAMPLE_NOTES.find((note) => note.id === event.currentTarget.value);

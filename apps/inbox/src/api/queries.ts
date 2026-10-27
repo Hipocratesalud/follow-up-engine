@@ -1,15 +1,18 @@
 import {
+  type InfiniteData,
   keepPreviousData,
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
   type QueryClient,
+  type UseInfiniteQueryResult,
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
 import { noteReader, type NoteReader } from '../lib/labels.ts';
-import type { ApiClient } from './client.ts';
+import { type ApiClient, isApiError } from './client.ts';
 import type {
   CaseActionRequest,
   CaseDetail,
@@ -22,8 +25,10 @@ import type {
   DemoConsultationResponse,
   FeedbackRequest,
   InboxStats,
+  OwnerView,
   Page,
   PatientDetail,
+  PatientSummary,
   RecoveryPage,
   WebhookDelivery,
 } from './contract.ts';
@@ -39,7 +44,10 @@ export function useApi(): ApiClient {
 export const queryKeys = {
   clinic: ['clinic'] as const,
   cases: (query: CaseListQuery) => ['cases', query] as const,
+  casePages: (query: Omit<CaseListQuery, 'cursor'>) => ['cases', 'pages', query] as const,
   allCases: ['cases'] as const,
+  owners: ['owners'] as const,
+  patients: ['patients'] as const,
   case: (id: string) => ['case', id] as const,
   patient: (id: string) => ['patient', id] as const,
   recovery: ['recovery'] as const,
@@ -64,6 +72,36 @@ export function useCases(query: CaseListQuery): UseQueryResult<Page<CaseView>> {
     queryKey: queryKeys.cases(query),
     queryFn: () => api.listCases(query),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Every page of a case list, loaded one after the other (the inbox's infinite scroll). */
+export function useCasePages(
+  query: Omit<CaseListQuery, 'cursor'>,
+): UseInfiniteQueryResult<InfiniteData<Page<CaseView>, string | undefined>> {
+  const api = useApi();
+  return useInfiniteQuery({
+    queryKey: queryKeys.casePages(query),
+    queryFn: ({ pageParam }) =>
+      api.listCases({ ...query, ...(pageParam === undefined ? {} : { cursor: pageParam }) }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Owners of the inbox's cases (id and display name), for the "Responsable" filter. */
+export function useOwners(): UseQueryResult<{ items: OwnerView[] }> {
+  const api = useApi();
+  return useQuery({ queryKey: queryKeys.owners, queryFn: () => api.listOwners() });
+}
+
+/** Every patient of the clinic (the demo's patient selector). */
+export function usePatientList(): UseQueryResult<{ items: PatientSummary[] }> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.patients,
+    queryFn: () => api.listPatients({ limit: 500 }),
   });
 }
 
@@ -102,7 +140,6 @@ export function useDemoClock(): UseQueryResult<DemoClock | null> {
     queryKey: queryKeys.clock,
     queryFn: async () => (await api.getDemoClock()) ?? null,
     staleTime: Number.POSITIVE_INFINITY,
-    retry: false,
   });
 }
 
@@ -129,6 +166,7 @@ export function useWebhooks(
 /** Everything a case change can affect, except the case itself (set directly from the response). */
 function invalidateAfterCaseChange(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: queryKeys.allCases });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.owners });
   void queryClient.invalidateQueries({ queryKey: queryKeys.stats });
   void queryClient.invalidateQueries({ queryKey: queryKeys.recovery });
   void queryClient.invalidateQueries({ queryKey: ['patient'] });
@@ -147,6 +185,20 @@ export function useCaseAction(
       invalidateAfterCaseChange(queryClient);
     },
   });
+}
+
+/**
+ * Reloads a case and every list it appears in, after a 409 (someone else
+ * changed it: another tab, the engine) so the view shows its current state.
+ */
+export function useRefreshAfterConflict(caseId: string): (error: unknown) => void {
+  const queryClient = useQueryClient();
+  return (error) => {
+    if (isApiError(error) && error.status === 409) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.case(caseId) });
+      invalidateAfterCaseChange(queryClient);
+    }
+  };
 }
 
 export function useCaseFeedback(
@@ -210,6 +262,7 @@ export function useDemoConsultation(): UseMutationResult<
     mutationFn: (request: DemoConsultationRequest) => api.createDemoConsultation(request),
     onSuccess: () => {
       invalidateAfterCaseChange(queryClient);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.patients });
     },
   });
 }

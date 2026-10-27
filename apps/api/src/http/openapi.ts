@@ -155,11 +155,20 @@ const OPERATIONS: readonly Operation[] = [
     params: [
       { name: 'view', in: 'query', enum: ['active', 'closed', 'all'] },
       { name: 'origin', in: 'query', enum: ['live', 'backfill'] },
-      { name: 'assignee', in: 'query' },
+      { name: 'assignee', in: 'query', description: 'Owner id, from /api/inbox/owners' },
+      { name: 'q', in: 'query', description: 'Patient name or id contains this text' },
+      { name: 'patient', in: 'query', description: 'Only the cases of this patient id' },
       { name: 'cursor', in: 'query' },
       { name: 'limit', in: 'query' },
     ],
     response: 'CasePage',
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/owners',
+    tag: 'Inbox',
+    summary: 'Owners of released cases, with display names and active case counts',
+    response: 'OwnerList',
   },
   {
     method: 'get',

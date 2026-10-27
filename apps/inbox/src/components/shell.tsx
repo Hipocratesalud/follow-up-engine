@@ -54,9 +54,9 @@ function Brand(): ReactNode {
       </span>
       <div className="leading-tight">
         <p className="text-sm font-semibold text-fg">Seguimiento</p>
-        {clinic.data ? (
+        {clinic.data || clinic.isError ? (
           <p className="hidden max-w-[150px] truncate text-xs text-muted sm:block">
-            {clinic.data.name}
+            {clinic.data?.name ?? 'Consultorio'}
           </p>
         ) : (
           <span aria-hidden="true" className="skeleton mt-1 hidden h-3 w-28 rounded sm:block" />

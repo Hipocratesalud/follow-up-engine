@@ -26,10 +26,14 @@ import { CaseWriter, withoutKey } from './case-writer.ts';
 import { resolveCase } from './reconcile.ts';
 import { isActiveCaseStatus } from './state-machine.ts';
 
-/** A clinic user's action on a case (the inbox "actions" endpoint). */
+/**
+ * A clinic user's action on a case (the inbox "actions" endpoint). `note` is
+ * the team's internal note: kept on the case event so the team sees it in
+ * the case history.
+ */
 export type CaseAction =
   | { readonly type: 'notify' }
-  | { readonly type: 'snooze'; readonly until: Date }
+  | { readonly type: 'snooze'; readonly until: Date; readonly note?: string }
   | { readonly type: 'resolve'; readonly kind?: CaseResolutionKind; readonly note?: string }
   | { readonly type: 'dismiss'; readonly note?: string }
   | { readonly type: 'assign'; readonly assignee: string };
@@ -96,12 +100,14 @@ export interface CaseCommands {
    * patient contact, the patient opted out, or the patient was already asked
    * within the contact window; `ValidationError` for an inactive case. The
    * user decides, so the automatic-only restrictions (backfill cases, cases
-   * resting on probable conditions) do not apply.
+   * resting on probable conditions) do not apply. `note` is the team's
+   * internal note, kept on the case event (never sent to the host).
    */
   requestPatientContact(
     clinicId: ClinicId,
     caseId: CaseId,
     actor: CaseEventActor,
+    note?: string,
   ): Promise<FollowUpCase>;
   /**
    * Records whether the case was useful. A "not useful" verdict needs a
@@ -179,7 +185,10 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
             type: 'snoozed',
             actor,
             at: now,
-            payload: { until: action.until.toISOString() },
+            payload: {
+              until: action.until.toISOString(),
+              ...(action.note === undefined ? {} : { note: action.note }),
+            },
             patch: { snoozedUntil: action.until, nextActionAt: action.until },
           });
         }
@@ -188,7 +197,9 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
             kind: action.kind ?? 'handled_outside',
             actor,
             now,
-            ...(action.note === undefined ? {} : { note: action.note }),
+            ...(action.note === undefined
+              ? {}
+              : { note: action.note, payload: { note: action.note } }),
           });
         case 'dismiss': {
           const dismissed = await writer.transition(withoutKey(current, 'nextActionAt'), {
@@ -196,6 +207,7 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
             type: 'dismissed',
             actor,
             at: now,
+            ...(action.note === undefined ? {} : { payload: { note: action.note } }),
             patch: {
               resolution: {
                 kind: 'not_needed',
@@ -230,6 +242,7 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
     clinicId: ClinicId,
     caseId: CaseId,
     actor: CaseEventActor,
+    note?: string,
   ): Promise<FollowUpCase> {
     const clinic = await deps.clinics.get(clinicId);
     const catalog = await deps.loadCatalog(clinicId);
@@ -259,7 +272,10 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
           : catalog.definition(first.ruleId)?.suggestedAction.patientContactPurpose) ??
         'schedule_follow_up';
       const writer = new CaseWriter(stores, deps.ids, clinicId);
-      await writer.audit(current, 'patient_contact_requested', actor, now, { purpose });
+      await writer.audit(current, 'patient_contact_requested', actor, now, {
+        purpose,
+        ...(note === undefined ? {} : { note }),
+      });
       await writer.emit('patient_contact.requested', now, {
         caseId: current.id,
         patientId: current.patientId,

@@ -1,6 +1,7 @@
 import type {
   CaseStatus,
   ConditionStatus,
+  EscalationView,
   ExpectationStatus,
   FeedbackReason,
   Layer,
@@ -10,14 +11,15 @@ import type {
 } from '../api/contract.ts';
 
 export const LAYER_LABELS: Record<Layer, string> = {
-  universal: 'Orden pendiente',
+  universal: 'Orden o resultado',
   doctor_plan: 'Plan del médico',
   cadence: 'Frecuencia de visitas',
   protocol: 'Protocolo',
 };
 
 export const LAYER_DESCRIPTIONS: Record<Layer, string> = {
-  universal: 'Una orden (examen, estudio, referencia) sin resultado registrado.',
+  universal:
+    'Una orden (examen, estudio, referencia) sin resultado registrado, o un resultado alterado sin consulta posterior.',
   doctor_plan: 'Algo que el médico escribió en el plan de la nota y no ha ocurrido.',
   cadence: 'El paciente lleva más tiempo del habitual sin consulta.',
   protocol: 'Un control que el protocolo de su condición indica y nadie ha pedido.',
@@ -40,23 +42,38 @@ export const PRIORITY_LABELS: Record<PriorityLabel, string> = {
   baja: 'Baja',
 };
 
-export const ESCALATION_STEP_LABELS = [
-  'Sin escalar',
-  'Recordatorio',
-  'Coordinación',
-  'Médico tratante',
-] as const;
+/**
+ * "Escalamiento: paso 2 de 5, aumento de prioridad": how far the case went
+ * along its escalation policy (step labels come from the API). The last step
+ * is named only when the API says it ran (case detail); a list view does not
+ * know whether a passed step was skipped, so it gives the count only.
+ */
+export function escalationSummary(escalation: EscalationView): string {
+  const total = escalation.steps.length;
+  const passed = Math.min(escalation.currentStep, total);
+  if (passed === 0) return `Escalamiento: ningún paso de ${String(total)}`;
+  const count = `Escalamiento: paso ${String(passed)} de ${String(total)}`;
+  const lastDone = escalation.steps
+    .slice(0, passed)
+    .filter((step) => step.outcome === 'done')
+    .at(-1);
+  return lastDone ? `${count}, ${lastDone.label.toLowerCase()}` : count;
+}
 
-export const MAX_ESCALATION_STEP = ESCALATION_STEP_LABELS.length - 1;
-
-export function escalationLabel(step: number): string {
-  return ESCALATION_STEP_LABELS[Math.min(step, MAX_ESCALATION_STEP)] ?? 'Escalado';
+/** "Siguiente: Paso a coordinación, 12 feb 2026" (empty when nothing is scheduled). */
+export function escalationNext(
+  escalation: EscalationView,
+  formatDate: (iso: string) => string,
+): string {
+  return escalation.next
+    ? `Siguiente: ${escalation.next.label.toLowerCase()}, ${formatDate(escalation.next.at)}`
+    : '';
 }
 
 export const FEEDBACK_REASON_LABELS: Record<FeedbackReason, string> = {
   wrong_rule: 'La regla no aplica a este paciente',
   wrong_interval: 'El plazo no es el correcto',
-  bad_extraction: 'La IA leyó mal la nota',
+  bad_extraction: 'La nota se leyó mal',
   already_handled: 'Ya estaba resuelto',
   other: 'Otro motivo',
 };
@@ -65,6 +82,7 @@ export const CONDITION_STATUS_LABELS: Record<ConditionStatus, string> = {
   confirmed: 'Confirmada',
   probable: 'Probable',
   resolved: 'Resuelta',
+  rejected: 'Descartada',
 };
 
 export const CONDITION_SOURCE_LABELS: Record<string, string> = {
@@ -131,7 +149,8 @@ export interface NoteReader {
 export const SIMULATED_READER_LABEL = 'Lectura simulada (sin modelo)';
 
 export function noteReader(llm: { provider: string; model: string } | undefined): NoteReader {
-  if (llm === undefined) return { simulated: false, label: 'IA', name: 'la IA' };
+  if (llm === undefined)
+    return { simulated: false, label: 'Lectura de notas', name: 'el lector de notas' };
   if (llm.provider === 'fake') {
     return { simulated: true, label: SIMULATED_READER_LABEL, name: 'la lectura simulada' };
   }
@@ -165,7 +184,7 @@ export function actorLabel(actor: {
 }): string {
   switch (actor.type) {
     case 'rule':
-      return 'Regla';
+      return 'Regla automática';
     case 'system':
       return 'Motor de seguimiento';
     case 'patient':

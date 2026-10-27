@@ -10,6 +10,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { type ChangeEvent, type MouseEvent, type ReactNode, useState } from 'react';
+import { useSessionState } from '../../lib/session-state.ts';
 import { Link } from 'react-router';
 import type { DemoConsultationResponse, InboxStats, WebhookDelivery } from '../../api/contract.ts';
 import {
@@ -17,6 +18,7 @@ import {
   queryKeys,
   useAdvanceClock,
   useDemoClock,
+  useNoteReader,
   useStats,
   useWebhooks,
 } from '../../api/queries.ts';
@@ -50,6 +52,8 @@ function ClockPanel({
   const [pendingDays, setPendingDays] = useState<number>();
 
   function handleAdvance(event: MouseEvent<HTMLButtonElement>): void {
+    // One jump at a time: the dates move by exactly what was asked.
+    if (advance.isPending) return;
     const days = Number(event.currentTarget.value);
     const before = stats.data?.activeCases;
     setPendingDays(days);
@@ -94,6 +98,7 @@ function ClockPanel({
                 size="sm"
                 variant="secondary"
                 loading={pendingDays === days}
+                disabled={advance.isPending}
                 onClick={handleAdvance}
                 icon={<FastForward className="size-3.5" aria-hidden="true" />}
               >
@@ -146,7 +151,7 @@ function WebhookItem({
         <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-fg">
           <Send className="size-3.5 text-primary" aria-hidden="true" />
           {WEBHOOK_LABELS[item.type] ?? item.type}
-          <code className="font-mono text-[11px] font-normal text-subtle">{item.type}</code>
+          <code className="font-mono text-[11px] font-normal text-muted">{item.type}</code>
           {isNew ? <Badge tone="primary">Nuevo</Badge> : null}
         </span>
         <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
@@ -260,11 +265,18 @@ function WebhookFeed({ newSince }: { readonly newSince: string | undefined }): R
   );
 }
 
+interface DemoResult {
+  readonly response: DemoConsultationResponse;
+  readonly noteText: string;
+}
+
 export function DemoPage(): ReactNode {
   const clock = useDemoClock();
+  const reader = useNoteReader();
   const consulting = useIsMutating({ mutationKey: DEMO_CONSULTATION_MUTATION_KEY }) > 0;
-  const [result, setResult] = useState<{ response: DemoConsultationResponse; noteText: string }>();
-  const [newSince, setNewSince] = useState<string>();
+  // The last reading stays when the judge goes to the inbox and comes back.
+  const [result, setResult] = useSessionState<DemoResult>('demo-result');
+  const [newSince, setNewSince] = useSessionState<string>('demo-new-since');
 
   function handleResult(response: DemoConsultationResponse, noteText: string): void {
     setResult({ response, noteText });
@@ -314,8 +326,9 @@ export function DemoPage(): ReactNode {
       <header className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold tracking-tight text-fg">Demostración</h1>
         <p className="text-sm text-muted">
-          De la consulta al caso: guarda una nota, mira lo que lee la IA y adelanta el reloj para
-          ver cómo el motor abre y escala casos.
+          De la consulta al caso: guarda una nota, mira lo que{' '}
+          {reader.simulated ? 'entiende la lectura simulada' : `lee ${reader.name}`} y adelanta el
+          reloj para ver cómo el motor abre y escala casos.
         </p>
       </header>
       <ClockPanel now={clock.data.now} onAdvanced={handleAdvanced} />

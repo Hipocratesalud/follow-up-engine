@@ -13,16 +13,16 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { CaseStatus, Layer, PriorityLabel } from '../api/contract.ts';
+import type { CaseStatus, EscalationView, Layer, PriorityLabel } from '../api/contract.ts';
 import { cx } from '../lib/cx.ts';
+import { formatDate } from '../lib/format.ts';
 import {
-  ESCALATION_STEP_LABELS,
   LAYER_DESCRIPTIONS,
   LAYER_LABELS,
-  MAX_ESCALATION_STEP,
   PRIORITY_LABELS,
   STATUS_LABELS,
-  escalationLabel,
+  escalationNext,
+  escalationSummary,
 } from '../lib/labels.ts';
 import { Badge, type Tone } from './ui.tsx';
 
@@ -121,33 +121,46 @@ export function PriorityBadge({
   );
 }
 
-/** Three-step meter: how far the case has escalated. */
+/**
+ * How far the case went along its escalation policy: one bar per policy step
+ * (from the API), filled for the steps already passed, faded when a passed
+ * step could not happen (detail only). The label names the last step and the
+ * next one with its date.
+ */
 export function EscalationMeter({
-  step,
+  escalation,
   showLabel = false,
 }: {
-  readonly step: number;
+  readonly escalation: EscalationView;
   readonly showLabel?: boolean;
 }): ReactNode {
-  const clamped = Math.min(step, MAX_ESCALATION_STEP);
-  const label = `Escalamiento ${String(clamped)} de ${String(MAX_ESCALATION_STEP)}: ${escalationLabel(clamped)}`;
+  const summary = escalationSummary(escalation);
+  const next = escalationNext(escalation, formatDate);
+  const label = next ? `${summary}. ${next}.` : `${summary}.`;
+  const late = escalation.currentStep >= Math.max(2, escalation.steps.length - 2);
   return (
-    <span className="inline-flex items-center gap-1.5" title={label}>
+    <span className="inline-flex min-w-0 items-center gap-1.5" title={label}>
       <span className="sr-only">{label}</span>
-      <span aria-hidden="true" className="flex items-center gap-0.5">
-        {ESCALATION_STEP_LABELS.slice(1).map((stepLabel, index) => (
+      <span aria-hidden="true" className="flex shrink-0 items-center gap-0.5">
+        {escalation.steps.map((step, index) => (
           <span
-            key={stepLabel}
+            key={`${step.action}-${String(index)}`}
             className={cx(
               'h-1.5 w-3 rounded-full',
-              index < clamped ? (clamped >= 2 ? 'bg-warning' : 'bg-primary') : 'bg-surface-3',
+              index >= escalation.currentStep
+                ? 'bg-surface-3'
+                : step.outcome === 'skipped'
+                  ? 'bg-border-strong'
+                  : late
+                    ? 'bg-warning'
+                    : 'bg-primary',
             )}
           />
         ))}
       </span>
       {showLabel ? (
-        <span aria-hidden="true" className="text-xs text-muted">
-          {escalationLabel(clamped)}
+        <span aria-hidden="true" className="min-w-0 text-xs text-muted">
+          {summary.replace(/^Escalamiento: /, '')}
         </span>
       ) : null}
     </span>

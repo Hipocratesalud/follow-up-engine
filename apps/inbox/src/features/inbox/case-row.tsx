@@ -9,8 +9,20 @@ import {
   StatusBadge,
   overdueTone,
 } from '../../components/case-badges.tsx';
+import { Badge } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
-import { formatDate, formatOverdue, initials } from '../../lib/format.ts';
+import { daysAgo, formatDate, formatOverdue, initials } from '../../lib/format.ts';
+
+/** A live case opened this recently (API clock) is marked "Nuevo". */
+export const NEW_CASE_DAYS = 7;
+
+/**
+ * New to the team: opened by the engine from a recent consultation in the
+ * last {@link NEW_CASE_DAYS} days. Backfill cases are history, never new.
+ */
+export function isNewCase(item: CaseView, now: Date): boolean {
+  return item.origin === 'live' && daysAgo(item.openedAt, now) <= NEW_CASE_DAYS;
+}
 
 const AVATAR_TONES: Record<CaseView['priorityLabel'], string> = {
   urgente: 'bg-danger-soft text-danger',
@@ -36,11 +48,13 @@ export function CaseRow({
   to,
   selected = false,
   showRelease = false,
+  isNew = false,
 }: {
   readonly item: CaseView;
   readonly to: string;
   readonly selected?: boolean;
   readonly showRelease?: boolean;
+  readonly isNew?: boolean;
 }): ReactNode {
   const top = item.reasons[0];
   const extra = item.reasons.length - 1;
@@ -52,7 +66,9 @@ export function CaseRow({
         'group relative flex gap-3 rounded-xl border px-3.5 py-3 transition-colors',
         selected
           ? 'border-primary/50 bg-primary-soft/60 shadow-card'
-          : 'border-transparent hover:border-border hover:bg-surface',
+          : isNew
+            ? 'border-primary/30 bg-primary-soft/25 hover:bg-surface'
+            : 'border-transparent hover:border-border hover:bg-surface',
       )}
     >
       <span
@@ -66,19 +82,22 @@ export function CaseRow({
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
         <span className="flex items-start justify-between gap-2">
-          <span className="min-w-0">
+          <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold text-fg">
               {item.patient.name}
             </span>
             <span className="block text-xs text-muted">{patientMeta(item.patient)}</span>
           </span>
-          <PriorityBadge label={item.priorityLabel} priority={item.priority} />
+          <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+            {isNew ? <Badge tone="primary">Nuevo</Badge> : null}
+            <PriorityBadge label={item.priorityLabel} priority={item.priority} />
+          </span>
         </span>
         {top ? (
-          <span className="text-sm text-fg">
+          <span className="text-sm break-words text-fg">
             {top.label}
             {extra > 0 ? (
-              <span className="ml-1.5 text-xs font-medium text-muted">
+              <span className="ml-1.5 text-xs font-medium whitespace-nowrap text-muted">
                 +{extra} {extra === 1 ? 'motivo' : 'motivos'}
               </span>
             ) : null}
@@ -96,14 +115,18 @@ export function CaseRow({
             </span>
           ) : null}
           <StatusBadge status={item.status} />
-          {item.escalationStep > 0 ? <EscalationMeter step={item.escalationStep} /> : null}
+          {item.escalation.currentStep > 0 ? (
+            <EscalationMeter escalation={item.escalation} />
+          ) : null}
           {showRelease && item.releaseAt ? (
             <span className="inline-flex items-center gap-1 text-muted">
               <History className="size-3" aria-hidden="true" />
               Entra a la bandeja el {formatDate(item.releaseAt)}
             </span>
           ) : null}
-          {item.assignee ? <span className="truncate text-muted">{item.assignee}</span> : null}
+          {item.assignee ? (
+            <span className="max-w-full min-w-0 truncate text-muted">{item.assignee}</span>
+          ) : null}
         </span>
       </span>
       <ChevronRight

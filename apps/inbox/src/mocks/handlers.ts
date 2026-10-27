@@ -154,12 +154,16 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
         const view = VIEWS.find((candidate) => candidate === url.searchParams.get('view'));
         const origin = ORIGINS.find((candidate) => candidate === url.searchParams.get('origin'));
         const assignee = url.searchParams.get('assignee');
+        const q = url.searchParams.get('q');
+        const patient = url.searchParams.get('patient');
         const cursor = url.searchParams.get('cursor');
         const limit = numberParam(url.searchParams.get('limit'));
         return store.listCases({
           ...(view ? { view } : {}),
           ...(origin ? { origin } : {}),
           ...(assignee ? { assignee } : {}),
+          ...(q ? { q } : {}),
+          ...(patient ? { patient } : {}),
           ...(cursor ? { cursor } : {}),
           ...(limit === undefined ? {} : { limit }),
         });
@@ -180,6 +184,20 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
       route(async ({ request, params }) =>
         store.feedback(param(params, 'id'), parseFeedback(await readJson(request))),
       ),
+    ),
+    http.get(
+      '*/api/inbox/owners',
+      route(() => store.listOwners()),
+    ),
+    http.get(
+      '*/api/inbox/patients',
+      route(({ request }) => {
+        const url = new URL(request.url);
+        return store.listPatients(
+          url.searchParams.get('query') ?? undefined,
+          numberParam(url.searchParams.get('limit')),
+        );
+      }),
     ),
     http.get(
       '*/api/inbox/patients/:id',

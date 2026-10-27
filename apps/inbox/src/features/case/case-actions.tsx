@@ -1,7 +1,7 @@
 import { BellRing, CheckCircle2, Clock, Lock, ShieldAlert, XCircle } from 'lucide-react';
 import { type ChangeEvent, type MouseEvent, type ReactNode, useId, useState } from 'react';
 import type { CaseAction, CaseActionRequest, CaseDetail } from '../../api/contract.ts';
-import { useCaseAction, useNow } from '../../api/queries.ts';
+import { useCaseAction, useNow, useRefreshAfterConflict } from '../../api/queries.ts';
 import { Dialog } from '../../components/dialog.tsx';
 import { InlineError } from '../../components/states.tsx';
 import { Button, Field, INPUT_CLASS } from '../../components/ui.tsx';
@@ -36,6 +36,7 @@ export function patientMessagePreview(name: string): string {
 
 export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactNode {
   const mutation = useCaseAction(detail.id);
+  const refreshAfterConflict = useRefreshAfterConflict(detail.id);
   const now = useNow();
   const ids = useId();
   const [action, setAction] = useState<CaseAction | null>(null);
@@ -64,12 +65,18 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
     setAction(next);
   }
 
+  function close(): void {
+    setAction(null);
+    // The case changed meanwhile (409): once the message was read, show its current state.
+    refreshAfterConflict(mutation.error);
+  }
+
   function handleOpenChange(open: boolean): void {
-    if (!open) setAction(null);
+    if (!open) close();
   }
 
   function handleClose(): void {
-    setAction(null);
+    close();
   }
 
   function handleNoteChange(event: ChangeEvent<HTMLTextAreaElement>): void {
@@ -88,7 +95,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
   }
 
   function handleConfirm(): void {
-    if (!action) return;
+    if (!action || mutation.isPending) return;
     const request: CaseActionRequest = { action, ...(note.trim() ? { note: note.trim() } : {}) };
     if (action === 'snooze') {
       if (
@@ -166,6 +173,8 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
               <Button
                 variant={action === 'dismiss' ? 'danger' : 'primary'}
                 loading={mutation.isPending}
+                // Pending, not validation: one click sends one request.
+                disabled={mutation.isPending}
                 onClick={handleConfirm}
               >
                 {copy?.confirm}
