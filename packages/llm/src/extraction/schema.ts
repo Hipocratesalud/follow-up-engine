@@ -22,7 +22,9 @@ export const ModelTimingSchema = z
     date: z
       .string()
       .nullable()
-      .describe('For an explicit calendar date only: ISO date YYYY-MM-DD. Otherwise null.'),
+      .describe(
+        'Only for a calendar date written in the note: ISO date YYYY-MM-DD. Never computed from an interval. Otherwise null.',
+      ),
   })
   .describe(
     'When the item is due, exactly as the note states it. Never compute dates from intervals.',
@@ -46,13 +48,17 @@ export const ModelMedicationSchema = z.object({
 
 export const ModelPlanItemSchema = z.object({
   kind: z.enum(PLAN_ITEM_KINDS),
-  description: z.string().describe('Short English description, e.g. "repeat HbA1c".'),
+  description: z
+    .string()
+    .describe(
+      'Short English description naming only what the evidence quote names, e.g. "repeat HbA1c".',
+    ),
   timing: ModelTimingSchema.nullable().describe('Null when the note gives no time for this item.'),
   loincCode: z
     .string()
     .nullable()
     .describe(
-      'For lab items only: LOINC code when certain (e.g. "4548-4" for HbA1c); otherwise null.',
+      'For lab items only: LOINC code of the test the evidence quote names, when certain (e.g. "4548-4" for HbA1c); otherwise null.',
     ),
   evidenceQuote: z.string().describe('Exact substring of the note that states this plan item.'),
   confidence: z.number().describe('0 to 1.'),
@@ -65,15 +71,21 @@ export const ModelDischargeSchema = z
       .describe('Exact substring of the note where the clinician discharges the patient.'),
   })
   .describe(
-    'Set only when the clinician explicitly ends follow-up in this specialty ("se da de alta"); otherwise null.',
+    'Set only when the clinician explicitly ends follow-up in this specialty ("se da de alta", "se cierra el proceso terapeutico"); a past hospital discharge is not one. Otherwise null.',
   );
 
 export const ModelExtractionSchema = z.object({
   hasPlan: z.boolean().describe('Whether the note states any follow-up plan.'),
   discharge: ModelDischargeSchema.nullable(),
-  conditions: z.array(ModelConditionSchema),
+  conditions: z
+    .array(ModelConditionSchema)
+    .describe(
+      "This patient's current conditions only: no denied, family-history, risk or past-pregnancy conditions.",
+    ),
   medications: z.array(ModelMedicationSchema),
-  planItems: z.array(ModelPlanItemSchema),
+  planItems: z
+    .array(ModelPlanItemSchema)
+    .describe('Scheduled follow-up only, one item per test; no conditional returns.'),
 });
 
 export type ModelTiming = z.infer<typeof ModelTimingSchema>;

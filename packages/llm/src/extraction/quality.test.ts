@@ -59,7 +59,7 @@ const plan = (overrides: Partial<ModelPlanItem>): ModelPlanItem => ({
 
 describe('discharge ("se da de alta") is read by the real extraction path (clinical #3)', () => {
   it('is part of the model schema and of a new prompt version', () => {
-    expect(NOTE_EXTRACTION_PROMPT_VERSION).toBe('note-extraction@2');
+    expect(NOTE_EXTRACTION_PROMPT_VERSION).toBe('note-extraction@3');
     expect(Object.keys(ModelExtractionSchema.shape)).toContain('discharge');
     expect(isStrictCompatible(toJsonSchema(ModelExtractionSchema))).toBe(true);
     expect(NOTE_EXTRACTION_SYSTEM_PROMPT).toContain('se da de alta');
