@@ -8,6 +8,7 @@ import type {
 } from '../../domain/condition.ts';
 import type { ClinicId, PatientId } from '../../domain/ids.ts';
 import { type Coding, ICD10_SYSTEM, type ResourceRef } from '../../domain/resource.ts';
+import { medicationMatches } from '../protocols/treatment-changes.ts';
 import { resultValueAs, sameConcept } from '../terminology/loinc.ts';
 
 /** Confidence given to a condition inferred from a medication. */
@@ -31,14 +32,6 @@ export interface ConditionCandidate {
 export interface ExtractedMedicationHint {
   readonly text: string;
   readonly source: ResourceRef;
-}
-
-/** Lowercase without accents, so "Losartán" matches "losartan". */
-function foldText(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
 }
 
 function normalizeIcd10(code: string): string {
@@ -96,25 +89,76 @@ export function recordedCandidate(
   };
 }
 
+const MS_PER_DAY = 86_400_000;
+
+type EnrollmentResult = NonNullable<Protocol['enrollment']['results']>[number];
+
+/** Whether a result meets an enrollment threshold (`gte`, `lt`; `abnormal` stands for `gte` without a value). */
+function meetsThreshold(rule: EnrollmentResult, event: ClinicalEvent): boolean {
+  if (event.type !== 'result.received' || !sameConcept(event.code, rule.code)) {
+    return false;
+  }
+  if (event.value === undefined) {
+    return rule.gte !== undefined && event.interpretation === 'abnormal';
+  }
+  const value = resultValueAs(rule.code, event);
+  if (value === undefined) {
+    return false;
+  }
+  return rule.gte !== undefined ? value >= rule.gte : rule.lt !== undefined && value < rule.lt;
+}
+
+/**
+ * The batch result that enrolls by `rule`: one that meets the threshold
+ * and, for a finding that must persist (`confirm`), is one of `count`
+ * qualifying results of the record spanning `minDaysApart` days or more.
+ */
+function enrollingResult(
+  rule: EnrollmentResult,
+  events: readonly ClinicalEvent[],
+  history: readonly ClinicalEvent[],
+): ClinicalEvent | undefined {
+  const hits = events.filter((event) => meetsThreshold(rule, event));
+  if (rule.confirm === undefined) {
+    return hits[0];
+  }
+  const { count, minDaysApart } = rule.confirm;
+  const qualifying = [
+    ...new Map(
+      [...history, ...events]
+        .filter((event) => meetsThreshold(rule, event))
+        .map((event) => [event.idempotencyKey, event]),
+    ).values(),
+  ].sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
+  const first = qualifying[0];
+  return hits.find(
+    (hit) =>
+      first !== undefined &&
+      qualifying.filter((event) => event.occurredAt.getTime() <= hit.occurredAt.getTime()).length >=
+        count &&
+      hit.occurredAt.getTime() - first.occurredAt.getTime() >= minDaysApart * MS_PER_DAY,
+  );
+}
+
 function inferredCandidates(
   protocol: Protocol,
   events: readonly ClinicalEvent[],
+  history: readonly ClinicalEvent[],
   medications: readonly ExtractedMedicationHint[],
 ): ConditionCandidate[] {
   const candidates: ConditionCandidate[] = [];
   const prescribed = events.flatMap((event) =>
     event.type === 'medication.prescribed'
-      ? [
-          {
-            text: `${event.medication.text} ${event.medication.code?.display ?? ''}`,
-            source: event.source,
-          },
-        ]
+      ? [{ medication: event.medication, source: event.source }]
       : [],
   );
+  const hinted = medications.map((hint) => ({
+    medication: { text: hint.text },
+    source: hint.source,
+  }));
   for (const rule of protocol.enrollment.medications ?? []) {
-    const hit = [...prescribed, ...medications].find((medication) =>
-      rule.match.some((needle) => foldText(medication.text).includes(foldText(needle))),
+    const hit = [...prescribed, ...hinted].find((candidate) =>
+      medicationMatches(candidate.medication, rule),
     );
     if (hit !== undefined) {
       candidates.push({
@@ -127,13 +171,22 @@ function inferredCandidates(
     }
   }
   for (const rule of protocol.enrollment.results ?? []) {
+    const hit = enrollingResult(rule, events, history);
+    if (hit !== undefined) {
+      candidates.push({
+        code: icd10(rule.conditionCode),
+        status: 'probable',
+        confidence: RESULT_INFERENCE_CONFIDENCE,
+        sourceType: 'inferred_from_result',
+        source: hit.source,
+      });
+    }
+  }
+  for (const rule of protocol.enrollment.records ?? []) {
     const hit = events.find(
       (event) =>
-        event.type === 'result.received' &&
-        sameConcept(event.code, rule.code) &&
-        (event.value === undefined
-          ? event.interpretation === 'abnormal'
-          : (resultValueAs(rule.code, event) ?? Number.NEGATIVE_INFINITY) >= rule.gte),
+        (event.type === 'result.received' || event.type === 'service_request.created') &&
+        rule.codes.some((code) => sameConcept(event.code, code)),
     );
     if (hit !== undefined) {
       candidates.push({
@@ -160,6 +213,8 @@ export function conditionCandidates(input: {
   readonly existing: readonly PatientCondition[];
   readonly extractedConfidence: ReadonlyMap<string, number>;
   readonly extractedMedications: readonly ExtractedMedicationHint[];
+  /** The patient's record (the batch included), for findings that must repeat over time. */
+  readonly history?: readonly ClinicalEvent[];
 }): ConditionCandidate[] {
   const recorded = input.events.flatMap((event) =>
     event.type === 'condition.recorded'
@@ -181,7 +236,7 @@ export function conditionCandidates(input: {
     );
     return alreadyKnown
       ? []
-      : inferredCandidates(protocol, input.events, input.extractedMedications);
+      : inferredCandidates(protocol, input.events, input.history ?? [], input.extractedMedications);
   });
   return [...recorded, ...inferred];
 }

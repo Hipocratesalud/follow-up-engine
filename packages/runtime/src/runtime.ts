@@ -1,5 +1,6 @@
 import {
   FileProtocolSource,
+  loadConfigDirectory,
   FileRuleSource,
   UuidIdGenerator,
 } from '@follow-up-engine/adapter-memory';
@@ -319,7 +320,8 @@ export async function createRuntime(
  * `inbox:act`, plus the demo scopes only on a fake clock: never
  * `fhir:write`). Patient contact is enabled so the demo shows
  * `patient_contact.requested` webhooks; the release cap is
- * {@link DEMO_DAILY_CASE_CAP_PER_OWNER}.
+ * {@link DEMO_DAILY_CASE_CAP_PER_OWNER}; every protocol of config/protocols
+ * is enabled, drafts included.
  */
 export async function registerDemoClinic(
   runtime: EngineRuntime,
@@ -334,6 +336,10 @@ export async function registerDemoClinic(
       allowPatientContact: true,
       timezone: 'America/Caracas',
       dailyCaseCapPerOwner: DEMO_DAILY_CASE_CAP_PER_OWNER,
+      // The synthetic clinic shows every protocol, drafts included (their
+      // reasons carry the draft badge). A real clinic enables a draft only
+      // once its clinical team validated it.
+      enabledProtocols: loadConfigDirectory().protocols.map((protocol) => protocol.id),
     },
   });
   if (inboxApiKey !== undefined) {

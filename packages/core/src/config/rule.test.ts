@@ -62,6 +62,10 @@ describe('ProtocolSchema', () => {
     const protocol = ProtocolSchema.parse({
       id: 'diabetes.type2',
       version: '1.0.0',
+      status: 'draft',
+      sources: [
+        { title: 'Standards of Care', organization: 'ADA', year: 2025, url: 'https://example.org' },
+      ],
       description: 'Type 2 diabetes control cadence.',
       reason: { code: 'diabetes_control', label: 'Control de diabetes' },
       enrollment: { conditionCodes: ['E11'], minimumStatus: 'confirmed' },

@@ -323,6 +323,8 @@ export function mapObservation(
       )
       .find((target) => target?.resourceType === 'ServiceRequest')?.id;
   const value = quantityValue(observation);
+  // A date result: the estimated delivery date, the last menstrual period.
+  const valueDate = firstDate(observation.valueDateTime);
   return {
     ...scope,
     events: [
@@ -342,6 +344,7 @@ export function mapObservation(
         ...optionalSeverity(severityOf(observation.interpretation)),
         ...(orderId === undefined ? {} : { basedOnOrderId: orderId }),
         ...(value === undefined ? {} : { value }),
+        ...(valueDate === undefined ? {} : { valueDate }),
       },
     ],
   };

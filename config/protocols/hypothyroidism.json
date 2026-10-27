@@ -1,0 +1,91 @@
+{
+  "id": "hypothyroidism",
+  "version": "0.1.0",
+  "status": "draft",
+  "description": "Hypothyroidism on levothyroxine: TSH 6 to 8 weeks after levothyroxine is started or its dose changes (a TSH sooner than 6 weeks does not count), then yearly (the guideline's 6 to 12 months, flagged at 12); a control visit yearly. Fills only what the doctor's plan did not cover.",
+  "reason": { "code": "protocol_hypothyroidism", "label": "Control de hipotiroidismo" },
+  "sources": [
+    {
+      "title": "Guidelines for the Treatment of Hypothyroidism",
+      "organization": "American Thyroid Association",
+      "year": 2014,
+      "url": "https://doi.org/10.1089/thy.2014.0028"
+    },
+    {
+      "title": "Thyroid disease: assessment and management (NG145)",
+      "organization": "National Institute for Health and Care Excellence",
+      "year": 2019,
+      "url": "https://www.nice.org.uk/guidance/ng145"
+    }
+  ],
+  "specialties": [
+    "endocrinology",
+    "internal_medicine",
+    "general_practice",
+    "family_medicine",
+    "diabetology"
+  ],
+  "caseGroup": "follow_up",
+  "enrollment": {
+    "conditionCodes": ["E03", "E89.0"],
+    "minimumStatus": "probable",
+    "medications": [{ "atc": ["H03AA"], "conditionCode": "E03.9" }]
+  },
+  "items": [
+    {
+      "key": "tsh",
+      "kind": "lab",
+      "code": { "system": "http://loinc.org", "code": "3016-3", "display": "Thyrotropin" },
+      "reason": { "code": "protocol_hypothyroidism_tsh", "label": "TSH de control pendiente" },
+      "schedule": {
+        "type": "treatment_change",
+        "medications": { "atc": ["H03AA"] },
+        "afterChangeDays": 56,
+        "minDaysAfterChange": 42,
+        "everyDays": 365
+      },
+      "fulfilledBy": [
+        {
+          "event": "result.received",
+          "filter": { "code.code": ["3016-3", "11580-8", "11579-0"] },
+          "match": "any"
+        }
+      ],
+      "planTerms": [
+        "tsh",
+        "tirotropina",
+        "perfil tiroideo",
+        "pruebas tiroideas",
+        "funcion tiroidea",
+        "hormona tiroestimulante",
+        "thyrotropin"
+      ],
+      "priority": 30,
+      "suggestedAction": {
+        "code": "order_lab",
+        "label": "Indicar TSH",
+        "patientContactPurpose": "complete_pending_test"
+      }
+    },
+    {
+      "key": "visit",
+      "kind": "follow_up_visit",
+      "reason": {
+        "code": "protocol_hypothyroidism_visit",
+        "label": "Sin control de tiroides en 12 meses"
+      },
+      "everyDays": 365,
+      "fulfilledBy": [
+        { "event": "encounter.finished", "match": "any" },
+        { "event": "appointment.booked", "match": "any" }
+      ],
+      "priority": 20,
+      "suggestedAction": {
+        "code": "schedule_follow_up",
+        "label": "Agendar control de tiroides",
+        "patientContactPurpose": "schedule_follow_up"
+      }
+    }
+  ],
+  "escalationPolicy": "default_v1"
+}

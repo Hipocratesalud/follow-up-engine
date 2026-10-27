@@ -20,6 +20,7 @@ import {
 } from '../backfill/release.ts';
 import type { CaseId } from '../../domain/ids.ts';
 import { type CaseCommands, createCaseCommands } from '../case-manager/commands.ts';
+import { protocolEnabled } from '../../config/protocol.ts';
 import { Catalog } from '../catalog.ts';
 import { type EscalationReport, runEscalation } from '../escalation/escalation.ts';
 import { hasOptedOut, lastPatientContactAt } from '../patient-contact/history.ts';
@@ -106,11 +107,17 @@ export interface FollowUpEngine {
 export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
   const settings: EngineSettings = { ...DEFAULT_ENGINE_SETTINGS, ...deps.settings };
   async function loadCatalog(clinicId: ClinicId): Promise<Catalog> {
-    const [rules, protocols] = await Promise.all([
+    const [rules, protocols, clinic] = await Promise.all([
       deps.rules.listRules(clinicId),
       deps.protocols.listProtocols(clinicId),
+      deps.clinics.get(clinicId),
     ]);
-    return new Catalog(rules, protocols);
+    // Per-clinic opt-in: a protocol runs only where the clinic enabled it.
+    const enabled = clinic?.settings.enabledProtocols;
+    return new Catalog(
+      rules,
+      protocols.filter((protocol) => protocolEnabled(protocol.id, enabled)),
+    );
   }
   const shared = { unitOfWork: deps.unitOfWork, ids: deps.ids, settings, loadCatalog };
   const ingestDeps = { ...shared, noteExtractor: deps.noteExtractor, clock: deps.clock };

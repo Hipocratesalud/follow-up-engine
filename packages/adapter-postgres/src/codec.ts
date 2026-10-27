@@ -51,9 +51,14 @@ export function decodeClinicalEvent(payload: Stored<ClinicalEvent>): ClinicalEve
   const event = withRecordedAt(payload);
   const occurredAt = reviveDate(payload.occurredAt, 'occurredAt');
   switch (event.type) {
+    case 'result.received': {
+      const valueDate = reviveOptionalDate(payload.valueDate, 'valueDate');
+      return valueDate === undefined
+        ? { ...event, occurredAt }
+        : { ...event, occurredAt, valueDate };
+    }
     case 'encounter.finished':
     case 'service_request.created':
-    case 'result.received':
     case 'condition.recorded':
     case 'patient.opted_out':
     case 'record.withdrawn':

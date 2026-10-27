@@ -10,6 +10,13 @@ export interface ClinicSettings {
   readonly llmMonthlyBudgetUsd: number;
   /** IANA time zone. */
   readonly timezone: string;
+  /**
+   * Ids of the care protocols the clinic runs (config/protocols). Absent:
+   * `DEFAULT_ENABLED_PROTOCOLS` (diabetes and hypertension). Draft protocols
+   * stay off until the clinic lists them, once its clinical team validated
+   * them (docs/protocols.md).
+   */
+  readonly enabledProtocols?: readonly string[];
 }
 
 /** A tenant of the engine. */

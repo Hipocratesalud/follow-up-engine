@@ -21,6 +21,7 @@ import {
 import { type PatientTimeline, refKey } from '../timeline.ts';
 import { conditionCandidates, mergeCondition } from './conditions.ts';
 import type { AnnotationContext, AnnotationHints, ClosedExpectation } from './context.ts';
+import { endEpisodes, RESCHEDULED_BY_PROTOCOL } from './episodes.ts';
 import { type ExpectationDraft, materializeExpectation, movedIdempotencyKey } from './draft.ts';
 import { cadenceDrafts } from './layers/cadence.ts';
 import { doctorPlanDrafts } from './layers/doctor-plan.ts';
@@ -108,6 +109,9 @@ export async function annotate(
   closed.push(...(await cancelWithdrawn(context, state, ordered)));
   const unenrolled = await withdrawConditions(context, state, ordered, conditions.all);
   closed.push(...unenrolled.closed);
+  // A delivery or a loss ends a pregnancy: nothing prenatal is expected after it.
+  const ended = await endEpisodes(context, state, conditions.all);
+  closed.push(...ended.closed);
   const reopened = await recheckTouched(context, state, ordered);
   // Information that arrives after what it decides (a discharge or a
   // conditional return in a later note, the doctor's own control, an order
@@ -138,6 +142,17 @@ export async function annotate(
     live: state.live.list(),
     now: context.now,
   });
+  for (const expectation of protocols.replaced) {
+    state.live.put(
+      await closeExpectation(
+        context.stores,
+        expectation,
+        'superseded',
+        RESCHEDULED_BY_PROTOCOL,
+        context.now,
+      ),
+    );
+  }
   afterFulfillment.push(
     ...(await createExpectations(context, state.live, protocols.drafts, lateHistory)),
   );
@@ -174,7 +189,7 @@ export async function annotate(
     expectationsClosed: closed,
     expectationsReopened: reopened,
     casesResolved,
-    conditionsUpserted: [...conditions.upserted, ...unenrolled.resolved],
+    conditionsUpserted: [...conditions.upserted, ...unenrolled.resolved, ...ended.resolved],
     optedOut: state.timeline.optedOut,
   };
 }
@@ -218,6 +233,7 @@ async function upsertConditions(
     existing: state.conditions,
     extractedConfidence: hints.extractedConfidence ?? new Map(),
     extractedMedications: hints.extractedMedications ?? [],
+    history: state.timeline.events,
   });
   for (const candidate of candidates) {
     const key = `${candidate.code.system}|${candidate.code.code}`;

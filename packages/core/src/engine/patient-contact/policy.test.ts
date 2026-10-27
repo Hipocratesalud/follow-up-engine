@@ -46,6 +46,10 @@ describe('isLowConfidenceCase', () => {
       {
         id: 'diabetes',
         version: '1.0.0',
+        status: 'draft',
+        sources: [
+          { title: 'Guideline', organization: 'Org', year: 2025, url: 'https://example.org/g' },
+        ],
         description: 'd',
         reason: { code: 'protocol_diabetes', label: 'Control de diabetes' },
         enrollment: { conditionCodes: ['E11', 'E14'], minimumStatus: 'probable' },

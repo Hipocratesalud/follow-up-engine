@@ -11,80 +11,353 @@ import {
 } from './common.ts';
 
 /**
+ * `draft`: written from guidelines, not yet validated by a clinical team.
+ * Draft protocols are off unless a clinic enables them by id
+ * (`ClinicSettings.enabledProtocols`), and the inbox marks their reasons.
+ * `validated`: signed off by the clinical team (see docs/protocols.md).
+ */
+export const PROTOCOL_STATUSES = ['draft', 'validated'] as const;
+export type ProtocolStatus = (typeof PROTOCOL_STATUSES)[number];
+
+/** How an episode of a protocol ends (a pregnancy: a delivery or a loss). */
+export const PROTOCOL_OUTCOMES = ['delivery', 'loss'] as const;
+export type ProtocolOutcome = (typeof PROTOCOL_OUTCOMES)[number];
+
+/** KDIGO 2012 GFR categories (G1 >= 90 ... G5 < 15 mL/min/1.73 m2). */
+export const GFR_CATEGORIES = ['G1', 'G2', 'G3a', 'G3b', 'G4', 'G5'] as const;
+export type GfrCategory = (typeof GFR_CATEGORIES)[number];
+/** KDIGO 2012 albuminuria categories by urine albumin/creatinine ratio (A1 < 30, A2 30-300, A3 > 300 mg/g). */
+export const ALBUMINURIA_CATEGORIES = ['A1', 'A2', 'A3'] as const;
+export type AlbuminuriaCategory = (typeof ALBUMINURIA_CATEGORIES)[number];
+
+/** A guideline the protocol was written from. */
+export const GuidelineSourceSchema = z.strictObject({
+  title: z.string().min(1),
+  organization: z.string().min(1),
+  year: z.number().int().min(1990).max(2100),
+  url: z.url(),
+});
+export type GuidelineSource = z.infer<typeof GuidelineSourceSchema>;
+
+/**
+ * A drug class: ATC code prefixes (`N06A` antidepressants), matched against
+ * the prescription's ATC code or the one its name maps to, and/or
+ * case-insensitive substrings of the medication text.
+ */
+export const MedicationMatcherSchema = z
+  .strictObject({
+    atc: z
+      .array(z.string().regex(/^[A-Z]\d{2}[A-Z0-9]*$/))
+      .min(1)
+      .optional(),
+    match: z.array(z.string().min(1)).min(1).optional(),
+  })
+  .refine((matcher) => matcher.atc !== undefined || matcher.match !== undefined, {
+    message: 'expected atc or match',
+  });
+export type MedicationMatcher = z.infer<typeof MedicationMatcherSchema>;
+
+const DaysSchema = z.number().int().positive();
+
+/** Every `everyDays` days after the last time it happened (or enrollment). */
+const IntervalScheduleSchema = z.strictObject({
+  type: z.literal('interval'),
+  everyDays: DaysSchema,
+});
+
+/**
+ * Titration: `afterChangeDays` after a drug of `medications` is started or
+ * its dose changes (no sooner than `minDaysAfterChange`), then `untilStable.everyDays` until
+ * `untilStable.controls` consecutive controls without a change, then
+ * `everyDays`. Without any prescription of the class, `everyDays` from the
+ * last time it happened (or enrollment).
+ */
+const TreatmentChangeScheduleSchema = z.strictObject({
+  type: z.literal('treatment_change'),
+  medications: MedicationMatcherSchema,
+  afterChangeDays: DaysSchema,
+  /**
+   * What happens sooner than this after the change does not count as its
+   * control (a TSH a week after a new levothyroxine dose is not at steady
+   * state yet): the control is still due `afterChangeDays` after the change.
+   */
+  minDaysAfterChange: z.number().int().nonnegative().optional(),
+  untilStable: z
+    .strictObject({ everyDays: DaysSchema, controls: z.number().int().positive() })
+    .optional(),
+  everyDays: DaysSchema,
+});
+
+/**
+ * Prenatal cadence: the interval after a visit depends on the gestational
+ * age at that visit (`untilWeek` exclusive, first match wins), never due
+ * past the episode's last gestational week. `undatedEveryDays` when the
+ * gestational age is unknown.
+ */
+const GestationalAgeScheduleSchema = z.strictObject({
+  type: z.literal('gestational_age'),
+  intervals: z
+    .array(z.strictObject({ untilWeek: z.number().int().positive(), everyDays: DaysSchema }))
+    .min(1)
+    .refine(
+      (intervals) =>
+        intervals.every(
+          (interval, index) =>
+            index === 0 || interval.untilWeek > (intervals[index - 1]?.untilWeek ?? 0),
+        ),
+      { message: 'intervals must be sorted by untilWeek' },
+    ),
+  undatedEveryDays: DaysSchema,
+});
+
+/**
+ * Once per episode, between two gestational weeks (the oral glucose
+ * tolerance test at 24-28 weeks): expected once the window opens, due when
+ * it closes; only what happens inside the window counts. Never expected
+ * when the gestational age is unknown.
+ */
+const GestationalWindowScheduleSchema = z
+  .strictObject({
+    type: z.literal('gestational_window'),
+    fromWeek: z.number().int().nonnegative(),
+    toWeek: z.number().int().positive(),
+  })
+  .refine((window) => window.toWeek > window.fromWeek, {
+    message: 'toWeek must be after fromWeek',
+  });
+
+/** Once, within `withinDays` after an episode ended with `outcome` (the postpartum visit). */
+const AfterOutcomeScheduleSchema = z.strictObject({
+  type: z.literal('after_outcome'),
+  outcome: z.enum(PROTOCOL_OUTCOMES),
+  withinDays: DaysSchema,
+});
+
+/**
+ * By chronic kidney disease stage (KDIGO): the first interval whose GFR
+ * category (and albuminuria category, when listed) matches the patient's
+ * latest results; `everyDays` when none matches or the stage is unknown.
+ */
+const CkdStageScheduleSchema = z.strictObject({
+  type: z.literal('ckd_stage'),
+  intervals: z
+    .array(
+      z.strictObject({
+        gfr: z.array(z.enum(GFR_CATEGORIES)).min(1),
+        albuminuria: z.array(z.enum(ALBUMINURIA_CATEGORIES)).min(1).optional(),
+        everyDays: DaysSchema,
+      }),
+    )
+    .min(1),
+  everyDays: DaysSchema,
+});
+
+export const ProtocolScheduleSchema = z.union([
+  IntervalScheduleSchema,
+  TreatmentChangeScheduleSchema,
+  GestationalAgeScheduleSchema,
+  GestationalWindowScheduleSchema,
+  AfterOutcomeScheduleSchema,
+  CkdStageScheduleSchema,
+]);
+export type ProtocolSchedule = z.infer<typeof ProtocolScheduleSchema>;
+export type ProtocolScheduleOf<TType extends ProtocolSchedule['type']> = Extract<
+  ProtocolSchedule,
+  { readonly type: TType }
+>;
+
+/** A result that makes the condition probable. */
+const EnrollmentResultSchema = z
+  .strictObject({
+    code: CodingSchema,
+    /** Enrolls when `value >= gte` (or `abnormal` without a value). */
+    gte: z.number().optional(),
+    /** Enrolls when `value < lt`. */
+    lt: z.number().optional(),
+    conditionCode: z.string().min(1),
+    /**
+     * Only a finding repeated over time enrolls (kidney disease: eGFR < 60
+     * on two results at least 90 days apart): `count` qualifying results,
+     * the first and the last `minDaysApart` days apart or more.
+     */
+    confirm: z
+      .strictObject({
+        count: z.number().int().min(2),
+        minDaysApart: z.number().int().nonnegative(),
+      })
+      .optional(),
+  })
+  .refine((rule) => (rule.gte === undefined) !== (rule.lt === undefined), {
+    message: 'expected exactly one of gte, lt',
+  });
+
+export const ProtocolItemSchema = z
+  .strictObject({
+    key: ConfigIdSchema,
+    kind: z.enum(PLAN_ITEM_KINDS),
+    reason: ReasonSchema,
+    /** Shorthand for `{ "type": "interval", "everyDays": n }`. */
+    everyDays: DaysSchema.optional(),
+    schedule: ProtocolScheduleSchema.optional(),
+    /** The test the item expects, for lab and imaging items (match key and coverage). */
+    code: CodingSchema.optional(),
+    fulfilledBy: z.array(EventCorrelationSchema).min(1),
+    /**
+     * Terms that name the item's test in the quote of an uncoded plan
+     * item ("control en 3 meses con HbA1c"), so the doctor's plan covers
+     * the protocol item even when the extractor gave no code. Case and
+     * accents are ignored. Coded orders and plan items cover the item
+     * when their code is the item's or one its `fulfilledBy` filters
+     * accept (the item's equivalence group, for example every lipid
+     * panel LOINC).
+     */
+    planTerms: z.array(z.string().min(1)).min(1).optional(),
+    priority: z.number().int().nonnegative(),
+    suggestedAction: SuggestedActionSchema,
+  })
+  .refine((item) => (item.everyDays === undefined) !== (item.schedule === undefined), {
+    message: 'expected exactly one of everyDays, schedule',
+  });
+
+/**
  * A versioned care protocol (config/protocols/*.json): a cadence of
  * expectations for patients with a condition. Protocols only fill what the
  * doctor's plan for the consultation did not already cover.
  */
-export const ProtocolSchema = z.strictObject({
-  id: ConfigIdSchema,
-  version: ConfigVersionSchema,
-  /** English, for maintainers. */
-  description: z.string().min(1),
-  reason: ReasonSchema,
-  enrollment: z.strictObject({
-    /** ICD-10 codes or code prefixes (`E11` matches `E11.9`). */
-    conditionCodes: z.array(z.string().min(1)).min(1),
-    /** `probable` also enrolls inferred conditions. */
-    minimumStatus: z.enum(['confirmed', 'probable']),
+export const ProtocolSchema = z
+  .strictObject({
+    id: ConfigIdSchema,
+    version: ConfigVersionSchema,
+    status: z.enum(PROTOCOL_STATUSES),
+    /** English, for maintainers. */
+    description: z.string().min(1),
+    /** `label` is the protocol's Spanish name in the inbox. */
+    reason: ReasonSchema,
+    /** Guidelines the criteria and intervals come from. */
+    sources: z.array(GuidelineSourceSchema).min(1),
     /**
-     * Medications that make the condition probable when no diagnosis is
-     * coded: case-insensitive substrings of the medication text.
+     * The condition must never be inferable from what the protocol shows
+     * or sends: reason labels and suggested actions stay neutral, and the
+     * patient contact purpose is `schedule_follow_up` (mental health).
      */
-    medications: z
-      .array(
-        z.strictObject({
-          match: z.array(z.string().min(1)).min(1),
-          conditionCode: z.string().min(1),
-        }),
-      )
-      .optional(),
-    /** Results that make the condition probable (`value >= gte`, or `abnormal` without a value). */
-    results: z
-      .array(
-        z.strictObject({
-          code: CodingSchema,
-          gte: z.number(),
-          conditionCode: z.string().min(1),
-        }),
-      )
-      .optional(),
-  }),
-  /**
-   * Specialties whose visits count as this protocol's control (engine
-   * specialty codes, for example `diabetology`). A visit of another
-   * specialty neither fulfills nor re-anchors a visit item, unless it is with
-   * the patient's treating practitioner. Any specialty when absent.
-   */
-  specialties: z.array(z.string().min(1)).min(1).optional(),
-  /** Case group of every item (see `Rule.caseGroup`). Defaults to the protocol reason code. */
-  caseGroup: ConfigIdSchema.optional(),
-  items: z
-    .array(
-      z.strictObject({
-        key: ConfigIdSchema,
-        kind: z.enum(PLAN_ITEM_KINDS),
-        reason: ReasonSchema,
-        everyDays: z.number().int().positive(),
-        /** The test the item expects, for lab and imaging items (match key and coverage). */
-        code: CodingSchema.optional(),
-        fulfilledBy: z.array(EventCorrelationSchema).min(1),
+    sensitive: z.boolean().optional(),
+    enrollment: z.strictObject({
+      /** ICD-10 codes or code prefixes (`E11` matches `E11.9`). */
+      conditionCodes: z.array(z.string().min(1)).min(1),
+      /** `probable` also enrolls inferred conditions. */
+      minimumStatus: z.enum(['confirmed', 'probable']),
+      /** Medications that make the condition probable when no diagnosis is coded. */
+      medications: z
+        .array(
+          z
+            .strictObject({
+              /** Case-insensitive substrings of the medication text. */
+              match: z.array(z.string().min(1)).min(1).optional(),
+              /** ATC code prefixes (the prescription's code, or the one its name maps to). */
+              atc: z
+                .array(z.string().regex(/^[A-Z]\d{2}[A-Z0-9]*$/))
+                .min(1)
+                .optional(),
+              conditionCode: z.string().min(1),
+            })
+            .refine((rule) => rule.match !== undefined || rule.atc !== undefined, {
+              message: 'expected match or atc',
+            }),
+        )
+        .optional(),
+      /** Results that make the condition probable. */
+      results: z.array(EnrollmentResultSchema).optional(),
+      /**
+       * Orders or results of these codes (any value) that make the
+       * condition probable: an obstetric ultrasound, an estimated delivery
+       * date, a gestational age.
+       */
+      records: z
+        .array(
+          z.strictObject({
+            codes: z.array(CodingSchema).min(1),
+            conditionCode: z.string().min(1),
+          }),
+        )
+        .optional(),
+    }),
+    /**
+     * Episodic protocols (a pregnancy): diagnoses that end the episode, by
+     * outcome. Once ended, the enrolling condition is resolved, the
+     * protocol's live expectations are cancelled (`protocol_closed`), only
+     * `after_outcome` items of that outcome are expected, and only a new
+     * diagnosis recorded after the end starts a new episode.
+     */
+    closing: z
+      .strictObject({
+        outcomes: z
+          .array(
+            z.strictObject({
+              outcome: z.enum(PROTOCOL_OUTCOMES),
+              conditionCodes: z.array(z.string().min(1)).min(1),
+            }),
+          )
+          .min(1),
         /**
-         * Terms that name the item's test in the quote of an uncoded plan
-         * item ("control en 3 meses con HbA1c"), so the doctor's plan covers
-         * the protocol item even when the extractor gave no code. Case and
-         * accents are ignored. Coded orders and plan items cover the item
-         * when their code is the item's or one its `fulfilledBy` filters
-         * accept (the item's equivalence group, for example every lipid
-         * panel LOINC).
+         * Gestational week past which nothing more is expected of the
+         * episode when no outcome was recorded (the pregnancy ended
+         * somewhere the record does not show).
          */
-        planTerms: z.array(z.string().min(1)).min(1).optional(),
-        priority: z.number().int().nonnegative(),
-        suggestedAction: SuggestedActionSchema,
-      }),
-    )
-    .min(1),
-  escalationPolicy: EscalationPolicySchema,
-});
+        maxGestationalWeeks: z.number().int().positive().optional(),
+      })
+      .optional(),
+    /**
+     * Specialties whose visits count as this protocol's control (engine
+     * specialty codes, for example `diabetology`). A visit of another
+     * specialty neither fulfills nor re-anchors a visit item, unless it is
+     * with the patient's treating practitioner. Any specialty when absent.
+     */
+    specialties: z.array(z.string().min(1)).min(1).optional(),
+    /** Case group of every item (see `Rule.caseGroup`). Defaults to the protocol reason code. */
+    caseGroup: ConfigIdSchema.optional(),
+    items: z.array(ProtocolItemSchema).min(1),
+    escalationPolicy: EscalationPolicySchema,
+  })
+  .refine(
+    (protocol) =>
+      protocol.sensitive !== true ||
+      protocol.items.every(
+        (item) =>
+          item.suggestedAction.patientContactPurpose === undefined ||
+          item.suggestedAction.patientContactPurpose === 'schedule_follow_up',
+      ),
+    { message: 'a sensitive protocol only asks to contact the patient to schedule a follow-up' },
+  )
+  .refine(
+    (protocol) =>
+      protocol.closing !== undefined ||
+      protocol.items.every((item) => item.schedule?.type !== 'after_outcome'),
+    { message: 'after_outcome items need closing outcomes' },
+  );
 
 export type Protocol = z.infer<typeof ProtocolSchema>;
 export type ProtocolItem = Protocol['items'][number];
+
+/** The schedule of an item, with the `everyDays` shorthand expanded. */
+export function itemSchedule(item: ProtocolItem): ProtocolSchedule {
+  return item.schedule ?? { type: 'interval', everyDays: item.everyDays ?? 1 };
+}
+
+/**
+ * Protocols on for a clinic that never chose (`ClinicSettings.enabledProtocols`
+ * absent): the two that ran before protocols needed opting in, kept on so
+ * existing clinics keep their behavior. Every other draft protocol is off
+ * until the clinic enables it by id.
+ */
+export const DEFAULT_ENABLED_PROTOCOLS: readonly string[] = ['diabetes', 'hypertension'];
+
+/**
+ * Whether a protocol runs for a clinic: listed in its `enabledProtocols`, or
+ * one of {@link DEFAULT_ENABLED_PROTOCOLS} when the clinic never chose.
+ */
+export function protocolEnabled(
+  protocolId: string,
+  enabledProtocols: readonly string[] | undefined,
+): boolean {
+  return (enabledProtocols ?? DEFAULT_ENABLED_PROTOCOLS).includes(protocolId);
+}

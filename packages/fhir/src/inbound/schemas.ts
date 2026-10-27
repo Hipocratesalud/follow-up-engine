@@ -294,6 +294,7 @@ export const ObservationSchema = z.object({
   effectiveInstant: fhirDateTime.optional(),
   issued: fhirDateTime.optional(),
   valueQuantity: QuantitySchema.optional(),
+  valueDateTime: fhirDateTime.optional(),
   interpretation: z.array(CodeableConceptSchema).optional(),
 }) satisfies z.ZodType<Partial<R4.Observation>>;
 
