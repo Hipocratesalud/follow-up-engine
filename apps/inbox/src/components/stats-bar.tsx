@@ -35,11 +35,13 @@ function StatsTiles({ stats }: { readonly stats: InboxStats }): ReactNode {
   const snoozed = stats.byStatus['snoozed'] ?? 0;
   return (
     <dl className="grid grid-cols-2 gap-3 xl:grid-cols-[0.9fr_1.5fr_1fr_1.3fr]">
-      <Tile label={t.stats.activeCases}>
+      <Tile label={t.stats.activePatients}>
         <p className="text-xl font-semibold tracking-tight text-fg tabular-nums">
-          {stats.activeCases}
+          {stats.activePatients}
         </p>
         <p className="mt-0.5 text-xs text-muted">
+          {t.stats.cases(stats.activeCases)}
+          {t.common.separator}
           {t.stats.escalated(escalated)}
           {t.common.separator}
           {t.stats.snoozed(snoozed)}

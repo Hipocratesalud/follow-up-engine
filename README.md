@@ -1,6 +1,6 @@
 # Follow-up Engine
 
-Clinical follow-up engine by [Hipócrates](https://hipocratesalud.com). It reads what already exists in a patient's record (orders, prescriptions, progress notes, reports) and turns it into expectations: "this should happen before this date". When an expectation expires unmet, the clinic sees one case per patient so nobody falls through the cracks.
+Clinical follow-up engine by [Hipócrates](https://hipocratesalud.com). It reads what already exists in a patient's record (orders, prescriptions, progress notes, reports) and turns it into expectations: "this should happen before this date". When an expectation expires unmet, the clinic sees one card per patient, every reason grouped, so nobody falls through the cracks.
 
 It is an operational, continuity-of-care tool for the clinic. It never gives patients medical advice: every finding is a suggestion to the clinician, with cited evidence.
 
@@ -81,7 +81,7 @@ The demo clinic has two keys, both synthetic and refused on a real clock: `demo-
 
 `pnpm demo` loads the synthetic clinic (148 fictional patients, two years of history) through the initial backfill, the way a real clinic is switched on: about 3 s in memory. The demo clinic runs every care protocol, the drafts included ([docs/protocols.md](docs/protocols.md); a real clinic runs diabetes and hypertension until its clinical team enables more). It ends with 104 cases with origin `backfill` for 94 patients (at most 2 per patient). The demo clinic releases at most 5 of them per owner and day (`dailyCaseCapPerOwner`, 20 for real clinics), so the inbox starts with 45, 59 wait in "To recover" with their release day, and "+1 day" on the Demo page lets in the next batch (41 on day 1, 16 on day 2, the last 2 on day 3). By layer (a case can have reasons of several): 33 universal, 40 doctor's plan, 44 protocol, 9 cadence. By protocol: 17 diabetes, 9 hypertension, 7 dyslipidemia, 7 treatment follow-up, 5 chronic kidney disease, 4 pregnancy, 2 hypothyroidism. By the patient's specialty: 35 diabetology, 26 internal medicine, 23 gynecology, 20 psychology. By priority: 6 high, 21 medium, 77 low.
 
-The clinical reviewer's shadow pilot runs on top. Twenty more synthetic patients, the reviewer cohort, join through the same backfill: ten with planted findings, ten controls. Their 10 cases add 9 to the inbox on day 0 (54 in all) and 1 to "To recover" (60, the last 3 released on day 3). Then every one of the 168 patients gets one review: 98 shadow findings, about 58 per 100 patients, 19 of them already covered by an open expectation or case (`alreadyCovered`):
+The clinical reviewer's shadow pilot runs on top. Twenty more synthetic patients, the reviewer cohort, join through the same backfill: ten with planted findings, ten controls. Their 10 cases add 9 to the inbox on day 0 (54 in all) and 1 to "To recover" (60, the last 3 released on day 3). The inbox shows them as 53 patient cards: one card per patient, every reason grouped (one patient has two cases on day 0; the engine still escalates, deduplicates and audits each case on its own). Then every one of the 168 patients gets one review: 98 shadow findings, about 58 per 100 patients, 19 of them already covered by an open expectation or case (`alreadyCovered`):
 
 - 40 record quality
 - 25 questions for the next visit

@@ -330,6 +330,8 @@ const stats: Messages['stats'] = {
   error: 'No pudimos cargar el resumen',
   region: 'Resumen',
   activeCases: 'Casos activos',
+  activePatients: 'Pacientes con casos activos',
+  cases: (n) => count(n, 'caso', 'casos'),
   escalated: (n) => count(n, 'escalado', 'escalados'),
   snoozed: (n) => count(n, 'pospuesto', 'pospuestos'),
   byLayer: 'Por capa',

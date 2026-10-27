@@ -144,7 +144,7 @@ export function Shell(): ReactNode {
   const findings = useOpenShadowFindings();
 
   const items: NavItem[] = [
-    { to: '/inbox', label: t.nav.inbox, icon: Inbox, count: stats.data?.activeCases },
+    { to: '/inbox', label: t.nav.inbox, icon: Inbox, count: stats.data?.activePatients },
     {
       to: '/recovery',
       label: t.nav.recovery,

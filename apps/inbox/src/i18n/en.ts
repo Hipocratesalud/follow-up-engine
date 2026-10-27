@@ -341,6 +341,9 @@ const stats = {
   error: 'We could not load the summary',
   region: 'Summary',
   activeCases: 'Active cases',
+  /** HIP-141: the inbox counts patients first (one card each), their cases second. */
+  activePatients: 'Patients with active cases',
+  cases: (n: number): string => count(n, 'case', 'cases'),
   escalated: (n: number): string => count(n, 'escalated', 'escalated'),
   snoozed: (n: number): string => count(n, 'snoozed', 'snoozed'),
   byLayer: 'By layer',
