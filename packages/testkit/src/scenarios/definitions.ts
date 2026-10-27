@@ -508,28 +508,36 @@ function threeLayersOneCase(): Scenario {
     },
   });
   const secondNote = [
-    'Pcte masc 63a, DM2, acude a ctrl. Refiere olvidar la dosis nocturna. Glicemia capilar 176 mg/dl. TA 130/80.',
-    'Dx: DM2 fuera de metas.',
-    'Plan: metformina 1000 mg c/12h, reforzar adherencia. Se solicita perfil lipídico. Ctrl en 1 mes con resultados.',
+    'Pcte masc 63a, DM2, acude a ctrl. Refiere olvidar la dosis nocturna y disuria de 2 días. Glicemia capilar 176 mg/dl. TA 130/80.',
+    'Dx: DM2 fuera de metas. ITU baja.',
+    'Plan: metformina 1000 mg c/12h, reforzar adherencia. nitrofurantoína 100 mg VO c/12h x 7 días. Ctrl en 1 mes.',
   ].join('\n');
   s.consultation(60, {
     visitType: 'Consulta de control',
     note: secondNote,
-    conditions: [CONDITIONS.dm2],
-    medications: [MEDICATIONS.metformin1000],
-    orders: [ORDERS.lipidPanel],
+    conditions: [CONDITIONS.dm2, CONDITIONS.uti],
+    medications: [MEDICATIONS.metformin1000, MEDICATIONS.nitrofurantoin],
+    orders: [],
     extraction: {
       hasPlan: true,
       conditions: [
         { icd10: 'E11', display: 'Type 2 diabetes mellitus', quote: 'DM2 fuera de metas' },
+        { icd10: 'N39', display: 'Urinary tract infection, site not specified', quote: 'ITU baja' },
       ],
-      medications: [{ text: 'metformina 1000 mg c/12h', quote: 'metformina 1000 mg c/12h' }],
+      medications: [
+        { text: 'metformina 1000 mg c/12h', quote: 'metformina 1000 mg c/12h' },
+        {
+          text: 'nitrofurantoína 100 mg VO c/12h x 7 días',
+          quote: 'nitrofurantoína 100 mg VO c/12h x 7 días',
+          durationDays: 7,
+        },
+      ],
       planItems: [
         {
           kind: 'follow_up_visit',
-          description: 'follow-up visit with results',
+          description: 'follow-up visit',
           inDays: 30,
-          quote: 'Ctrl en 1 mes con resultados',
+          quote: 'Ctrl en 1 mes',
         },
       ],
     },
@@ -538,9 +546,10 @@ function threeLayersOneCase(): Scenario {
     'three_layers_one_case',
     'Day 0: diabetic visit without a plan enrolls the patient in the diabetes protocol (visit day 180, ' +
       'HbA1c day 90). Day 60: a visit fulfills the protocol visit and its plan ("control in 1 month") ' +
-      'covers the next visit, so neither the protocol nor the cadence layer adds a visit; a lipid ' +
-      'panel order adds a universal lab expectation (day 75). The lab (universal), the plan (doctor) ' +
-      'and the HbA1c (protocol) expire on days 75, 90 and 90 and merge into ONE case for the patient.',
+      'covers the next visit, so neither the protocol nor the cadence layer adds a visit; a 7-day ' +
+      'antibiotic adds a universal end-of-treatment control (day 70). The short treatment (universal), ' +
+      'the plan (doctor) and the HbA1c (protocol) are all follow-up needs of the same patient: they ' +
+      'expire on days 70, 90 and 90 and merge into ONE case (one case per patient and reason).',
     [
       {
         day: 1,
@@ -554,7 +563,7 @@ function threeLayersOneCase(): Scenario {
       {
         day: 61,
         openExpectations: [
-          { ruleId: LAB, matchKey: 'loinc:57698-3', dueDay: 75 },
+          { ruleId: SHORT_TX, dueDay: 70 },
           { ruleId: PLAN, dueDay: 90 },
           { ruleId: DM_HBA1C, dueDay: 90 },
         ],
@@ -563,11 +572,11 @@ function threeLayersOneCase(): Scenario {
         activeCases: [],
         qualityFindings: ['note_without_plan'],
       },
-      { day: 76, activeCases: [{ reasons: [LAB] }] },
+      { day: 71, activeCases: [{ reasons: [SHORT_TX] }] },
       {
         day: 91,
-        absentRuleIds: [LAB, PLAN],
-        activeCases: [{ reasons: [LAB, PLAN, DM_HBA1C] }],
+        absentRuleIds: [SHORT_TX, PLAN],
+        activeCases: [{ reasons: [SHORT_TX, PLAN, DM_HBA1C] }],
       },
     ],
   );

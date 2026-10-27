@@ -56,7 +56,11 @@ export const RuleSchema = z.strictObject({
   cadence: z
     .strictObject({
       multiplier: z.number().positive(),
-      /** Visits of the same specialty required before the current one. */
+      /**
+       * Visits of the same specialty the patient must already have (the
+       * latest one included) before the next one is expected: 2 means one
+       * interval, the PRD's minimum pattern.
+       */
       minPreviousVisits: z.number().int().positive(),
       /** Intervals shorter than this are ignored (same-week repeats). */
       minIntervalDays: z.number().int().nonnegative().optional(),

@@ -148,7 +148,7 @@ Rules the expected outcomes follow: lab result 15 days, imaging 30, short treatm
 | `short_treatment_no_followup`         | 7-day antibiotic → case at day 10                                                                        |
 | `gynecology_postpartum_6_weeks`       | Plan "control puerperal en 6 semanas" → case at day 42                                                   |
 | `postpartum_booked_resolves`          | Booking on day 45 resolves the case as fulfilled                                                         |
-| `three_layers_one_case`               | Universal (lab), doctor plan and protocol (HbA1c) expire into one case                                   |
+| `three_layers_one_case`               | Universal (short treatment), doctor plan and protocol (HbA1c) expire into one follow-up case             |
 
 ## Regenerating
 

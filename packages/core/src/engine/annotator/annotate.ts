@@ -58,9 +58,10 @@ export interface AnnotationResult {
 
 /**
  * Applies a batch of clinical events to a patient, in the order the PRD
- * fixes: conditions → universal rules, doctor's plan and cadence →
- * fulfillment and supersession of what was already expected → protocols
- * fill only the gaps left → cases whose reasons all closed are resolved.
+ * fixes: conditions → universal rules and doctor's plan → fulfillment and
+ * supersession of what was already expected → cadence where no live plan
+ * covers it → protocols fill only the gaps left → cases whose reasons all
+ * closed are resolved.
  * Idempotent: the same events twice change nothing the second time.
  */
 export async function annotate(
@@ -83,11 +84,18 @@ export async function annotate(
   const firstDrafts = [
     ...universalDrafts(ordered, context.catalog),
     ...doctorPlanDrafts(ordered, context.catalog, context.settings.minPlanItemConfidence),
-    ...cadenceDrafts(ordered, state.timeline, context.catalog),
   ];
   created.push(...(await createExpectations(context, state.live, firstDrafts)));
 
   const closed = await applyFulfillment(context, state.timeline, state.live, ordered);
+
+  // The doctor's explicit plan beats the inferred visit pattern for what it
+  // covers; checked after fulfillment, so a visit that fulfills the plan
+  // brings the pattern back.
+  const cadence = cadenceDrafts(ordered, state.timeline, context.catalog).filter(
+    (draft) => !coveredByPlan(state.live, draft.matchKey),
+  );
+  created.push(...(await createExpectations(context, state.live, cadence)));
 
   const protocols = protocolDrafts({
     catalog: context.catalog,
@@ -122,6 +130,15 @@ export async function annotate(
     conditionsUpserted: conditions.upserted,
     optedOut: false,
   };
+}
+
+/** Whether a live doctor's-plan expectation already asks for the same thing. */
+function coveredByPlan(live: LiveExpectations, matchKey: string): boolean {
+  return live
+    .list()
+    .some(
+      (expectation) => expectation.layer === 'doctor_plan' && expectation.matchKey === matchKey,
+    );
 }
 
 async function upsertConditions(

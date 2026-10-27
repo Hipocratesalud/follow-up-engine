@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CODES, defined, scenario } from '../testing/index.ts';
+import { FakeNoteExtractor } from '../fake-note-extractor.ts';
+import { CODES, defined, SCENARIO_BASE_DATE, scenario } from '../testing/index.ts';
 
 const DIABETES_NOTE_WITHOUT_PLAN =
   'Paciente femenina de 58 años con DM2 en tratamiento con metformina 850 mg c/12h. Refiere buena adherencia. Sin cambios.';
@@ -105,6 +106,8 @@ describe('PRD acceptance scenarios', () => {
       .expectOpenExpectations([
         { ruleId: 'lab_order_result_pending', matchKey: 'loinc:4548-4', dueDay: 25 },
         { ruleId: 'lab_order_result_pending', matchKey: 'loinc:2160-0', dueDay: 25 },
+        // Two diabetology visits 10 days apart already make a pattern (3 x 10 days).
+        { ruleId: 'cadence_break', dueDay: 40 },
       ])
       .at(26)
       .runWatcher()
@@ -129,7 +132,10 @@ describe('PRD acceptance scenarios', () => {
         const audit = await world.audit(defined(closed).id);
         expect(audit.at(-1)?.payload).toMatchObject({ closedReasons: ['superseded_by_new_order'] });
       })
-      .expectOpenExpectations([{ ruleId: 'lab_order_result_pending', dueDay: 35 }])
+      .expectOpenExpectations([
+        { ruleId: 'lab_order_result_pending', dueDay: 35 },
+        { ruleId: 'cadence_break', dueDay: 80 },
+      ])
       .run();
   });
 
@@ -282,7 +288,20 @@ describe('PRD acceptance scenarios', () => {
   });
 
   it('three layers firing for the same patient and reason merge into one case with three reasons', async () => {
-    await scenario()
+    // The plan asks for a lab, not a visit: it does not cover the visit pattern.
+    const extractor = new FakeNoteExtractor().setExtraction('doc-60', {
+      planItems: [
+        {
+          kind: 'lab',
+          description: 'repeat HbA1c',
+          dueAt: new Date(SCENARIO_BASE_DATE.getTime() + 120 * 86_400_000),
+          evidenceQuote: 'HbA1c en 2 meses',
+          confidence: 0.9,
+          code: CODES.hba1c,
+        },
+      ],
+    });
+    await scenario({ extractor })
       .at(0)
       .consult({ encounterId: 'enc-0' })
       .at(30)
@@ -291,7 +310,7 @@ describe('PRD acceptance scenarios', () => {
       .consult({
         encounterId: 'enc-60',
         results: [{ id: 'obs-glu', code: CODES.glucose, interpretation: 'abnormal' }],
-        note: { id: 'doc-60', text: 'Glucemia alterada. Control en 2 meses.' },
+        note: { id: 'doc-60', text: 'Glucemia alterada. HbA1c en 2 meses.' },
       })
       .expectOpenExpectations([
         { ruleId: 'abnormal_result_followup', layer: 'universal', dueDay: 67 },
@@ -319,6 +338,25 @@ describe('PRD acceptance scenarios', () => {
           new Set(['universal', 'doctor_plan', 'cadence']),
         );
       })
+      .run();
+  });
+
+  it('a visit in the doctor’s plan beats the cadence layer for the next visit', async () => {
+    await scenario()
+      .at(0)
+      .consult({ encounterId: 'enc-0' })
+      .at(30)
+      .consult({
+        encounterId: 'enc-30',
+        note: { id: 'doc-30', text: 'Paciente estable. Control en 2 meses.' },
+      })
+      .expectOpenExpectations([
+        { ruleId: 'doctor_plan_followup', layer: 'doctor_plan', dueDay: 90 },
+      ])
+      .at(60)
+      .consult({ encounterId: 'enc-60' })
+      // The planned visit happened: the plan is fulfilled, so the pattern applies again.
+      .expectOpenExpectations([{ ruleId: 'cadence_break', layer: 'cadence', dueDay: 150 }])
       .run();
   });
 

@@ -1,6 +1,6 @@
 {
   "name": "three_layers_one_case",
-  "description": "Day 0: diabetic visit without a plan enrolls the patient in the diabetes protocol (visit day 180, HbA1c day 90). Day 60: a visit fulfills the protocol visit and its plan (\"control in 1 month\") covers the next visit, so neither the protocol nor the cadence layer adds a visit; a lipid panel order adds a universal lab expectation (day 75). The lab (universal), the plan (doctor) and the HbA1c (protocol) expire on days 75, 90 and 90 and merge into ONE case for the patient.",
+  "description": "Day 0: diabetic visit without a plan enrolls the patient in the diabetes protocol (visit day 180, HbA1c day 90). Day 60: a visit fulfills the protocol visit and its plan (\"control in 1 month\") covers the next visit, so neither the protocol nor the cadence layer adds a visit; a 7-day antibiotic adds a universal end-of-treatment control (day 70). The short treatment (universal), the plan (doctor) and the HbA1c (protocol) are all follow-up needs of the same patient: they expire on days 70, 90 and 90 and merge into ONE case (one case per patient and reason).",
   "clinicId": "clinic-demo",
   "patientId": "pat-scn-three-layers",
   "specialty": "diabetology",
@@ -264,7 +264,7 @@
                   "attachment": {
                     "contentType": "text/plain; charset=utf-8",
                     "language": "es",
-                    "data": "UGN0ZSBtYXNjIDYzYSwgRE0yLCBhY3VkZSBhIGN0cmwuIFJlZmllcmUgb2x2aWRhciBsYSBkb3NpcyBub2N0dXJuYS4gR2xpY2VtaWEgY2FwaWxhciAxNzYgbWcvZGwuIFRBIDEzMC84MC4KRHg6IERNMiBmdWVyYSBkZSBtZXRhcy4KUGxhbjogbWV0Zm9ybWluYSAxMDAwIG1nIGMvMTJoLCByZWZvcnphciBhZGhlcmVuY2lhLiBTZSBzb2xpY2l0YSBwZXJmaWwgbGlww61kaWNvLiBDdHJsIGVuIDEgbWVzIGNvbiByZXN1bHRhZG9zLg==",
+                    "data": "UGN0ZSBtYXNjIDYzYSwgRE0yLCBhY3VkZSBhIGN0cmwuIFJlZmllcmUgb2x2aWRhciBsYSBkb3NpcyBub2N0dXJuYSB5IGRpc3VyaWEgZGUgMiBkw61hcy4gR2xpY2VtaWEgY2FwaWxhciAxNzYgbWcvZGwuIFRBIDEzMC84MC4KRHg6IERNMiBmdWVyYSBkZSBtZXRhcy4gSVRVIGJhamEuClBsYW46IG1ldGZvcm1pbmEgMTAwMCBtZyBjLzEyaCwgcmVmb3J6YXIgYWRoZXJlbmNpYS4gbml0cm9mdXJhbnRvw61uYSAxMDAgbWcgVk8gYy8xMmggeCA3IGTDrWFzLiBDdHJsIGVuIDEgbWVzLg==",
                     "title": "Nota de evolución",
                     "creation": "2026-03-06T12:00:00.000Z"
                   }
@@ -291,41 +291,6 @@
             "request": { "method": "PUT", "url": "DocumentReference/pat-scn-three-layers-doc02" }
           },
           {
-            "fullUrl": "urn:uuid:585e1382-fb69-59a6-ae44-28898193a2ba",
-            "resource": {
-              "resourceType": "ServiceRequest",
-              "id": "pat-scn-three-layers-sr01",
-              "status": "active",
-              "intent": "order",
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://snomed.info/sct",
-                      "code": "108252007",
-                      "display": "Laboratory procedure"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://loinc.org",
-                    "code": "57698-3",
-                    "display": "Lipid panel with direct LDL - Serum or Plasma"
-                  }
-                ],
-                "text": "Perfil lipídico"
-              },
-              "subject": { "reference": "Patient/pat-scn-three-layers" },
-              "encounter": { "reference": "Encounter/pat-scn-three-layers-enc02" },
-              "authoredOn": "2026-03-06T12:00:00.000Z",
-              "requester": { "reference": "Practitioner/prac-diab-01" }
-            },
-            "request": { "method": "PUT", "url": "ServiceRequest/pat-scn-three-layers-sr01" }
-          },
-          {
             "fullUrl": "urn:uuid:2a447143-c2f9-5c55-8cca-7c9b1d13c9ad",
             "resource": {
               "resourceType": "MedicationRequest",
@@ -345,6 +310,40 @@
               "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
             },
             "request": { "method": "PUT", "url": "MedicationRequest/pat-scn-three-layers-mr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:a1734ebb-f0e3-579a-afce-9bb093e7eb68",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-scn-three-layers-mr03",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "J01XE01",
+                    "display": "nitrofurantoin"
+                  }
+                ],
+                "text": "Nitrofurantoína 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-scn-three-layers" },
+              "encounter": { "reference": "Encounter/pat-scn-three-layers-enc02" },
+              "authoredOn": "2026-03-06T12:00:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 cáps VO c/12h x 7 días" }],
+              "dispenseRequest": {
+                "validityPeriod": { "start": "2026-03-06T12:00:00.000Z" },
+                "expectedSupplyDuration": {
+                  "value": 7,
+                  "unit": "días",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "d"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-scn-three-layers-mr03" }
           },
           {
             "fullUrl": "urn:uuid:6294207c-29f0-5331-b372-3a5da7aebaba",
@@ -394,6 +393,55 @@
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-scn-three-layers-cond02" }
+          },
+          {
+            "fullUrl": "urn:uuid:449370b9-aa81-5840-ae64-29c82b269cd1",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-scn-three-layers-cond03",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "N39.0",
+                    "display": "Urinary tract infection, site not specified"
+                  }
+                ],
+                "text": "ITU"
+              },
+              "subject": { "reference": "Patient/pat-scn-three-layers" },
+              "encounter": { "reference": "Encounter/pat-scn-three-layers-enc02" },
+              "recordedDate": "2026-03-06T12:00:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-scn-three-layers-cond03" }
           }
         ]
       }
@@ -432,17 +480,31 @@
           },
           "confidence": 0.95,
           "evidenceQuote": "DM2 fuera de metas"
+        },
+        {
+          "code": {
+            "system": "http://hl7.org/fhir/sid/icd-10",
+            "code": "N39",
+            "display": "Urinary tract infection, site not specified"
+          },
+          "confidence": 0.95,
+          "evidenceQuote": "ITU baja"
         }
       ],
       "medications": [
-        { "text": "metformina 1000 mg c/12h", "evidenceQuote": "metformina 1000 mg c/12h" }
+        { "text": "metformina 1000 mg c/12h", "evidenceQuote": "metformina 1000 mg c/12h" },
+        {
+          "text": "nitrofurantoína 100 mg VO c/12h x 7 días",
+          "durationDays": 7,
+          "evidenceQuote": "nitrofurantoína 100 mg VO c/12h x 7 días"
+        }
       ],
       "planItems": [
         {
           "kind": "follow_up_visit",
-          "description": "follow-up visit with results",
+          "description": "follow-up visit",
           "dueAt": "2026-04-05T12:00:00.000Z",
-          "evidenceQuote": "Ctrl en 1 mes con resultados",
+          "evidenceQuote": "Ctrl en 1 mes",
           "confidence": 0.9
         }
       ],
@@ -464,7 +526,7 @@
     {
       "day": 61,
       "openExpectations": [
-        { "ruleId": "lab_order_result_pending", "matchKey": "loinc:57698-3", "dueDay": 75 },
+        { "ruleId": "short_treatment_followup", "dueDay": 70 },
         { "ruleId": "doctor_plan_followup", "dueDay": 90 },
         { "ruleId": "protocol_diabetes_hba1c", "dueDay": 90 }
       ],
@@ -475,13 +537,13 @@
       "activeCases": [],
       "qualityFindings": ["note_without_plan"]
     },
-    { "day": 76, "activeCases": [{ "reasons": ["lab_order_result_pending"] }] },
+    { "day": 71, "activeCases": [{ "reasons": ["short_treatment_followup"] }] },
     {
       "day": 91,
-      "absentRuleIds": ["lab_order_result_pending", "doctor_plan_followup"],
+      "absentRuleIds": ["short_treatment_followup", "doctor_plan_followup"],
       "activeCases": [
         {
-          "reasons": ["lab_order_result_pending", "doctor_plan_followup", "protocol_diabetes_hba1c"]
+          "reasons": ["short_treatment_followup", "doctor_plan_followup", "protocol_diabetes_hba1c"]
         }
       ]
     }
