@@ -6,6 +6,7 @@ import { createMemoryRouter } from 'react-router';
 import { createApiClient } from '../api/client.ts';
 import { App } from '../app.tsx';
 import { readApiConfig } from '../config.ts';
+import { type Locale, setLocale } from '../i18n/index.ts';
 import { createHandlers } from '../mocks/handlers.ts';
 import { createMockStore, type MockStore } from '../mocks/store.ts';
 import { routes } from '../routes.tsx';
@@ -22,10 +23,13 @@ export interface RenderOptions {
   readonly latencyMs?: number;
   /** Handlers that take precedence over the mock API (failures, smaller pages). */
   readonly handlers?: (store: MockStore) => HttpHandler[];
+  /** The UI language the viewer picked (default English, as a first visit). */
+  readonly locale?: Locale;
 }
 
 /** Renders the whole app at `path` against a fresh, stateful mock API. */
 export function renderApp(path: string, options: RenderOptions = {}): RenderedApp {
+  if (options.locale) setLocale(options.locale);
   const store = createMockStore();
   server.use(
     ...(options.handlers?.(store) ?? []),

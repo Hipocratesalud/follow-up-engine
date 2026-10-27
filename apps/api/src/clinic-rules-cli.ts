@@ -8,7 +8,10 @@ import {
   ValidationError,
 } from '@follow-up-engine/core';
 import type { EngineRuntime } from '@follow-up-engine/runtime';
-import { adminRulesLabels } from './admin/labels.ts';
+import { messagesFor } from './i18n/index.ts';
+
+/** The command line speaks the default API language. */
+const LABELS = messagesFor('en').admin;
 
 export const CLINIC_RULES_CLI_USAGE = `Usage: pnpm --filter @follow-up-engine/api clinic:rules --clinic <id> [action]
 
@@ -85,7 +88,7 @@ function describeOverride(override: RuleOverride | undefined): string {
 function describeResult(result: RuleChangeResult): string {
   const { change, rule } = result;
   if (change === undefined) {
-    return `${rule.ruleId}: ${adminRulesLabels().unchanged}`;
+    return `${rule.ruleId}: ${LABELS.unchanged}`;
   }
   return (
     `${rule.ruleId} v${String(change.version)} (${change.action}): ` +
@@ -182,7 +185,7 @@ export async function runClinicRulesCommand(
     return { code: 0, output: `${table(await rules.list(clinic.id))}\n` };
   }
   const meta = { actor: values.actor ?? defaults.actor, reason: values.reason ?? '' };
-  const labels = adminRulesLabels();
+  const labels = LABELS;
   const lines: string[] = [];
   try {
     for (const [ruleId, patch] of sets) {

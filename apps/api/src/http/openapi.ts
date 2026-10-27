@@ -589,7 +589,7 @@ const ERROR_DESCRIPTIONS: Readonly<Record<number, string>> = {
   409: 'Invalid case transition, or a stale expectedVersion',
   413: 'Body larger than 5 MB',
   415: 'Unsupported media type',
-  422: 'Validation error: code invalid_request, Spanish message and fields (one per invalid field)',
+  422: 'Validation error: code invalid_request, message and fields (one per invalid field) in the response language',
   429: 'Too many requests for this key (Retry-After)',
   502: 'Upstream (LLM provider or webhook sink) failed',
   503: 'Not ready',
@@ -689,7 +689,11 @@ export function openApiDocument(options: { readonly demo: boolean }): Record<str
     security: [{ apiKey: [] }],
     tags: [
       { name: 'FHIR', description: 'HL7 FHIR R4 (application/fhir+json)' },
-      { name: 'Inbox', description: 'JSON API of the clinic inbox (Spanish labels)' },
+      {
+        name: 'Inbox',
+        description:
+          'JSON API of the clinic inbox (labels in the language of Accept-Language, else the clinic locale, else English)',
+      },
       {
         name: 'Admin',
         description:

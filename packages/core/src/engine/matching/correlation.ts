@@ -121,6 +121,7 @@ export function codeOfEvent(event: ClinicalEvent): Coding | undefined {
     case 'note.received':
     case 'plan.extracted':
     case 'patient.opted_out':
+    case 'patient.language_recorded':
     case 'record.withdrawn':
       return undefined;
   }
@@ -407,6 +408,7 @@ export function fulfillmentReason(event: ClinicalEvent): string {
     case 'note.received':
     case 'plan.extracted':
     case 'patient.opted_out':
+    case 'patient.language_recorded':
     case 'record.withdrawn':
       return `fulfilled_by_${event.type.replace('.', '_')}`;
   }

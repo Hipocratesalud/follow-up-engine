@@ -6,7 +6,7 @@ import {
 } from '@follow-up-engine/core';
 import type { EngineRuntime } from '@follow-up-engine/runtime';
 import { z } from 'zod';
-import { type AdminRulesLabels, adminRulesLabels } from '../admin/labels.ts';
+import type { AdminMessages } from '../i18n/index.ts';
 import {
   type AdminRuleChangeView,
   type AdminRuleUpdateResult,
@@ -17,7 +17,7 @@ import type { App } from './context.ts';
 import { HttpError, readJson, readQuery } from './errors.ts';
 import { followUpUser } from './security.ts';
 
-function ruleView(rule: RuleConfigView, labels: AdminRulesLabels): AdminRuleView {
+function ruleView(rule: RuleConfigView, labels: AdminMessages): AdminRuleView {
   return {
     ruleId: rule.ruleId,
     layer: rule.layer,
@@ -54,10 +54,9 @@ function changeView(change: RuleOverrideChange): AdminRuleChangeView {
 }
 
 /** A domain refusal as the 422 / 409 of this API, with this API's copy. */
-function adminError(error: unknown, labels: AdminRulesLabels): unknown {
+function adminError(error: unknown, labels: AdminMessages): unknown {
   if (error instanceof ValidationError) {
-    const known = labels.fields[error.field as keyof AdminRulesLabels['fields']] as
-      string | undefined;
+    const known = labels.fields[error.field as keyof AdminMessages['fields']] as string | undefined;
     const message = known ?? labels.fields.unknownField;
     return new HttpError(422, 'invalid_request', labels.invalid, [{ path: error.field, message }]);
   }
@@ -85,10 +84,10 @@ const HistoryQuerySchema = z.object({
  * deadline and the rule version they were created with.
  */
 export function registerAdminRoutes(app: App, runtime: EngineRuntime): void {
-  const labels = adminRulesLabels();
   const rules = runtime.engine.ruleOverrides;
 
   app.get('/api/admin/rules', async (c) => {
+    const labels = c.var.t.admin;
     const items = (await rules.list(c.var.clinicId)).map((rule) => ruleView(rule, labels));
     return c.json({ items });
   });
@@ -103,6 +102,7 @@ export function registerAdminRoutes(app: App, runtime: EngineRuntime): void {
   });
 
   app.put('/api/admin/rules', async (c) => {
+    const labels = c.var.t.admin;
     const body = await readJson(c, AdminRuleUpdateSchema);
     const meta = {
       actor: followUpUser(c) ?? '',

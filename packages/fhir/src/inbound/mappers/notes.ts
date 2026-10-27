@@ -1,6 +1,7 @@
 import { firstDate } from '../../support/datetime.ts';
 import { decodeBase64Text, normalizeWhitespace, xhtmlToText } from '../../support/text.ts';
 import { specialtyOf, withdrawal, type EntryContext, type MappedResource } from '../context.ts';
+import { readLanguageCode } from '../language.ts';
 import type { CompositionSectionInput, ParsedResourceOf } from '../schemas.ts';
 
 const MARKUP_TYPES = /^(text\/html|application\/xhtml\+xml)\b/i;
@@ -122,6 +123,19 @@ export function mapDocumentReference(
     document.context?.period?.start,
   );
   const specialty = specialtyOf(document.context?.practiceSetting);
+  // The language of the text read: the first attachment that states one,
+  // else the resource's own `language`.
+  const languageIndex = document.content.findIndex(
+    ({ attachment }) => attachment.data !== undefined && attachment.language !== undefined,
+  );
+  const language =
+    languageIndex === -1
+      ? readLanguageCode(ctx, document.language, 'language')
+      : readLanguageCode(
+          ctx,
+          document.content[languageIndex]?.attachment.language,
+          `content[${String(languageIndex)}].attachment.language`,
+        );
   const replaces = (document.relatesTo ?? []).flatMap((relation, index) => {
     if (relation.code !== 'replaces') {
       return [];
@@ -143,6 +157,7 @@ export function mapDocumentReference(
         text,
         authoredAt: authoredAt ?? ctx.receivedAt,
         ...(specialty === undefined ? {} : { specialty }),
+        ...(language === undefined ? {} : { language }),
         ...(replaces.length === 0 ? {} : { replacesDocumentIds: replaces }),
       },
     ],
@@ -197,6 +212,7 @@ export function mapComposition(
     return { ...scope, events: [] };
   }
   const authoredAt = firstDate(composition.date);
+  const language = readLanguageCode(ctx, composition.language, 'language');
   return {
     ...scope,
     events: [
@@ -205,6 +221,7 @@ export function mapComposition(
         documentId: ctx.entry.ref.id,
         text: `${composition.title}\n\n${body}`,
         authoredAt: authoredAt ?? ctx.receivedAt,
+        ...(language === undefined ? {} : { language }),
       },
     ],
   };

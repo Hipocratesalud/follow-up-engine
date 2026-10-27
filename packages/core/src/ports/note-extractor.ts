@@ -14,6 +14,11 @@ export interface NoteExtractionInput {
    * the Patient resource the host sent; the engine itself passes none.
    */
   readonly redactTerms?: readonly string[];
+  /**
+   * BCP-47 language the host says the note is in (`DocumentReference.language`).
+   * Absent: the extractor detects it from the text.
+   */
+  readonly language?: string;
 }
 
 /** A condition the model read from the note. */
@@ -82,6 +87,11 @@ export interface NoteExtraction {
    * absent means the whole note was read.
    */
   readonly truncated?: boolean;
+  /**
+   * BCP-47 language the note was read as: the host's when it sent one, else
+   * detected from the text (`es`, `en`, `pt`). Optional; absent means unknown.
+   */
+  readonly noteLanguage?: string;
   readonly model: string;
   readonly promptVersion: string;
   readonly costUsd: number;

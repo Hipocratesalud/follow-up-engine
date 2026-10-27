@@ -112,6 +112,9 @@ export function toWebhookBody(event: DomainEvent): WebhookBody {
           patientId: event.payload.patientId,
           purpose: event.payload.purpose,
           dueBy: event.payload.dueBy?.toISOString() ?? null,
+          // BCP-47 preferred language of the patient (Patient.communication);
+          // null: the host writes in the clinic's language.
+          language: event.payload.language ?? null,
           ...(event.payload.channel === undefined ? {} : { channel: event.payload.channel }),
           ...(event.payload.attempt === undefined ? {} : { attempt: event.payload.attempt }),
           task: caseLink(event.payload.caseId),

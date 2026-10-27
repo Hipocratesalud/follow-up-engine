@@ -1,5 +1,6 @@
 import { Moon, Sun } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { useT } from '../i18n/index.ts';
 
 type Theme = 'light' | 'dark';
 const STORAGE_KEY = 'inbox-theme';
@@ -17,6 +18,7 @@ function storeTheme(theme: Theme): void {
 }
 
 export function ThemeToggle(): ReactNode {
+  const t = useT();
   const [theme, setTheme] = useState<Theme>(currentTheme);
 
   function handleToggle(): void {
@@ -26,7 +28,7 @@ export function ThemeToggle(): ReactNode {
     setTheme(next);
   }
 
-  const label = theme === 'dark' ? 'Usar tema claro' : 'Usar tema oscuro';
+  const label = theme === 'dark' ? t.common.useLightTheme : t.common.useDarkTheme;
   return (
     <button
       type="button"

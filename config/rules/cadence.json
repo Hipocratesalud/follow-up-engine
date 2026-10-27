@@ -4,7 +4,7 @@
     "version": "1.2.0",
     "layer": "cadence",
     "description": "A patient with an established visit pattern (2+ previous visits in the same specialty) should come back within 3 times their usual interval. Visits of closed episodes are not a pattern: a pregnancy once the postpartum visit came, an acute episode and its control, the control a single visit's plan asked for, when it plans nothing further (a visit and its own control are an episode; three or more visits chained by their plans are a routine pattern), everything up to a discharge.",
-    "reason": { "code": "cadence_break", "label": "Dejó de venir a su control habitual" },
+    "reason": { "code": "cadence_break", "label": "Stopped coming to their usual visits" },
     "trigger": { "event": "encounter.finished" },
     "dueInDays": 90,
     "cadence": {
@@ -31,7 +31,7 @@
     "escalationPolicy": "default_v1",
     "suggestedAction": {
       "code": "schedule_follow_up",
-      "label": "Contactar al paciente para retomar sus controles",
+      "label": "Contact the patient to resume their visits",
       "patientContactPurpose": "schedule_follow_up"
     }
   }

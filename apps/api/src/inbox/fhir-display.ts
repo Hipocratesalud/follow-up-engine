@@ -1,6 +1,6 @@
 import type { FhirResourceJson, JsonValue } from '@follow-up-engine/core';
 import type { PatientSummary } from '../http/schemas.ts';
-import { UNKNOWN_PATIENT_LABEL } from './labels.ts';
+import type { ApiMessages } from '../i18n/index.ts';
 import { loincLabel } from './terminology.ts';
 
 /*
@@ -62,6 +62,7 @@ export function ageAt(birthDate: string | undefined, now: Date): number | undefi
 const SEXES = new Set(['female', 'male', 'other', 'unknown']);
 
 export function patientSummary(
+  t: ApiMessages,
   patientId: string,
   resource: FhirResourceJson | undefined,
   now: Date,
@@ -71,7 +72,7 @@ export function patientSummary(
   const age = ageAt(birthDate, now);
   return {
     id: patientId,
-    name: humanName(resource) ?? UNKNOWN_PATIENT_LABEL,
+    name: humanName(resource) ?? t.people.unknownPatient,
     ...(age === undefined ? {} : { age }),
     ...(gender !== undefined && SEXES.has(gender)
       ? { sex: gender as 'female' | 'male' | 'other' | 'unknown' }
@@ -81,10 +82,10 @@ export function patientSummary(
 }
 
 /**
- * Display text of a CodeableConcept: the host's own `text`, else the Spanish
- * name of a known code, else a coding's `display` (often English).
+ * Display text of a CodeableConcept: the host's own `text`, else the name of
+ * a known code in the request's language, else a coding's `display`.
  */
-function conceptText(value: Json): string | undefined {
+function conceptText(t: ApiMessages, value: Json): string | undefined {
   const concept = record(value);
   if (concept === undefined) {
     return undefined;
@@ -93,31 +94,19 @@ function conceptText(value: Json): string | undefined {
   const known = codings
     .map((item) => {
       const code = str(item?.['code']);
-      return code === undefined ? undefined : loincLabel(code);
+      return code === undefined ? undefined : loincLabel(t, code);
     })
     .find((label) => label !== undefined);
   const display = codings.map((item) => str(item?.['display'])).find((item) => item !== undefined);
   return str(concept['text']) ?? known ?? display;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  ServiceRequest: 'Orden',
-  MedicationRequest: 'Receta',
-  DocumentReference: 'Nota clínica',
-  Composition: 'Nota clínica',
-  Encounter: 'Consulta',
-  Appointment: 'Cita',
-  DiagnosticReport: 'Resultado',
-  Observation: 'Resultado',
-  Condition: 'Diagnóstico',
-};
-
-function dateLabel(value: Json): string | undefined {
+function dateLabel(t: ApiMessages, value: Json): string | undefined {
   const raw = str(value);
   const date = raw === undefined ? undefined : new Date(raw);
   return date === undefined || Number.isNaN(date.getTime())
     ? undefined
-    : date.toLocaleDateString('es', {
+    : date.toLocaleDateString(t.intlLocale, {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -125,27 +114,28 @@ function dateLabel(value: Json): string | undefined {
       });
 }
 
-/** What a source resource is, in a few words: "HbA1c", "Nota clínica del 5 de enero de 2026". */
+/** What a source resource is, in a few words: "HbA1c", "Clinical note of January 5, 2026". */
 export function sourceDisplay(
+  t: ApiMessages,
   resourceType: string,
   resource: FhirResourceJson | undefined,
 ): string {
-  const typeLabel = TYPE_LABELS[resourceType] ?? resourceType;
+  const typeLabel = t.sources.types[resourceType] ?? resourceType;
   if (resource === undefined) {
     return typeLabel;
   }
   const named =
-    conceptText(resource['code']) ??
-    conceptText(resource['medicationCodeableConcept']) ??
-    conceptText(resource['serviceType']);
+    conceptText(t, resource['code']) ??
+    conceptText(t, resource['medicationCodeableConcept']) ??
+    conceptText(t, resource['serviceType']);
   if (named !== undefined && resourceType !== 'Encounter') {
     return named;
   }
   const when =
-    dateLabel(resource['date']) ??
-    dateLabel(resource['authoredOn']) ??
-    dateLabel(record(resource['period'])?.['start']);
-  return when === undefined ? typeLabel : `${typeLabel} del ${when}`;
+    dateLabel(t, resource['date']) ??
+    dateLabel(t, resource['authoredOn']) ??
+    dateLabel(t, record(resource['period'])?.['start']);
+  return when === undefined ? typeLabel : t.sources.onDate(typeLabel, when);
 }
 
 /** About `size` characters of `text` centred on `quote` (case-insensitive), with ellipses. */

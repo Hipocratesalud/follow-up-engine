@@ -89,6 +89,7 @@ export function deriveFromExtraction(
     items: extraction.planItems,
     ...(extraction.discharged === true ? { discharged: true } : {}),
     extractor: { model: extraction.model, promptVersion: extraction.promptVersion },
+    ...(extraction.noteLanguage === undefined ? {} : { noteLanguage: extraction.noteLanguage }),
   };
   const confidence = new Map<string, number>();
   const conditions = extraction.conditions

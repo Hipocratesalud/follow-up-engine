@@ -48,11 +48,7 @@ export function requireScope(
       return;
     }
     if (scope !== undefined && !c.var.scopes.includes(scope)) {
-      throw new HttpError(
-        403,
-        'insufficient_scope',
-        `La clave de API no tiene el permiso "${scope}" que necesita esta operación.`,
-      );
+      throw new HttpError(403, 'insufficient_scope', c.var.t.errors.insufficientScope(scope));
     }
     await next();
   };
@@ -141,13 +137,9 @@ export class RateLimiter {
   }
 }
 
-export function tooManyRequests(c: Context, retryAfter: number): HttpError {
+export function tooManyRequests(c: Context<AppEnv>, retryAfter: number): HttpError {
   c.header('retry-after', String(Math.max(1, retryAfter)));
-  return new HttpError(
-    429,
-    'rate_limited',
-    'Demasiadas peticiones. Intenta de nuevo en unos segundos.',
-  );
+  return new HttpError(429, 'rate_limited', c.var.t.errors.rateLimited);
 }
 
 /** The client address for failed-authentication limits: the socket peer when known. */
@@ -201,7 +193,7 @@ const PRINTABLE = /^[\p{L}\p{M}\p{N}\p{P}\p{S}\p{Zs}]+$/u;
  * as UTF-8, trimmed, at most {@link MAX_USER_LENGTH} printable characters
  * (400 otherwise); `undefined` when absent or blank.
  */
-export function followUpUser(c: Context): string | undefined {
+export function followUpUser(c: Context<AppEnv>): string | undefined {
   const raw = c.req.header('x-followup-user');
   if (raw === undefined) {
     return undefined;
@@ -211,11 +203,7 @@ export function followUpUser(c: Context): string | undefined {
     return undefined;
   }
   if (Array.from(user).length > MAX_USER_LENGTH || !PRINTABLE.test(user)) {
-    throw new HttpError(
-      400,
-      'invalid_request',
-      `El usuario (X-FollowUp-User) debe tener hasta ${String(MAX_USER_LENGTH)} caracteres visibles, sin caracteres de control.`,
-    );
+    throw new HttpError(400, 'invalid_request', c.var.t.errors.invalidUser(MAX_USER_LENGTH));
   }
   return user;
 }

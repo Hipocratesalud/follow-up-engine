@@ -25,14 +25,14 @@ interface ConditionPattern {
 
 const CONDITION_PATTERNS: readonly ConditionPattern[] = [
   {
-    pattern: /\bDM2\b|diabetes mellitus tipo 2|diabetes tipo 2/i,
+    pattern: /\bDM2\b|diabetes mellitus tipo 2|diabetes tipo 2|type 2 diabetes|\bT2DM\b/i,
     code: 'E11',
     display: 'Diabetes mellitus tipo 2',
     confidence: 0.97,
   },
   { pattern: /prediabetes/i, code: 'R73.0', display: 'Prediabetes', confidence: 0.9 },
   {
-    pattern: /\bHTA\b|hipertensi[oó]n arterial|hipertensi[oó]n/i,
+    pattern: /\bHTA\b|hipertensi[oó]n arterial|hipertensi[oó]n|\bHTN\b|hypertension/i,
     code: 'I10',
     display: 'Hipertensión esencial (primaria)',
     confidence: 0.92,
@@ -87,10 +87,18 @@ const DRUGS = [
   'pregabalina',
   'atorvastatina',
   '[aá]cido tranex[aá]mico',
+  // English (INN) names, for notes written in English.
+  'metformin',
+  'lisinopril',
+  'amlodipine',
+  'losartan',
+  'atorvastatin',
+  'levothyroxine',
+  'sertraline',
 ];
 
 const MEDICATION_PATTERN = new RegExp(
-  `\\b(?:${DRUGS.join('|')})\\b[^.;]*?(?=\\s+y\\s|[.;]|$)`,
+  `\\b(?:${DRUGS.join('|')})\\b[^.;]*?(?=\\s+(?:y|and)\\s|[.;]|$)`,
   'gi',
 );
 
@@ -111,17 +119,21 @@ const NUMBER_WORDS: Record<string, number> = {
 const DURATION_PATTERN =
   /\ben\s+(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|ocho|diez|doce)\s+(d[ií]as?|semanas?|mes(?:es)?|a[nñ]os?)\b/i;
 
+/** English intervals: "in 3 months", "RTC 6 wks", "f/u 2 weeks". */
+const ENGLISH_DURATION_PATTERN =
+  /\b(?:in|RTC|f\/u)\s+(\d+)\s*(days?|d|weeks?|wks?|w|months?|mos?|years?|yrs?)\b/i;
+
 function unitDays(unit: string): number {
   const normalized = unit.toLowerCase();
   if (normalized.startsWith('d')) return 1;
-  if (normalized.startsWith('s')) return 7;
+  if (normalized.startsWith('s') || normalized.startsWith('w')) return 7;
   if (normalized.startsWith('m')) return 30;
   return 365;
 }
 
 /** Days from the note to the moment a clause asks for (`en 3 meses` → 90). */
 export function parseDueInDays(clause: string): number | undefined {
-  const match = DURATION_PATTERN.exec(clause);
+  const match = DURATION_PATTERN.exec(clause) ?? ENGLISH_DURATION_PATTERN.exec(clause);
   if (!match) return undefined;
   const [, amountText = '', unit = ''] = match;
   const amount = /^\d+$/.test(amountText)
@@ -132,12 +144,13 @@ export function parseDueInDays(clause: string): number | undefined {
 }
 
 const SESSION = /\bsesi[oó]n(?:es)?\b/i;
-const FOLLOW_UP = /^(?:control|ctrl|cita|consulta|reevaluar|reevaluaci[oó]n|revisi[oó]n|volver)\b/i;
+const FOLLOW_UP =
+  /^(?:control|ctrl|cita|consulta|reevaluar|reevaluaci[oó]n|revisi[oó]n|volver|RTC|f\/u|follow[- ]up|return)\b/i;
 const LAB =
-  /\b(?:HbA1c|perfil lip[ií]dico|microalbuminuria|creatinina|hemograma|perfil hormonal|TSH|glicemia|potasio|orina)\b/i;
+  /\b(?:HbA1c|A1c|perfil lip[ií]dico|lipid panel|microalbuminuria|creatinina|creatinine|hemograma|CBC|BMP|CMP|perfil hormonal|TSH|glicemia|potasio|potassium|orina)\b/i;
 const IMAGING =
   /\b(?:ecograf[ií]a|mamograf[ií]a|ecocardiograma|MAPA|radiograf[ií]a|resonancia|tomograf[ií]a|densitometr[ií]a)\b/i;
-const OTHER = /\b(?:escala|PHQ-9|GAD-7|referir|interconsulta)\b/i;
+const OTHER = /\b(?:escala|PHQ-9|GAD-7|referir|interconsulta|refer)\b/i;
 
 function classify(clause: string): PlanItemKind | undefined {
   if (SESSION.test(clause)) return 'session';
@@ -196,7 +209,7 @@ export function extractFromNote(text: string, authoredAt: Date): MockExtraction 
   const medications: ExtractedMedicationView[] = [];
   for (const match of text.matchAll(MEDICATION_PATTERN)) {
     const quote = match[0].trim();
-    const duration = /por\s+(\d+)\s+d[ií]as/i.exec(quote);
+    const duration = /(?:por|for|x)\s+(\d+)\s+(?:d[ií]as|days)/i.exec(quote);
     medications.push({
       text: quote,
       evidenceQuote: quote,
@@ -228,4 +241,29 @@ export function extractFromNote(text: string, authoredAt: Date): MockExtraction 
   }
 
   return { hasPlan: planItems.length > 0, conditions, medications, planItems };
+}
+
+const STOPWORDS: Readonly<Record<'es' | 'en' | 'pt', readonly string[]>> = {
+  es: ['de', 'la', 'el', 'en', 'con', 'y', 'por', 'se', 'los', 'las', 'del', 'paciente', 'control'],
+  en: ['the', 'and', 'with', 'in', 'of', 'to', 'for', 'on', 'denies', 'patient', 'daily'],
+  pt: ['de', 'com', 'em', 'do', 'da', 'os', 'as', 'não', 'paciente', 'retorno'],
+};
+
+/**
+ * The language a note is written in, by counting common words: what the
+ * engine's extractor reports as `noteLanguage` when the host sends none.
+ */
+export function detectNoteLanguage(text: string): string {
+  const words = text.toLowerCase().match(/\p{L}+/gu) ?? [];
+  let best: 'es' | 'en' | 'pt' = 'es';
+  let bestScore = -1;
+  for (const language of ['es', 'en', 'pt'] as const) {
+    const stopwords = new Set(STOPWORDS[language]);
+    const score = words.filter((word) => stopwords.has(word)).length;
+    if (score > bestScore) {
+      best = language;
+      bestScore = score;
+    }
+  }
+  return best;
 }

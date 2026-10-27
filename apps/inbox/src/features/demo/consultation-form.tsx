@@ -14,7 +14,8 @@ import { fieldError, InlineError } from '../../components/states.tsx';
 import { Button, Card, Field, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatLimit, INPUT_LIMITS } from '../../lib/limits.ts';
-import { SPECIALTY_OPTIONS } from '../../lib/labels.ts';
+import { getLocale, INTL_LOCALES, useT } from '../../i18n/index.ts';
+import { SPECIALTIES } from '../../lib/labels.ts';
 import { EXAMPLE_NOTES, LAB_OPTIONS } from './example-notes.ts';
 
 const NEW_PATIENT = '__new__';
@@ -30,13 +31,14 @@ export function ConsultationForm({
 }: {
   readonly onResult: (result: DemoConsultationResponse, noteText: string) => void;
 }): ReactNode {
+  const t = useT();
   const ids = useId();
   const mutation = useDemoConsultation();
   const reader = useNoteReader();
   const patientList = usePatientList();
   const [patientId, setPatientId] = useState<string>(NEW_PATIENT);
   const [patientName, setPatientName] = useState('');
-  const [specialty, setSpecialty] = useState<string>(SPECIALTY_OPTIONS[0].value);
+  const [specialty, setSpecialty] = useState<string>(SPECIALTIES[0]);
   const [noteText, setNoteText] = useState('');
   const [orders, setOrders] = useState<ReadonlySet<string>>(new Set());
   const [errors, setErrors] = useState<FormErrors>({});
@@ -44,7 +46,10 @@ export function ConsultationForm({
 
   // Every patient of the clinic, with or without a case.
   const patients = useMemo(
-    () => [...(patientList.data?.items ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'es')),
+    () =>
+      [...(patientList.data?.items ?? [])].sort((a, b) =>
+        a.name.localeCompare(b.name, INTL_LOCALES[getLocale()]),
+      ),
     [patientList.data],
   );
 
@@ -96,14 +101,13 @@ export function ConsultationForm({
     event.preventDefault();
     const nextErrors: FormErrors = {};
     const isNew = patientId === NEW_PATIENT;
-    if (isNew && !patientName.trim())
-      nextErrors.patient = 'Escribe el nombre del paciente o elige uno existente.';
+    if (isNew && !patientName.trim()) nextErrors.patient = t.validation.patientRequired;
     else if (isNew && patientName.trim().length > INPUT_LIMITS.patientName)
-      nextErrors.patient = `El nombre puede tener hasta ${formatLimit(INPUT_LIMITS.patientName)} caracteres.`;
+      nextErrors.patient = t.validation.patientNameTooLong(formatLimit(INPUT_LIMITS.patientName));
     if (noteText.trim().length < MIN_NOTE_LENGTH) {
-      nextErrors.note = 'Escribe la nota de la consulta (al menos 20 caracteres) o usa un ejemplo.';
+      nextErrors.note = t.validation.noteRequired;
     } else if (noteText.trim().length > INPUT_LIMITS.noteText) {
-      nextErrors.note = `La nota puede tener hasta ${formatLimit(INPUT_LIMITS.noteText)} caracteres. Acórtala e intenta de nuevo.`;
+      nextErrors.note = t.validation.noteTooLong(formatLimit(INPUT_LIMITS.noteText));
     }
     setErrors(nextErrors);
     if (nextErrors.patient ?? nextErrors.note) return;
@@ -127,19 +131,16 @@ export function ConsultationForm({
   return (
     <Card className="flex flex-col gap-4 p-5">
       <div>
-        <h2 className="text-base font-semibold text-fg">Nueva consulta</h2>
+        <h2 className="text-base font-semibold text-fg">{t.consultation.title}</h2>
         <p className="mt-1 text-sm text-muted">
-          Simula que el médico guarda una consulta en el sistema del consultorio. El motor la recibe
-          como FHIR y{' '}
           {reader.simulated
-            ? 'la lee con reglas (lectura simulada, sin modelo)'
-            : `${reader.name} lee la nota`}
-          .
+            ? t.consultation.introSimulated
+            : t.consultation.introModel(reader.name)}
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="text-xs font-medium text-muted">Usar un ejemplo</p>
+        <p className="text-xs font-medium text-muted">{t.consultation.useExample}</p>
         <div className="flex flex-wrap gap-2">
           {EXAMPLE_NOTES.map((example) => (
             <button
@@ -156,7 +157,7 @@ export function ConsultationForm({
               )}
             >
               <Wand2 className="size-3.5" aria-hidden="true" />
-              {example.title}
+              {t.consultation.examples[example.id] ?? example.id}
             </button>
           ))}
         </div>
@@ -166,17 +167,17 @@ export function ConsultationForm({
         noValidate
         onSubmit={handleSubmit}
         className="flex flex-col gap-4"
-        aria-label="Nueva consulta"
+        aria-label={t.consultation.title}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Paciente" htmlFor={`${ids}-patient`}>
+          <Field label={t.consultation.patient} htmlFor={`${ids}-patient`}>
             <select
               id={`${ids}-patient`}
               value={patientId}
               onChange={handlePatientChange}
               className={INPUT_CLASS}
             >
-              <option value={NEW_PATIENT}>Paciente nuevo</option>
+              <option value={NEW_PATIENT}>{t.consultation.newPatient}</option>
               {patients.map((patient) => (
                 <option key={patient.id} value={patient.id}>
                   {patient.name}
@@ -184,16 +185,16 @@ export function ConsultationForm({
               ))}
             </select>
           </Field>
-          <Field label="Especialidad" htmlFor={`${ids}-specialty`}>
+          <Field label={t.consultation.specialty} htmlFor={`${ids}-specialty`}>
             <select
               id={`${ids}-specialty`}
               value={specialty}
               onChange={handleSpecialtyChange}
               className={INPUT_CLASS}
             >
-              {SPECIALTY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {SPECIALTIES.map((option) => (
+                <option key={option} value={option}>
+                  {t.labels.specialties[option]}
                 </option>
               ))}
             </select>
@@ -201,7 +202,7 @@ export function ConsultationForm({
         </div>
 
         {patientId === NEW_PATIENT ? (
-          <Field label="Nombre del paciente nuevo" htmlFor={`${ids}-name`} error={patientError}>
+          <Field label={t.consultation.newPatientName} htmlFor={`${ids}-name`} error={patientError}>
             <input
               id={`${ids}-name`}
               value={patientName}
@@ -211,16 +212,16 @@ export function ConsultationForm({
               aria-describedby={patientError ? `${ids}-name-error` : undefined}
               autoComplete="off"
               className={INPUT_CLASS}
-              placeholder="Nombre y apellido (ficticio)"
+              placeholder={t.consultation.namePlaceholder}
             />
           </Field>
         ) : null}
 
         <Field
-          label="Nota de la consulta"
+          label={t.consultation.note}
           htmlFor={`${ids}-note`}
           error={noteError}
-          hint={`Escribe como lo haría el médico. Solo datos ficticios, hasta ${formatLimit(INPUT_LIMITS.noteText)} caracteres.`}
+          hint={t.consultation.noteHint(formatLimit(INPUT_LIMITS.noteText))}
         >
           <textarea
             id={`${ids}-note`}
@@ -235,9 +236,7 @@ export function ConsultationForm({
         </Field>
 
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2 text-sm font-medium text-fg">
-            Órdenes de laboratorio (opcional)
-          </legend>
+          <legend className="mb-2 text-sm font-medium text-fg">{t.consultation.orders}</legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {LAB_OPTIONS.map((option) => (
               <label
@@ -251,7 +250,7 @@ export function ConsultationForm({
                   onChange={handleOrderToggle}
                   className="accent-[var(--primary)]"
                 />
-                {option.display}
+                {t.consultation.labs[option.loinc] ?? option.display}
               </label>
             ))}
           </div>
@@ -266,7 +265,7 @@ export function ConsultationForm({
             loading={mutation.isPending}
             icon={<Sparkles className="size-4" aria-hidden="true" />}
           >
-            {mutation.isPending ? 'Leyendo la nota…' : 'Guardar consulta'}
+            {mutation.isPending ? t.consultation.reading : t.consultation.save}
           </Button>
         </div>
       </form>
