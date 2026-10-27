@@ -1,0 +1,10 @@
+{
+  "id": "default_v1",
+  "steps": [
+    { "afterDays": 0, "action": "notify_clinic" },
+    { "afterDays": 14, "action": "raise_priority", "priorityDelta": 20 },
+    { "afterDays": 14, "action": "request_patient_contact" },
+    { "afterDays": 21, "action": "escalate_to_coordinator" },
+    { "afterDays": 35, "action": "mark_lost_to_follow_up" }
+  ]
+}

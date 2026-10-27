@@ -5,3 +5,7 @@ Versioned JSON care protocols loaded through the `ProtocolSource` port.
 A protocol is a cadence of expectations tied to a condition (for example, periodic controls for a chronic patient). Each file carries an `id` and a `version`, recorded on every expectation it creates.
 
 Protocols are never enabled for a clinic without clinical team validation.
+
+## Layout
+
+One protocol per file (`diabetes.json`, `hypertension.json`), validated by `ProtocolSchema`. Item rule ids are `protocol_<protocol id>_<item key>` (for example `protocol_diabetes_hba1c`). Enrollment is by ICD-10 prefix (confirmed or probable) and, when no diagnosis is coded, by medications or results that make the condition probable. A protocol item is skipped when the doctor's plan or a universal rule already asks for the same thing.

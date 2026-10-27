@@ -80,6 +80,8 @@ export interface ResultReceivedEvent extends ClinicalEventBase {
   readonly basedOnOrderId?: string;
   readonly code: Coding;
   readonly interpretation: ResultInterpretation;
+  /** Numeric value (FHIR `Observation.valueQuantity`), when the result has one. */
+  readonly value?: { readonly value: number; readonly unit?: string };
 }
 
 /** A medication was prescribed (FHIR `MedicationRequest`). */

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PLAN_ITEM_KINDS } from '../domain/clinical-event.ts';
 import { EXPECTATION_LAYERS } from '../domain/expectation.ts';
 import {
   ConfigIdSchema,
@@ -35,6 +36,32 @@ export const RuleSchema = z.strictObject({
   priority: z.number().int().nonnegative(),
   escalationPolicy: EscalationPolicySchema,
   suggestedAction: SuggestedActionSchema,
+  /**
+   * What the rule expects to happen. Drives the match key (`visit` or the
+   * trigger's code) and which events count as fulfillment. Defaults to
+   * `lab`/`imaging` for orders of that category and `follow_up_visit` otherwise.
+   */
+  expects: z.enum(PLAN_ITEM_KINDS).optional(),
+  /**
+   * Expectations of rules sharing a case group merge into one case per
+   * patient (`<patientId>:<caseGroup>`). Defaults to the reason code.
+   */
+  caseGroup: ConfigIdSchema.optional(),
+  /**
+   * What `dueInDays` counts from: the trigger event (default) or the end of
+   * the prescribed treatment (`startAt + durationDays`).
+   */
+  dueFrom: z.enum(['trigger', 'treatment_end']).optional(),
+  /** Parameters of a `cadence` rule: due after `multiplier` times the patient's usual interval. */
+  cadence: z
+    .strictObject({
+      multiplier: z.number().positive(),
+      /** Visits of the same specialty required before the current one. */
+      minPreviousVisits: z.number().int().positive(),
+      /** Intervals shorter than this are ignored (same-week repeats). */
+      minIntervalDays: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
 });
 
 export type Rule = z.infer<typeof RuleSchema>;

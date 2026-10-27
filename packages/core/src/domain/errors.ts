@@ -32,3 +32,29 @@ export class TenantMismatchError extends Error {
     super('Entity clinicId does not match the clinicId of the call');
   }
 }
+
+/** A case cannot move from its current status to the requested one. */
+export class InvalidCaseTransitionError extends Error {
+  override readonly name = 'InvalidCaseTransitionError';
+  readonly caseId: string;
+  readonly from: string;
+  readonly to: string;
+
+  constructor(caseId: string, from: string, to: string) {
+    super(`Case ${caseId} cannot move from ${from} to ${to}`);
+    this.caseId = caseId;
+    this.from = from;
+    this.to = to;
+  }
+}
+
+/** A command was rejected because its input breaks a business rule (for example feedback without a reason). */
+export class ValidationError extends Error {
+  override readonly name = 'ValidationError';
+  readonly field: string;
+
+  constructor(field: string, message: string) {
+    super(message);
+    this.field = field;
+  }
+}

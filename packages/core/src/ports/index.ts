@@ -8,6 +8,7 @@ export type * from './config-sources.ts';
 export type * from './event-publisher.ts';
 export type * from './expectation-repository.ts';
 export type * from './feedback-repository.ts';
+export type * from './id-generator.ts';
 export type * from './job-queue.ts';
 export type * from './llm-usage-log.ts';
 export type * from './note-extractor.ts';

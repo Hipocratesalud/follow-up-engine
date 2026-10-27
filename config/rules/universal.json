@@ -1,0 +1,108 @@
+[
+  {
+    "id": "lab_order_result_pending",
+    "version": "1.0.0",
+    "layer": "universal",
+    "description": "A laboratory order should have a result within 15 days. A newer order of the same test supersedes it; a visit does not fulfill it.",
+    "reason": { "code": "lab_order_result_pending", "label": "Resultado de laboratorio pendiente" },
+    "trigger": { "event": "service_request.created", "filter": { "category": "laboratory" } },
+    "dueInDays": 15,
+    "expects": "lab",
+    "caseGroup": "pending_results",
+    "fulfilledBy": [
+      { "event": "result.received", "match": "same_order" },
+      { "event": "result.received", "match": "same_code" }
+    ],
+    "supersededBy": [
+      {
+        "event": "service_request.created",
+        "filter": { "category": "laboratory" },
+        "match": "same_code"
+      }
+    ],
+    "priority": 40,
+    "escalationPolicy": "default_v1",
+    "suggestedAction": {
+      "code": "contact_patient_pending_test",
+      "label": "Contactar al paciente para completar el examen",
+      "patientContactPurpose": "complete_pending_test"
+    }
+  },
+  {
+    "id": "imaging_order_result_pending",
+    "version": "1.0.0",
+    "layer": "universal",
+    "description": "An imaging order should have a result within 30 days. A newer order of the same study supersedes it; a visit does not fulfill it.",
+    "reason": { "code": "imaging_order_result_pending", "label": "Resultado de imagen pendiente" },
+    "trigger": { "event": "service_request.created", "filter": { "category": "imaging" } },
+    "dueInDays": 30,
+    "expects": "imaging",
+    "caseGroup": "pending_results",
+    "fulfilledBy": [
+      { "event": "result.received", "match": "same_order" },
+      { "event": "result.received", "match": "same_code" }
+    ],
+    "supersededBy": [
+      {
+        "event": "service_request.created",
+        "filter": { "category": "imaging" },
+        "match": "same_code"
+      }
+    ],
+    "priority": 50,
+    "escalationPolicy": "default_v1",
+    "suggestedAction": {
+      "code": "contact_patient_pending_study",
+      "label": "Contactar al paciente para completar el estudio",
+      "patientContactPurpose": "complete_pending_test"
+    }
+  },
+  {
+    "id": "short_treatment_followup",
+    "version": "1.0.0",
+    "layer": "universal",
+    "description": "A short treatment (30 days or less) should be followed by a visit within 3 days of its end.",
+    "reason": { "code": "short_treatment_followup", "label": "Control al terminar el tratamiento" },
+    "trigger": { "event": "medication.prescribed", "filter": { "durationDays": { "lte": 30 } } },
+    "dueInDays": 3,
+    "dueFrom": "treatment_end",
+    "expects": "follow_up_visit",
+    "caseGroup": "follow_up",
+    "fulfilledBy": [
+      { "event": "encounter.finished", "match": "any" },
+      { "event": "appointment.booked", "match": "any" }
+    ],
+    "priority": 30,
+    "escalationPolicy": "default_v1",
+    "suggestedAction": {
+      "code": "schedule_follow_up",
+      "label": "Agendar control de fin de tratamiento",
+      "patientContactPurpose": "medication_review"
+    }
+  },
+  {
+    "id": "abnormal_result_followup",
+    "version": "1.0.0",
+    "layer": "universal",
+    "description": "An abnormal result should be followed by a consultation within 7 days.",
+    "reason": {
+      "code": "abnormal_result_followup",
+      "label": "Resultado alterado sin consulta posterior"
+    },
+    "trigger": { "event": "result.received", "filter": { "interpretation": "abnormal" } },
+    "dueInDays": 7,
+    "expects": "follow_up_visit",
+    "caseGroup": "follow_up",
+    "fulfilledBy": [
+      { "event": "encounter.finished", "match": "any" },
+      { "event": "appointment.booked", "match": "any" }
+    ],
+    "priority": 60,
+    "escalationPolicy": "default_v1",
+    "suggestedAction": {
+      "code": "review_results",
+      "label": "Revisar el resultado con el paciente",
+      "patientContactPurpose": "review_results"
+    }
+  }
+]
