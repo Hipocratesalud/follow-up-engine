@@ -1,0 +1,46 @@
+{
+  "id": "gold-006",
+  "specialty": "diabetology",
+  "authoredAt": "2025-07-15",
+  "text": "Pcte masc 45a, DM2 dx hace 6 meses. Primera consulta en diabetología. Trae HbA1c 8.2%, glicemia 190. IMC 33.\nDx: DM2. Obesidad grado I.\nPlan:\n- Metformina 850 mg VO c/12h con desayuno y cena.\n- Empagliflozina 10 mg VO OD.\n- Referir a nutrición.\n- Fondo de ojo en 1 mes.\n- HbA1c en 3 meses.\n- Ctrl en 3 meses.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [
+      {
+        "icd10": "E11",
+        "evidenceQuote": "DM2 dx hace 6 meses"
+      },
+      {
+        "icd10": "E66",
+        "evidenceQuote": "Obesidad grado I"
+      }
+    ],
+    "medications": [
+      {
+        "text": "metformina 850 mg VO c/12h",
+        "evidenceQuote": "Metformina 850 mg VO c/12h"
+      },
+      {
+        "text": "empagliflozina 10 mg VO OD",
+        "evidenceQuote": "Empagliflozina 10 mg VO OD"
+      }
+    ],
+    "planItems": [
+      {
+        "kind": "other",
+        "dueInDays": 30,
+        "evidenceQuote": "Fondo de ojo en 1 mes"
+      },
+      {
+        "kind": "lab",
+        "dueInDays": 90,
+        "evidenceQuote": "HbA1c en 3 meses"
+      },
+      {
+        "kind": "follow_up_visit",
+        "dueInDays": 90,
+        "evidenceQuote": "Ctrl en 3 meses"
+      }
+    ]
+  }
+}

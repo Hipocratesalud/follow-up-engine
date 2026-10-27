@@ -1,0 +1,32 @@
+{
+  "id": "gold-019",
+  "specialty": "internal_medicine",
+  "authoredAt": "2025-08-11",
+  "text": "Primera consulta. Pcte fem 48a con cifras tensionales elevadas en farmacia (150/95). Asintomática. TA hoy 152/96 y 148/94 mmHg (2 tomas). IMC 31. Antecedente: madre con HTA.\nDx: HTA estadio 2 de reciente diagnóstico. Obesidad.\nPlan: losartán 50 mg VO OD. Dieta hiposódica, caminar 30 min/día. Se solicita: hematología, creatinina, K+, glicemia, perfil lipídico, examen de orina y ECG. Registro domiciliario de TA por 1 semana. Ctrl en 1 mes con resultados y registro de TA.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [
+      {
+        "icd10": "I10",
+        "evidenceQuote": "HTA estadio 2 de reciente diagnóstico"
+      },
+      {
+        "icd10": "E66",
+        "evidenceQuote": "Obesidad"
+      }
+    ],
+    "medications": [
+      {
+        "text": "losartán 50 mg VO OD",
+        "evidenceQuote": "losartán 50 mg VO OD"
+      }
+    ],
+    "planItems": [
+      {
+        "kind": "follow_up_visit",
+        "dueInDays": 30,
+        "evidenceQuote": "Ctrl en 1 mes"
+      }
+    ]
+  }
+}

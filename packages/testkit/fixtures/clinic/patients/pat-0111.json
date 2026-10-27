@@ -1,0 +1,2747 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0111",
+  "name": "Mariana Gómez Salcedo",
+  "gender": "female",
+  "birthDate": "1990-06-23",
+  "specialty": "gynecology",
+  "pattern": "pregnancy_missed_postpartum",
+  "entries": [
+    {
+      "at": "2025-03-19T16:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle01",
+        "type": "transaction",
+        "timestamp": "2025-03-19T16:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:38e128b4-139a-5b82-926d-3c95cd430e93",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0111",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-14107"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Mariana Gómez Salcedo",
+                  "family": "Gómez Salcedo",
+                  "given": ["Mariana"]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "1990-06-23",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0111" }
+          },
+          {
+            "fullUrl": "urn:uuid:88915a51-a660-5edf-80aa-54a25a2f52bd",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0111-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control prenatal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "period": { "start": "2025-03-19T16:00:00.000Z", "end": "2025-03-19T16:30:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0111-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:39a8d83a-2b43-551b-8b3c-5e91c93c8f17",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0111-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "date": "2025-03-19T16:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBHM1AyIGRlIDM0YSBjdXJzYW5kbyBlbWJhcmF6byBkZSAxMiBzZW0gcG9yIEZVTS4gTsOhdXNlYXMgbWF0dXRpbmFzIG9jYXNpb25hbGVzLgpUQSAxMjAvNjEgbW1IZy4gU2luIGVkZW1hcy4KRHg6IGVtYmFyYXpvIGRlIDEyIHNlbSwgZXZvbHVjacOzbiBub3JtYWwuClBsYW46IHNlIHNvbGljaXRhIGhlbWF0b2xvZ8OtYSBjb21wbGV0YSwgZ2xpY2VtaWEgZW4gYXl1bmFzLCBleGFtZW4gZGUgb3JpbmEgeSBlY28gb2JzdMOpdHJpY28uIMOhY2lkbyBmw7NsaWNvIDUgbWcgVk8gT0QuIHN1bGZhdG8gZmVycm9zbyAzMDAgbWcgVk8gT0QuIENvbnRyb2wgZW4gNCBzZW1hbmFzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-03-19T16:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0111-enc01" }],
+                "period": {
+                  "start": "2025-03-19T16:00:00.000Z",
+                  "end": "2025-03-19T16:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0111-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:ac7dc46c-a906-5983-8d94-c0643dd2a52c",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0111-sr01",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "58410-2",
+                    "display": "CBC panel - Blood by Automated count"
+                  }
+                ],
+                "text": "Hematología completa"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc01" },
+              "authoredOn": "2025-03-19T16:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0111-sr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:16a9f565-1efb-564e-b986-caa836ff194b",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0111-sr02",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "1558-6",
+                    "display": "Fasting glucose [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Glicemia en ayunas"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc01" },
+              "authoredOn": "2025-03-19T16:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0111-sr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:c0054d44-e2a4-5cec-b6dc-550e6cad4956",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0111-sr03",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "24357-6",
+                    "display": "Urinalysis macro (dipstick) panel - Urine"
+                  }
+                ],
+                "text": "Examen de orina"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc01" },
+              "authoredOn": "2025-03-19T16:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0111-sr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:d2859968-f30a-53c7-8d70-a878bbdd732e",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0111-sr04",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "363679005",
+                      "display": "Imaging"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "11525-3",
+                    "display": "US Pelvis Fetus for pregnancy"
+                  }
+                ],
+                "text": "Ecografía obstétrica"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc01" },
+              "authoredOn": "2025-03-19T16:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0111-sr04" }
+          },
+          {
+            "fullUrl": "urn:uuid:55766db0-b29d-5f77-89d8-31ccaa7fae17",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0111-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "B03BB01",
+                    "display": "folic acid"
+                  }
+                ],
+                "text": "Ácido fólico 5 mg"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc01" },
+              "authoredOn": "2025-03-19T16:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-gyn-02" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0111-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:8c2d500e-779d-5ba0-a935-45dbf74117c8",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0111-mr02",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "B03AA07",
+                    "display": "ferrous sulfate"
+                  }
+                ],
+                "text": "Sulfato ferroso 300 mg"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc01" },
+              "authoredOn": "2025-03-19T16:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-gyn-02" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0111-mr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:76a74761-cffb-5b66-8ac4-6d1739bf2baa",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0111-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z34.9",
+                    "display": "Supervision of normal pregnancy, unspecified"
+                  }
+                ],
+                "text": "embarazo"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc01" },
+              "recordedDate": "2025-03-19T16:30:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0111-cond01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-19T16:40:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle05",
+        "type": "transaction",
+        "timestamp": "2025-03-19T16:40:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:4449a798-1321-504b-a3a3-d1eaa5f7e0be",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0111-appt01",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              ],
+              "description": "Control prenatal",
+              "start": "2025-04-16T20:30:00.000Z",
+              "end": "2025-04-16T21:00:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-03-19T16:40:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0111" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-gyn-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0111-appt01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-21T18:10:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle02",
+        "type": "transaction",
+        "timestamp": "2025-03-21T18:10:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:1008c458-3c1c-5a85-a266-0e515d22d276",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0111-dr01",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0111-sr01" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "58410-2",
+                    "display": "CBC panel - Blood by Automated count"
+                  }
+                ],
+                "text": "Hematología completa"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "effectiveDateTime": "2025-03-20T18:10:00.000Z",
+              "issued": "2025-03-21T18:10:00.000Z",
+              "result": [
+                { "reference": "Observation/pat-0111-dr01-obs1" },
+                { "reference": "Observation/pat-0111-dr01-obs2" }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0111-dr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:ea23e2c5-d017-5d89-b69a-c5475b25b735",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0111-dr01-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0111-sr01" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "718-7",
+                    "display": "Hemoglobin [Mass/volume] in Blood"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "effectiveDateTime": "2025-03-20T18:10:00.000Z",
+              "issued": "2025-03-21T18:10:00.000Z",
+              "valueQuantity": {
+                "value": 12.8,
+                "unit": "g/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "g/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 12,
+                    "unit": "g/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "g/dL"
+                  },
+                  "high": {
+                    "value": 16,
+                    "unit": "g/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "g/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0111-dr01-obs1" }
+          },
+          {
+            "fullUrl": "urn:uuid:4144362e-ea01-584f-baae-8552c72eb9e6",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0111-dr01-obs2",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0111-sr01" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "6690-2",
+                    "display": "Leukocytes [#/volume] in Blood by Automated count"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "effectiveDateTime": "2025-03-20T18:10:00.000Z",
+              "issued": "2025-03-21T18:10:00.000Z",
+              "valueQuantity": {
+                "value": 7.1,
+                "unit": "10*3/uL",
+                "system": "http://unitsofmeasure.org",
+                "code": "10*3/uL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 4.5,
+                    "unit": "10*3/uL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "10*3/uL"
+                  },
+                  "high": {
+                    "value": 11,
+                    "unit": "10*3/uL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "10*3/uL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0111-dr01-obs2" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-26T17:14:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle04",
+        "type": "transaction",
+        "timestamp": "2025-03-26T17:14:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:0be4c1d5-584f-53ba-a59b-189c654ad8e2",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0111-dr03",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0111-sr04" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "RAD",
+                      "display": "Radiology"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "11525-3",
+                    "display": "US Pelvis Fetus for pregnancy"
+                  }
+                ],
+                "text": "Ecografía obstétrica"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "effectiveDateTime": "2025-03-23T17:14:00.000Z",
+              "issued": "2025-03-26T17:14:00.000Z",
+              "conclusion": "Embarazo único activo. Biometría por debajo del percentil 10 para edad gestacional. Sugiere control.",
+              "conclusionCode": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "263654008",
+                      "display": "Abnormal"
+                    }
+                  ]
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0111-dr03" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-29T18:26:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle03",
+        "type": "transaction",
+        "timestamp": "2025-03-29T18:26:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:bff89c20-7096-5f33-9a8a-c25058504e63",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0111-dr02",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0111-sr02" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "1558-6",
+                    "display": "Fasting glucose [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Glicemia en ayunas"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "effectiveDateTime": "2025-03-25T18:26:00.000Z",
+              "issued": "2025-03-29T18:26:00.000Z",
+              "result": [{ "reference": "Observation/pat-0111-dr02-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0111-dr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:5f11fc9c-7e41-5821-bf6c-1a763f5ad2ff",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0111-dr02-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0111-sr02" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "1558-6",
+                    "display": "Fasting glucose [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "effectiveDateTime": "2025-03-25T18:26:00.000Z",
+              "issued": "2025-03-29T18:26:00.000Z",
+              "valueQuantity": {
+                "value": 78,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 70,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  },
+                  "high": {
+                    "value": 100,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0111-dr02-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-16T17:00:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle06",
+        "type": "transaction",
+        "timestamp": "2025-04-16T17:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:68b40b34-b04f-5f05-91dd-a363ec23aa84",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0111-enc02",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control prenatal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0111-appt01" }],
+              "period": { "start": "2025-04-16T16:30:00.000Z", "end": "2025-04-16T17:00:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0111-enc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:db9fcb3e-2aef-58ed-b29f-4addbd7a3961",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0111-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "date": "2025-04-16T17:00:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGN0ZSBHM1AyIGRlIDM0YSBjdXJzYW5kbyBlbWJhcmF6byBkZSAxNiBzZW0gcG9yIEZVTS4gTsOhdXNlYXMgbWF0dXRpbmFzIG9jYXNpb25hbGVzLiBUQSAxMTcvNjYgbW1IZy4gU2luIGVkZW1hcy4gRHg6IGVtYmFyYXpvIGRlIDE2IHNlbSwgZXZvbHVjacOzbiBub3JtYWwuIFBsYW46IENpdGEgY29udHJvbCBlbiA0IHNlbWFuYXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-04-16T17:00:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0111-enc02" }],
+                "period": {
+                  "start": "2025-04-16T16:30:00.000Z",
+                  "end": "2025-04-16T17:00:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0111-doc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:66f1840e-34a6-5cc7-a19c-1c87eceb325a",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0111-cond02",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z34.9",
+                    "display": "Supervision of normal pregnancy, unspecified"
+                  }
+                ],
+                "text": "embarazo"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc02" },
+              "recordedDate": "2025-04-16T17:00:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0111-cond02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-16T17:10:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle07",
+        "type": "transaction",
+        "timestamp": "2025-04-16T17:10:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:7027c37d-e815-588c-bc14-bba9c11c766f",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0111-appt02",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              ],
+              "description": "Control prenatal",
+              "start": "2025-05-14T15:15:00.000Z",
+              "end": "2025-05-14T15:45:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-04-16T17:10:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0111" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-gyn-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0111-appt02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-05-14T16:45:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle08",
+        "type": "transaction",
+        "timestamp": "2025-05-14T16:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:40f69c50-338e-5f1a-966b-fef0fd9735e6",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0111-enc03",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control prenatal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0111-appt02" }],
+              "period": { "start": "2025-05-14T16:15:00.000Z", "end": "2025-05-14T16:45:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0111-enc03" }
+          },
+          {
+            "fullUrl": "urn:uuid:1329bf12-ce18-5363-b30b-3b6b24cefa9a",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0111-doc03",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "date": "2025-05-14T16:45:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGN0ZSBHM1AyIGRlIDM0YSBjdXJzYW5kbyBlbWJhcmF6byBkZSAyMCBzZW0gcG9yIEZVTS4gTmllZ2Egc2FuZ3JhZG8sIHDDqXJkaWRhIGRlIGzDrXF1aWRvIG8gY29udHJhY2Npb25lcy4gVEEgMTE0LzY2IG1tSGcsIEFVIDE4IGNtLCBGQ0YgMTM3IGxwbS4gU2luIGVkZW1hcy4gRHg6IGVtYmFyYXpvIGRlIDIwIHNlbSwgZXZvbHVjacOzbiBub3JtYWwuIFBsYW46IHNlIHNvbGljaXRhIGVjbyBvYnN0w6l0cmljby4gY2l0YSBjb250cm9sIGVuIDQgc2VtLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-05-14T16:45:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0111-enc03" }],
+                "period": {
+                  "start": "2025-05-14T16:15:00.000Z",
+                  "end": "2025-05-14T16:45:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0111-doc03" }
+          },
+          {
+            "fullUrl": "urn:uuid:c2ee4e4c-c030-52b1-9325-abfc86a05fec",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0111-sr05",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "363679005",
+                      "display": "Imaging"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "11525-3",
+                    "display": "US Pelvis Fetus for pregnancy"
+                  }
+                ],
+                "text": "Ecografía obstétrica"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc03" },
+              "authoredOn": "2025-05-14T16:45:00.000Z",
+              "requester": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0111-sr05" }
+          },
+          {
+            "fullUrl": "urn:uuid:5b371641-a061-5fcf-8efe-607324720c61",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0111-cond03",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z34.9",
+                    "display": "Supervision of normal pregnancy, unspecified"
+                  }
+                ],
+                "text": "embarazo"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc03" },
+              "recordedDate": "2025-05-14T16:45:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0111-cond03" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-05-14T16:55:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle09",
+        "type": "transaction",
+        "timestamp": "2025-05-14T16:55:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:c1324a7e-f6cd-5d1e-be32-0f1a7bab765c",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0111-appt03",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              ],
+              "description": "Control prenatal",
+              "start": "2025-06-11T18:30:00.000Z",
+              "end": "2025-06-11T19:00:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-05-14T16:55:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0111" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-gyn-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0111-appt03" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-06-11T20:00:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle10",
+        "type": "transaction",
+        "timestamp": "2025-06-11T20:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:26d34ac8-49aa-5b58-8479-ca34ca543c0d",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0111-enc04",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control prenatal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0111-appt03" }],
+              "period": { "start": "2025-06-11T19:30:00.000Z", "end": "2025-06-11T20:00:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0111-enc04" }
+          },
+          {
+            "fullUrl": "urn:uuid:d6cff74c-4d6f-5eb7-8a7d-dcde8904bf45",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0111-doc04",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "date": "2025-06-11T20:00:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBHM1AyIGRlIDM0YSBjdXJzYW5kbyBlbWJhcmF6byBkZSAyNCBzZW0gcG9yIEZVTS4gUmVmaWVyZSBtb3ZpbWllbnRvcyBmZXRhbGVzIHByZXNlbnRlcy4gVEEgMTAwLzc2IG1tSGcsIEFVIDIzIGNtLCBGQ0YgMTM1IGxwbS4gU2luIGVkZW1hcy4gRHg6IGVtYmFyYXpvIGRlIDI0IHNlbSwgZXZvbHVjacOzbiBub3JtYWwuIFBsYW46IGN0cmwgZW4gNCBzZW0u",
+                    "title": "Nota de evolución",
+                    "creation": "2025-06-11T20:00:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0111-enc04" }],
+                "period": {
+                  "start": "2025-06-11T19:30:00.000Z",
+                  "end": "2025-06-11T20:00:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0111-doc04" }
+          },
+          {
+            "fullUrl": "urn:uuid:aa81c3bd-3589-5780-8d68-a615c18716ee",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0111-cond04",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z34.9",
+                    "display": "Supervision of normal pregnancy, unspecified"
+                  }
+                ],
+                "text": "embarazo"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc04" },
+              "recordedDate": "2025-06-11T20:00:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0111-cond04" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-06-11T20:10:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle11",
+        "type": "transaction",
+        "timestamp": "2025-06-11T20:10:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:1ed1e3f0-bece-5f0b-a577-8c5bcbb74987",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0111-appt04",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              ],
+              "description": "Control prenatal",
+              "start": "2025-07-09T14:30:00.000Z",
+              "end": "2025-07-09T15:00:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-06-11T20:10:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0111" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-gyn-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0111-appt04" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-09T17:15:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle12",
+        "type": "transaction",
+        "timestamp": "2025-07-09T17:15:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:08d51e20-3bfb-55fc-a3ac-650a1d2714fb",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0111-enc05",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control prenatal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0111-appt04" }],
+              "period": { "start": "2025-07-09T16:45:00.000Z", "end": "2025-07-09T17:15:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0111-enc05" }
+          },
+          {
+            "fullUrl": "urn:uuid:d4d70ad9-7e13-54af-b72b-07c90d348f5a",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0111-doc05",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "date": "2025-07-09T17:15:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGN0ZSBHM1AyIGRlIDM1YSBjdXJzYW5kbyBlbWJhcmF6byBkZSAyOCBzZW0gcG9yIEZVTS4gUmVmaWVyZSBtb3ZpbWllbnRvcyBmZXRhbGVzIHByZXNlbnRlcy4gVEEgMTA5Lzc0IG1tSGcsIEFVIDI2IGNtLCBGQ0YgMTM0IGxwbS4gU2luIGVkZW1hcy4gRHg6IGVtYmFyYXpvIGRlIDI4IHNlbSwgZXZvbHVjaW9uIG5vcm1hbC4gUGxhbjogQ2l0YSBjb250cm9sIGVuIDIgc2VtYW5hcy4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-07-09T17:15:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0111-enc05" }],
+                "period": {
+                  "start": "2025-07-09T16:45:00.000Z",
+                  "end": "2025-07-09T17:15:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0111-doc05" }
+          },
+          {
+            "fullUrl": "urn:uuid:68431425-a3ad-5b3a-a064-8f6a9b7f1a87",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0111-cond05",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z34.9",
+                    "display": "Supervision of normal pregnancy, unspecified"
+                  }
+                ],
+                "text": "embarazo"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc05" },
+              "recordedDate": "2025-07-09T17:15:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0111-cond05" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-09T17:25:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle13",
+        "type": "transaction",
+        "timestamp": "2025-07-09T17:25:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:40e4c96a-c878-54b3-9b7f-d065222a3bc3",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0111-appt05",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              ],
+              "description": "Control prenatal",
+              "start": "2025-07-23T18:45:00.000Z",
+              "end": "2025-07-23T19:15:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-07-09T17:25:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0111" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-gyn-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0111-appt05" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-23T16:45:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle14",
+        "type": "transaction",
+        "timestamp": "2025-07-23T16:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:e8f1de2a-c1d6-5c2e-aefe-2c52bfbabf43",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0111-enc06",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control prenatal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0111-appt05" }],
+              "period": { "start": "2025-07-23T16:15:00.000Z", "end": "2025-07-23T16:45:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0111-enc06" }
+          },
+          {
+            "fullUrl": "urn:uuid:c10e2251-b476-57f6-9d56-ed6014009b22",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0111-doc06",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "date": "2025-07-23T16:45:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBHM1AyIGRlIDM1YSBjdXJzYW5kbyBlbWJhcmF6byBkZSAzMCBzZW0gcG9yIEZVTS4gTmllZ2Egc2FuZ3JhZG8sIHDDqXJkaWRhIGRlIGzDrXF1aWRvIG8gY29udHJhY2Npb25lcy4KVEEgMTE5Lzc0IG1tSGcsIEFVIDI4IGNtLCBGQ0YgMTQ1IGxwbS4gU2luIGVkZW1hcy4KRHg6IGVtYmFyYXpvIGRlIDMwIHNlbSwgZXZvbHVjacOzbiBub3JtYWwuClBsYW46IGNpdGEgY29udHJvbCBlbiAyIHNlbS4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-07-23T16:45:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0111-enc06" }],
+                "period": {
+                  "start": "2025-07-23T16:15:00.000Z",
+                  "end": "2025-07-23T16:45:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0111-doc06" }
+          },
+          {
+            "fullUrl": "urn:uuid:5d63cb4f-49c9-5251-bc66-a52835b3e50d",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0111-cond06",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z34.9",
+                    "display": "Supervision of normal pregnancy, unspecified"
+                  }
+                ],
+                "text": "embarazo"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc06" },
+              "recordedDate": "2025-07-23T16:45:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0111-cond06" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-23T16:55:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle15",
+        "type": "transaction",
+        "timestamp": "2025-07-23T16:55:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:574ee36c-c54d-5382-94f2-3cf51de357b5",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0111-appt06",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              ],
+              "description": "Control prenatal",
+              "start": "2025-08-06T14:30:00.000Z",
+              "end": "2025-08-06T15:00:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-07-23T16:55:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0111" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-gyn-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0111-appt06" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-08-06T16:45:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle16",
+        "type": "transaction",
+        "timestamp": "2025-08-06T16:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:821dac7b-4c3e-5fd0-84c3-858d29727fa0",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0111-enc07",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control prenatal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0111-appt06" }],
+              "period": { "start": "2025-08-06T16:15:00.000Z", "end": "2025-08-06T16:45:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0111-enc07" }
+          },
+          {
+            "fullUrl": "urn:uuid:0f70704d-5958-524b-ac16-4ee1d04049d8",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0111-doc07",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "date": "2025-08-06T16:45:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBHM1AyIGRlIDM1YSBjdXJzYW5kbyBlbWJhcmF6byBkZSAzMiBzZW0gcG9yIEZVTS4gUmVmaWVyZSBtb3ZpbWllbnRvcyBmZXRhbGVzIHByZXNlbnRlcy4KVEEgMTA5LzYxIG1tSGcsIEFVIDMxIGNtLCBGQ0YgMTM2IGxwbS4gU2luIGVkZW1hcy4KRHg6IGVtYmFyYXpvIGRlIDMyIHNlbSwgZXZvbHVjacOzbiBub3JtYWwuCkluZGljYWNpb25lczogc2Ugc29saWNpdGEgZWNvIG9ic3TDqXRyaWNvLiBTaWdub3MgZGUgYWxhcm1hIGV4cGxpY2Fkb3Mu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-08-06T16:45:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0111-enc07" }],
+                "period": {
+                  "start": "2025-08-06T16:15:00.000Z",
+                  "end": "2025-08-06T16:45:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0111-doc07" }
+          },
+          {
+            "fullUrl": "urn:uuid:486bb88f-a1ce-5b69-a753-c8391ba6167a",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0111-sr06",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "363679005",
+                      "display": "Imaging"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "11525-3",
+                    "display": "US Pelvis Fetus for pregnancy"
+                  }
+                ],
+                "text": "Ecografía obstétrica"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc07" },
+              "authoredOn": "2025-08-06T16:45:00.000Z",
+              "requester": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0111-sr06" }
+          },
+          {
+            "fullUrl": "urn:uuid:78b06bdc-e6d9-5160-b696-86ba3d1bfe6e",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0111-cond07",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z34.9",
+                    "display": "Supervision of normal pregnancy, unspecified"
+                  }
+                ],
+                "text": "embarazo"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc07" },
+              "recordedDate": "2025-08-06T16:45:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0111-cond07" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-08-06T16:55:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle17",
+        "type": "transaction",
+        "timestamp": "2025-08-06T16:55:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:5035b54d-342b-5058-9083-38962747d262",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0111-appt07",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              ],
+              "description": "Control prenatal",
+              "start": "2025-08-20T19:00:00.000Z",
+              "end": "2025-08-20T19:30:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-08-06T16:55:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0111" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-gyn-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0111-appt07" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-08-20T16:45:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle18",
+        "type": "transaction",
+        "timestamp": "2025-08-20T16:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:1340298c-ef1a-5f37-8c24-be842f019eba",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0111-enc08",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control prenatal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0111-appt07" }],
+              "period": { "start": "2025-08-20T16:15:00.000Z", "end": "2025-08-20T16:45:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0111-enc08" }
+          },
+          {
+            "fullUrl": "urn:uuid:27b13f65-bd5b-5bdf-984c-dfda23f97a21",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0111-doc08",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "date": "2025-08-20T16:45:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBHM1AyIGRlIDM1YSBjdXJzYW5kbyBlbWJhcmF6byBkZSAzNCBzZW0gcG9yIEZVTS4gTmllZ2Egc2FuZ3JhZG8sIHDDqXJkaWRhIGRlIGzDrXF1aWRvIG8gY29udHJhY2Npb25lcy4KVEEgMTA0LzYxIG1tSGcsIEFVIDMyIGNtLCBGQ0YgMTQ2IGxwbS4gU2luIGVkZW1hcy4KRHg6IGVtYmFyYXpvIGRlIDM0IHNlbSwgZXZvbHVjacOzbiBub3JtYWwuClBsYW46IFZvbHZlciBhIGNvbnN1bHRhIGVuIDIgc2VtYW5hcy4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-08-20T16:45:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0111-enc08" }],
+                "period": {
+                  "start": "2025-08-20T16:15:00.000Z",
+                  "end": "2025-08-20T16:45:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0111-doc08" }
+          },
+          {
+            "fullUrl": "urn:uuid:1e384ec7-b692-5acb-bf12-7b5e47657f5b",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0111-cond08",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z34.9",
+                    "display": "Supervision of normal pregnancy, unspecified"
+                  }
+                ],
+                "text": "embarazo"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc08" },
+              "recordedDate": "2025-08-20T16:45:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0111-cond08" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-08-20T16:55:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle19",
+        "type": "transaction",
+        "timestamp": "2025-08-20T16:55:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:95a8b24c-c47c-5db8-bb41-261f3f82dd43",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0111-appt08",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              ],
+              "description": "Control prenatal",
+              "start": "2025-09-03T19:30:00.000Z",
+              "end": "2025-09-03T20:00:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-08-20T16:55:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0111" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-gyn-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0111-appt08" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-03T13:15:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle20",
+        "type": "transaction",
+        "timestamp": "2025-09-03T13:15:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:dfa72bc1-b372-573b-8aa8-172be694d24e",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0111-enc09",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control prenatal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0111-appt08" }],
+              "period": { "start": "2025-09-03T12:45:00.000Z", "end": "2025-09-03T13:15:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0111-enc09" }
+          },
+          {
+            "fullUrl": "urn:uuid:0e0d3eba-3dbb-52ca-994f-1c6ccd6a962f",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0111-doc09",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "date": "2025-09-03T13:15:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGN0ZSBHM1AyIGRlIDM1YSBjdXJzYW5kbyBlbWJhcmF6byBkZSAzNiBzZW0gcG9yIEZVTS4gTmllZ2Egc2FuZ3JhZG8sIHDDqXJkaWRhIGRlIGzDrXF1aWRvIG8gY29udHJhY2Npb25lcy4KVEEgMTAwLzY4IG1tSGcsIEFVIDM0IGNtLCBGQ0YgMTM5IGxwbS4gU2luIGVkZW1hcy4KRHg6IGVtYmFyYXpvIGRlIDM2IHNlbSwgZXZvbHVjacOzbiBub3JtYWwuClBsYW46IEN0cmwgZW4gMiBzZW1hbmFzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-09-03T13:15:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0111-enc09" }],
+                "period": {
+                  "start": "2025-09-03T12:45:00.000Z",
+                  "end": "2025-09-03T13:15:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0111-doc09" }
+          },
+          {
+            "fullUrl": "urn:uuid:74d4f910-dbbb-5eb0-bf5e-9412a9136142",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0111-cond09",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z34.9",
+                    "display": "Supervision of normal pregnancy, unspecified"
+                  }
+                ],
+                "text": "embarazo"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc09" },
+              "recordedDate": "2025-09-03T13:15:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0111-cond09" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-03T13:25:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle21",
+        "type": "transaction",
+        "timestamp": "2025-09-03T13:25:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:1e594779-43c8-59ad-aae5-bc393533f367",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0111-appt09",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              ],
+              "description": "Control prenatal",
+              "start": "2025-09-17T12:00:00.000Z",
+              "end": "2025-09-17T12:30:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-09-03T13:25:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0111" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-gyn-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0111-appt09" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-17T14:45:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle22",
+        "type": "transaction",
+        "timestamp": "2025-09-17T14:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:041b611e-0e93-5050-b44d-7ce198b1315d",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0111-enc10",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control prenatal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0111-appt09" }],
+              "period": { "start": "2025-09-17T14:15:00.000Z", "end": "2025-09-17T14:45:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0111-enc10" }
+          },
+          {
+            "fullUrl": "urn:uuid:a9e099c4-9dec-5e15-9a75-0ffd37b982c4",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0111-doc10",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "date": "2025-09-17T14:45:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBHM1AyIGRlIDM1YSBjdXJzYW5kbyBlbWJhcmF6byBkZSAzOCBzZW0gcG9yIEZVTS4gUmVmaWVyZSBtb3ZpbWllbnRvcyBmZXRhbGVzIHByZXNlbnRlcy4KVEEgMTA5LzY1IG1tSGcsIEFVIDM1IGNtLCBGQ0YgMTUxIGxwbS4gU2luIGVkZW1hcy4KRHg6IGVtYmFyYXpvIGRlIDM4IHNlbSwgZXZvbHVjacOzbiBub3JtYWwuClBsYW46IFByw7N4aW1vIGNvbnRyb2wgZW4gMiBzZW1hbmFzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-09-17T14:45:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0111-enc10" }],
+                "period": {
+                  "start": "2025-09-17T14:15:00.000Z",
+                  "end": "2025-09-17T14:45:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0111-doc10" }
+          },
+          {
+            "fullUrl": "urn:uuid:8d35dcfb-8f3e-50de-9a78-3541a8946393",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0111-cond10",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z34.9",
+                    "display": "Supervision of normal pregnancy, unspecified"
+                  }
+                ],
+                "text": "embarazo"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc10" },
+              "recordedDate": "2025-09-17T14:45:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0111-cond10" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-13T15:25:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle23",
+        "type": "transaction",
+        "timestamp": "2025-10-13T15:25:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:ec6a5721-0266-5d2c-8523-e865b2cab345",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0111-enc11",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Control puerperal" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "gynecology",
+                    "display": "Ginecología y obstetricia"
+                  }
+                ],
+                "text": "Ginecología y obstetricia"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-gyn-02" } }],
+              "period": { "start": "2025-10-13T15:00:00.000Z", "end": "2025-10-13T15:25:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0111-enc11" }
+          },
+          {
+            "fullUrl": "urn:uuid:217b3bba-96f1-5e78-94b3-0291f978aed6",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0111-doc11",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "date": "2025-10-13T15:25:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-gyn-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cHXDqXJwZXJhIGRlIDEyIGTDrWFzLCBwYXJ0byBldXTDs2NpY28gc2luIGNvbXBsaWNhY2lvbmVzLiBMYWN0YW5jaWEgbWF0ZXJuYSBleGNsdXNpdmEuIFRBIDEyMi84MC4gw5p0ZXJvIGludm9sdWNpb25hZG8sIGxvcXVpb3Mgbm9ybWFsZXMuIE1hbWFzIHNpbiBzaWdub3MgZGUgbWFzdGl0aXMuIER4OiBwdWVycGVyaW8gbWVkaWF0byBub3JtYWwuIFBsYW46IFByw7N4aW1vIGNvbnRyb2wgZW4gNiBzZW1hbmFzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-10-13T15:25:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0111-enc11" }],
+                "period": {
+                  "start": "2025-10-13T15:00:00.000Z",
+                  "end": "2025-10-13T15:25:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0111-doc11" }
+          },
+          {
+            "fullUrl": "urn:uuid:f0bb50bc-3ee8-5fd7-a8f6-1e7787ba05f7",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0111-cond11",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "Z39.2",
+                    "display": "Routine postpartum follow-up"
+                  }
+                ],
+                "text": "puerperio"
+              },
+              "subject": { "reference": "Patient/pat-0111" },
+              "encounter": { "reference": "Encounter/pat-0111-enc11" },
+              "recordedDate": "2025-10-13T15:25:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-gyn-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0111-cond11" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-13T15:35:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0111-bundle24",
+        "type": "transaction",
+        "timestamp": "2025-10-13T15:35:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:5604b38f-35ee-5736-8dca-99876d407c46",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0111-appt10",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "gynecology",
+                      "display": "Ginecología y obstetricia"
+                    }
+                  ],
+                  "text": "Ginecología y obstetricia"
+                }
+              ],
+              "description": "Control puerperal",
+              "start": "2025-11-24T16:30:00.000Z",
+              "end": "2025-11-24T17:00:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-10-13T15:35:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0111" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-gyn-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0111-appt10" }
+          }
+        ]
+      }
+    }
+  ]
+}

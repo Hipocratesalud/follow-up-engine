@@ -1,0 +1,3776 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0001",
+  "name": "Teresa Salazar Vargas",
+  "gender": "female",
+  "birthDate": "1950-05-04",
+  "specialty": "diabetology",
+  "pattern": "adherent",
+  "entries": [
+    {
+      "at": "2024-04-15T20:41:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle01",
+        "type": "transaction",
+        "timestamp": "2024-04-15T20:41:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:95b74e28-2f71-5434-a4c9-4e89276d20d6",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0001",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-10037"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Teresa Salazar Vargas",
+                  "family": "Salazar Vargas",
+                  "given": ["Teresa"]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "1950-05-04",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0001" }
+          },
+          {
+            "fullUrl": "urn:uuid:a123df02-7c44-5347-9cb6-c34949d803ea",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0001-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Primera consulta" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-02" } }],
+              "period": { "start": "2024-04-15T20:15:00.000Z", "end": "2024-04-15T20:41:00.000Z" },
+              "reasonCode": [{ "text": "Control de diabetes" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0001-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:fd590567-653f-5d57-923b-f5081e3d6ac6",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0001-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "date": "2024-04-15T20:41:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGFjaWVudGUgZmVtZW5pbmEgZGUgNzMgYcOxb3MsIHJlZmVyaWRhIHBvciBtw6lkaWNvIGdlbmVyYWwgcG9yIERNMiBkZSAxMCBhw7FvcyBkZSBkeCB5IGRpc2xpcGlkZW1pYS4gUHJpbWVyYSBjb25zdWx0YSBlbiBlbCBzZXJ2aWNpby4KUmVmaWVyZSBidWVuYSBhZGhlcmVuY2lhIGFsIHR0bywgbmllZ2EgaGlwb2dsaWNlbWlhcy4KRUY6IFRBIDExNy83MSBtbUhnLCBGQyA4NyBscG0sIHBlc28gNzcga2cuIEdsaWNlbWlhIGNhcGlsYXIgMjE5IG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcywgcHVsc29zIHBlZGlvcyBwcmVzZW50ZXMuCkR4OiBETTIgZnVlcmEgZGUgbWV0YXMuIGRpc2xpcGlkZW1pYS4KUGxhbjogY29udGludWFyIG1ldGZvcm1pbmEgMTAwMCBtZyBWTyBjLzEyaCB5IGF0b3J2YXN0YXRpbmEgMjAgbWcgVk8gSFMuIHNlIHNvbGljaXRhIEhiQTFjLCBwZXJmaWwgbGlww61kaWNvLCBjcmVhdGluaW5hIHkgbWljcm9hbGJ1bWludXJpYS4gYWN0aXZpZGFkIGbDrXNpY2EgcmVndWxhci4gY2l0YSBjb250cm9sIGVuIDIgbWVzZXMgY29uIHJlc3VsdGFkb3Mu",
+                    "title": "Nota de evolución",
+                    "creation": "2024-04-15T20:41:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0001-enc01" }],
+                "period": {
+                  "start": "2024-04-15T20:15:00.000Z",
+                  "end": "2024-04-15T20:41:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0001-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:cfb3dcbd-0868-51a0-9905-5a9c0e750555",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr01",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc01" },
+              "authoredOn": "2024-04-15T20:41:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:523e97be-b14d-5c2e-b628-f8d312a5a3b7",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr02",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "57698-3",
+                    "display": "Lipid panel with direct LDL - Serum or Plasma"
+                  }
+                ],
+                "text": "Perfil lipídico"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc01" },
+              "authoredOn": "2024-04-15T20:41:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:178c4454-83cf-5d1c-9422-85896038560a",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr03",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc01" },
+              "authoredOn": "2024-04-15T20:41:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:5ca2cad5-c113-5dd0-bb2c-de0009f85b28",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr04",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "14959-1",
+                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Microalbuminuria (relación albúmina/creatinina)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc01" },
+              "authoredOn": "2024-04-15T20:41:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr04" }
+          },
+          {
+            "fullUrl": "urn:uuid:469c40b4-6e8a-58fd-9a0a-fb53e4e674d1",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 1000 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc01" },
+              "authoredOn": "2024-04-15T20:41:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:11914e9b-b9e6-5040-9c6c-1c93d912c1d8",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr02",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc01" },
+              "authoredOn": "2024-04-15T20:41:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:52bda1fc-fc43-5361-9eed-237bf1f1b7eb",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E11.9",
+                    "display": "Type 2 diabetes mellitus without complications"
+                  }
+                ],
+                "text": "DM2"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc01" },
+              "recordedDate": "2024-04-15T20:41:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond01" }
+          },
+          {
+            "fullUrl": "urn:uuid:216ffc37-2abc-54e7-a0c6-94e760e7ddca",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond02",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc01" },
+              "recordedDate": "2024-04-15T20:41:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-04-19T20:51:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle02",
+        "type": "transaction",
+        "timestamp": "2024-04-19T20:51:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:36f2ad99-3b12-5dbf-9f38-d7cf439e11eb",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0001-dr01",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr02" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "57698-3",
+                    "display": "Lipid panel with direct LDL - Serum or Plasma"
+                  }
+                ],
+                "text": "Perfil lipídico"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2024-04-18T20:51:00.000Z",
+              "issued": "2024-04-19T20:51:00.000Z",
+              "result": [
+                { "reference": "Observation/pat-0001-dr01-obs1" },
+                { "reference": "Observation/pat-0001-dr01-obs2" },
+                { "reference": "Observation/pat-0001-dr01-obs3" },
+                { "reference": "Observation/pat-0001-dr01-obs4" }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0001-dr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:6c4ce3ed-faf3-5f69-8104-1a26d3f209aa",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr01-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr02" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2093-3",
+                    "display": "Cholesterol [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2024-04-18T20:51:00.000Z",
+              "issued": "2024-04-19T20:51:00.000Z",
+              "valueQuantity": {
+                "value": 137,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 200,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr01-obs1" }
+          },
+          {
+            "fullUrl": "urn:uuid:7fefddc1-0bda-503b-aaca-ea1a0df18247",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr01-obs2",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr02" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2571-8",
+                    "display": "Triglyceride [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2024-04-18T20:51:00.000Z",
+              "issued": "2024-04-19T20:51:00.000Z",
+              "valueQuantity": {
+                "value": 101,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 150,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr01-obs2" }
+          },
+          {
+            "fullUrl": "urn:uuid:12dcc743-2dec-5416-93af-1a6529f0c127",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr01-obs3",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr02" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2085-9",
+                    "display": "Cholesterol in HDL [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2024-04-18T20:51:00.000Z",
+              "issued": "2024-04-19T20:51:00.000Z",
+              "valueQuantity": {
+                "value": 47,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 40,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr01-obs3" }
+          },
+          {
+            "fullUrl": "urn:uuid:b33a380d-60ea-5ddf-b2a4-eb528a9249b8",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr01-obs4",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr02" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "18262-6",
+                    "display": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by Direct assay"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2024-04-18T20:51:00.000Z",
+              "issued": "2024-04-19T20:51:00.000Z",
+              "valueQuantity": {
+                "value": 103,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 130,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr01-obs4" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-04-21T22:30:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle03",
+        "type": "transaction",
+        "timestamp": "2024-04-21T22:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:db55ba17-0a9a-54e8-8eb9-bea6a445c8eb",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0001-dr02",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr03" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2024-04-19T22:30:00.000Z",
+              "issued": "2024-04-21T22:30:00.000Z",
+              "result": [{ "reference": "Observation/pat-0001-dr02-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0001-dr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:a850fbc9-b75c-5aed-a5ae-c603972f1dc6",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr02-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr03" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2024-04-19T22:30:00.000Z",
+              "issued": "2024-04-21T22:30:00.000Z",
+              "valueQuantity": {
+                "value": 0.65,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.5,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  },
+                  "high": {
+                    "value": 1.2,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr02-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-06-19T14:05:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle04",
+        "type": "transaction",
+        "timestamp": "2024-06-19T14:05:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:62c57ef3-89d7-5a6b-83bc-1ddd614ea548",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0001-enc02",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-02" } }],
+              "period": { "start": "2024-06-19T13:30:00.000Z", "end": "2024-06-19T14:05:00.000Z" },
+              "reasonCode": [{ "text": "Control de diabetes" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0001-enc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:443a8ed4-d8cd-52ee-bd8e-e4c2ce026c21",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0001-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "date": "2024-06-19T14:05:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "ZmVtIDc0IGHDsW9zLCBjb25vY2lkbyBETTIgZGVzZGUgaGFjZSAxMCBhw7FvcywgZW4gdHRvIGNvbiBtZXRmb3JtaW5hIDEwMDAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLiBBY3VkZSBhIGN0cmwuIFJlZmllcmUgb2x2aWRhciBkb3NpcyBvY2FzaW9uYWxtZW50ZS4gTmllZ2EgcG9saXVyaWEgbmkgcG9saWRpcHNpYS4gRUY6IFRBIDEzNC84NCBtbUhnLCBGQyA3NCBscG0sIHBlc28gNzcga2cuIEdsaWNlbWlhIGNhcGlsYXIgMjI1IG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcywgcHVsc29zIHBlZGlvcyBwcmVzZW50ZXMuIER4OiBETTIgZnVlcmEgZGUgbWV0YXMuIGRpc2xpcGlkZW1pYS4gUGxhbjogU2UgYWp1c3RhIGRvc2lzLiBtYW50ZW5lciBtZXRmb3JtaW5hIDEwMDAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLiBwZW5kaWVudGUgSGJBMWMgeSBtaWNyb2FsYnVtaW51cmlhLCBzZSByZWl0ZXJhIG9yZGVuLiBhY3RpdmlkYWQgZsOtc2ljYSByZWd1bGFyLiBjdHJsIGVuIDMgbWVzZXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2024-06-19T14:05:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0001-enc02" }],
+                "period": {
+                  "start": "2024-06-19T13:30:00.000Z",
+                  "end": "2024-06-19T14:05:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0001-doc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:4e313bec-8dbb-5eed-989f-6cf2255eebd8",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr05",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc02" },
+              "authoredOn": "2024-06-19T14:05:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr05" }
+          },
+          {
+            "fullUrl": "urn:uuid:de4c2aa9-cee9-58b0-abdc-73ac759c62ac",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr06",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "14959-1",
+                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Microalbuminuria (relación albúmina/creatinina)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc02" },
+              "authoredOn": "2024-06-19T14:05:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr06" }
+          },
+          {
+            "fullUrl": "urn:uuid:8e6797db-7420-5b5d-be8f-f249b707bcae",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr03",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 1000 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc02" },
+              "authoredOn": "2024-06-19T14:05:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:531bdc3f-044e-5072-baab-c333343c1f91",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr04",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc02" },
+              "authoredOn": "2024-06-19T14:05:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr04" }
+          },
+          {
+            "fullUrl": "urn:uuid:74ee87df-c78b-582b-9607-274308a8d72f",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond03",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E11.9",
+                    "display": "Type 2 diabetes mellitus without complications"
+                  }
+                ],
+                "text": "DM2"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc02" },
+              "recordedDate": "2024-06-19T14:05:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond03" }
+          },
+          {
+            "fullUrl": "urn:uuid:928f6dac-3f05-5e2b-a41d-ef5f86b7cb09",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond04",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc02" },
+              "recordedDate": "2024-06-19T14:05:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond04" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-06-19T14:15:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle06",
+        "type": "transaction",
+        "timestamp": "2024-06-19T14:15:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:4021516b-3b77-50ae-b1c7-760b235e5606",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0001-appt01",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              ],
+              "description": "Control de diabetes",
+              "start": "2024-09-30T15:15:00.000Z",
+              "end": "2024-09-30T15:45:00.000Z",
+              "minutesDuration": 30,
+              "created": "2024-06-19T14:15:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0001" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-diab-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0001-appt01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-06-26T15:07:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle05",
+        "type": "transaction",
+        "timestamp": "2024-06-26T15:07:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:1e7f1f67-8360-5b2a-aa83-a2a4163f0c7d",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0001-dr03",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr05" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2024-06-23T15:07:00.000Z",
+              "issued": "2024-06-26T15:07:00.000Z",
+              "result": [{ "reference": "Observation/pat-0001-dr03-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0001-dr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:86d1bcac-8a36-5865-970b-6c711f88ffc6",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr03-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr05" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2024-06-23T15:07:00.000Z",
+              "issued": "2024-06-26T15:07:00.000Z",
+              "valueQuantity": {
+                "value": 9.2,
+                "unit": "%",
+                "system": "http://unitsofmeasure.org",
+                "code": "%"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "H",
+                      "display": "High"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 5.7,
+                    "unit": "%",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "%"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr03-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-09-30T15:39:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle07",
+        "type": "transaction",
+        "timestamp": "2024-09-30T15:39:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:9a43f153-603a-5bb4-8704-1e714ff94b03",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0001-enc03",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0001-appt01" }],
+              "period": { "start": "2024-09-30T15:15:00.000Z", "end": "2024-09-30T15:39:00.000Z" },
+              "reasonCode": [{ "text": "Control de diabetes" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0001-enc03" }
+          },
+          {
+            "fullUrl": "urn:uuid:d7632570-b5ba-5e06-8cba-bca02a016609",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0001-doc03",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "date": "2024-09-30T15:39:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGN0ZSBkZSA3NCBhw7FvcywgY29ub2NpZG8gRE0yIGRlc2RlIGhhY2UgMTAgYcOxb3MsIGVuIHR0byBjb24gbWV0Zm9ybWluYSAxMDAwIG1nIFZPIGMvMTJoIHkgYXRvcnZhc3RhdGluYSAyMCBtZyBWTyBIUy4gQWN1ZGUgYSBjdHJsLgpTaW4gcXVlamFzLiBDYW1pbmEgMzAgbWluIDMgdmVjZXMgcG9yIHNlbWFuYS4KRUY6IFRBIDEyNS84MyBtbUhnLCBGQyA4NiBscG0sIHBlc28gNzcga2cuIEdsaWNlbWlhIGNhcGlsYXIgMTA4IG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcywgcHVsc29zIHBlZGlvcyBwcmVzZW50ZXMuClRyYWUgbGFiczogSGJBMWMgOS4yJS4KRHg6IERNMiBlbiBtZXRhcy4gZGlzbGlwaWRlbWlhLgpQbGFuOiBDb250aW7DumEgbWV0Zm9ybWluYSAxMDAwIG1nIFZPIGMvMTJoIHkgYXRvcnZhc3RhdGluYSAyMCBtZyBWTyBIUy4gcGVuZGllbnRlIG1pY3JvYWxidW1pbnVyaWEsIHNlIHJlaXRlcmEgb3JkZW4uIGRpZXRhIGhpcG9jYWzDs3JpY2EuIENpdGEgY29udHJvbCBlbiAzIG1lc2VzIGNvbiByZXN1bHRhZG9zLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2024-09-30T15:39:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0001-enc03" }],
+                "period": {
+                  "start": "2024-09-30T15:15:00.000Z",
+                  "end": "2024-09-30T15:39:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0001-doc03" }
+          },
+          {
+            "fullUrl": "urn:uuid:d12b1d98-39fd-594a-831a-3e867370a095",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr07",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "14959-1",
+                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Microalbuminuria (relación albúmina/creatinina)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc03" },
+              "authoredOn": "2024-09-30T15:39:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr07" }
+          },
+          {
+            "fullUrl": "urn:uuid:26b4b0d2-e8e5-571f-ba61-49169cdd5b1b",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr05",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 1000 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc03" },
+              "authoredOn": "2024-09-30T15:39:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr05" }
+          },
+          {
+            "fullUrl": "urn:uuid:26310529-4fd8-5fe4-a665-1bb9448241d7",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr06",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc03" },
+              "authoredOn": "2024-09-30T15:39:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr06" }
+          },
+          {
+            "fullUrl": "urn:uuid:a8a567d6-dc6d-582d-8fca-3f5f592e0a76",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond05",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E11.9",
+                    "display": "Type 2 diabetes mellitus without complications"
+                  }
+                ],
+                "text": "DM2"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc03" },
+              "recordedDate": "2024-09-30T15:39:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond05" }
+          },
+          {
+            "fullUrl": "urn:uuid:b15f1954-8795-56bd-bf9c-99c98938564d",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond06",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc03" },
+              "recordedDate": "2024-09-30T15:39:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond06" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-09-30T15:49:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle09",
+        "type": "transaction",
+        "timestamp": "2024-09-30T15:49:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:52f1b07a-d6d5-5fff-aacb-ef1a4418d678",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0001-appt02",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              ],
+              "description": "Control de diabetes",
+              "start": "2025-01-13T14:15:00.000Z",
+              "end": "2025-01-13T14:45:00.000Z",
+              "minutesDuration": 30,
+              "created": "2024-09-30T15:49:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0001" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-diab-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0001-appt02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-10-07T16:15:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle08",
+        "type": "transaction",
+        "timestamp": "2024-10-07T16:15:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:799c2f96-193d-58f0-b616-624a974f5830",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0001-dr04",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr07" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "14959-1",
+                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Microalbuminuria (relación albúmina/creatinina)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2024-10-03T16:15:00.000Z",
+              "issued": "2024-10-07T16:15:00.000Z",
+              "result": [{ "reference": "Observation/pat-0001-dr04-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0001-dr04" }
+          },
+          {
+            "fullUrl": "urn:uuid:7cc43c29-73de-54f2-86ad-ca4bf5e3f765",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr04-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr07" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "14959-1",
+                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2024-10-03T16:15:00.000Z",
+              "issued": "2024-10-07T16:15:00.000Z",
+              "valueQuantity": {
+                "value": 25,
+                "unit": "mg/g",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/g"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 30,
+                    "unit": "mg/g",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/g"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr04-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-01-13T14:36:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle10",
+        "type": "transaction",
+        "timestamp": "2025-01-13T14:36:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:53698071-335e-577f-a450-f60c6c002687",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0001-enc04",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0001-appt02" }],
+              "period": { "start": "2025-01-13T14:15:00.000Z", "end": "2025-01-13T14:36:00.000Z" },
+              "reasonCode": [{ "text": "Control de diabetes" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0001-enc04" }
+          },
+          {
+            "fullUrl": "urn:uuid:76d923bc-5660-5336-9e6c-5bb020647f00",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0001-doc04",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "date": "2025-01-13T14:36:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGN0ZSBkZSA3NCBhw7FvcywgY29ub2NpZG8gRE0yIGRlc2RlIGhhY2UgMTEgYcOxb3MsIGVuIHR0byBjb24gbWV0Zm9ybWluYSAxMDAwIG1nIFZPIGMvMTJoIHkgYXRvcnZhc3RhdGluYSAyMCBtZyBWTyBIUy4gQWN1ZGUgYSBjdHJsLgpSZWZpZXJlIG9sdmlkYXIgZG9zaXMgb2Nhc2lvbmFsbWVudGUuIE5pZWdhIHBvbGl1cmlhIG5pIHBvbGlkaXBzaWEuCkVGOiBUQSAxMzQvNzIgbW1IZywgRkMgODcgbHBtLCBwZXNvIDc1IGtnLiBHbGljZW1pYSBjYXBpbGFyIDEwMiBtZy9kbC4gUGllcyBzaW4gbGVzaW9uZXMsIHB1bHNvcyBwZWRpb3MgcHJlc2VudGVzLgpUcmFlIGxhYnM6IEhiQTFjIDkuMiUuCkR4OiBETTIgZW4gbWV0YXMuIGRpc2xpcGlkZW1pYS4KUGxhbjogbWFudGVuZXIgbWV0Zm9ybWluYSAxMDAwIG1nIFZPIGMvMTJoIHkgYXRvcnZhc3RhdGluYSAyMCBtZyBWTyBIUy4gc2Ugc29saWNpdGEgSGJBMWMuIGRpZXRhIGhpcG9jYWxvcmljYS4gQ29udHJvbCBlbiAzIG1lc2VzIGNvbiByZXN1bHRhZG9zLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-01-13T14:36:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0001-enc04" }],
+                "period": {
+                  "start": "2025-01-13T14:15:00.000Z",
+                  "end": "2025-01-13T14:36:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0001-doc04" }
+          },
+          {
+            "fullUrl": "urn:uuid:74fcae9a-a249-544e-bc7f-dc0efdbfac69",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr08",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc04" },
+              "authoredOn": "2025-01-13T14:36:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr08" }
+          },
+          {
+            "fullUrl": "urn:uuid:90f0d982-5227-583f-8aa8-925d00332e97",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr07",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 1000 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc04" },
+              "authoredOn": "2025-01-13T14:36:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr07" }
+          },
+          {
+            "fullUrl": "urn:uuid:f454c16c-92d2-5696-9972-82acba75e8c6",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr08",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc04" },
+              "authoredOn": "2025-01-13T14:36:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr08" }
+          },
+          {
+            "fullUrl": "urn:uuid:f09593a1-ec5d-5f0c-b9a9-5f39b6714208",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond07",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E11.9",
+                    "display": "Type 2 diabetes mellitus without complications"
+                  }
+                ],
+                "text": "DM2"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc04" },
+              "recordedDate": "2025-01-13T14:36:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond07" }
+          },
+          {
+            "fullUrl": "urn:uuid:13a88aef-ae81-5f41-b876-ead876555d42",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond08",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc04" },
+              "recordedDate": "2025-01-13T14:36:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond08" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-01-13T14:46:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle12",
+        "type": "transaction",
+        "timestamp": "2025-01-13T14:46:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:5f4032f3-e4f6-5be8-a220-244aa4f30e3b",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0001-appt03",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              ],
+              "description": "Control de diabetes",
+              "start": "2025-04-14T20:00:00.000Z",
+              "end": "2025-04-14T20:30:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-01-13T14:46:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0001" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-diab-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0001-appt03" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-01-18T15:18:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle11",
+        "type": "transaction",
+        "timestamp": "2025-01-18T15:18:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:b81063b0-c6ee-52b5-8277-93c076b31580",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0001-dr05",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr08" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-01-17T15:18:00.000Z",
+              "issued": "2025-01-18T15:18:00.000Z",
+              "result": [{ "reference": "Observation/pat-0001-dr05-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0001-dr05" }
+          },
+          {
+            "fullUrl": "urn:uuid:f4cdee1a-b245-53ae-8bbe-b6e60f8be7b8",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr05-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr08" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-01-17T15:18:00.000Z",
+              "issued": "2025-01-18T15:18:00.000Z",
+              "valueQuantity": {
+                "value": 6.3,
+                "unit": "%",
+                "system": "http://unitsofmeasure.org",
+                "code": "%"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "H",
+                      "display": "High"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 5.7,
+                    "unit": "%",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "%"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr05-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-14T20:26:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle13",
+        "type": "transaction",
+        "timestamp": "2025-04-14T20:26:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:b5095901-b40d-5ad7-96a0-c349789022c5",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0001-enc05",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0001-appt03" }],
+              "period": { "start": "2025-04-14T20:00:00.000Z", "end": "2025-04-14T20:26:00.000Z" },
+              "reasonCode": [{ "text": "Control de diabetes" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0001-enc05" }
+          },
+          {
+            "fullUrl": "urn:uuid:2eb95fb4-8595-551b-a458-e3cbdd6c7d66",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0001-doc05",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "date": "2025-04-14T20:26:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "RmVtIDc0IGHDsW9zLCBjb25vY2lkbyBETTIgZGVzZGUgaGFjZSAxMSBhw7FvcywgZW4gdHRvIGNvbiBtZXRmb3JtaW5hIDEwMDAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLiBBY3VkZSBhIGN0cmwuClJlZmllcmUgb2x2aWRhciBkb3NpcyBvY2FzaW9uYWxtZW50ZS4gTmllZ2EgcG9saXVyaWEgbmkgcG9saWRpcHNpYS4KRUY6IFRBIDEyNC84MiBtbUhnLCBGQyA2NyBscG0sIHBlc28gNzkga2cuIEdsaWNlbWlhIGNhcGlsYXIgMTI0IG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcywgcHVsc29zIHBlZGlvcyBwcmVzZW50ZXMuClRyYWUgbGFiczogSGJBMWMgNi4zJS4KRHg6IERNMiBlbiBtZXRhcy4gZGlzbGlwaWRlbWlhLgpQbGFuOiBtYW50ZW5lciBtZXRmb3JtaW5hIDEwMDAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLiBzZSBzb2xpY2l0YSBwZXJmaWwgbGlww61kaWNvLCBjcmVhdGluaW5hIHkgbWljcm9hbGJ1bWludXJpYS4gcGxhbiBkZSBhbGltZW50YWNpw7NuLiBjaXRhIGNvbnRyb2wgZW4gMyBtZXNlcyBjb24gcmVzdWx0YWRvcy4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-04-14T20:26:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0001-enc05" }],
+                "period": {
+                  "start": "2025-04-14T20:00:00.000Z",
+                  "end": "2025-04-14T20:26:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0001-doc05" }
+          },
+          {
+            "fullUrl": "urn:uuid:40d156de-3619-5d34-b4b1-f5b390d27c2c",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr09",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "57698-3",
+                    "display": "Lipid panel with direct LDL - Serum or Plasma"
+                  }
+                ],
+                "text": "Perfil lipídico"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc05" },
+              "authoredOn": "2025-04-14T20:26:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr09" }
+          },
+          {
+            "fullUrl": "urn:uuid:f20a2f7a-6bf5-5044-b58c-73345a4f1a37",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr10",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc05" },
+              "authoredOn": "2025-04-14T20:26:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr10" }
+          },
+          {
+            "fullUrl": "urn:uuid:6bdae7a7-31fc-5aca-9839-1970c153a159",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr11",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "14959-1",
+                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Microalbuminuria (relación albúmina/creatinina)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc05" },
+              "authoredOn": "2025-04-14T20:26:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr11" }
+          },
+          {
+            "fullUrl": "urn:uuid:63cec8c4-f7d9-5cda-bb64-e05941111f0d",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr09",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 1000 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc05" },
+              "authoredOn": "2025-04-14T20:26:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr09" }
+          },
+          {
+            "fullUrl": "urn:uuid:58636491-3feb-5959-8d84-5b27b61307d5",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr10",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc05" },
+              "authoredOn": "2025-04-14T20:26:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr10" }
+          },
+          {
+            "fullUrl": "urn:uuid:508c72ed-10e2-5046-8218-ec1824f0bfa1",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond09",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E11.9",
+                    "display": "Type 2 diabetes mellitus without complications"
+                  }
+                ],
+                "text": "DM2"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc05" },
+              "recordedDate": "2025-04-14T20:26:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond09" }
+          },
+          {
+            "fullUrl": "urn:uuid:b26e84a9-a237-53a5-9539-2f07ec9aef43",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond10",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc05" },
+              "recordedDate": "2025-04-14T20:26:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond10" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-14T20:36:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle17",
+        "type": "transaction",
+        "timestamp": "2025-04-14T20:36:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:f057690c-bfcb-5f62-9cad-c7e2ac56e534",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0001-appt04",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              ],
+              "description": "Control de diabetes",
+              "start": "2025-07-28T15:15:00.000Z",
+              "end": "2025-07-28T15:45:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-04-14T20:36:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0001" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-diab-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0001-appt04" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-19T21:19:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle16",
+        "type": "transaction",
+        "timestamp": "2025-04-19T21:19:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:3b9cb5dd-3002-5451-9f26-e0556e3130a5",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0001-dr08",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr11" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "14959-1",
+                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Microalbuminuria (relación albúmina/creatinina)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-04-16T21:19:00.000Z",
+              "issued": "2025-04-19T21:19:00.000Z",
+              "result": [{ "reference": "Observation/pat-0001-dr08-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0001-dr08" }
+          },
+          {
+            "fullUrl": "urn:uuid:f07e92aa-2f56-53a0-bdb6-2773d94fe6c0",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr08-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr11" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "14959-1",
+                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-04-16T21:19:00.000Z",
+              "issued": "2025-04-19T21:19:00.000Z",
+              "valueQuantity": {
+                "value": 25,
+                "unit": "mg/g",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/g"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 30,
+                    "unit": "mg/g",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/g"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr08-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-19T21:34:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle14",
+        "type": "transaction",
+        "timestamp": "2025-04-19T21:34:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:5034284f-e67f-5cde-81d7-396a5bcf729e",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0001-dr06",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr09" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "57698-3",
+                    "display": "Lipid panel with direct LDL - Serum or Plasma"
+                  }
+                ],
+                "text": "Perfil lipídico"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-04-15T21:34:00.000Z",
+              "issued": "2025-04-19T21:34:00.000Z",
+              "result": [
+                { "reference": "Observation/pat-0001-dr06-obs1" },
+                { "reference": "Observation/pat-0001-dr06-obs2" },
+                { "reference": "Observation/pat-0001-dr06-obs3" },
+                { "reference": "Observation/pat-0001-dr06-obs4" }
+              ]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0001-dr06" }
+          },
+          {
+            "fullUrl": "urn:uuid:46b82216-0367-5959-b370-9d433f7c108a",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr06-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr09" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2093-3",
+                    "display": "Cholesterol [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-04-15T21:34:00.000Z",
+              "issued": "2025-04-19T21:34:00.000Z",
+              "valueQuantity": {
+                "value": 153,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 200,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr06-obs1" }
+          },
+          {
+            "fullUrl": "urn:uuid:e39fa3c2-9689-57c5-8ce5-e231e28ca6de",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr06-obs2",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr09" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2571-8",
+                    "display": "Triglyceride [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-04-15T21:34:00.000Z",
+              "issued": "2025-04-19T21:34:00.000Z",
+              "valueQuantity": {
+                "value": 104,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 150,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr06-obs2" }
+          },
+          {
+            "fullUrl": "urn:uuid:f3034b07-7e1c-5977-939a-70ea2c2afb32",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr06-obs3",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr09" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2085-9",
+                    "display": "Cholesterol in HDL [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-04-15T21:34:00.000Z",
+              "issued": "2025-04-19T21:34:00.000Z",
+              "valueQuantity": {
+                "value": 49,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 40,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr06-obs3" }
+          },
+          {
+            "fullUrl": "urn:uuid:8a37fb5d-6029-5fa0-a635-3cabdf64bed0",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr06-obs4",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr09" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "18262-6",
+                    "display": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by Direct assay"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-04-15T21:34:00.000Z",
+              "issued": "2025-04-19T21:34:00.000Z",
+              "valueQuantity": {
+                "value": 92,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 130,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr06-obs4" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-21T21:29:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle15",
+        "type": "transaction",
+        "timestamp": "2025-04-21T21:29:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:828a0529-265f-5458-a477-fb935204b96d",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0001-dr07",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr10" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-04-18T21:29:00.000Z",
+              "issued": "2025-04-21T21:29:00.000Z",
+              "result": [{ "reference": "Observation/pat-0001-dr07-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0001-dr07" }
+          },
+          {
+            "fullUrl": "urn:uuid:b8096858-74ef-5240-ac62-a480367a6f2e",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr07-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr10" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-04-18T21:29:00.000Z",
+              "issued": "2025-04-21T21:29:00.000Z",
+              "valueQuantity": {
+                "value": 0.83,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "low": {
+                    "value": 0.5,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  },
+                  "high": {
+                    "value": 1.2,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr07-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-28T15:48:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle18",
+        "type": "transaction",
+        "timestamp": "2025-07-28T15:48:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:b59a7797-cc9b-53dd-abaa-31aa865440e2",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0001-enc06",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0001-appt04" }],
+              "period": { "start": "2025-07-28T15:15:00.000Z", "end": "2025-07-28T15:48:00.000Z" },
+              "reasonCode": [{ "text": "Control de diabetes" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0001-enc06" }
+          },
+          {
+            "fullUrl": "urn:uuid:7899c793-ecaa-5a92-a780-ab3b539fc479",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0001-doc06",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "date": "2025-07-28T15:48:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBkZSA3NSBhw7FvcywgY29ub2NpZG8gRE0yIGRlc2RlIGhhY2UgMTEgYcOxb3MsIGVuIHR0byBjb24gbWV0Zm9ybWluYSAxMDAwIG1nIFZPIGMvMTJoIHkgYXRvcnZhc3RhdGluYSAyMCBtZyBWTyBIUy4gQWN1ZGUgYSBjdHJsLgpBc2ludG9tw6F0aWNhLiBDdW1wbGUgZGlldGEgcGFyY2lhbG1lbnRlLgpFRjogVEEgMTI2Lzc4IG1tSGcsIEZDIDg0IGxwbSwgcGVzbyA3NSBrZy4gR2xpY2VtaWEgY2FwaWxhciAxMDkgbWcvZGwuIFBpZXMgc2luIGxlc2lvbmVzLCBwdWxzb3MgcGVkaW9zIHByZXNlbnRlcy4KVHJhZSBsYWJzOiBIYkExYyA2LjMlLgpEeDogRE0yIGVuIG1ldGFzLiBkaXNsaXBpZGVtaWEuClBsYW46IENvbnRpbsO6YSBtZXRmb3JtaW5hIDEwMDAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLiBzZSBzb2xpY2l0YSBIYkExYy4gcGxhbiBkZSBhbGltZW50YWNpw7NuLiBQcsOzeGltbyBjb250cm9sIGVuIDMgbWVzZXMgY29uIHJlc3VsdGFkb3Mu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-07-28T15:48:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0001-enc06" }],
+                "period": {
+                  "start": "2025-07-28T15:15:00.000Z",
+                  "end": "2025-07-28T15:48:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0001-doc06" }
+          },
+          {
+            "fullUrl": "urn:uuid:0dcce38b-2fd8-5243-a9d7-bf56422e497f",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr12",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc06" },
+              "authoredOn": "2025-07-28T15:48:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr12" }
+          },
+          {
+            "fullUrl": "urn:uuid:72976b99-4135-53fb-814b-46054c62c655",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr11",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 1000 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc06" },
+              "authoredOn": "2025-07-28T15:48:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr11" }
+          },
+          {
+            "fullUrl": "urn:uuid:f1a81721-e9e5-534a-989c-0921d98eb0f1",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr12",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc06" },
+              "authoredOn": "2025-07-28T15:48:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr12" }
+          },
+          {
+            "fullUrl": "urn:uuid:8e5f5e31-dabe-5acc-8e91-29914957ecdc",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond11",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E11.9",
+                    "display": "Type 2 diabetes mellitus without complications"
+                  }
+                ],
+                "text": "DM2"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc06" },
+              "recordedDate": "2025-07-28T15:48:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond11" }
+          },
+          {
+            "fullUrl": "urn:uuid:0328518f-e6e1-59cf-b1ea-ccde666ec54d",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond12",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc06" },
+              "recordedDate": "2025-07-28T15:48:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond12" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-28T15:58:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle19",
+        "type": "transaction",
+        "timestamp": "2025-07-28T15:58:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:23cbf5a1-4971-57a7-afdf-58b3dbcbe0b9",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0001-appt05",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              ],
+              "description": "Control de diabetes",
+              "start": "2025-11-10T19:00:00.000Z",
+              "end": "2025-11-10T19:30:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-07-28T15:58:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0001" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-diab-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0001-appt05" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-11-10T19:31:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle20",
+        "type": "transaction",
+        "timestamp": "2025-11-10T19:31:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:ea7ecdda-ae12-5b89-9ef1-1392fae51422",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0001-enc07",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0001-appt05" }],
+              "period": { "start": "2025-11-10T19:00:00.000Z", "end": "2025-11-10T19:31:00.000Z" },
+              "reasonCode": [{ "text": "Control de diabetes" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0001-enc07" }
+          },
+          {
+            "fullUrl": "urn:uuid:6ec60247-47a0-5347-b964-53ed54d2ae94",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0001-doc07",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "date": "2025-11-10T19:31:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "ZmVtIDc1IGHDsW9zLCBjb25vY2lkbyBETTIgZGVzZGUgaGFjZSAxMSBhw7FvcywgZW4gdHRvIGNvbiBtZXRmb3JtaW5hIDEwMDAgbWcgVk8gYy8xMmggeSBhdG9ydmFzdGF0aW5hIDIwIG1nIFZPIEhTLiBBY3VkZSBhIGN0cmwuClJlZmllcmUgYnVlbmEgYWRoZXJlbmNpYSBhbCB0dG8sIG5pZWdhIGhpcG9nbGljZW1pYXMuCkVGOiBUQSAxMTgvODMgbW1IZywgRkMgNzAgbHBtLCBwZXNvIDc5IGtnLiBHbGljZW1pYSBjYXBpbGFyIDEzNSBtZy9kbC4gUGllcyBzaW4gbGVzaW9uZXMsIHB1bHNvcyBwZWRpb3MgcHJlc2VudGVzLgpUcmFlIGxhYnM6IEhiQTFjIDYuMyUuCkR4OiBETTIgZW4gbWV0YXMuIGRpc2xpcGlkZW1pYS4KU2UgZGFuIHJlY29tZW5kYWNpb25lcyBnZW5lcmFsZXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-11-10T19:31:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0001-enc07" }],
+                "period": {
+                  "start": "2025-11-10T19:00:00.000Z",
+                  "end": "2025-11-10T19:31:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0001-doc07" }
+          },
+          {
+            "fullUrl": "urn:uuid:ffcde5c6-f35f-5f74-8b27-7ab619839516",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0001-sr13",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc07" },
+              "authoredOn": "2025-11-10T19:31:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0001-sr13" }
+          },
+          {
+            "fullUrl": "urn:uuid:0bb4db0c-19b7-5545-be18-2031d798575c",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr13",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 1000 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc07" },
+              "authoredOn": "2025-11-10T19:31:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr13" }
+          },
+          {
+            "fullUrl": "urn:uuid:f043d70e-84cb-50e3-bcbc-dd21c942d19e",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0001-mr14",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "C10AA05",
+                    "display": "atorvastatin"
+                  }
+                ],
+                "text": "Atorvastatina 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc07" },
+              "authoredOn": "2025-11-10T19:31:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-02" },
+              "dosageInstruction": [{ "text": "1 tab VO HS" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0001-mr14" }
+          },
+          {
+            "fullUrl": "urn:uuid:75d9b2e8-f5d8-58b8-a5bb-63c59f5de1ea",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond13",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E11.9",
+                    "display": "Type 2 diabetes mellitus without complications"
+                  }
+                ],
+                "text": "DM2"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc07" },
+              "recordedDate": "2025-11-10T19:31:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond13" }
+          },
+          {
+            "fullUrl": "urn:uuid:1e6bbb71-5ea5-5d53-9f84-c801a1e3b76a",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0001-cond14",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E78.5",
+                    "display": "Hyperlipidaemia, unspecified"
+                  }
+                ],
+                "text": "dislipidemia"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "encounter": { "reference": "Encounter/pat-0001-enc07" },
+              "recordedDate": "2025-11-10T19:31:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0001-cond14" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-11-17T20:32:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0001-bundle21",
+        "type": "transaction",
+        "timestamp": "2025-11-17T20:32:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:f49d6942-d187-5370-a127-d2177a7045b7",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0001-dr09",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr13" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-11-16T20:32:00.000Z",
+              "issued": "2025-11-17T20:32:00.000Z",
+              "result": [{ "reference": "Observation/pat-0001-dr09-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0001-dr09" }
+          },
+          {
+            "fullUrl": "urn:uuid:ce3c6baf-412c-5af5-b502-0a086444ef4f",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0001-dr09-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0001-sr13" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0001" },
+              "effectiveDateTime": "2025-11-16T20:32:00.000Z",
+              "issued": "2025-11-17T20:32:00.000Z",
+              "valueQuantity": {
+                "value": 6.1,
+                "unit": "%",
+                "system": "http://unitsofmeasure.org",
+                "code": "%"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "H",
+                      "display": "High"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 5.7,
+                    "unit": "%",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "%"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0001-dr09-obs1" }
+          }
+        ]
+      }
+    }
+  ]
+}

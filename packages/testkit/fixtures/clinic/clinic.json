@@ -1,0 +1,363 @@
+{
+  "clinicId": "clinic-demo",
+  "name": "Clínica Demo Hipócrates",
+  "baseDate": "2026-01-05T12:00:00.000Z",
+  "seed": 20260105,
+  "synthetic": true,
+  "organization": {
+    "resourceType": "Organization",
+    "id": "clinic-demo",
+    "active": true,
+    "type": [
+      {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/organization-type",
+            "code": "prov",
+            "display": "Healthcare Provider"
+          }
+        ]
+      }
+    ],
+    "name": "Clínica Demo Hipócrates",
+    "alias": ["Clínica Demo"]
+  },
+  "practitioners": [
+    {
+      "resourceType": "Practitioner",
+      "id": "prac-diab-01",
+      "active": true,
+      "name": [
+        {
+          "use": "official",
+          "text": "Dra. Mariela Castellanos Urdaneta",
+          "family": "Castellanos Urdaneta",
+          "given": ["Mariela"],
+          "prefix": ["Dra."]
+        }
+      ],
+      "gender": "female"
+    },
+    {
+      "resourceType": "Practitioner",
+      "id": "prac-diab-02",
+      "active": true,
+      "name": [
+        {
+          "use": "official",
+          "text": "Dr. Andrés Felipe Quintero Lozada",
+          "family": "Quintero Lozada",
+          "given": ["Andrés", "Felipe"],
+          "prefix": ["Dr."]
+        }
+      ],
+      "gender": "male"
+    },
+    {
+      "resourceType": "Practitioner",
+      "id": "prac-im-01",
+      "active": true,
+      "name": [
+        {
+          "use": "official",
+          "text": "Dr. Rafael Ignacio Méndez Arocha",
+          "family": "Méndez Arocha",
+          "given": ["Rafael", "Ignacio"],
+          "prefix": ["Dr."]
+        }
+      ],
+      "gender": "male"
+    },
+    {
+      "resourceType": "Practitioner",
+      "id": "prac-im-02",
+      "active": true,
+      "name": [
+        {
+          "use": "official",
+          "text": "Dra. Carolina Paz Benavides",
+          "family": "Paz Benavides",
+          "given": ["Carolina"],
+          "prefix": ["Dra."]
+        }
+      ],
+      "gender": "female"
+    },
+    {
+      "resourceType": "Practitioner",
+      "id": "prac-psy-01",
+      "active": true,
+      "name": [
+        {
+          "use": "official",
+          "text": "Psic. Valeria Montiel Suárez",
+          "family": "Montiel Suárez",
+          "given": ["Valeria"],
+          "prefix": ["Psic."]
+        }
+      ],
+      "gender": "female"
+    },
+    {
+      "resourceType": "Practitioner",
+      "id": "prac-psy-02",
+      "active": true,
+      "name": [
+        {
+          "use": "official",
+          "text": "Psic. Tomás Aguirre Leal",
+          "family": "Aguirre Leal",
+          "given": ["Tomás"],
+          "prefix": ["Psic."]
+        }
+      ],
+      "gender": "male"
+    },
+    {
+      "resourceType": "Practitioner",
+      "id": "prac-gyn-01",
+      "active": true,
+      "name": [
+        {
+          "use": "official",
+          "text": "Dra. Luisa Fernanda Ochoa Vielma",
+          "family": "Ochoa Vielma",
+          "given": ["Luisa", "Fernanda"],
+          "prefix": ["Dra."]
+        }
+      ],
+      "gender": "female"
+    },
+    {
+      "resourceType": "Practitioner",
+      "id": "prac-gyn-02",
+      "active": true,
+      "name": [
+        {
+          "use": "official",
+          "text": "Dr. Gustavo Herrera Sanabria",
+          "family": "Herrera Sanabria",
+          "given": ["Gustavo"],
+          "prefix": ["Dr."]
+        }
+      ],
+      "gender": "male"
+    }
+  ],
+  "practitionerRoles": [
+    {
+      "resourceType": "PractitionerRole",
+      "id": "role-prac-diab-01",
+      "active": true,
+      "practitioner": { "reference": "Practitioner/prac-diab-01" },
+      "organization": {
+        "reference": "Organization/clinic-demo",
+        "display": "Clínica Demo Hipócrates"
+      },
+      "specialty": [
+        {
+          "coding": [
+            {
+              "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+              "code": "diabetology",
+              "display": "Diabetología"
+            }
+          ],
+          "text": "Diabetología"
+        }
+      ]
+    },
+    {
+      "resourceType": "PractitionerRole",
+      "id": "role-prac-diab-02",
+      "active": true,
+      "practitioner": { "reference": "Practitioner/prac-diab-02" },
+      "organization": {
+        "reference": "Organization/clinic-demo",
+        "display": "Clínica Demo Hipócrates"
+      },
+      "specialty": [
+        {
+          "coding": [
+            {
+              "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+              "code": "diabetology",
+              "display": "Diabetología"
+            }
+          ],
+          "text": "Diabetología"
+        }
+      ]
+    },
+    {
+      "resourceType": "PractitionerRole",
+      "id": "role-prac-im-01",
+      "active": true,
+      "practitioner": { "reference": "Practitioner/prac-im-01" },
+      "organization": {
+        "reference": "Organization/clinic-demo",
+        "display": "Clínica Demo Hipócrates"
+      },
+      "specialty": [
+        {
+          "coding": [
+            {
+              "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+              "code": "internal_medicine",
+              "display": "Medicina interna"
+            }
+          ],
+          "text": "Medicina interna"
+        }
+      ]
+    },
+    {
+      "resourceType": "PractitionerRole",
+      "id": "role-prac-im-02",
+      "active": true,
+      "practitioner": { "reference": "Practitioner/prac-im-02" },
+      "organization": {
+        "reference": "Organization/clinic-demo",
+        "display": "Clínica Demo Hipócrates"
+      },
+      "specialty": [
+        {
+          "coding": [
+            {
+              "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+              "code": "internal_medicine",
+              "display": "Medicina interna"
+            }
+          ],
+          "text": "Medicina interna"
+        }
+      ]
+    },
+    {
+      "resourceType": "PractitionerRole",
+      "id": "role-prac-psy-01",
+      "active": true,
+      "practitioner": { "reference": "Practitioner/prac-psy-01" },
+      "organization": {
+        "reference": "Organization/clinic-demo",
+        "display": "Clínica Demo Hipócrates"
+      },
+      "specialty": [
+        {
+          "coding": [
+            {
+              "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+              "code": "psychology",
+              "display": "Psicología"
+            }
+          ],
+          "text": "Psicología"
+        }
+      ]
+    },
+    {
+      "resourceType": "PractitionerRole",
+      "id": "role-prac-psy-02",
+      "active": true,
+      "practitioner": { "reference": "Practitioner/prac-psy-02" },
+      "organization": {
+        "reference": "Organization/clinic-demo",
+        "display": "Clínica Demo Hipócrates"
+      },
+      "specialty": [
+        {
+          "coding": [
+            {
+              "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+              "code": "psychology",
+              "display": "Psicología"
+            }
+          ],
+          "text": "Psicología"
+        }
+      ]
+    },
+    {
+      "resourceType": "PractitionerRole",
+      "id": "role-prac-gyn-01",
+      "active": true,
+      "practitioner": { "reference": "Practitioner/prac-gyn-01" },
+      "organization": {
+        "reference": "Organization/clinic-demo",
+        "display": "Clínica Demo Hipócrates"
+      },
+      "specialty": [
+        {
+          "coding": [
+            {
+              "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+              "code": "gynecology",
+              "display": "Ginecología y obstetricia"
+            }
+          ],
+          "text": "Ginecología y obstetricia"
+        }
+      ]
+    },
+    {
+      "resourceType": "PractitionerRole",
+      "id": "role-prac-gyn-02",
+      "active": true,
+      "practitioner": { "reference": "Practitioner/prac-gyn-02" },
+      "organization": {
+        "reference": "Organization/clinic-demo",
+        "display": "Clínica Demo Hipócrates"
+      },
+      "specialty": [
+        {
+          "coding": [
+            {
+              "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+              "code": "gynecology",
+              "display": "Ginecología y obstetricia"
+            }
+          ],
+          "text": "Ginecología y obstetricia"
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "patients": 120,
+    "patientsBySpecialty": {
+      "diabetology": 35,
+      "internal_medicine": 30,
+      "psychology": 30,
+      "gynecology": 25
+    },
+    "patientsByPattern": {
+      "adherent": 14,
+      "dropout": 9,
+      "unresulted_labs": 5,
+      "new_patient": 4,
+      "no_plan_notes": 3,
+      "hypertension_adherent": 10,
+      "hypertension_dropout": 6,
+      "short_treatment": 10,
+      "abnormal_result": 4,
+      "weekly_discharged": 8,
+      "weekly_dropout": 7,
+      "monthly_ongoing": 6,
+      "monthly_dropout": 5,
+      "biweekly_dropout": 4,
+      "annual_control": 9,
+      "pregnancy_postpartum": 6,
+      "pregnancy_missed_postpartum": 4,
+      "acute_or_short": 6
+    },
+    "bundles": 1647,
+    "bundlesByKind": {
+      "consultation": 668,
+      "result": 487,
+      "appointment_booked": 480,
+      "appointment_cancelled": 12
+    },
+    "consultations": 668,
+    "notesWithoutPlan": 171
+  }
+}

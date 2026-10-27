@@ -1,0 +1,220 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0055",
+  "name": "Víctor Pedro Mendoza Urdaneta",
+  "gender": "male",
+  "birthDate": "1964-03-10",
+  "specialty": "internal_medicine",
+  "pattern": "short_treatment",
+  "entries": [
+    {
+      "at": "2024-03-25T16:49:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0055-bundle01",
+        "type": "transaction",
+        "timestamp": "2024-03-25T16:49:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:25a5dcc6-c5f2-5352-92c6-4f5a7a712b51",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0055",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "value": "HC-12035"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Víctor Pedro Mendoza Urdaneta",
+                  "family": "Mendoza Urdaneta",
+                  "given": ["Víctor", "Pedro"]
+                }
+              ],
+              "gender": "male",
+              "birthDate": "1964-03-10",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0055" }
+          },
+          {
+            "fullUrl": "urn:uuid:4b144248-d318-5047-b14e-757bd4a46d5a",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0055-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta por morbilidad" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0055" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-02" } }],
+              "period": { "start": "2024-03-25T16:30:00.000Z", "end": "2024-03-25T16:49:00.000Z" },
+              "reasonCode": [{ "text": "gastritis" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0055-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:d73eb3f0-fd63-52ca-8305-c44828cb6623",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0055-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0055" },
+              "date": "2024-03-25T16:49:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBkZSA2MCBhw7FvcyByZWZpZXJlIGVwaWdhc3RyYWxnaWEgdXJlbnRlIHBvc3RwcmFuZGlhbCBkZSAyIHNlbWFuYXMsIHBpcm9zaXMgb2Nhc2lvbmFsLiBBYmRvbWVuIGJsYW5kbywgZG9sb3IgbGV2ZSBhIGxhIHBhbHBhY2lvbiBlbiBlcGlnYXN0cmlvLgpEeDogZ2FzdHJpdGlzLgpUdG86IG9tZXByYXpvbCAyMCBtZyBWTyBlbiBheXVuYXMgeCAxNCBkaWFzLCByZXBvc28gcmVsYXRpdm8u",
+                    "title": "Nota de evolución",
+                    "creation": "2024-03-25T16:49:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0055-enc01" }],
+                "period": {
+                  "start": "2024-03-25T16:30:00.000Z",
+                  "end": "2024-03-25T16:49:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0055-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:ef712278-3ed2-5037-9eba-7b53a343cdec",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0055-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A02BC01",
+                    "display": "omeprazole"
+                  }
+                ],
+                "text": "Omeprazol 20 mg"
+              },
+              "subject": { "reference": "Patient/pat-0055" },
+              "encounter": { "reference": "Encounter/pat-0055-enc01" },
+              "authoredOn": "2024-03-25T16:49:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-02" },
+              "dosageInstruction": [{ "text": "1 cáps VO en ayunas x 14 días" }],
+              "dispenseRequest": {
+                "validityPeriod": { "start": "2024-03-25T16:49:00.000Z" },
+                "expectedSupplyDuration": {
+                  "value": 14,
+                  "unit": "días",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "d"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0055-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:9df3dafd-0cc1-54bc-bf1c-b9ed860d7051",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0055-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "K29.7",
+                    "display": "Gastritis, unspecified"
+                  }
+                ],
+                "text": "gastritis"
+              },
+              "subject": { "reference": "Patient/pat-0055" },
+              "encounter": { "reference": "Encounter/pat-0055-enc01" },
+              "recordedDate": "2024-03-25T16:49:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0055-cond01" }
+          }
+        ]
+      }
+    }
+  ]
+}

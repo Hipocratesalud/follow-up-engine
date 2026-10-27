@@ -1,0 +1,41 @@
+{
+  "id": "gold-003",
+  "specialty": "diabetology",
+  "authoredAt": "2025-05-06",
+  "text": "DIABETOLOGÍA - CONTROL\nPaciente femenina de 49 años con DM2 diagnosticada en 2021 y dislipidemia.\nS: Sin quejas. Realiza caminatas 3 veces por semana.\nO: TA 118/76 mmHg, IMC 29.4. HbA1c 6.8% (abril).\nA: DM2 en metas. Dislipidemia en tto.\nP: Metformina 1000 mg VO c/12h. Atorvastatina 20 mg VO HS. Perfil lipídico y creatinina antes de la próxima cita. Cita control el 05/08/2025.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [
+      {
+        "icd10": "E11",
+        "evidenceQuote": "DM2 en metas"
+      },
+      {
+        "icd10": "E78",
+        "evidenceQuote": "Dislipidemia en tto"
+      }
+    ],
+    "medications": [
+      {
+        "text": "metformina 1000 mg VO c/12h",
+        "evidenceQuote": "Metformina 1000 mg VO c/12h"
+      },
+      {
+        "text": "atorvastatina 20 mg VO HS",
+        "evidenceQuote": "Atorvastatina 20 mg VO HS"
+      }
+    ],
+    "planItems": [
+      {
+        "kind": "lab",
+        "dueInDays": 91,
+        "evidenceQuote": "Perfil lipídico y creatinina antes de la próxima cita"
+      },
+      {
+        "kind": "follow_up_visit",
+        "dueInDays": 91,
+        "evidenceQuote": "Cita control el 05/08/2025"
+      }
+    ]
+  }
+}
