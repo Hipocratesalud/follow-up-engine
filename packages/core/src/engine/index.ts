@@ -9,7 +9,28 @@ export type {
   FollowUpEngine,
   FollowUpEngineDeps,
   PatientContactStatus,
+  ReconciliationCommands,
 } from './application/engine.ts';
+export {
+  RECONCILIATION_JOB,
+  RECONCILIATION_MAX_ATTEMPTS,
+  type ReconciliationJobPayload,
+  type ReconciliationOptions,
+  type ReconciliationReport,
+} from './reconciliation/reconcile.ts';
+export {
+  DEFAULT_RECONCILIATION_SCHEDULE,
+  nextReconciliationRun,
+} from './reconciliation/schedule.ts';
+export {
+  createRuleOverrideCommands,
+  MAX_RULE_CHANGE_REASON_LENGTH,
+  OverridingRuleSource,
+  type RuleChangeMeta,
+  type RuleChangeResult,
+  type RuleConfigView,
+  type RuleOverrideCommands,
+} from './rules/overrides.ts';
 export {
   isBudgetExceeded,
   replayBatches,

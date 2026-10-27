@@ -72,6 +72,37 @@ describe('worker over the memory runtime', () => {
     return { runtime, clinicId: 'clinic-demo' as ClinicId, worker: new Worker(runtime) };
   }
 
+  it('queues the nightly reconciliation and runs it when the fake clock crosses 03:00 (HIP-141)', async () => {
+    const { runtime: rt, clinicId, worker } = await setUp();
+    await rt.ingestion.accept(clinicId, bundle, 'sync');
+    // 2026-01-05 12:00Z; the demo clinic is on America/Caracas (UTC-4).
+    const [sweep] = await worker.runSweeps([clinicId]);
+    expect(sweep?.reconciliationDueAt).toEqual(new Date('2026-01-06T07:00:00.000Z'));
+    // Sweeping again queues nothing new for the same night.
+    await worker.runSweeps([clinicId]);
+    expect(await rt.engine.reconciliation.runs(clinicId)).toEqual([]);
+
+    await worker.advanceFakeClock(1, [clinicId]);
+    const [run] = await rt.engine.reconciliation.runs(clinicId);
+    expect(run).toMatchObject({
+      runId: 'reconciliation-2026-01-06T07:00:00.000Z',
+      scope: 'recent',
+      status: 'completed',
+      patientsScanned: 1,
+      repairs: 0,
+    });
+    expect(rt.sink?.list().map((delivery) => delivery.type)).toContain('reconciliation.completed');
+    expect(rt.sink?.list().map((delivery) => delivery.type)).not.toContain(
+      'reconciliation.repairs_found',
+    );
+    // The next night is queued; nothing new happened, so it looks at nobody.
+    await worker.advanceFakeClock(1, [clinicId]);
+    expect((await rt.engine.reconciliation.runs(clinicId))[0]).toMatchObject({
+      runId: 'reconciliation-2026-01-07T07:00:00.000Z',
+      patientsScanned: 0,
+    });
+  });
+
   it('runs an asynchronously accepted Bundle, then opens and announces a case', async () => {
     const { runtime: rt, clinicId, worker } = await setUp();
     const accepted = await rt.ingestion.accept(clinicId, bundle, 'async');

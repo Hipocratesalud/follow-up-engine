@@ -103,6 +103,8 @@ export {
 } from './contracts/unit-of-work.contract.ts';
 export type { ContractSubject, MakeSubject } from './contracts/harness.ts';
 export { describeBackfillProgressStoreContract } from './contracts/backfill-progress.contract.ts';
+export { describeReconciliationStoreContract } from './contracts/reconciliation-store.contract.ts';
+export { describeRuleOverrideStoreContract } from './contracts/rule-override-store.contract.ts';
 export {
   aClinicalFinding,
   aReviewRun,

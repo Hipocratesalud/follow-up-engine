@@ -16,6 +16,8 @@ export type * from './id-generator.ts';
 export type * from './job-queue.ts';
 export type * from './llm-usage-log.ts';
 export type * from './note-extractor.ts';
+export type * from './reconciliation-store.ts';
+export type * from './rule-override-store.ts';
 export type * from './suppression-repository.ts';
 export type * from './unit-of-work.ts';
 export * from './llm.ts';

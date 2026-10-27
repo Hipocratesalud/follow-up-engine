@@ -13,6 +13,8 @@ import type { ContactRepository } from './contact-repository.ts';
 import type { ExpectationRepository } from './expectation-repository.ts';
 import type { FeedbackRepository } from './feedback-repository.ts';
 import type { JobQueue, Outbox } from './job-queue.ts';
+import type { ReconciliationStore } from './reconciliation-store.ts';
+import type { RuleOverrideStore } from './rule-override-store.ts';
 import type { SuppressionRepository } from './suppression-repository.ts';
 
 /** Every store, bound to one transaction. */
@@ -32,6 +34,8 @@ export interface TransactionalStores {
   readonly clinicalFindings: ClinicalFindingRepository;
   readonly reviewRuns: ClinicalReviewRunRepository;
   readonly findingFlags: FindingFlagRepository;
+  readonly ruleOverrides: RuleOverrideStore;
+  readonly reconciliation: ReconciliationStore;
 }
 
 /**

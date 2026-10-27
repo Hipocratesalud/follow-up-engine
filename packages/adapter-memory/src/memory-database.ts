@@ -21,6 +21,10 @@ import type {
   PatientCondition,
   PatientId,
   QualityFinding,
+  ReconciliationRepair,
+  ReconciliationRun,
+  RuleOverrideChange,
+  RuleOverrideRecord,
 } from '@follow-up-engine/core';
 
 export interface StoredResourceRecord {
@@ -80,6 +84,10 @@ export interface MemoryState {
   readonly clinicalFindings: Map<string, ClinicalFinding>;
   readonly reviewRuns: Map<string, ClinicalReviewRun>;
   readonly findingFlags: Map<string, FindingFlag>;
+  readonly ruleOverrides: Map<string, RuleOverrideRecord>;
+  readonly ruleOverrideHistory: RuleOverrideChange[];
+  readonly reconciliationRuns: Map<string, ReconciliationRun>;
+  readonly reconciliationRepairs: ReconciliationRepair[];
   sequence: number;
 }
 
@@ -106,6 +114,10 @@ function emptyState(): MemoryState {
     clinicalFindings: new Map(),
     reviewRuns: new Map(),
     findingFlags: new Map(),
+    ruleOverrides: new Map(),
+    ruleOverrideHistory: [],
+    reconciliationRuns: new Map(),
+    reconciliationRepairs: [],
     sequence: 0,
   };
 }

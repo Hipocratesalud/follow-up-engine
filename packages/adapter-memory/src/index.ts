@@ -17,6 +17,8 @@ export {
   MemoryFindingFlagRepository,
 } from './repositories/clinical-finding-repositories.ts';
 export { MemoryBackfillProgressStore } from './repositories/backfill-progress-store.ts';
+export { MemoryReconciliationStore } from './repositories/reconciliation-store.ts';
+export { MemoryRuleOverrideStore } from './repositories/rule-override-store.ts';
 export {
   MemoryContactRepository,
   MemorySuppressionRepository,

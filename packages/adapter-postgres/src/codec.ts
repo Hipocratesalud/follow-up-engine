@@ -95,6 +95,8 @@ export function decodeDomainEvent(stored: Stored<DomainEvent>): DomainEvent {
     case 'backfill.paused':
     case 'contact.outcome_recorded':
     case 'clinical_finding.created':
+    case 'reconciliation.completed':
+    case 'reconciliation.repairs_found':
       return { ...event, occurredAt };
     case 'patient_contact.requested': {
       const { dueBy, ...rest } = event.payload;

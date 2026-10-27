@@ -60,6 +60,8 @@ export {
   PostgresFindingFlagRepository,
 } from './clinical-finding-repositories.ts';
 export { PostgresBackfillProgressStore } from './backfill-progress-store.ts';
+export { PostgresReconciliationStore } from './reconciliation-store.ts';
+export { PostgresRuleOverrideStore } from './rule-override-store.ts';
 export { PostgresContactRepository, PostgresSuppressionRepository } from './contact-repository.ts';
 export {
   DEFAULT_JOB_BACKOFF,

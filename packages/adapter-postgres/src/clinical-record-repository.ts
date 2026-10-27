@@ -184,14 +184,15 @@ export class PostgresClinicalRecordRepository implements ClinicalRecordRepositor
 
   async listPatientIds(
     clinicId: ClinicId,
-    page: { readonly after?: PatientId; readonly limit: number },
+    page: { readonly after?: PatientId; readonly limit: number; readonly changedAfter?: string },
   ): Promise<PatientIdPage> {
     const { rows } = await this.#ctx.db().query<{ patient_id: string }>(
       `SELECT DISTINCT patient_id FROM ${this.#ctx.tables.clinical_events}
        WHERE clinic_id = $1 AND ($2::text IS NULL OR patient_id > $2)
+         AND ($4::bigint IS NULL OR seq > $4)
        ORDER BY patient_id
        LIMIT $3`,
-      [clinicId, page.after ?? null, page.limit + 1],
+      [clinicId, page.after ?? null, page.limit + 1, watermarkSeq(page.changedAfter)],
     );
     const patientIds = rows.slice(0, page.limit).map((row) => row.patient_id as PatientId);
     const last = patientIds.at(-1);
@@ -199,4 +200,19 @@ export class PostgresClinicalRecordRepository implements ClinicalRecordRepositor
       ? { patientIds, next: last }
       : { patientIds };
   }
+
+  async eventWatermark(clinicId: ClinicId): Promise<string | undefined> {
+    const { rows } = await this.#ctx
+      .db()
+      .query<{ seq: string | null }>(
+        `SELECT max(seq)::text AS seq FROM ${this.#ctx.tables.clinical_events} WHERE clinic_id = $1`,
+        [clinicId],
+      );
+    return rows[0]?.seq ?? undefined;
+  }
+}
+
+/** The `seq` a watermark names; anything else reads as "from the start". */
+function watermarkSeq(watermark: string | undefined): string | null {
+  return watermark !== undefined && /^\d{1,18}$/.test(watermark) ? watermark : null;
 }

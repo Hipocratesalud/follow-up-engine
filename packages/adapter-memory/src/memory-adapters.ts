@@ -37,6 +37,8 @@ import {
   MemorySuppressionRepository,
 } from './repositories/contact-repository.ts';
 import { MemoryExpectationRepository } from './repositories/expectation-repository.ts';
+import { MemoryReconciliationStore } from './repositories/reconciliation-store.ts';
+import { MemoryRuleOverrideStore } from './repositories/rule-override-store.ts';
 import {
   MemoryAuditLog,
   MemoryConditionRepository,
@@ -58,6 +60,8 @@ export interface MemoryStores extends TransactionalStores {
   readonly clinicalFindings: MemoryClinicalFindingRepository;
   readonly reviewRuns: MemoryClinicalReviewRunRepository;
   readonly findingFlags: MemoryFindingFlagRepository;
+  readonly ruleOverrides: MemoryRuleOverrideStore;
+  readonly reconciliation: MemoryReconciliationStore;
 }
 
 /** Builds every memory store over one database. */
@@ -78,6 +82,8 @@ export function createMemoryStores(db: MemoryDatabase, clock: Clock): MemoryStor
     clinicalFindings: new MemoryClinicalFindingRepository(db),
     reviewRuns: new MemoryClinicalReviewRunRepository(db),
     findingFlags: new MemoryFindingFlagRepository(db),
+    ruleOverrides: new MemoryRuleOverrideStore(db),
+    reconciliation: new MemoryReconciliationStore(db),
   };
 }
 
@@ -137,6 +143,7 @@ export function createMemoryEngine(options: MemoryEngineOptions): MemoryEngine {
     clinics,
     clock: options.clock,
     ids,
+    ruleOverrides: stores.ruleOverrides,
     ...(options.settings === undefined ? {} : { settings: options.settings }),
   });
   return {

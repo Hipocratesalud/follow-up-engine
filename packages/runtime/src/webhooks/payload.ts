@@ -1,4 +1,9 @@
-import type { BackfillCounts, DomainEvent } from '@follow-up-engine/core';
+import {
+  type BackfillCounts,
+  type DomainEvent,
+  RECONCILIATION_REPAIR_KINDS,
+  type ReconciliationCounts,
+} from '@follow-up-engine/core';
 
 /** JSON body of a webhook. Ids, codes and dates only: never a diagnosis, a test name or note text. */
 export interface WebhookBody {
@@ -28,6 +33,27 @@ function backfillCounts(counts: BackfillCounts): Record<keyof BackfillCounts, nu
     expectationsFulfilled: counts.expectationsFulfilled,
     casesOpened: counts.casesOpened,
     llmCostUsd: counts.llmCostUsd,
+  };
+}
+
+/** `expectation_created` → `expectationCreated`. */
+function camel(kind: string): string {
+  return kind.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+}
+
+/**
+ * The counters of a reconciliation run: patients and repairs, with one key
+ * per repair kind (`expectationCreated`, `caseResolved`, ...; 0 when none).
+ */
+function reconciliationCounts(counts: ReconciliationCounts): Record<string, number> {
+  return {
+    patientsScanned: counts.patientsScanned,
+    patientsRepaired: counts.patientsRepaired,
+    patientsSkipped: counts.patientsSkipped,
+    repairs: counts.repairs,
+    ...Object.fromEntries(
+      RECONCILIATION_REPAIR_KINDS.map((kind) => [camel(kind), counts.repairsByKind[kind] ?? 0]),
+    ),
   };
 }
 
@@ -125,6 +151,16 @@ export function toWebhookBody(event: DomainEvent): WebhookBody {
           runId: event.payload.runId,
           reason: event.payload.reason,
           ...backfillCounts(event.payload),
+        },
+      };
+    case 'reconciliation.completed':
+    case 'reconciliation.repairs_found':
+      return {
+        ...base,
+        data: {
+          runId: event.payload.runId,
+          scope: event.payload.scope,
+          ...reconciliationCounts(event.payload),
         },
       };
     case 'clinical_finding.created':

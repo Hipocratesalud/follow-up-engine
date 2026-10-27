@@ -16,6 +16,9 @@ import type { ClinicId } from '@follow-up-engine/core';
  *   sweeps every clinic, so only the demo operator's keys get it.
  * - `demo:ingest`: save a demo consultation (`POST /api/demo/consultations`),
  *   only into the demo clinic and only on a fake clock.
+ * - `admin:rules`: read and change the clinic's rule configuration
+ *   (`/api/admin/rules`: per-rule deadlines and switches, audited). Never
+ *   part of the integration or inbox keys: an operator's key.
  *
  * `demo:*` scopes exist only on a fake clock: with a real clock they are
  * dropped when a key authenticates.
@@ -26,6 +29,7 @@ export const API_KEY_SCOPES = [
   'inbox:act',
   'demo:clock',
   'demo:ingest',
+  'admin:rules',
 ] as const;
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];
 
@@ -33,6 +37,8 @@ export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];
 export const INTEGRATION_SCOPES: readonly ApiKeyScope[] = ['fhir:write', 'inbox:read', 'inbox:act'];
 /** Scopes of a key for the inbox: never `fhir:write`. */
 export const INBOX_SCOPES: readonly ApiKeyScope[] = ['inbox:read', 'inbox:act'];
+/** The clinic's rule configuration: an operator's key, never the integration's or the inbox's. */
+export const ADMIN_SCOPES: readonly ApiKeyScope[] = ['admin:rules'];
 /** The demo controls, for the demo clinic's keys on a fake clock. */
 export const DEMO_SCOPES: readonly ApiKeyScope[] = ['demo:clock', 'demo:ingest'];
 

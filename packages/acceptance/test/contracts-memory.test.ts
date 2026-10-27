@@ -24,6 +24,8 @@ import {
   describeLlmUsageLogContract,
   describeOutboxContract,
   describeQualityFindingRepositoryContract,
+  describeReconciliationStoreContract,
+  describeRuleOverrideStoreContract,
   describeSuppressionRepositoryContract,
   describeUnitOfWorkContract,
 } from '@follow-up-engine/testkit';
@@ -82,6 +84,14 @@ describeJobQueueContract(
 describeBackfillProgressStoreContract(
   NAME,
   store((s) => s.backfillProgress),
+);
+describeRuleOverrideStoreContract(
+  NAME,
+  store((s) => s.ruleOverrides),
+);
+describeReconciliationStoreContract(
+  NAME,
+  store((s) => s.reconciliation),
 );
 describeClinicalFindingRepositoryContract(
   NAME,

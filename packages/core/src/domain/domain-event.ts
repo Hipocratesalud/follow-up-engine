@@ -3,6 +3,7 @@ import type { CaseResolutionKind } from './case.ts';
 import type { Origin, Reason } from './common.ts';
 import type { ContactChannel, ContactOutcome, PatientContactPurpose } from './contact.ts';
 import type { CaseId, ClinicId, ContactRequestId, PatientId } from './ids.ts';
+import type { ReconciliationCounts, ReconciliationScope } from './reconciliation.ts';
 
 export const DOMAIN_EVENT_TYPES = [
   'case.opened',
@@ -13,6 +14,8 @@ export const DOMAIN_EVENT_TYPES = [
   'backfill.completed',
   'backfill.paused',
   'clinical_finding.created',
+  'reconciliation.completed',
+  'reconciliation.repairs_found',
 ] as const;
 export type DomainEventType = (typeof DOMAIN_EVENT_TYPES)[number];
 
@@ -97,6 +100,22 @@ export interface ClinicalFindingCreatedPayload {
   readonly severity: 'low' | 'medium' | 'high';
 }
 
+/** The nightly reconciliation finished: how many patients it looked at and what it repaired. */
+export interface ReconciliationCompletedPayload extends ReconciliationCounts {
+  readonly runId: string;
+  readonly scope: ReconciliationScope;
+}
+
+/**
+ * Alert: the reconciliation found and repaired state that a lost or
+ * out-of-order event left inconsistent. Counts only; the repairs are in the
+ * audit trail (actor `system`, reason `reconciliation`).
+ */
+export interface ReconciliationRepairsFoundPayload extends ReconciliationCounts {
+  readonly runId: string;
+  readonly scope: ReconciliationScope;
+}
+
 interface DomainEventBase<TType extends DomainEventType, TPayload> {
   /** Unique; the host uses it as idempotency key (delivery is at least once). */
   readonly id: string;
@@ -115,7 +134,9 @@ export type DomainEvent =
   | DomainEventBase<'contact.outcome_recorded', ContactOutcomeRecordedPayload>
   | DomainEventBase<'backfill.completed', BackfillCompletedPayload>
   | DomainEventBase<'backfill.paused', BackfillPausedPayload>
-  | DomainEventBase<'clinical_finding.created', ClinicalFindingCreatedPayload>;
+  | DomainEventBase<'clinical_finding.created', ClinicalFindingCreatedPayload>
+  | DomainEventBase<'reconciliation.completed', ReconciliationCompletedPayload>
+  | DomainEventBase<'reconciliation.repairs_found', ReconciliationRepairsFoundPayload>;
 
 /** The domain event variant with the given `type`. */
 export type DomainEventOf<TType extends DomainEventType> = Extract<

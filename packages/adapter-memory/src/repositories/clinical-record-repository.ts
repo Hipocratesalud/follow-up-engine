@@ -150,10 +150,14 @@ export class MemoryClinicalRecordRepository implements ClinicalRecordRepository 
 
   listPatientIds(
     clinicId: ClinicId,
-    page: { readonly after?: PatientId; readonly limit: number },
+    page: { readonly after?: PatientId; readonly limit: number; readonly changedAfter?: string },
   ): Promise<PatientIdPage> {
+    // The watermark is the position in the clinic's append-only event log.
+    const from = page.changedAfter === undefined ? 0 : watermarkPosition(page.changedAfter);
     const ids = [
-      ...new Set((this.#db.state.events.get(clinicId) ?? []).map((event) => event.patientId)),
+      ...new Set(
+        (this.#db.state.events.get(clinicId) ?? []).slice(from).map((event) => event.patientId),
+      ),
     ]
       .sort()
       .filter((id) => page.after === undefined || id > page.after);
@@ -163,4 +167,15 @@ export class MemoryClinicalRecordRepository implements ClinicalRecordRepository 
       ids.length > page.limit && last !== undefined ? { patientIds, next: last } : { patientIds },
     );
   }
+
+  eventWatermark(clinicId: ClinicId): Promise<string | undefined> {
+    const count = this.#db.state.events.get(clinicId)?.length ?? 0;
+    return Promise.resolve(count === 0 ? undefined : String(count));
+  }
+}
+
+/** Events stored before the watermark; anything that is not one reads as "from the start". */
+function watermarkPosition(watermark: string): number {
+  const position = Number(watermark);
+  return Number.isSafeInteger(position) && position >= 0 ? position : 0;
 }

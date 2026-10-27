@@ -265,6 +265,42 @@ export function describeClinicalRecordRepositoryContract(
       expect(third.next).toBeUndefined();
     });
 
+    it('pages only the patients with events stored after a watermark', async () => {
+      const { a, b } = freshClinics();
+      expect(await repo().eventWatermark(a)).toBeUndefined();
+      const delivered = anEncounterEvent(a, patientId('pat-b'), at(1));
+      await repo().appendEvents(a, [anEncounterEvent(a, patientId('pat-a'), at(0)), delivered]);
+      const mark = await repo().eventWatermark(a);
+      expect(mark).toBeDefined();
+      const watermark = mark ?? '';
+      expect(
+        (await repo().listPatientIds(a, { limit: 10, changedAfter: watermark })).patientIds,
+      ).toEqual([]);
+      // Another clinic's events move neither its watermark nor its pages.
+      await repo().appendEvents(b, [anEncounterEvent(b, patientId('pat-z'), at(2))]);
+      expect(await repo().eventWatermark(a)).toBe(watermark);
+      // A re-delivered event is not new; an event of an earlier clinical date is.
+      await repo().appendEvents(a, [
+        delivered,
+        anEncounterEvent(a, patientId('pat-c'), at(-30)),
+        anEncounterEvent(a, patientId('pat-a'), at(3)),
+      ]);
+      const changed = await repo().listPatientIds(a, { limit: 1, changedAfter: watermark });
+      expect(changed.patientIds).toEqual(['pat-a']);
+      const rest = await repo().listPatientIds(a, {
+        after: changed.next ?? patientId('x'),
+        limit: 1,
+        changedAfter: watermark,
+      });
+      expect(rest).toEqual({ patientIds: ['pat-c'] });
+      expect(await repo().eventWatermark(a)).not.toBe(watermark);
+      expect((await repo().listPatientIds(a, { limit: 10 })).patientIds).toEqual([
+        'pat-a',
+        'pat-b',
+        'pat-c',
+      ]);
+    });
+
     it('isolates clinics: nothing of clinic A is visible from clinic B', async () => {
       const { a, b } = freshClinics();
       const resource = aResource(uniqueId('enc'));

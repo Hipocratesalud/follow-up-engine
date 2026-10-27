@@ -208,10 +208,17 @@ export async function annotate(
   };
 }
 
-/** In a replay, whether `expectation` was created by the step at `asOf` and was still open after it. */
+/**
+ * In a replay, whether `expectation`, drafted again by the step at `asOf`,
+ * was created by that step (or, live, only once its batch arrived, which is
+ * stamped later than the batch's clinical time) and was still open after it.
+ */
 function createdByThisReplayStep(expectation: Expectation, asOf: Date | undefined): boolean {
-  const at = asOf?.getTime();
-  if (at !== expectation.createdAt.getTime()) {
+  if (asOf === undefined) {
+    return false;
+  }
+  const at = asOf.getTime();
+  if (expectation.createdAt.getTime() < at) {
     return false;
   }
   return expectation.closedAt === undefined || expectation.closedAt.getTime() >= at;

@@ -56,6 +56,10 @@ const TABLES = [
   'clinical_findings',
   'clinical_review_runs',
   'finding_flags',
+  'rule_overrides',
+  'rule_override_history',
+  'reconciliation_runs',
+  'reconciliation_repairs',
 ] as const;
 
 export type TableName = (typeof TABLES)[number];
