@@ -27,7 +27,7 @@ A protocol is a versioned JSON file in [`config/protocols/`](../config/protocols
 
 3. Once a clinical team signs a protocol off, its `status` becomes `validated` and the inbox badge goes away. Enabling it is still a per-clinic decision.
 
-A protocol that is disabled later stops creating expectations; the ones it created stay as they are (the catalog no longer has their definition, so they are not re-drafted).
+A protocol that is disabled later stops creating expectations for that clinic.
 
 ## What every protocol does, and never does
 
