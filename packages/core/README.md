@@ -255,7 +255,7 @@ On the synthetic clinic (148 patients, two years, 2,185 bundles; acceptance test
 
 ## Clinical reviewer
 
-`createClinicalReviewer({ unitOfWork, clock, ids, agent?, redactTermsOf?, localeOf? })` (`engine/reviewer`) reviews one patient's record and stores **findings** (`ClinicalFinding`, FHIR `DetectedIssue`): suggestions to the clinical team, each with verbatim citations.
+`createClinicalReviewer({ unitOfWork, clock, ids, agent?, redactTermsOf?, localeOf?, loadCatalog? })` (`engine/reviewer`) reviews one patient's record and stores **findings** (`ClinicalFinding`, FHIR `DetectedIssue`): suggestions to the clinical team, each with verbatim citations.
 
 1. Code builds the dossier and computes the trends.
 2. Deterministic detectors emit signals.

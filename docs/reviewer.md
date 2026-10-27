@@ -39,7 +39,7 @@ Spec: Linear "PRD V3 Clinical reviewer", ticket HIP-112. Decision record: [ADR 0
    - The category must be implemented and enabled for the patient's specialty. `similar_patients` is reserved (`category_reserved`).
    - A finding addressed to the patient is dropped (`patient_directed`). The check looks for "Estimado paciente", "envíale un mensaje", "WhatsApp", "dear patient", "message the patient".
    - Findings with the same category and the same cited sources are merged.
-   - **`alreadyCovered` is computed by code** from the engine's own state. An open expectation (or one expired into an active case) covers a finding when it was triggered by the cited result, asks for the same test (any LOINC code of the measurement) or is the protocol item of the same check-up (`protocol_diabetes_fundus`). The model's opinion on coverage is never asked for and never used.
+   - **`alreadyCovered` is computed by code** from the engine's own state. An open expectation (or one expired into an active case) covers a finding when it was triggered by the cited result, asks for the same test (any LOINC code of the measurement, matched against every code that fulfills the expectation in the clinic's catalog: a creatinine trend is covered by the CKD protocol's renal function item, which an eGFR or a creatinine fulfills) or is the protocol item of the same check-up (`protocol_diabetes_fundus`). The model's opinion on coverage is never asked for and never used.
 6. **Store** (`service.ts`).
    - Deduplication: no finding is stored if one with the same key (`<category>|<cited sources, sorted>`) is open, or was created or reviewed in the last 90 days.
    - The finding's mode comes from its category flag: `shadow`, or `live` only for a validated category.

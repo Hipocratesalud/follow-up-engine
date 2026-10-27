@@ -65,6 +65,13 @@ export interface PatientRecordSnapshot {
   readonly conditions: readonly PatientCondition[];
   /** Open expectations and expired ones grouped into an active case. */
   readonly liveExpectations: readonly Expectation[];
+  /**
+   * Per live expectation id, every test code that fulfills it, from the
+   * clinic's catalog (a protocol item's whole equivalence group: the CKD
+   * renal function item accepts an eGFR or a creatinine). Absent: only the
+   * expectation's own code counts for coverage.
+   */
+  readonly expectationTestCodes?: ReadonlyMap<string, ReadonlySet<string>>;
   readonly activeCases: readonly FollowUpCase[];
   /** Components of panel Observations (systolic and diastolic of a BP panel), by `Observation/<id>`. */
   readonly components?: ReadonlyMap<string, readonly ObservationComponent[]>;

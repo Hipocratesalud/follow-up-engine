@@ -198,6 +198,8 @@ export async function createRuntime(
     agent: reviewAgent,
     // Names and identifiers never reach the model (masked in the input and every tool result).
     redactTermsOf: patientRedactTerms,
+    // What each open expectation asks for: a finding a protocol item already covers says so.
+    loadCatalog: (clinicId) => engine.catalog(clinicId),
   });
 
   const { url: webhookUrl, secret: webhookSecret } = config.webhooks;

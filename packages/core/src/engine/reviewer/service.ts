@@ -24,8 +24,10 @@ import type { ClinicalReviewAgent, ReviewLimits } from '../../ports/clinical-rev
 import type { Clock } from '../../ports/clock.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { TransactionalStores, UnitOfWork } from '../../ports/unit-of-work.ts';
+import type { Catalog } from '../catalog.ts';
 import { listPatientCases } from '../patient-state.ts';
 import { refKey } from '../timeline.ts';
+import { expectationTestCodes } from './coverage.ts';
 import type { ObservationComponent, PatientRecordSnapshot } from './dossier.ts';
 import {
   anyEnabled,
@@ -88,6 +90,13 @@ export interface ClinicalReviewerDeps {
   /** The clinic's locale: the language findings are written in. Default `en`. */
   readonly localeOf?: (clinicId: ClinicId) => ReviewLocale | Promise<ReviewLocale>;
   readonly settings?: Partial<ReviewerSettings>;
+  /**
+   * The clinic's catalog (`engine.catalog`): what each open expectation asks
+   * for, so a finding about a test a protocol item already expects (any code
+   * of its equivalence group) is marked `alreadyCovered`. Absent: only an
+   * expectation's own code counts.
+   */
+  readonly loadCatalog?: (clinicId: ClinicId) => Promise<Catalog>;
 }
 
 /** One review and what it stored. */
@@ -247,6 +256,7 @@ export function createClinicalReviewer(deps: ClinicalReviewerDeps): ClinicalRevi
     clinicId: ClinicId,
     patientId: PatientId,
     now: Date,
+    catalog: Catalog | undefined,
   ): Promise<{ snapshot: PatientRecordSnapshot; redactTerms: readonly string[] }> {
     const [events, conditions, expectations, cases, patient] = await Promise.all([
       stores.clinicalRecords.listEventsForPatient(clinicId, patientId),
@@ -280,6 +290,9 @@ export function createClinicalReviewer(deps: ClinicalReviewerDeps): ClinicalRevi
         events,
         conditions,
         liveExpectations: expectations,
+        ...(catalog === undefined
+          ? {}
+          : { expectationTestCodes: expectationTestCodes(catalog, expectations) }),
         activeCases: cases.filter((item) => item.releaseAt === undefined || item.releaseAt <= now),
         components,
       },
@@ -294,10 +307,11 @@ export function createClinicalReviewer(deps: ClinicalReviewerDeps): ClinicalRevi
   ): Promise<ReviewReport> {
     const startedAt = deps.clock.now();
     const runId = deps.ids.next('review_run');
+    const catalog = await deps.loadCatalog?.(clinicId);
     const { snapshot, redactTerms, flags } = await deps.unitOfWork.withTransaction(
       clinicId,
       async (stores) => ({
-        ...(await snapshotOf(stores, clinicId, patientId, startedAt)),
+        ...(await snapshotOf(stores, clinicId, patientId, startedAt, catalog)),
         flags: await stores.findingFlags.list(clinicId),
       }),
     );

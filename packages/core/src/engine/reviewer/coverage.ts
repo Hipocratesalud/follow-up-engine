@@ -1,5 +1,6 @@
 import type { FindingCoverage } from '../../domain/clinical-finding.ts';
 import type { Expectation } from '../../domain/expectation.ts';
+import type { Catalog } from '../catalog.ts';
 import { parseCodeMatchKey } from '../matching/match-key.ts';
 import { refKey } from '../timeline.ts';
 import type { ReviewDossier } from './dossier.ts';
@@ -9,11 +10,39 @@ import type { Signal } from './detectors.ts';
 import type { FindingDraft } from './validation.ts';
 
 /**
+ * Every test code that fulfills each expectation, from the clinic's catalog:
+ * the item's own code and the literal codes of its `fulfilledBy` filters (a
+ * protocol item's equivalence group). Expectations of rules the catalog no
+ * longer has keep only their own code.
+ */
+export function expectationTestCodes(
+  catalog: Catalog,
+  expectations: readonly Expectation[],
+): Map<string, ReadonlySet<string>> {
+  const byExpectation = new Map<string, ReadonlySet<string>>();
+  for (const expectation of expectations) {
+    const definition = catalog.definition(expectation.ruleId);
+    if (definition === undefined) continue;
+    const codes = new Set<string>();
+    if (definition.code !== undefined) codes.add(definition.code.code);
+    for (const correlation of definition.fulfilledBy) {
+      const listed = correlation.filter?.['code.code'];
+      for (const code of Array.isArray(listed) ? listed : []) {
+        if (typeof code === 'string') codes.add(code);
+      }
+    }
+    if (codes.size > 0) byExpectation.set(expectation.id, codes);
+  }
+  return byExpectation;
+}
+
+/**
  * Whether the engine already deals with what a finding says: an open
  * expectation (or an expired one in an active case) triggered by the cited
- * result, asking for the same test, or the protocol item of the same
- * check-up. Decided by code from the engine's own state; whatever the model
- * said about coverage is ignored.
+ * result, asking for the same test (any code of its equivalence group: a
+ * creatinine trend is covered by the CKD protocol's renal function item),
+ * or the protocol item of the same check-up. Decided by code from the
+ * engine's own state; whatever the model said about coverage is ignored.
  */
 export function coverageOf(
   draft: FindingDraft,
@@ -47,11 +76,22 @@ export function coverageOf(
     .filter((signal) => draft.signalIds.includes(signal.id))
     .map((signal) => signal.rule.replace(/^screening:/, ''));
   const text = foldWithMap(`${draft.summary} ${draft.suggestion}`).folded;
-  const screeningRules = SCREENING_RULES.filter((rule) =>
+  const screenings = SCREENING_RULES.filter((rule) =>
     ruleKeys.length > 0
       ? ruleKeys.includes(rule.key)
       : rule.coverageTerms.some((term) => text.includes(term)),
-  ).flatMap((rule) => rule.coveredByRules);
+  );
+  const screeningRules = screenings.flatMap((rule) => rule.coveredByRules);
+  const screeningCodes = new Set(screenings.flatMap((rule) => rule.resultLoinc ?? []));
+  /** The codes of the test an expectation asks for: its own and, from the catalog, its equivalents. */
+  const testCodesOf = (expectation: Expectation): Set<string> => {
+    const codes = new Set(dossier.snapshot.expectationTestCodes?.get(expectation.id) ?? []);
+    const own = parseCodeMatchKey(expectation.matchKey);
+    if (own !== undefined) codes.add(own.code);
+    return codes;
+  };
+  const asksFor = (expectation: Expectation, wanted: ReadonlySet<string>): boolean =>
+    [...testCodesOf(expectation)].some((code) => wanted.has(code));
 
   const covers = (expectation: Expectation): boolean => {
     switch (draft.category) {
@@ -63,13 +103,13 @@ export function coverageOf(
         ) {
           return true;
         }
-        const code = parseCodeMatchKey(expectation.matchKey);
-        return code !== undefined && citedCodes.has(code.code);
+        return asksFor(expectation, citedCodes);
       }
       case 'missing_screening':
         return (
           screeningRules.includes(expectation.ruleId) ||
-          (screeningRules.length > 0 && expectation.matchKey.endsWith('fundus-exam'))
+          (screeningRules.length > 0 && expectation.matchKey.endsWith('fundus-exam')) ||
+          asksFor(expectation, screeningCodes)
         );
       // Nothing the engine tracks answers these: a drug combination, a symptom, a
       // question or a trend in vital signs is never covered by an expectation.

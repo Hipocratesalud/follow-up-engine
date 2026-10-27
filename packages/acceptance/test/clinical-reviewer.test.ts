@@ -1,4 +1,8 @@
-import { FakeNoteExtractor, SequentialIdGenerator } from '@follow-up-engine/adapter-memory';
+import {
+  FakeNoteExtractor,
+  loadConfigDirectory,
+  SequentialIdGenerator,
+} from '@follow-up-engine/adapter-memory';
 import {
   CLINICAL_REVIEW_JOB,
   type ClinicalReviewer,
@@ -21,6 +25,8 @@ import {
 } from '@follow-up-engine/llm';
 import { BASE_DATE, contractBuilders, loadReviewerCohort } from '@follow-up-engine/testkit';
 import { describe, expect, it } from 'vitest';
+import { conditionResource, transactionOf } from '../src/bundles.ts';
+import { labResultBundle } from '../src/calibration-bundles.ts';
 import {
   type EngineHarness,
   type HarnessOptions,
@@ -67,6 +73,8 @@ function reviewerFor(harness: EngineHarness): ClinicalReviewer {
     clock: harness.clock,
     ids: new SequentialIdGenerator(),
     agent: createReviewAgent({ gateway }),
+    // As the runtime wires it: what each open expectation asks for comes from the catalog.
+    loadCatalog: (id) => harness.engine.catalog(id),
   });
 }
 
@@ -255,6 +263,56 @@ function describeReviewer(
     expect(
       (await harness.pendingEvents()).filter((event) => event.type === 'clinical_finding.created'),
     ).toEqual([]);
+  });
+
+  it('a lab trend a protocol item already expects is covered, through any code of the item', async () => {
+    // rev-0001: creatinine rising, silent. Same record twice; the second
+    // clinic runs every protocol, has the CKD coded and an eGFR after the
+    // last creatinine, so the CKD renal function item is open, counted from
+    // that eGFR (not a cited result): only its equivalence group (an eGFR or
+    // a creatinine) ties it to the creatinine trend.
+    const trendOf = async (name: string, ckd: boolean) => {
+      const harness = await makeHarness({
+        ...options(name),
+        settings: { enabledProtocols: loadConfigDirectory().protocols.map((p) => p.id) },
+      });
+      await setFlags(harness, shadowPilotFlags(harness.clinicId, 'pilot-lead', start));
+      await sendHistory(harness, 'rev-0001', start);
+      if (ckd) {
+        const condition = conditionResource({
+          id: 'rev-0001-ckd',
+          patientId: 'rev-0001',
+          icd10: 'N18.3',
+          verification: 'confirmed',
+          at: start,
+        });
+        await ingestBundle(harness, transactionOf(condition), start);
+        const egfr = labResultBundle({
+          id: 'rev-0001-egfr',
+          patientId: 'rev-0001',
+          loinc: '33914-3',
+          display: 'eGFR',
+          at: start,
+          value: 41,
+          unit: 'mL/min/1.73m2',
+          flag: 'L',
+        });
+        await ingestBundle(harness, egfr, start);
+      }
+      const report = await reviewerFor(harness).reviewPatient(
+        harness.clinicId,
+        patientId('rev-0001'),
+        'initial',
+      );
+      return report.findings.find((finding) => finding.category === 'lab_trend');
+    };
+    const silent = await trendOf('trend-uncovered', false);
+    expect(silent).toMatchObject({ alreadyCovered: false, coveredBy: [] });
+    const covered = await trendOf('trend-covered', true);
+    expect(covered?.alreadyCovered).toBe(true);
+    expect(covered?.coveredBy.map((item) => item.code)).toContain(
+      'protocol_chronic_kidney_disease_renal_function',
+    );
   });
 
   it('the daily sweep reviews high-priority patients not reviewed in 30 days', async () => {
