@@ -307,6 +307,10 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
       '*/api/inbox/patients/:id',
       route(({ params }) => store.getPatient(param(params, 'id'))),
     ),
+    http.get(
+      '*/api/inbox/patients/:id/documents',
+      route(({ params }) => store.getPatientDocuments(param(params, 'id'))),
+    ),
     http.post(
       '*/api/inbox/conditions/:id/confirm',
       route(({ params }) => store.reviewCondition(param(params, 'id'), 'confirm')),
