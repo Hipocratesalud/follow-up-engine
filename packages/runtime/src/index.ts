@@ -26,6 +26,7 @@ export {
   createRuntime,
   DEMO_CLINIC,
   DEMO_DAILY_CASE_CAP_PER_OWNER,
+  availableProtocolIds,
   DEMO_INBOX_KEY_LABEL,
   registerDemoClinic,
   type CreateRuntimeOptions,

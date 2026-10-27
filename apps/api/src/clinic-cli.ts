@@ -7,6 +7,7 @@ import {
   type EngineRuntime,
   isApiKeyScope,
   isDemoScope,
+  availableProtocolIds,
 } from '@follow-up-engine/runtime';
 
 export const CLINIC_CLI_USAGE = `Usage: pnpm --filter @follow-up-engine/api clinic:create [options]
@@ -22,6 +23,8 @@ Registers a clinic (or updates one) and issues a scoped API key, printed once.
                              (demo:clock moves the shared fake clock of every clinic)
   --allow-patient-contact    Enable patient contact requests for a new clinic (default: off)
   --timezone <iana>          Clinic time zone for a new clinic (default: UTC)
+  --protocols <a,b>          Care protocols the clinic runs, once its clinical team validated
+                             them (docs/protocols.md); replaces the list. Default: diabetes,hypertension
   --help                     This help
 
 Needs DATABASE_URL (the same database the API uses).`;
@@ -71,6 +74,7 @@ export async function runClinicCommand(
         'allow-patient-contact': { type: 'boolean' },
         'allow-demo': { type: 'boolean' },
         timezone: { type: 'string' },
+        protocols: { type: 'string' },
         help: { type: 'boolean' },
       },
       strict: true,
@@ -118,11 +122,28 @@ export async function runClinicCommand(
         'gets them, unless you pass --allow-demo.',
     );
   }
+  const protocols = values.protocols
+    ?.split(',')
+    .map((protocol) => protocol.trim())
+    .filter((protocol) => protocol !== '');
+  const unknownProtocols = (protocols ?? []).filter(
+    (protocol) => !availableProtocolIds().includes(protocol),
+  );
+  if (unknownProtocols.length > 0) {
+    return fail(
+      `Unknown protocol(s): ${unknownProtocols.join(', ')}. Known: ${availableProtocolIds().join(', ')}.`,
+    );
+  }
   if (existing === undefined && values.name === undefined) {
     return fail(`Clinic ${id} does not exist: give --name to create it.`);
   }
   let action = 'unchanged';
-  if (existing === undefined || (values.name !== undefined && values.name !== existing.name)) {
+  const enabled = protocols === undefined ? {} : { enabledProtocols: protocols };
+  if (
+    existing === undefined ||
+    (values.name !== undefined && values.name !== existing.name) ||
+    protocols !== undefined
+  ) {
     await runtime.storage.registerClinic({
       id: toClinicId(id),
       name: values.name ?? existing?.name ?? id,
@@ -131,11 +152,17 @@ export async function runClinicCommand(
             settings: {
               allowPatientContact: values['allow-patient-contact'] === true,
               ...(values.timezone === undefined ? {} : { timezone: values.timezone }),
+              ...enabled,
             },
           }
-        : { settings: existing.settings, active: existing.active }),
+        : { settings: { ...existing.settings, ...enabled }, active: existing.active }),
     });
-    action = existing === undefined ? 'created' : 'renamed';
+    action =
+      existing === undefined
+        ? 'created'
+        : values.name !== undefined && values.name !== existing.name
+          ? 'renamed'
+          : 'protocols updated';
   }
   const label = values.label ?? 'integration';
   const issued = await runtime.issueApiKey({

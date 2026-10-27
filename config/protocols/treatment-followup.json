@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "status": "draft",
   "description": "Depression and anxiety on treatment (id and every label deliberately neutral: nothing it shows or sends names the condition). Enrolled by F32/F33/F41 or an antidepressant (ATC N06A). A control 2 to 4 weeks after an antidepressant is started or its dose changes, then monthly until 3 consecutive controls without a change, then every 3 months. Fills only what the doctor's plan did not cover.",
-  "reason": { "code": "protocol_treatment_followup", "label": "Seguimiento de tratamiento" },
+  "reason": {
+    "code": "protocol_treatment_followup",
+    "label": "Seguimiento de tratamiento"
+  },
   "sources": [
     {
       "title": "Depression in adults: treatment and management (NG222)",
@@ -16,12 +19,6 @@
       "organization": "National Institute for Health and Care Excellence",
       "year": 2011,
       "url": "https://www.nice.org.uk/guidance/cg113"
-    },
-    {
-      "title": "Practice Guideline for the Treatment of Patients With Major Depressive Disorder, 3rd edition",
-      "organization": "American Psychiatric Association",
-      "year": 2010,
-      "url": "https://psychiatryonline.org/pb/assets/raw/sitewide/practice_guidelines/guidelines/mdd.pdf"
     }
   ],
   "sensitive": true,
@@ -36,7 +33,12 @@
   "enrollment": {
     "conditionCodes": ["F32", "F33", "F41"],
     "minimumStatus": "probable",
-    "medications": [{ "atc": ["N06A"], "conditionCode": "F32" }]
+    "medications": [
+      {
+        "atc": ["N06A"],
+        "conditionCode": "F32"
+      }
+    ]
   },
   "items": [
     {
@@ -48,14 +50,25 @@
       },
       "schedule": {
         "type": "treatment_change",
-        "medications": { "atc": ["N06A"] },
+        "medications": {
+          "atc": ["N06A"]
+        },
         "afterChangeDays": 28,
-        "untilStable": { "everyDays": 30, "controls": 3 },
+        "untilStable": {
+          "everyDays": 30,
+          "controls": 3
+        },
         "everyDays": 90
       },
       "fulfilledBy": [
-        { "event": "encounter.finished", "match": "any" },
-        { "event": "appointment.booked", "match": "any" }
+        {
+          "event": "encounter.finished",
+          "match": "any"
+        },
+        {
+          "event": "appointment.booked",
+          "match": "any"
+        }
       ],
       "priority": 40,
       "suggestedAction": {

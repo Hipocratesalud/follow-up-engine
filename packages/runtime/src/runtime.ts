@@ -339,7 +339,7 @@ export async function registerDemoClinic(
       // The synthetic clinic shows every protocol, drafts included (their
       // reasons carry the draft badge). A real clinic enables a draft only
       // once its clinical team validated it.
-      enabledProtocols: loadConfigDirectory().protocols.map((protocol) => protocol.id),
+      enabledProtocols: [...availableProtocolIds()],
     },
   });
   if (inboxApiKey !== undefined) {
@@ -351,6 +351,11 @@ export async function registerDemoClinic(
     });
   }
   return clinic;
+}
+
+/** Ids of every protocol in config/protocols, drafts included (what a clinic may enable). */
+export function availableProtocolIds(): readonly string[] {
+  return loadConfigDirectory().protocols.map((protocol) => protocol.id);
 }
 
 /** Active clinics, for the sweeps. */

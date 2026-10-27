@@ -57,6 +57,33 @@ describe.each(STORAGES)('clinic:create (%s)', (storage) => {
     expect((await h.call('/fhir/Task', { key: integration })).status).toBe(200);
   });
 
+  it('enables the protocols a clinic validated, and refuses unknown ones (HIP-137)', async () => {
+    const created = await runClinicCommand(h.runtime, ['--name', 'Clínica Protocolos']);
+    expect(created.code).toBe(0);
+    const id = 'clinica-protocolos' as never;
+    expect((await h.runtime.storage.clinics.get(id))?.settings.enabledProtocols).toBeUndefined();
+    const enabled = await runClinicCommand(h.runtime, [
+      '--id',
+      'clinica-protocolos',
+      '--protocols',
+      'diabetes, pregnancy',
+    ]);
+    expect(enabled.output).toMatch(/protocols updated/);
+    const clinic = await h.runtime.storage.clinics.get(id);
+    expect(clinic?.settings.enabledProtocols).toEqual(['diabetes', 'pregnancy']);
+    expect(clinic?.name).toBe('Clínica Protocolos');
+    const catalog = await h.runtime.engine.catalog(id);
+    expect(catalog.protocols.map((protocol) => protocol.id)).toEqual(['diabetes', 'pregnancy']);
+    const unknown = await runClinicCommand(h.runtime, [
+      '--id',
+      'clinica-protocolos',
+      '--protocols',
+      'depression',
+    ]);
+    expect(unknown.code).toBe(1);
+    expect(unknown.output).toMatch(/Unknown protocol\(s\): depression/);
+  });
+
   it('refuses unknown scopes, a missing name and an unknown clinic', async () => {
     expect((await runClinicCommand(h.runtime, ['--name', 'X', '--scopes', 'admin'])).code).toBe(1);
     expect((await runClinicCommand(h.runtime, [])).code).toBe(1);
