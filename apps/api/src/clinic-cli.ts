@@ -156,7 +156,7 @@ export async function runClinicCommand(
     action =
       existing === undefined
         ? 'created'
-        : [renamed ? 'renamed' : '', relocalized ? `locale ${String(locale)}` : '']
+        : [renamed ? 'renamed' : '', relocalized ? `locale ${locale}` : '']
             .filter((part) => part !== '')
             .join(', ');
   }
