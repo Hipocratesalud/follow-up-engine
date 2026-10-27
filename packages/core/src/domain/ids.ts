@@ -6,6 +6,9 @@ export type ClinicId = Brand<string, 'ClinicId'>;
 /** Patient identifier, unique within a clinic (the host EHR's patient id). */
 export type PatientId = Brand<string, 'PatientId'>;
 
+/** Identifier of a practitioner (the host EHR's practitioner id). */
+export type PractitionerId = Brand<string, 'PractitionerId'>;
+
 /** Identifier of an expectation (a FHIR `Task` the engine watches). */
 export type ExpectationId = Brand<string, 'ExpectationId'>;
 
@@ -46,6 +49,11 @@ export function clinicId(value: string): ClinicId {
 /** Parses a raw string into a {@link PatientId}. Throws {@link InvalidIdentifierError}. */
 export function patientId(value: string): PatientId {
   return requireIdentifier('PatientId', value) as PatientId;
+}
+
+/** Parses a raw string into a {@link PractitionerId}. Throws {@link InvalidIdentifierError}. */
+export function practitionerId(value: string): PractitionerId {
+  return requireIdentifier('PractitionerId', value) as PractitionerId;
 }
 
 /** Parses a raw string into an {@link ExpectationId}. Throws {@link InvalidIdentifierError}. */

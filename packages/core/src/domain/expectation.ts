@@ -1,0 +1,55 @@
+import type { Evidence, Origin, Reason } from './common.ts';
+import type { CaseId, ClinicId, ExpectationId, PatientId } from './ids.ts';
+import type { ResourceRef } from './resource.ts';
+
+/** Where an expectation comes from, in the order the annotator applies them. */
+export const EXPECTATION_LAYERS = ['universal', 'doctor_plan', 'cadence', 'protocol'] as const;
+export type ExpectationLayer = (typeof EXPECTATION_LAYERS)[number];
+
+/** Lifecycle of an expectation. Only `open` is non-terminal. */
+export const EXPECTATION_STATUSES = [
+  'open',
+  'fulfilled',
+  'superseded',
+  'expired',
+  'cancelled',
+] as const;
+export type ExpectationStatus = (typeof EXPECTATION_STATUSES)[number];
+
+/**
+ * Something that should happen for a patient by a date ("imaging result
+ * within 30 days of the order"). Persisted and exposed as a FHIR `Task`;
+ * `status` maps to `Task.businessStatus`.
+ */
+export interface Expectation {
+  readonly id: ExpectationId;
+  readonly clinicId: ClinicId;
+  readonly patientId: PatientId;
+  /** Deduplicates creation: the same trigger never yields two expectations. */
+  readonly idempotencyKey: string;
+  readonly ruleId: string;
+  readonly ruleVersion: string;
+  readonly layer: ExpectationLayer;
+  /** The resource that triggered it (order, prescription, note, ...). */
+  readonly source: ResourceRef;
+  /**
+   * What a fulfilling event must match, derived from the rule's `fulfilledBy`
+   * (for example `order:<orderId>` or `code:<system>|<code>`).
+   */
+  readonly matchKey: string;
+  readonly dueAt: Date;
+  readonly status: ExpectationStatus;
+  /** The case it was grouped into once it expired. */
+  readonly caseId?: CaseId;
+  /** Machine code explaining a terminal status (for example `fulfilled_by_result`). */
+  readonly closedReason?: string;
+  readonly closedAt?: Date;
+  readonly origin: Origin;
+  readonly protocolId?: string;
+  readonly protocolVersion?: string;
+  readonly reason: Reason;
+  /** Present for `doctor_plan` expectations: the quote from the note. */
+  readonly evidence?: Evidence;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}

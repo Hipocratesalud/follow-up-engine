@@ -28,3 +28,7 @@ Use pnpm 10 (`corepack enable pnpm`; a global pnpm 7 is rejected by `engines`).
 - Only `apps/*` (composition roots) wire adapters. Nothing imports an app. `testkit` only from tests.
 - No circular dependencies. Type-only imports count.
 - TypeScript runs without a build step (`erasableSyntaxOnly`): no enums, no parameter properties, relative imports end in `.ts`.
+
+## Domain contract
+
+Shared types live in `packages/core/src/domain` (ids, `ClinicalEvent`, `ClinicalBatch`, `Expectation`, `FollowUpCase`, `CaseEvent`, `CaseFeedback`, `PatientCondition`, `QualityFinding`, outbound `DomainEvent`), rule/protocol zod schemas in `packages/core/src/config`, ports in `packages/core/src/ports`. Build on them; change them deliberately, not ad hoc in a feature package.
