@@ -25,7 +25,7 @@ export interface SinkDelivery {
 
 export interface WebhookSinkOptions {
   readonly secret: string;
-  /** Deliveries kept, newest first. Default 200. */
+  /** Deliveries kept, newest first. Default 2,000 (a seeded demo clinic sends a few hundred a month). */
   readonly capacity?: number;
   readonly now?: () => Date;
 }
@@ -70,7 +70,7 @@ export class WebhookSink {
 
   constructor(options: WebhookSinkOptions) {
     this.#secret = options.secret;
-    this.#capacity = options.capacity ?? 200;
+    this.#capacity = options.capacity ?? 2_000;
     this.#now = options.now ?? (() => new Date());
   }
 
