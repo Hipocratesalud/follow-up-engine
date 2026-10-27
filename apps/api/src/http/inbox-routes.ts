@@ -550,6 +550,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     const useful = verdicts.filter((item) => item.useful).length;
     const stats: InboxStats = {
       activeCases: active.length,
+      activePatients: new Set(active.map((item) => item.patientId)).size,
       byLayer,
       byStatus,
       feedback: {

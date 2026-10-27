@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { serve, type ServerType } from '@hono/node-server';
 import { createPool } from '@follow-up-engine/adapter-postgres';
+import { buildConsultationBundle } from '@follow-up-engine/fhir';
 import { modelOutputFromExpected } from '@follow-up-engine/llm';
 import {
   createRuntime,
@@ -14,7 +15,12 @@ import {
 import { loadReviewerCohort, validateFhirR4 } from '@follow-up-engine/testkit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FindingView } from '../src/http/reviewer-schemas.ts';
-import type { CaseDetail, CaseView } from '../src/http/schemas.ts';
+import type {
+  PatientQueueItem,
+  PatientQueuePage,
+  PlanItemReviewResponse,
+} from '../src/http/patient-queue-schemas.ts';
+import type { CaseDetail, CaseView, PatientDetail } from '../src/http/schemas.ts';
 import { type ApiServer, createApiServer } from '../src/server.ts';
 
 /*
@@ -637,6 +643,99 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
       );
       expect(issue).toBeDefined();
       expect(validateFhirR4(issue?.resource).issues).toEqual([]);
+    });
+  });
+
+  describe('patient queue and plan item review (HIP-141)', () => {
+    const patient = 'pat-e2e-queue';
+
+    /** The signed `patient_contact.requested` webhooks the sink received for a patient. */
+    function contactRequestsOf(patientId: string) {
+      return sink.list({ type: 'patient_contact.requested' }).filter((item) => {
+        const data = (item.payload as { data?: Record<string, unknown> } | undefined)?.data;
+        return data?.['patientId'] === patientId;
+      });
+    }
+
+    it('one card per patient, one contact request across cases, plan item corrected and rejected', async () => {
+      const clock = await call<{ now: string }>('/api/demo/clock');
+      const bundle = buildConsultationBundle({
+        consultationId: 'e2e-queue',
+        patient: { id: patient, name: 'Elena Cola Ruiz' },
+        specialty: 'internal_medicine',
+        occurredAt: new Date(clock.body.now),
+        noteText: 'Paciente estable. Se solicita HbA1c. Control en 2 semanas.',
+        orders: [{ loinc: '4548-4', display: 'HbA1c' }],
+      });
+      expect((await call('/fhir?sync=true', { body: bundle, fhir: true })).status).toBe(200);
+      // Day 16: the control (day 14) and the HbA1c result (day 15) are overdue: two cases.
+      await call('/api/demo/clock/advance', { body: { days: 16 } });
+      const queue = await call<PatientQueuePage>('/api/inbox/patients-queue?q=elena%20cola');
+      expect(queue.body.total).toBe(1);
+      expect(queue.body.totalCases).toBe(2);
+      const card = queue.body.items[0];
+      expect(card?.cases).toHaveLength(2);
+
+      // One request for the patient: one signed webhook, whatever the number of cases.
+      const contacted = await call<PatientQueueItem>(
+        `/api/inbox/patients-queue/${patient}/request-contact`,
+        { body: { note: 'Prefiere la mañana' } },
+      );
+      expect(contacted.status).toBe(200);
+      const requested = await eventually(() => {
+        const items = contactRequestsOf(patient);
+        return Promise.resolve(items.length > 0 ? items : undefined);
+      }, 'the patient_contact.requested webhook');
+      expect(requested.every((item) => item.signatureValid)).toBe(true);
+      const again = await call(`/api/inbox/patients-queue/${patient}/request-contact`, {
+        body: {},
+      });
+      expect(again.status).toBe(409);
+      expect(contactRequestsOf(patient)).toHaveLength(1);
+
+      // The plan item the AI read: corrected (a lab, not a visit), then rejected.
+      const detail = await call<PatientDetail>(`/api/inbox/patients/${patient}`);
+      const item = detail.body.expectations.find((e) => e.layer === 'doctor_plan');
+      expect(item?.planItem?.review).toBe('pending');
+      const corrected = await call<PlanItemReviewResponse>(
+        `/api/inbox/plan-items/${item?.id ?? ''}/correct`,
+        { body: { kind: 'lab' }, headers: { 'x-followup-user': 'dra-mora' } },
+      );
+      expect(corrected.status).toBe(200);
+      const replacement = corrected.body.replacement?.id ?? '';
+      const rejected = await call<PlanItemReviewResponse>(
+        `/api/inbox/plan-items/${replacement}/reject`,
+        { method: 'POST', headers: { 'x-followup-user': 'dra-mora' } },
+      );
+      expect(rejected.body.casesResolved).toHaveLength(1);
+      const after = await call<PatientQueueItem>(`/api/inbox/patients-queue/${patient}`);
+      expect(after.body.caseCount).toBe(1);
+
+      // The host reads both verdicts on the Tasks, valid FHIR R4.
+      const tasks = await call<{ entry: { resource: Record<string, unknown> }[] }>(
+        `/fhir/Task?patient=${patient}`,
+      );
+      const byId = new Map(
+        tasks.body.entry.map((entry) => [entry.resource['id'], entry.resource] as const),
+      );
+      const old = byId.get(item?.id);
+      const correction = byId.get(replacement);
+      expect(old?.['statusReason']).toMatchObject({
+        coding: [{ code: 'corrected_by_clinician' }],
+      });
+      expect(correction?.['statusReason']).toMatchObject({
+        coding: [{ code: 'rejected_by_clinician' }],
+      });
+      expect(correction?.['extension']).toEqual(
+        expect.arrayContaining([
+          {
+            url: 'https://hipocratesalud.com/fhir/StructureDefinition/follow-up-correction-of',
+            valueReference: { reference: `Task/${item?.id ?? ''}`, type: 'Task' },
+          },
+        ]),
+      );
+      expect(validateFhirR4(old).issues).toEqual([]);
+      expect(validateFhirR4(correction).issues).toEqual([]);
     });
   });
 });

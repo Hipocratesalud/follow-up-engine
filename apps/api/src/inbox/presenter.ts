@@ -63,6 +63,7 @@ import {
   QUALITY_FINDING_LABELS,
   timelineLabel,
 } from './labels.ts';
+import { planItemView } from './plan-item-presenter.ts';
 import { icd10Label, loincLabel } from './terminology.ts';
 
 const MS_PER_DAY = 86_400_000;
@@ -762,9 +763,10 @@ export class InboxPresenter {
   }
 
   async reasonView(expectation: Expectation, withExcerpt: boolean): Promise<CaseReasonView> {
-    const [source, evidence] = await Promise.all([
+    const [source, evidence, planItem] = await Promise.all([
       this.resource(`${expectation.source.resourceType}/${expectation.source.id}`),
       this.#evidence(expectation, withExcerpt),
+      planItemView(expectation, (id) => this.userName(id)),
     ]);
     const protocol = this.protocolRef(expectation);
     return {
@@ -782,7 +784,15 @@ export class InboxPresenter {
         display: sourceDisplay(expectation.source.resourceType, source),
       },
       ...(evidence === undefined ? {} : { evidence }),
+      ...(planItem === undefined ? {} : { planItem }),
     };
+  }
+
+  /** {@link expectationView} with the review of a doctor's-plan item (HIP-141). */
+  async reviewedExpectationView(expectation: Expectation): Promise<PatientExpectationView> {
+    const planItem = await planItemView(expectation, (id) => this.userName(id));
+    const view = this.expectationView(expectation);
+    return planItem === undefined ? view : { ...view, planItem };
   }
 
   async #evidence(
@@ -867,7 +877,9 @@ export class InboxPresenter {
       conditions: withoutConfirmedDuplicates(conditions)
         .filter((condition) => condition.status !== 'entered_in_error')
         .map(conditionView),
-      expectations: expectations.map((expectation) => this.expectationView(expectation)),
+      expectations: await Promise.all(
+        expectations.map((expectation) => this.reviewedExpectationView(expectation)),
+      ),
       qualityFindings: findings.map((finding) => ({
         id: finding.id,
         code: finding.kind,

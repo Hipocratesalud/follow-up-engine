@@ -13,6 +13,7 @@ import {
 } from '@follow-up-engine/core';
 import { z } from 'zod';
 import { CONTACT_LOOP_MESSAGES } from '../inbox/labels.ts';
+import { PlanItemViewSchema } from './plan-item-schemas.ts';
 
 /**
  * The inbox JSON contract (`/api`), as zod schemas: requests are validated
@@ -142,6 +143,9 @@ export const CaseReasonViewSchema = z
         noteExcerpt: z.string().optional(),
       })
       .optional(),
+    planItem: PlanItemViewSchema.optional().meta({
+      description: "Doctor's plan reasons only: the AI reading and its review (HIP-141)",
+    }),
   })
   .meta({ id: 'CaseReasonView' });
 
@@ -450,6 +454,9 @@ export const PatientExpectationViewSchema = z.object({
     description: 'Why the engine closed it, in Spanish ("El médico dio de alta al paciente")',
   }),
   evidence: z.object({ quote: z.string(), documentId: z.string() }).optional(),
+  planItem: PlanItemViewSchema.optional().meta({
+    description: "Doctor's plan expectations only: the AI reading and its review (HIP-141)",
+  }),
 });
 
 export const QualityFindingViewSchema = z.object({
@@ -492,6 +499,10 @@ export const ClinicViewSchema = z
 export const InboxStatsSchema = z
   .object({
     activeCases: z.number().int(),
+    activePatients: z
+      .number()
+      .int()
+      .meta({ description: 'Patients with an active case in the inbox (one card each)' }),
     byLayer: z.record(LayerSchema, z.number().int()),
     byStatus: z.record(z.string(), z.number().int()),
     feedback: z.object({ total: z.number().int(), usefulRate: z.number() }),

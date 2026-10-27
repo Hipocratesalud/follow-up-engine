@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import './schemas.ts';
 import './reviewer-schemas.ts';
+import './patient-queue-schemas.ts';
+import './plan-item-schemas.ts';
 
 /*
  * OpenAPI 3.1 document of the API. Component schemas are generated from the
@@ -396,6 +398,78 @@ const OPERATIONS: readonly Operation[] = [
     params: [id('Condition id')],
     response: 'ConditionView',
     errors: [400, 404],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/patients-queue',
+    tag: 'Inbox',
+    summary: 'The patient queue: one card per patient, all their cases and reasons grouped',
+    description:
+      'Cases are selected by the filters, then grouped by patient; a page never splits a ' +
+      'patient. Ordered by the most urgent case of each patient (closed view: oldest first). ' +
+      '`total` counts patients, `totalCases` their cases.',
+    params: [
+      { name: 'view', in: 'query', enum: ['active', 'closed', 'all'] },
+      { name: 'origin', in: 'query', enum: ['live', 'backfill'] },
+      { name: 'assignee', in: 'query', description: 'Owner id (from /api/inbox/owners)' },
+      { name: 'q', in: 'query', description: 'Patient name or id contains this text' },
+      { name: 'cursor', in: 'query' },
+      { name: 'limit', in: 'query', description: 'Patients per page (1-200, default 50)' },
+    ],
+    response: 'PatientQueuePage',
+    errors: [422],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/patients-queue/{id}',
+    tag: 'Inbox',
+    summary: "One patient's card: active cases, then the latest closed ones",
+    params: [id('Patient id')],
+    response: 'PatientQueueItem',
+    errors: [404],
+  },
+  {
+    method: 'post',
+    path: '/api/inbox/patients-queue/{id}/request-contact',
+    tag: 'Inbox',
+    summary: 'Ask the host to contact the patient once, for all their cases',
+    description:
+      'One contact attempt (`patient_contact.requested`) on the most urgent active case; the ' +
+      'other cases record it and every open or snoozed case is marked notified. At most one ' +
+      'message per patient per contact window, across cases (409).',
+    params: [id('Patient id')],
+    body: 'PatientContactRequest',
+    response: 'PatientQueueItem',
+    errors: [404, 409, 422],
+  },
+  {
+    method: 'post',
+    path: '/api/inbox/plan-items/{id}/confirm',
+    tag: 'Inbox',
+    summary: 'Confirm a plan item the AI read from a note',
+    params: [id('Expectation id')],
+    response: 'PlanItemReviewResponse',
+    errors: [404, 409, 422],
+  },
+  {
+    method: 'post',
+    path: '/api/inbox/plan-items/{id}/correct',
+    tag: 'Inbox',
+    summary: 'Correct the due date or the kind of a plan item (supersedes it with the correction)',
+    params: [id('Expectation id')],
+    body: 'PlanItemCorrectionRequest',
+    response: 'PlanItemReviewResponse',
+    errors: [404, 409, 422],
+  },
+  {
+    method: 'post',
+    path: '/api/inbox/plan-items/{id}/reject',
+    tag: 'Inbox',
+    summary:
+      'Reject a plan item: the note never asked for it (resolves a case left without reasons)',
+    params: [id('Expectation id')],
+    response: 'PlanItemReviewResponse',
+    errors: [404, 409, 422],
   },
   {
     method: 'get',

@@ -9,6 +9,7 @@ import { errorResponse, HttpError, toHttpError } from './errors.ts';
 import { fhirErrorResponse, registerFhirRoutes } from './fhir-routes.ts';
 import { registerInboxRoutes } from './inbox-routes.ts';
 import { registerJobRoutes } from './job-routes.ts';
+import { registerPatientQueueRoutes } from './patient-queue-routes.ts';
 import { registerReviewerDemoRoutes, registerReviewerRoutes } from './reviewer-routes.ts';
 import { docsPage, openApiDocument } from './openapi.ts';
 import {
@@ -322,6 +323,7 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   registerFhirRoutes(app, runtime);
   registerJobRoutes(app, runtime);
   registerInboxRoutes(app, runtime);
+  registerPatientQueueRoutes(app, runtime);
   registerReviewerRoutes(app, runtime);
   if (runtime.fakeClock !== undefined) {
     registerDemoRoutes(app, runtime, runtime.fakeClock, options.worker);
