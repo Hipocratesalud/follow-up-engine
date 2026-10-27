@@ -113,6 +113,11 @@ function everyEventType(clinic: ClinicId, patient: PatientId): ClinicalEvent[] {
       extractor: { model: 'fake', promptVersion: 'v1' },
     },
     { ...base('patient.opted_out', 'Consent', 9), type: 'patient.opted_out' },
+    {
+      ...base('record.withdrawn', 'ServiceRequest', 10),
+      type: 'record.withdrawn',
+      reason: 'revoked',
+    },
   ] as ClinicalEvent[];
 }
 
@@ -217,6 +222,24 @@ export function describeClinicalRecordRepositoryContract(
       ]);
       const typed = await repo().listEventsForPatient(a, patient, { types: ['patient.opted_out'] });
       expect(typed).toEqual([opted]);
+    });
+
+    it('finds the other patients with events of a resource', async () => {
+      const { a, b } = freshClinics();
+      const moved = anEncounterEvent(a, patient, at(1));
+      const other = patientId(uniqueId('pat'));
+      await repo().appendEvents(a, [
+        moved,
+        { ...moved, patientId: other, idempotencyKey: uniqueId('k') },
+      ]);
+      await repo().appendEvents(b, [{ ...moved, clinicId: b, idempotencyKey: uniqueId('k') }]);
+      expect(await repo().findOtherPatientsWithSources(a, other, [moved.source])).toEqual([
+        { source: moved.source, patientId: patient },
+      ]);
+      expect(await repo().findOtherPatientsWithSources(a, patient, [moved.source])).toEqual([
+        { source: moved.source, patientId: other },
+      ]);
+      expect(await repo().findOtherPatientsWithSources(a, other, [])).toEqual([]);
     });
 
     it('pages patient ids in id order', async () => {

@@ -93,6 +93,7 @@ function everyEventType(clinicId: ClinicId, patientId: PatientId): ClinicalEvent
       extractor: { model: 'fake', promptVersion: 'plan-v1' },
     },
     { ...base('patient.opted_out', 9), type: 'patient.opted_out' },
+    { ...base('record.withdrawn', 10), type: 'record.withdrawn', reason: 'revoked' },
   ];
 }
 
@@ -176,7 +177,9 @@ describe.skipIf(testDatabaseUrl() === undefined)(
         const events = everyEventType(clinic, patient('p1'));
         expect(events.map((event) => event.type)).toEqual([...CLINICAL_EVENT_TYPES]);
 
-        expect(await pg.clinicalRecords.appendEvents(clinic, events)).toEqual({ inserted: 10 });
+        expect(await pg.clinicalRecords.appendEvents(clinic, events)).toEqual({
+          inserted: events.length,
+        });
         expect(await pg.clinicalRecords.appendEvents(clinic, events)).toEqual({ inserted: 0 });
         // Duplicates inside one batch count once.
         const fresh = { ...events[0], idempotencyKey: 'dup' } as ClinicalEvent;

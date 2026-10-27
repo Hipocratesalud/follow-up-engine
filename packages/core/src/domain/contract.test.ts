@@ -35,6 +35,8 @@ function describeEvent(event: ClinicalEvent): string {
       return String(event.items.length);
     case 'patient.opted_out':
       return 'opted out';
+    case 'record.withdrawn':
+      return event.reason;
   }
 }
 

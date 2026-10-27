@@ -32,6 +32,15 @@ function derivedKey(note: NoteReceivedEvent, suffix: string): string {
   return `${note.idempotencyKey}::${suffix}`;
 }
 
+const PLAN_SUFFIX = '::plan.extracted';
+
+/** The idempotency key of the note version a `plan.extracted` event was read from. */
+export function noteKeyOfPlan(plan: PlanExtractedEvent): string {
+  return plan.idempotencyKey.endsWith(PLAN_SUFFIX)
+    ? plan.idempotencyKey.slice(0, -PLAN_SUFFIX.length)
+    : plan.idempotencyKey;
+}
+
 /**
  * Turns the extractor's reading of a note into domain facts: one
  * `plan.extracted` event (also when the plan is empty, so the note is never
@@ -57,6 +66,9 @@ export function deriveFromExtraction(
     type: 'plan.extracted',
     idempotencyKey: derivedKey(note, 'plan.extracted'),
     sourceDocumentId: note.documentId,
+    ...(note.replacesDocumentIds === undefined
+      ? {}
+      : { replacesDocumentIds: note.replacesDocumentIds }),
     items: extraction.planItems,
     ...(extraction.discharged === true ? { discharged: true } : {}),
     extractor: { model: extraction.model, promptVersion: extraction.promptVersion },
@@ -97,9 +109,25 @@ export function deriveFromExtraction(
   };
 }
 
-/** Documents of a patient whose plan was already extracted. */
-export function extractedDocumentIds(events: readonly ClinicalEvent[]): Set<string> {
-  return new Set(
-    events.flatMap((event) => (event.type === 'plan.extracted' ? [event.sourceDocumentId] : [])),
+/** Which notes of a patient were already read. */
+export interface ExtractedNotes {
+  has(note: NoteReceivedEvent): boolean;
+}
+
+/**
+ * Notes whose plan was already extracted, by version: a new version of a
+ * note (an amendment) is read again, a re-delivery is not. A new version
+ * whose text did not change is not read again either.
+ */
+export function extractedNotes(events: readonly ClinicalEvent[]): ExtractedNotes {
+  const read = new Set(
+    events.flatMap((event) => (event.type === 'plan.extracted' ? [noteKeyOfPlan(event)] : [])),
   );
+  const textKey = (note: NoteReceivedEvent): string => `${note.documentId}\u0000${note.text}`;
+  const texts = new Set(
+    events.flatMap((event) =>
+      event.type === 'note.received' && read.has(event.idempotencyKey) ? [textKey(event)] : [],
+    ),
+  );
+  return { has: (note) => read.has(note.idempotencyKey) || texts.has(textKey(note)) };
 }

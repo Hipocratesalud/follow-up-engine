@@ -44,6 +44,33 @@ export function withoutCancelledBookings(events: readonly ClinicalEvent[]): Clin
 }
 
 /**
+ * Drops every event of a resource that a later `record.withdrawn` of the
+ * same resource withdrew (an order revoked, a diagnosis refuted, a note
+ * entered in error, a resource moved to another patient), events derived
+ * from it included (a note's plan). The withdrawal itself stays.
+ */
+export function withoutWithdrawnRecords(events: readonly ClinicalEvent[]): ClinicalEvent[] {
+  const withdrawals = new Map<string, number>();
+  for (const event of events) {
+    if (event.type === 'record.withdrawn') {
+      const key = refKey(event.source);
+      withdrawals.set(key, Math.max(withdrawals.get(key) ?? 0, event.occurredAt.getTime()));
+    }
+  }
+  if (withdrawals.size === 0) {
+    return [...events];
+  }
+  return events.filter((event) => {
+    const withdrawnAt = withdrawals.get(refKey(event.source));
+    return (
+      event.type === 'record.withdrawn' ||
+      withdrawnAt === undefined ||
+      event.occurredAt.getTime() > withdrawnAt
+    );
+  });
+}
+
+/**
  * A patient's clinical history, chronological, with the lookups the engine
  * needs (the event behind a resource, encounters by specialty, opt-out).
  */
@@ -51,12 +78,14 @@ export class PatientTimeline {
   readonly events: readonly ClinicalEvent[];
   readonly #bySource = new Map<string, ClinicalEvent>();
   readonly #encounters = new Map<string, EncounterFinishedEvent>();
+  readonly #kept: ReadonlySet<string>;
 
   constructor(events: readonly ClinicalEvent[]) {
     const sorted = [...events].sort(
       (left, right) => left.occurredAt.getTime() - right.occurredAt.getTime(),
     );
-    this.events = withoutCancelledBookings(sorted);
+    this.events = withoutWithdrawnRecords(withoutCancelledBookings(sorted));
+    this.#kept = new Set(this.events.map((event) => event.idempotencyKey));
     for (const event of this.events) {
       const key = refKey(event.source);
       if (!this.#bySource.has(key)) {
@@ -69,6 +98,14 @@ export class PatientTimeline {
         }
       }
     }
+  }
+
+  /**
+   * Whether the event is in the record but no longer stands: a booking
+   * cancelled later, or any event of a resource withdrawn later.
+   */
+  isWithdrawn(event: ClinicalEvent): boolean {
+    return !this.#kept.has(event.idempotencyKey);
   }
 
   /** The first event derived from a resource (an expectation's anchor). */

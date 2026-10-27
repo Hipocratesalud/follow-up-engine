@@ -225,20 +225,6 @@ describe('statuses that produce no event', () => {
 
   it.each([
     [
-      'refuted',
-      {
-        verificationStatus: {
-          coding: [
-            {
-              system: 'http://terminology.hl7.org/CodeSystem/condition-ver-status',
-              code: 'refuted',
-            },
-          ],
-        },
-      },
-      'information',
-    ],
-    [
       'resolved',
       {
         clinicalStatus: {

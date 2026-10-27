@@ -1,6 +1,6 @@
 import { firstDate } from '../../support/datetime.ts';
 import { decodeBase64Utf8, normalizeWhitespace, xhtmlToText } from '../../support/text.ts';
-import { specialtyOf, type EntryContext, type MappedResource } from '../context.ts';
+import { specialtyOf, withdrawal, type EntryContext, type MappedResource } from '../context.ts';
 import type { CompositionSectionInput, ParsedResourceOf } from '../schemas.ts';
 
 const MARKUP_TYPES = /^(text\/html|application\/xhtml\+xml)\b/i;
@@ -40,7 +40,9 @@ function attachmentText(
 }
 
 /**
- * DocumentReference (current) → `note.received`. Text comes from inline
+ * DocumentReference entered in error or superseded → `record.withdrawn`.
+ * DocumentReference (current) → `note.received` (with the notes it
+ * replaces, `relatesTo.code = replaces`). Text comes from inline
  * attachments (`attachment.data`, base64; HTML is reduced to text), else the
  * narrative, else the description. Attachments by URL are never fetched.
  */
@@ -62,7 +64,15 @@ export function mapDocumentReference(
     patientId: patient.id,
     ...(encounter === undefined ? {} : { encounterId: encounter.id }),
   };
-  if (document.status !== 'current' || (document.docStatus ?? 'final') === 'preliminary') {
+  // A note entered in error or superseded withdraws the plan read from it;
+  // its replacement (`relatesTo` replaces) brings the plan that stands.
+  if (document.status === 'entered-in-error' || document.docStatus === 'entered-in-error') {
+    return withdrawal(ctx, scope, 'entered_in_error', document.meta?.lastUpdated);
+  }
+  if (document.status === 'superseded') {
+    return withdrawal(ctx, scope, 'superseded', document.meta?.lastUpdated);
+  }
+  if ((document.docStatus ?? 'final') === 'preliminary') {
     ctx.report(
       'information',
       'informational',
@@ -91,6 +101,18 @@ export function mapDocumentReference(
     document.context?.period?.start,
   );
   const specialty = specialtyOf(document.context?.practiceSetting);
+  const replaces = (document.relatesTo ?? []).flatMap((relation, index) => {
+    if (relation.code !== 'replaces') {
+      return [];
+    }
+    const target = ctx.follow(
+      relation.target,
+      `relatesTo[${String(index)}].target`,
+      ['DocumentReference'],
+      false,
+    );
+    return target === undefined ? [] : [target.id];
+  });
   return {
     ...scope,
     events: [
@@ -100,6 +122,7 @@ export function mapDocumentReference(
         text,
         authoredAt: authoredAt ?? ctx.receivedAt,
         ...(specialty === undefined ? {} : { specialty }),
+        ...(replaces.length === 0 ? {} : { replacesDocumentIds: replaces }),
       },
     ],
   };
@@ -129,6 +152,9 @@ export function mapComposition(
     patientId: patient.id,
     ...(encounter === undefined ? {} : { encounterId: encounter.id }),
   };
+  if (composition.status === 'entered-in-error') {
+    return withdrawal(ctx, scope, 'entered_in_error', composition.meta?.lastUpdated);
+  }
   if (composition.status !== 'final' && composition.status !== 'amended') {
     ctx.report(
       'information',

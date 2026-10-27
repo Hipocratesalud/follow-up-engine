@@ -5,10 +5,12 @@ import {
   type ClinicalRecordRepository,
   type ClinicId,
   type FhirResourceJson,
+  isOlderResourceVersion,
   type PatientId,
   type PatientIdPage,
   type ResourceRef,
   type SaveResourceResult,
+  type SourcePatient,
   type StoredResource,
 } from '@follow-up-engine/core';
 import { decodeClinicalEvent } from './codec.ts';
@@ -43,6 +45,19 @@ export class PostgresClinicalRecordRepository implements ClinicalRecordRepositor
     receivedAt: Date,
   ): Promise<SaveResourceResult> {
     const { clinical_resources: table } = this.#ctx.tables;
+    // Out-of-order delivery: an older version than the stored one changes
+    // nothing. The row lock keeps a concurrent newer version from slipping
+    // in between the comparison and the write.
+    const current = await this.#ctx.db().query<{ version: number; resource: FhirResourceJson }>(
+      `SELECT version, resource FROM ${table}
+       WHERE clinic_id = $1 AND resource_type = $2 AND resource_id = $3
+       FOR UPDATE`,
+      [clinicId, resource.resourceType, resource.id],
+    );
+    const [stored] = current.rows;
+    if (stored !== undefined && isOlderResourceVersion(resource, stored.resource)) {
+      return { versionId: String(stored.version), changed: false, stale: true };
+    }
     // `jsonb` equality is semantic (key order and whitespace do not matter),
     // so a re-delivery of the same content leaves the version untouched.
     const upserted = await this.#ctx.db().query<{ version: number }>(
@@ -133,6 +148,38 @@ export class PostgresClinicalRecordRepository implements ClinicalRecordRepositor
       [clinicId, patientId, query.types ?? null, query.since ?? null, query.until ?? null],
     );
     return rows.map((row) => decodeClinicalEvent(row.payload));
+  }
+
+  async findOtherPatientsWithSources(
+    clinicId: ClinicId,
+    exceptPatientId: PatientId,
+    sources: readonly ResourceRef[],
+  ): Promise<readonly SourcePatient[]> {
+    if (sources.length === 0) {
+      return [];
+    }
+    const { rows } = await this.#ctx.db().query<{
+      source_type: string;
+      source_id: string;
+      patient_id: string;
+    }>(
+      `SELECT DISTINCT e.source_type, e.source_id, e.patient_id
+       FROM ${this.#ctx.tables.clinical_events} e
+       JOIN unnest($3::text[], $4::text[]) AS s(source_type, source_id)
+         ON e.source_type = s.source_type AND e.source_id = s.source_id
+       WHERE e.clinic_id = $1 AND e.patient_id <> $2
+       ORDER BY e.source_type, e.source_id, e.patient_id`,
+      [
+        clinicId,
+        exceptPatientId,
+        sources.map((source) => source.resourceType),
+        sources.map((source) => source.id),
+      ],
+    );
+    return rows.map((row) => ({
+      source: { resourceType: row.source_type, id: row.source_id },
+      patientId: row.patient_id as PatientId,
+    }));
   }
 
   async listPatientIds(

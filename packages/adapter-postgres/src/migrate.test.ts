@@ -47,12 +47,12 @@ describe.skipIf(testDatabaseUrl() === undefined)(databaseSuiteTitle('migrate'), 
 
   it('applies pending migrations once and records them', async () => {
     const schema = newSchema();
-    expect(await migrate(pool, { schema })).toEqual({ applied: ['0001', '0002'] });
+    expect(await migrate(pool, { schema })).toEqual({ applied: ['0001', '0002', '0003'] });
     expect(await migrate(pool, { schema })).toEqual({ applied: [] });
     const { rows } = await pool.query<{ version: string }>(
       `SELECT version FROM "${schema}".schema_migrations ORDER BY version`,
     );
-    expect(rows).toEqual([{ version: '0001' }, { version: '0002' }]);
+    expect(rows).toEqual([{ version: '0001' }, { version: '0002' }, { version: '0003' }]);
   });
 
   it('serializes concurrent migrations from separate processes', async () => {
@@ -60,7 +60,7 @@ describe.skipIf(testDatabaseUrl() === undefined)(databaseSuiteTitle('migrate'), 
     const results = await Promise.all(
       [newPool(), newPool(), newPool()].map((each) => migrate(each, { schema })),
     );
-    expect(results.map((result) => result.applied).flat()).toEqual(['0001', '0002']);
+    expect(results.map((result) => result.applied).flat()).toEqual(['0001', '0002', '0003']);
   });
 
   it('refuses a migration edited after it was applied', async () => {
