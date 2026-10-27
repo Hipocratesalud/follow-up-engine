@@ -13,10 +13,14 @@ import {
   type Clock,
   createClinicalReviewer,
   createFollowUpEngine,
+  DEFAULT_REVIEW_LOCALE,
   type EventPublisher,
   FakeClock,
   type FollowUpEngine,
   type IdGenerator,
+  primaryLanguage,
+  REVIEW_LOCALES,
+  type ReviewLocale,
   shadowPilotFlags,
   SystemClock,
 } from '@follow-up-engine/core';
@@ -200,6 +204,9 @@ export async function createRuntime(
     redactTermsOf: patientRedactTerms,
     // What each open expectation asks for: a finding a protocol item already covers says so.
     loadCatalog: (clinicId) => engine.catalog(clinicId),
+    // Findings are written in the clinic's language (ClinicSettings.locale), English by default.
+    localeOf: async (clinicId) =>
+      reviewLocaleOf((await storage.clinics.get(clinicId))?.settings.locale),
   });
 
   const { url: webhookUrl, secret: webhookSecret } = config.webhooks;
@@ -361,6 +368,9 @@ export async function registerDemoClinic(
     settings: {
       allowPatientContact: true,
       timezone: 'America/Caracas',
+      // English UI and labels for an international audience; the synthetic
+      // notes stay in Spanish and are read as Spanish (docs/adr/0007).
+      locale: 'en-US',
       dailyCaseCapPerOwner: DEMO_DAILY_CASE_CAP_PER_OWNER,
       escalationPolicyId: DEMO_ESCALATION_POLICY,
       // The synthetic clinic shows every protocol, drafts included (their
@@ -399,6 +409,12 @@ async function startDemoShadowPilot(runtime: EngineRuntime, clinicId: ClinicId):
       await stores.findingFlags.upsert(clinicId, flag);
     }
   });
+}
+
+/** The reviewer language of a clinic locale (`es-VE` → `es`); English when it has no copy. */
+export function reviewLocaleOf(locale: string | undefined): ReviewLocale {
+  const language = primaryLanguage(locale);
+  return REVIEW_LOCALES.find((candidate) => candidate === language) ?? DEFAULT_REVIEW_LOCALE;
 }
 
 /** Active clinics, for the sweeps. */

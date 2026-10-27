@@ -9,10 +9,8 @@ import { useFindingReview } from '../../api/queries.ts';
 import { fieldError, InlineError } from '../../components/states.tsx';
 import { Button, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
-import { formatDateTime } from '../../lib/format.ts';
-import { REVIEW_COPY, VERDICT_LABELS } from './copy.ts';
-
-const COPY = REVIEW_COPY.verdict;
+import { useT } from '../../i18n/index.ts';
+import { formatDateTime, formatNumber } from '../../lib/format.ts';
 
 const REASON_LIMIT = 1000;
 
@@ -33,6 +31,8 @@ function VerdictSummary({
   readonly review: FindingReviewView;
   readonly onChange: () => void;
 }): ReactNode {
+  const t = useT();
+  const COPY = t.review.verdict;
   const Icon = VERDICT_ICONS[review.verdict];
   function handleChange(): void {
     onChange();
@@ -49,9 +49,11 @@ function VerdictSummary({
         />
         <span>
           {COPY.summaryPrefix}
-          <strong>{VERDICT_LABELS[review.verdict].toLowerCase()}</strong>
+          <strong>{t.review.verdicts[review.verdict].toLowerCase()}</strong>
           {COPY.summaryBy(review.reviewedBy, formatDateTime(review.reviewedAt))}
-          {review.reason ? <span className="text-muted"> «{review.reason}»</span> : null}
+          {review.reason ? (
+            <span className="text-muted"> {t.common.quoted(review.reason)}</span>
+          ) : null}
         </span>
       </p>
       <Button size="sm" variant="ghost" onClick={handleChange}>
@@ -63,7 +65,7 @@ function VerdictSummary({
 
 /**
  * The clinician's verdict on a finding: the ground truth of the shadow
- * review. "No relevante" needs a reason (what to fix in the reviewer).
+ * review. "Not relevant" needs a reason (what to fix in the reviewer).
  */
 export function VerdictPanel({
   findingId,
@@ -72,6 +74,8 @@ export function VerdictPanel({
   readonly findingId: string;
   readonly review: FindingReviewView | undefined;
 }): ReactNode {
+  const t = useT();
+  const COPY = t.review.verdict;
   const ids = useId();
   const mutation = useFindingReview(findingId);
   const [editing, setEditing] = useState(false);
@@ -101,7 +105,7 @@ export function VerdictPanel({
       return;
     }
     if (trimmed.length > REASON_LIMIT) {
-      setReasonError(COPY.reasonTooLong(REASON_LIMIT.toLocaleString('es')));
+      setReasonError(COPY.reasonTooLong(formatNumber(REASON_LIMIT)));
       return;
     }
     mutation.mutate(
@@ -138,7 +142,7 @@ export function VerdictPanel({
               className={cx(choice === verdict && 'border-primary text-primary')}
               icon={<Icon className="size-3.5" aria-hidden="true" />}
             >
-              {VERDICT_LABELS[verdict]}
+              {t.review.verdicts[verdict]}
             </Button>
           );
         })}

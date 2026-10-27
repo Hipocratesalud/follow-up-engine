@@ -12,9 +12,7 @@ import { fieldError, InlineError } from '../../components/states.tsx';
 import { Badge, Button, Field, INPUT_CLASS, type Tone } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatDate } from '../../lib/format.ts';
-import { planItemCopy } from './copy.ts';
-
-const copy = planItemCopy();
+import { type Messages, useT } from '../../i18n/index.ts';
 
 const REVIEW_TONES: Record<PlanItemView['review'], Tone> = {
   pending: 'warning',
@@ -23,18 +21,20 @@ const REVIEW_TONES: Record<PlanItemView['review'], Tone> = {
   rejected: 'neutral',
 };
 
-function stateLabel(item: PlanItemView): string {
+function stateLabel(t: Messages, item: PlanItemView): string {
+  const by = item.confirmedBy;
   switch (item.review) {
     case 'pending':
-      return copy.states.pending;
+      return t.planReview.pending;
     case 'confirmed':
-      return item.correctionOf === undefined
-        ? copy.states.confirmed(item.confirmedBy)
-        : copy.states.correction(item.confirmedBy);
+      if (item.correctionOf === undefined) {
+        return by === undefined ? t.planReview.confirmed : t.planReview.confirmedBy(by);
+      }
+      return by === undefined ? t.planReview.correctedShort : t.planReview.correctedBy(by);
     case 'corrected':
-      return copy.states.corrected;
+      return t.planReview.superseded;
     case 'rejected':
-      return copy.states.rejected;
+      return t.planReview.rejected;
   }
 }
 
@@ -67,6 +67,7 @@ export function PlanItemReview({
   readonly item: PlanItemView;
   readonly dueAt: string;
 }): ReactNode {
+  const t = useT();
   const ids = useId();
   const mutation = usePlanItemReview(expectationId);
   const [dialog, setDialog] = useState<Dialogs | null>(null);
@@ -106,7 +107,7 @@ export function PlanItemReview({
       { command: 'confirm' },
       {
         onSuccess: () => {
-          setDone(copy.confirmed);
+          setDone(t.planReview.confirmedDone);
         },
       },
     );
@@ -126,7 +127,7 @@ export function PlanItemReview({
     if (mutation.isPending) return;
     // Validated on click, never by disabling the button.
     if (!isCalendarDay(dueDate)) {
-      setFormError(copy.invalidDate);
+      setFormError(t.planReview.invalidDate);
       return;
     }
     const correction: PlanItemCorrectionRequest = {
@@ -134,7 +135,7 @@ export function PlanItemReview({
       ...(dueDate === calendarDay(dueAt) ? {} : { dueDate }),
     };
     if (correction.kind === undefined && correction.dueDate === undefined) {
-      setFormError(copy.nothingChanged);
+      setFormError(t.planReview.nothingChanged);
       return;
     }
     mutation.mutate(
@@ -142,7 +143,7 @@ export function PlanItemReview({
       {
         onSuccess: () => {
           setDialog(null);
-          setDone(copy.correctedDone);
+          setDone(t.planReview.correctedDone);
         },
       },
     );
@@ -155,7 +156,7 @@ export function PlanItemReview({
       {
         onSuccess: () => {
           setDialog(null);
-          setDone(copy.rejectedDone);
+          setDone(t.planReview.rejectedDone);
         },
       },
     );
@@ -174,13 +175,13 @@ export function PlanItemReview({
         <p className="inline-flex flex-wrap items-center gap-1.5 text-xs text-muted">
           <Sparkles className="size-3.5 text-layer-plan" aria-hidden="true" />
           <span>
-            {copy.readingLabel}: <span className="font-medium text-fg">{item.kindLabel}</span> ·{' '}
+            {t.planReview.reading}: <span className="font-medium text-fg">{item.kindLabel}</span> ·{' '}
             {formatDate(dueAt)}
           </span>
         </p>
-        <Badge tone={REVIEW_TONES[item.review]}>{stateLabel(item)}</Badge>
+        <Badge tone={REVIEW_TONES[item.review]}>{stateLabel(t, item)}</Badge>
       </div>
-      {pending ? <p className="text-xs text-muted">{copy.question}</p> : null}
+      {pending ? <p className="text-xs text-muted">{t.planReview.question}</p> : null}
       {pending || item.actionable ? (
         <div className="flex flex-wrap gap-2">
           {pending ? (
@@ -191,7 +192,7 @@ export function PlanItemReview({
               loading={mutation.isPending && mutation.variables.command === 'confirm'}
               icon={<Check className="size-3.5" aria-hidden="true" />}
             >
-              {copy.confirm}
+              {t.planReview.confirm}
             </Button>
           ) : null}
           {item.actionable ? (
@@ -203,7 +204,7 @@ export function PlanItemReview({
                 onClick={openDialog}
                 icon={<PencilLine className="size-3.5" aria-hidden="true" />}
               >
-                {copy.correct}
+                {t.planReview.correct}
               </Button>
               <Button
                 size="sm"
@@ -212,7 +213,7 @@ export function PlanItemReview({
                 onClick={openDialog}
                 icon={<X className="size-3.5" aria-hidden="true" />}
               >
-                {copy.reject}
+                {t.planReview.reject}
               </Button>
             </>
           ) : null}
@@ -227,12 +228,12 @@ export function PlanItemReview({
         open={dialog !== null}
         onOpenChange={handleOpenChange}
         returnFocus={returnFocus}
-        title={dialog === 'reject' ? copy.rejectTitle : copy.correctTitle}
-        description={dialog === 'reject' ? copy.rejectIntro : copy.correctIntro}
+        title={dialog === 'reject' ? t.planReview.rejectTitle : t.planReview.correctTitle}
+        description={dialog === 'reject' ? t.planReview.rejectBody : t.planReview.correctBody}
         footer={
           <>
             <Button variant="secondary" onClick={handleClose}>
-              {copy.cancel}
+              {t.common.cancel}
             </Button>
             <Button
               variant={dialog === 'reject' ? 'danger' : 'primary'}
@@ -241,14 +242,14 @@ export function PlanItemReview({
               disabled={mutation.isPending}
               onClick={dialog === 'reject' ? handleReject : handleSaveCorrection}
             >
-              {dialog === 'reject' ? copy.rejectConfirm : copy.saveCorrection}
+              {dialog === 'reject' ? t.planReview.rejectConfirm : t.planReview.save}
             </Button>
           </>
         }
       >
         {dialog === 'correct' ? (
           <>
-            <Field label={copy.kindLabel} htmlFor={`${ids}-kind`}>
+            <Field label={t.planReview.kindLabel} htmlFor={`${ids}-kind`}>
               <select
                 id={`${ids}-kind`}
                 value={kind}
@@ -257,15 +258,15 @@ export function PlanItemReview({
               >
                 {PLAN_ITEM_KINDS.map((option) => (
                   <option key={option} value={option}>
-                    {copy.kinds[option]}
+                    {t.labels.planKinds[option]}
                   </option>
                 ))}
               </select>
             </Field>
             <Field
-              label={copy.dueDateLabel}
+              label={t.planReview.dueDateLabel}
               htmlFor={`${ids}-due`}
-              hint={copy.dueDateHint}
+              hint={t.planReview.dueDateHint}
               error={dateError}
             >
               <input

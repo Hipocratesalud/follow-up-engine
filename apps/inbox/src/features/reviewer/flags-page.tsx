@@ -5,13 +5,13 @@ import type { FindingFlagView } from '../../api/reviewer-contract.ts';
 import { useFindingFlagUpdate, useFindingFlags } from '../../api/queries.ts';
 import { ErrorState, fieldError, InlineError } from '../../components/states.tsx';
 import { Badge, Button, INPUT_CLASS, Skeleton } from '../../components/ui.tsx';
+import { useT } from '../../i18n/index.ts';
 import { formatDate, formatPercent } from '../../lib/format.ts';
-import { REVIEW_COPY } from './copy.ts';
 import { ShadowBanner } from './review-page.tsx';
 
-const COPY = REVIEW_COPY.flags;
-
 function ReviewStats({ flag }: { readonly flag: FindingFlagView }): ReactNode {
+  const t = useT();
+  const COPY = t.review.flags;
   const { review } = flag;
   return (
     <p className="text-xs text-muted">
@@ -20,7 +20,7 @@ function ReviewStats({ flag }: { readonly flag: FindingFlagView }): ReactNode {
         : COPY.reviewStats(
             review.reviewed,
             review.relevant,
-            review.precision === undefined ? '—' : formatPercent(review.precision),
+            review.precision === undefined ? t.common.noValue : formatPercent(review.precision),
           )}
     </p>
   );
@@ -35,6 +35,7 @@ function EnabledSwitch({
   readonly pending: boolean;
   readonly onToggle: () => void;
 }): ReactNode {
+  const COPY = useT().review.flags;
   const id = useId();
   function handleChange(): void {
     onToggle();
@@ -66,6 +67,7 @@ function EnabledSwitch({
 }
 
 function FlagRow({ flag }: { readonly flag: FindingFlagView }): ReactNode {
+  const COPY = useT().review.flags;
   const ids = useId();
   const mutation = useFindingFlagUpdate();
   const [promoting, setPromoting] = useState(false);
@@ -226,6 +228,7 @@ function FlagRow({ flag }: { readonly flag: FindingFlagView }): ReactNode {
 }
 
 function ReservedRow({ flag }: { readonly flag: FindingFlagView }): ReactNode {
+  const COPY = useT().review.flags;
   return (
     <li className="flex flex-col gap-1 rounded-xl border border-dashed border-border-strong p-4">
       <h2 className="flex items-center gap-2 text-[15px] font-semibold text-muted">
@@ -238,6 +241,7 @@ function ReservedRow({ flag }: { readonly flag: FindingFlagView }): ReactNode {
 }
 
 export function FlagsPage(): ReactNode {
+  const COPY = useT().review.flags;
   const flags = useFindingFlags();
   function handleRetry(): void {
     void flags.refetch();
@@ -246,7 +250,7 @@ export function FlagsPage(): ReactNode {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <Link
-        to="/revision-clinica"
+        to="/clinical-review"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-fg"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />

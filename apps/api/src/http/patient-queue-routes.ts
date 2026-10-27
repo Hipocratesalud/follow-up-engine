@@ -15,9 +15,9 @@ import {
 import type { EngineRuntime } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { humanName } from '../inbox/fhir-display.ts';
-import { patientQueueLabels } from '../inbox/patient-queue-labels.ts';
 import { patientQueueItem, patientQueueItems } from '../inbox/patient-queue-presenter.ts';
 import { InboxPresenter } from '../inbox/presenter.ts';
+import type { ApiMessages } from '../i18n/index.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, readJson, readQuery } from './errors.ts';
 import {
@@ -77,9 +77,10 @@ async function searchPatientIds(
 
 /** A command on a plan item, with the engine's refusals in the clinic's words. */
 async function reviewPlanItem(
+  t: ApiMessages,
   command: () => Promise<PlanItemReviewResult>,
 ): Promise<PlanItemReviewResult> {
-  const { messages } = patientQueueLabels();
+  const messages = t.patientQueue;
   try {
     return await command();
   } catch (error) {
@@ -121,8 +122,12 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
   const { engine } = runtime;
 
   /** Every case of the patient released to the inbox: active ones, then the latest closed ones. */
-  async function patientCard(clinicId: ClinicId, patientId: PatientId): Promise<PatientQueueItem> {
-    const presenter = await InboxPresenter.create(runtime, clinicId);
+  async function patientCard(
+    t: ApiMessages,
+    clinicId: ClinicId,
+    patientId: PatientId,
+  ): Promise<PatientQueueItem> {
+    const presenter = await InboxPresenter.create(runtime, clinicId, t);
     const base: CaseFilter = { patientIds: [patientId], releasedAsOf: presenter.now };
     const [active, closed] = await Promise.all([
       stores.cases.listPatients(clinicId, { ...base, statuses: ACTIVE_CASE_STATUSES, limit: 1 }),
@@ -139,7 +144,7 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
       ...[...closed.items].reverse().slice(0, CLOSED_CASES_SHOWN),
     ];
     if (cases.length === 0) {
-      throw new HttpError(404, 'not_found', patientQueueLabels().messages.noActiveCases);
+      throw new HttpError(404, 'not_found', t.patientQueue.noActiveCases);
     }
     return patientQueueItem(await presenter.caseViews(cases));
   }
@@ -147,7 +152,7 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
   app.get('/api/inbox/patients-queue', async (c) => {
     const query = readQuery(c, PatientQueueQuerySchema);
     const clinicId = c.var.clinicId;
-    const presenter = await InboxPresenter.create(runtime, clinicId);
+    const presenter = await InboxPresenter.create(runtime, clinicId, c.var.t);
     const statuses =
       query.view === 'active'
         ? ACTIVE_CASE_STATUSES
@@ -183,7 +188,7 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
   });
 
   app.get('/api/inbox/patients-queue/:patientId', async (c) =>
-    c.json(await patientCard(c.var.clinicId, toPatientId(c.req.param('patientId')))),
+    c.json(await patientCard(c.var.t, c.var.clinicId, toPatientId(c.req.param('patientId')))),
   );
 
   /**
@@ -203,21 +208,22 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
       )
       .catch((error: unknown) => {
         throw error instanceof NotFoundError
-          ? new HttpError(404, 'not_found', patientQueueLabels().messages.noActiveCases)
+          ? new HttpError(404, 'not_found', c.var.t.patientQueue.noActiveCases)
           : error;
       });
     c.var.log.info(
       { primaryCaseId: result.primaryCaseId, cases: result.cases.length },
       'patient contact requested',
     );
-    return c.json(await patientCard(c.var.clinicId, patientId));
+    return c.json(await patientCard(c.var.t, c.var.clinicId, patientId));
   });
 
   async function reviewResponse(
+    t: ApiMessages,
     clinicId: ClinicId,
     result: PlanItemReviewResult,
   ): Promise<PlanItemReviewResponse> {
-    const presenter = await InboxPresenter.create(runtime, clinicId);
+    const presenter = await InboxPresenter.create(runtime, clinicId, t);
     return {
       expectation: await presenter.reviewedExpectationView(result.expectation),
       ...(result.replacement === undefined
@@ -229,11 +235,11 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
 
   app.post('/api/inbox/plan-items/:expectationId/confirm', async (c) => {
     const id = c.req.param('expectationId') as ExpectationId;
-    const result = await reviewPlanItem(() =>
+    const result = await reviewPlanItem(c.var.t, () =>
       engine.planItems.confirm(c.var.clinicId, id, userId(c)),
     );
     c.var.log.info({ expectationId: id }, 'plan item confirmed');
-    return c.json(await reviewResponse(c.var.clinicId, result));
+    return c.json(await reviewResponse(c.var.t, c.var.clinicId, result));
   });
 
   app.post('/api/inbox/plan-items/:expectationId/correct', async (c) => {
@@ -243,25 +249,25 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
       ...(body.dueDate === undefined ? {} : { dueAt: new Date(`${body.dueDate}T12:00:00.000Z`) }),
       ...(body.kind === undefined ? {} : { kind: body.kind }),
     };
-    const result = await reviewPlanItem(() =>
+    const result = await reviewPlanItem(c.var.t, () =>
       engine.planItems.correct(c.var.clinicId, id, correction, userId(c)),
     );
     c.var.log.info(
       { expectationId: id, replacementId: result.replacement?.id },
       'plan item corrected',
     );
-    return c.json(await reviewResponse(c.var.clinicId, result));
+    return c.json(await reviewResponse(c.var.t, c.var.clinicId, result));
   });
 
   app.post('/api/inbox/plan-items/:expectationId/reject', async (c) => {
     const id = c.req.param('expectationId') as ExpectationId;
-    const result = await reviewPlanItem(() =>
+    const result = await reviewPlanItem(c.var.t, () =>
       engine.planItems.reject(c.var.clinicId, id, userId(c)),
     );
     c.var.log.info(
       { expectationId: id, casesResolved: result.casesResolved.length },
       'plan item rejected',
     );
-    return c.json(await reviewResponse(c.var.clinicId, result));
+    return c.json(await reviewResponse(c.var.t, c.var.clinicId, result));
   });
 }

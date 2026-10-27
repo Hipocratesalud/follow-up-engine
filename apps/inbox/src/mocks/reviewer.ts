@@ -14,7 +14,8 @@ import {
   type ReviewMetrics,
   type ReviewRunView,
 } from '../api/reviewer-contract.ts';
-import { CATEGORY_LABELS } from '../features/reviewer/copy.ts';
+import { LOCALES, type Locale, messagesFor } from '../i18n/index.ts';
+import { mockApiCopy } from './api-copy.ts';
 
 /**
  * The clinical reviewer side of the mock API: a handful of synthetic
@@ -43,21 +44,8 @@ export { ReviewerMockError };
 
 const DAY_MS = 86_400_000;
 
-const DESCRIPTIONS: Record<FindingCategory, string> = {
-  pre_visit_question: 'Algo que vale la pena preguntarle al paciente según su condición.',
-  lab_trend: 'Valores que empeoran de a poco a lo largo de varios resultados.',
-  vital_trend: 'Presión arterial o peso que cambian de forma sostenida entre consultas.',
-  abnormal_result_no_followup:
-    'Un valor claramente fuera de rango sin consulta, cita ni comentario posterior.',
-  drug_interaction: 'Combinaciones de fármacos activos con un riesgo conocido.',
-  drug_condition_conflict: 'Un fármaco que no conviene con un diagnóstico o con la función renal.',
-  unaddressed_symptom: 'Un síntoma que se repite en varias notas sin estudio ni derivación.',
-  missing_screening: 'Chequeos que corresponden por condición, edad o sexo (fondo de ojo, pies).',
-  record_quality:
-    'Datos incompletos o inconsistentes: alergias sin registrar, diagnóstico sin codificar.',
-  utilization_change: 'Consultas mucho más frecuentes que el patrón habitual del paciente.',
-  similar_patients: 'Reservado: requiere datos de varias clínicas y validación clínica.',
-};
+/** Stands for the seeded validator of the live category, named in the request's language. */
+const SEEDED_VALIDATOR = 'seeded-validator';
 
 const HEADACHE_NOTES = [
   'Paciente de 45 años que consulta por control de presión arterial. Refiere cefalea frontal vespertina de dos semanas. Alergias: niega. TA 124/80. Plan: paracetamol 500 mg si dolor, control en 3 meses.',
@@ -89,8 +77,15 @@ function run(id: string, startedAt: Date, trace: ReviewRunView['trace']): Review
   };
 }
 
-function seedFindings(now: Date): { findings: FindingDetail[] } {
+/**
+ * The synthetic findings, written in `locale`. The engine writes a finding
+ * in the clinic's language; the mock keeps both so either UI language reads
+ * whole. Quotes and note text are clinical content: never translated.
+ */
+function seedFindings(now: Date, locale: Locale): { findings: FindingDetail[] } {
   const at = (days: number): string => new Date(now.getTime() - days * DAY_MS).toISOString();
+  const tr = (en: string, es: string): string => (locale === 'en' ? en : es);
+  const CATEGORY_LABELS = messagesFor(locale).review.categories;
   const reviewedRun = run('run-mock-1', new Date(now.getTime() - DAY_MS), [
     {
       index: 1,
@@ -139,38 +134,44 @@ function seedFindings(now: Date): { findings: FindingDetail[] } {
         category: 'lab_trend',
         categoryLabel: CATEGORY_LABELS.lab_trend,
         severity: 'high',
-        summary:
+        summary: tr(
+          'Creatinine rising over the last 3 results (1.1 → 1.4 → 1.75 mg/dL) with no comment in the notes',
           'Creatinina en ascenso en los últimos 3 resultados (1.1 → 1.4 → 1.75 mg/dL) sin comentario en las notas',
-        rationale:
+        ),
+        rationale: tr(
+          '3 results in a row get worse (+59% in a year), the last one out of range, and no later note mentions it.',
           '3 resultados seguidos empeoran (+59 % en un año), el último fuera de rango, y ninguna nota posterior lo menciona.',
-        suggestion:
+        ),
+        suggestion: tr(
+          'Consider assessing renal function and reviewing the drugs that depend on it (metformin, NSAIDs).',
           'Considera evaluar la función renal y revisar los fármacos que dependen de ella (metformina, AINE).',
+        ),
         citations: [
           {
             docId: 'Observation/mock-cr-2',
             kind: 'result',
             quote: 'Creatinina: 1.1 mg/dL',
             date: at(360),
-            title: 'Creatinina',
+            title: tr('Creatinine', 'Creatinina'),
           },
           {
             docId: 'Observation/mock-cr-3',
             kind: 'result',
             quote: 'Creatinina: 1.4 mg/dL',
             date: at(180),
-            title: 'Creatinina',
+            title: tr('Creatinine', 'Creatinina'),
           },
           {
             docId: 'Observation/mock-cr-4',
             kind: 'result',
             quote: 'Creatinina: 1.75 mg/dL',
             date: at(40),
-            title: 'Creatinina',
+            title: tr('Creatinine', 'Creatinina'),
           },
         ],
         trend: {
           test: 'creatinine',
-          label: 'Creatinina',
+          label: tr('Creatinine', 'Creatinina'),
           unit: 'mg/dL',
           low: 0.5,
           high: 1.2,
@@ -190,11 +191,18 @@ function seedFindings(now: Date): { findings: FindingDetail[] } {
         category: 'drug_interaction',
         categoryLabel: CATEGORY_LABELS.drug_interaction,
         severity: 'high',
-        summary: 'Combinación de riesgo: Ibuprofeno + Losartán + Hidroclorotiazida',
-        rationale:
+        summary: tr(
+          'Risky combination: Ibuprofen + Losartan + Hydrochlorothiazide',
+          'Combinación de riesgo: Ibuprofeno + Losartán + Hidroclorotiazida',
+        ),
+        rationale: tr(
+          'An NSAID with an ACE inhibitor/ARB and a diuretic ("triple whammy"): risk of acute kidney injury.',
           'AINE junto con IECA/ARA-II y diurético ("triple whammy"): riesgo de lesión renal aguda.',
-        suggestion:
+        ),
+        suggestion: tr(
+          'Consider reviewing whether the NSAID is needed and checking renal function (creatinine, potassium).',
           'Considera revisar la necesidad del AINE y controlar la función renal (creatinina, potasio).',
+        ),
         citations: [
           {
             docId: 'MedicationRequest/mock-mr-1',
@@ -227,11 +235,18 @@ function seedFindings(now: Date): { findings: FindingDetail[] } {
         category: 'unaddressed_symptom',
         categoryLabel: CATEGORY_LABELS.unaddressed_symptom,
         severity: 'medium',
-        summary: 'Cefalea mencionada en 3 consultas sin estudio',
-        rationale:
+        summary: tr(
+          'Headache mentioned in 3 visits with no workup',
+          'Cefalea mencionada en 3 consultas sin estudio',
+        ),
+        rationale: tr(
+          'It shows up in 3 notes from the last year and none records a test or a referral for that symptom.',
           'Aparece en 3 notas del último año y ninguna registra un estudio o una derivación por ese síntoma.',
-        suggestion:
+        ),
+        suggestion: tr(
+          'Consider a focused headache assessment (red flags, blood pressure).',
           'Considera una evaluación dirigida de la cefalea (signos de alarma, presión arterial).',
+        ),
         citations: HEADACHE_NOTES.map((text, index) => {
           const quote =
             [
@@ -244,7 +259,7 @@ function seedFindings(now: Date): { findings: FindingDetail[] } {
             kind: 'note' as const,
             quote,
             date: at(300 - index * 110),
-            title: 'Nota de medicina interna',
+            title: tr('Internal medicine note', 'Nota de medicina interna'),
             specialty: 'internal_medicine',
             text,
           };
@@ -264,12 +279,21 @@ function seedFindings(now: Date): { findings: FindingDetail[] } {
             kind: 'expectation',
             id: 'exp-mock-1',
             code: 'protocol_diabetes_fundus',
-            label: 'Fondo de ojo anual pendiente',
+            label: tr('Yearly eye fundus exam due', 'Fondo de ojo anual pendiente'),
           },
         ],
-        summary: 'Paciente con diabetes sin fondo de ojo registrado en el último año',
-        rationale: 'No hay nota, orden ni resultado de fondo de ojo en los últimos 12 meses.',
-        suggestion: 'Considera solicitar fondo de ojo (cribado anual de retinopatía diabética).',
+        summary: tr(
+          'Patient with diabetes and no eye fundus exam on record in the last year',
+          'Paciente con diabetes sin fondo de ojo registrado en el último año',
+        ),
+        rationale: tr(
+          'No note, order or result of a fundus exam in the last 12 months.',
+          'No hay nota, orden ni resultado de fondo de ojo en los últimos 12 meses.',
+        ),
+        suggestion: tr(
+          'Consider ordering a fundus exam (yearly diabetic retinopathy screening).',
+          'Considera solicitar fondo de ojo (cribado anual de retinopatía diabética).',
+        ),
         citations: [
           {
             docId: 'Condition/mock-cond-1',
@@ -289,10 +313,18 @@ function seedFindings(now: Date): { findings: FindingDetail[] } {
         category: 'pre_visit_question',
         categoryLabel: CATEGORY_LABELS.pre_visit_question,
         severity: 'low',
-        summary: 'Pregunta si ha notado hormigueo, ardor o adormecimiento en los pies.',
-        rationale:
+        summary: tr(
+          'Ask whether they have noticed tingling, burning or numbness in their feet.',
+          'Pregunta si ha notado hormigueo, ardor o adormecimiento en los pies.',
+        ),
+        rationale: tr(
+          'Patient with diabetes and no recent record of peripheral neuropathy symptoms in the notes.',
           'Paciente con diabetes sin registro reciente de síntomas de neuropatía periférica en las notas.',
-        suggestion: 'Inclúyela en la próxima consulta; no requiere acción antes.',
+        ),
+        suggestion: tr(
+          'Include it at the next visit; no action needed before.',
+          'Inclúyela en la próxima consulta; no requiere acción antes.',
+        ),
         citations: [
           {
             docId: 'Condition/mock-cond-1',
@@ -323,36 +355,53 @@ function view(finding: FindingDetail): FindingView {
   return copy;
 }
 
-export function createReviewerMock(now: () => Date): ReviewerMock {
-  const { findings } = seedFindings(now());
+export function createReviewerMock(now: () => Date, locale: () => Locale): ReviewerMock {
+  // The same findings in each locale: a review updates every copy.
+  const byLocale = Object.fromEntries(
+    LOCALES.map((code) => [code, seedFindings(now(), code).findings]),
+  ) as Record<Locale, FindingDetail[]>;
   const flags = new Map<FindingCategory, FindingFlagView>();
   for (const category of FINDING_CATEGORIES) {
     const implemented = category !== 'similar_patients';
     flags.set(category, {
       category,
-      label: CATEGORY_LABELS[category],
-      description: DESCRIPTIONS[category],
+      label: '',
+      description: '',
       implemented,
       enabled: implemented,
       mode: category === 'pre_visit_question' ? 'live' : 'shadow',
       ...(category === 'pre_visit_question'
-        ? {
-            validatedBy: 'Dra. Castellanos (coordinación médica)',
-            validatedAt: now().toISOString(),
-          }
+        ? { validatedBy: SEEDED_VALIDATOR, validatedAt: now().toISOString() }
         : {}),
       review: { reviewed: 0, relevant: 0, alreadyKnown: 0, notRelevant: 0 },
     });
   }
 
+  /** A flag with its label, description and seeded validator in the request's language. */
+  function flagView(flag: FindingFlagView): FindingFlagView {
+    const copy = mockApiCopy(locale());
+    return {
+      ...flag,
+      label: messagesFor(locale()).review.categories[flag.category],
+      description: copy.reviewer.descriptions[flag.category],
+      ...(flag.validatedBy === SEEDED_VALIDATOR ? { validatedBy: copy.reviewer.validatedBy } : {}),
+    };
+  }
+
+  function current(): FindingDetail[] {
+    return byLocale[locale()];
+  }
+
   function find(id: string): FindingDetail {
-    const finding = findings.find((item) => item.id === id);
-    if (!finding) throw new ReviewerMockError(404, 'not_found', 'No encontramos ese hallazgo.');
+    const finding = current().find((item) => item.id === id);
+    if (!finding) {
+      throw new ReviewerMockError(404, 'not_found', mockApiCopy(locale()).reviewer.findingNotFound);
+    }
     return finding;
   }
 
   function flagReview(category: FindingCategory): FindingFlagView['review'] {
-    const reviewed = findings.filter(
+    const reviewed = current().filter(
       (item) => item.category === category && item.mode === 'shadow' && item.review,
     );
     const relevant = reviewed.filter((item) => item.review?.verdict === 'relevant').length;
@@ -368,7 +417,7 @@ export function createReviewerMock(now: () => Date): ReviewerMock {
   return {
     listFindings(query) {
       const mode = query.mode ?? 'shadow';
-      const inMode = findings.filter(
+      const inMode = current().filter(
         (item) => item.mode === mode && (!query.patientId || item.patient.id === query.patientId),
       );
       const categories = query.category?.split(',').filter(Boolean);
@@ -399,21 +448,27 @@ export function createReviewerMock(now: () => Date): ReviewerMock {
     review(id, request) {
       const finding = find(id);
       if (request.verdict === 'not_relevant' && !request.reason?.trim()) {
-        throw new ReviewerMockError(422, 'invalid_request', 'Cuéntanos por qué no es relevante.', [
-          { path: 'reason', message: 'Escribe el motivo para marcarlo como no relevante.' },
+        const copy = mockApiCopy(locale()).reviewer;
+        throw new ReviewerMockError(422, 'invalid_request', copy.reasonRequired, [
+          { path: 'reason', message: copy.reasonRequiredField },
         ]);
       }
       const reviewedAt = now().toISOString();
-      finding.status = request.verdict;
-      finding.review = {
-        verdict: request.verdict,
-        ...(request.reason ? { reason: request.reason } : {}),
-        reviewedBy: 'inbox-user',
-        reviewedAt,
-      };
+      for (const code of LOCALES) {
+        const copy = byLocale[code].find((item) => item.id === id);
+        if (!copy) continue;
+        copy.status = request.verdict;
+        copy.review = {
+          verdict: request.verdict,
+          ...(request.reason ? { reason: request.reason } : {}),
+          reviewedBy: 'inbox-user',
+          reviewedAt,
+        };
+      }
       return view(finding);
     },
     metrics() {
+      const findings = current();
       const reviewed = findings.filter((item) => item.review).length;
       const relevant = findings.filter((item) => item.review?.verdict === 'relevant').length;
       return {
@@ -436,31 +491,25 @@ export function createReviewerMock(now: () => Date): ReviewerMock {
     },
     listFlags() {
       return {
-        items: [...flags.values()].map((flag) => ({ ...flag, review: flagReview(flag.category) })),
+        items: [...flags.values()].map((flag) => ({
+          ...flagView(flag),
+          review: flagReview(flag.category),
+        })),
       };
     },
     updateFlag(update) {
       const current = flags.get(update.category);
       if (!current?.implemented) {
-        throw new ReviewerMockError(
-          422,
-          'invalid_request',
-          'Esta categoría está reservada y no se puede activar.',
-          [{ path: 'enabled', message: 'La categoría "Pacientes similares" todavía no existe.' }],
-        );
+        const copy = mockApiCopy(locale()).reviewer;
+        throw new ReviewerMockError(422, 'invalid_request', copy.reservedCategory, [
+          { path: 'enabled', message: copy.reservedCategoryField },
+        ]);
       }
       if (update.mode === 'live' && !update.validatedBy && !current.validatedBy) {
-        throw new ReviewerMockError(
-          422,
-          'invalid_request',
-          'Para pasar a "en vivo" hace falta la firma de quien validó la categoría.',
-          [
-            {
-              path: 'validatedBy',
-              message: 'Indica quién del equipo clínico validó esta categoría.',
-            },
-          ],
-        );
+        const copy = mockApiCopy(locale()).reviewer;
+        throw new ReviewerMockError(422, 'invalid_request', copy.signOffRequired, [
+          { path: 'validatedBy', message: copy.signOffRequiredField },
+        ]);
       }
       const next: FindingFlagView = {
         ...current,
@@ -473,7 +522,7 @@ export function createReviewerMock(now: () => Date): ReviewerMock {
         updatedAt: now().toISOString(),
       };
       flags.set(update.category, next);
-      return { ...next, review: flagReview(update.category) };
+      return { ...flagView(next), review: flagReview(update.category) };
     },
   };
 }

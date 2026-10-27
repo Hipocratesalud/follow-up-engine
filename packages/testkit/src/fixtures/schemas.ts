@@ -22,6 +22,15 @@ export const GoldNoteSchema = z.strictObject({
   id: z.string().regex(/^gold-\d{3}$/),
   specialty: z.enum(SPECIALTIES),
   authoredAt: IsoDate,
+  /**
+   * BCP-47 language the note is written in. Absent: Spanish (`es`), the
+   * language of the original gold set. Never sent to the extractor by the
+   * eval: the extractor detects it, and the eval scores the detection.
+   */
+  language: z
+    .string()
+    .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/)
+    .optional(),
   text: z.string().min(1),
   expected: z.strictObject({
     hasPlan: z.boolean(),

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "status": "draft",
   "description": "Hypothyroidism on levothyroxine: TSH 6 to 8 weeks after levothyroxine is started or its dose changes (a TSH sooner than 6 weeks does not count), then yearly (the guideline's 6 to 12 months, flagged at 12); a control visit yearly. Fills only what the doctor's plan did not cover.",
-  "reason": { "code": "protocol_hypothyroidism", "label": "Control de hipotiroidismo" },
+  "reason": { "code": "protocol_hypothyroidism", "label": "Hypothyroidism follow-up" },
   "sources": [
     {
       "title": "Guidelines for the Treatment of Hypothyroidism",
@@ -36,7 +36,7 @@
       "key": "tsh",
       "kind": "lab",
       "code": { "system": "http://loinc.org", "code": "3016-3", "display": "Thyrotropin" },
-      "reason": { "code": "protocol_hypothyroidism_tsh", "label": "TSH de control pendiente" },
+      "reason": { "code": "protocol_hypothyroidism_tsh", "label": "Follow-up TSH due" },
       "schedule": {
         "type": "treatment_change",
         "medications": { "atc": ["H03AA"] },
@@ -63,7 +63,7 @@
       "priority": 30,
       "suggestedAction": {
         "code": "order_lab",
-        "label": "Indicar TSH",
+        "label": "Order TSH",
         "patientContactPurpose": "complete_pending_test"
       }
     },
@@ -72,7 +72,7 @@
       "kind": "follow_up_visit",
       "reason": {
         "code": "protocol_hypothyroidism_visit",
-        "label": "Sin control de tiroides en 12 meses"
+        "label": "No thyroid visit in 12 months"
       },
       "everyDays": 365,
       "fulfilledBy": [
@@ -82,7 +82,7 @@
       "priority": 20,
       "suggestedAction": {
         "code": "schedule_follow_up",
-        "label": "Agendar control de tiroides",
+        "label": "Schedule a thyroid visit",
         "patientContactPurpose": "schedule_follow_up"
       }
     }

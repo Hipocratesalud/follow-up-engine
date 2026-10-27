@@ -1,5 +1,6 @@
 import { type CaseEvent, caseId, clinicId } from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
+import { API_LOCALES, messagesFor } from '../i18n/index.ts';
 import { closedReasonLabel, timelineLabel } from './labels.ts';
 
 /** Every `Expectation.closedReason` the engine writes when it closes on its own. */
@@ -32,23 +33,40 @@ function resolvedBySystem(closedReasons: readonly string[]): CaseEvent {
   } as CaseEvent;
 }
 
+const EN = messagesFor('en');
+const ES = messagesFor('es');
+
 describe('closed reason labels', () => {
-  it.each(ENGINE_CLOSED_REASONS)('%s has Spanish copy', (reason) => {
-    const label = closedReasonLabel(reason);
-    expect(label).toBeDefined();
-    expect(label).not.toMatch(/_/);
-  });
+  it.each(API_LOCALES.flatMap((locale) => ENGINE_CLOSED_REASONS.map((r) => [locale, r] as const)))(
+    '%s: %s has copy',
+    (locale, reason) => {
+      const label = closedReasonLabel(messagesFor(locale), reason);
+      expect(label).toBeDefined();
+      expect(label).not.toMatch(/_/);
+    },
+  );
 
   it('names why the engine closed a case on its own', () => {
+    const discharged = resolvedBySystem(['patient_discharged', 'patient_discharged']);
     expect(
       timelineLabel(
-        resolvedBySystem(['patient_discharged', 'patient_discharged']),
+        EN,
+        discharged,
+        () => '',
+        () => '',
+      ),
+    ).toBe('Closed: no longer needed (the doctor discharged the patient)');
+    expect(
+      timelineLabel(
+        ES,
+        discharged,
         () => '',
         () => '',
       ),
     ).toBe('Cerrado: ya no hace falta (el médico dio de alta al paciente)');
     expect(
       timelineLabel(
+        ES,
         resolvedBySystem(['source_withdrawn']),
         () => '',
         () => '',
@@ -59,10 +77,11 @@ describe('closed reason labels', () => {
   it('keeps the bare resolution when the reason has no copy', () => {
     expect(
       timelineLabel(
+        EN,
         resolvedBySystem(['something_new']),
         () => '',
         () => '',
       ),
-    ).toBe('Cerrado: ya no hace falta');
+    ).toBe('Closed: no longer needed');
   });
 });

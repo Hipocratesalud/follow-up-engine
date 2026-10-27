@@ -117,6 +117,8 @@ export function contactRequestToFhir(
   return {
     resourceType: 'CommunicationRequest',
     id: toFhirId(request.id),
+    // The patient's preferred language: the host writes the message in it.
+    ...(request.language === undefined ? {} : { language: request.language }),
     extension,
     basedOn: [taskReference(request.caseId)],
     status: contactRequestStatus(request, context.communications ?? [], context.caseStatus),

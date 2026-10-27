@@ -6,7 +6,7 @@ import {
   REJECTED_BY_CLINICIAN,
 } from '@follow-up-engine/core';
 import type { PlanItemView } from '../http/plan-item-schemas.ts';
-import { type ApiLabelLocale, patientQueueLabels } from './patient-queue-labels.ts';
+import type { ApiMessages } from '../i18n/index.ts';
 
 /**
  * How a doctor's-plan expectation shows its AI reading and the clinician's
@@ -14,9 +14,9 @@ import { type ApiLabelLocale, patientQueueLabels } from './patient-queue-labels.
  * host user id into the name the team knows.
  */
 export async function planItemView(
+  t: ApiMessages,
   expectation: Expectation,
   userName: (id: string) => Promise<string>,
-  locale?: ApiLabelLocale,
 ): Promise<PlanItemView | undefined> {
   if (expectation.layer !== 'doctor_plan') {
     return undefined;
@@ -32,7 +32,7 @@ export async function planItemView(
           : 'confirmed';
   return {
     kind,
-    kindLabel: patientQueueLabels(locale).planItemKinds[kind],
+    kindLabel: t.planItemKinds[kind],
     review,
     ...(expectation.confirmedBy === undefined
       ? {}

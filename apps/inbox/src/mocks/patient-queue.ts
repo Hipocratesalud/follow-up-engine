@@ -9,7 +9,6 @@ import {
   type PlanItemView,
   type PlanItemViewKind,
 } from '../api/plan-item-contract.ts';
-import { planItemCopy } from '../features/plan-items/copy.ts';
 
 /*
  * The mock API's patient queue and plan item review (HIP-141), built the way
@@ -55,7 +54,10 @@ export interface MockPlanItemFields {
 }
 
 /** The review view of a mock doctor's-plan expectation; `undefined` for other layers. */
-export function mockPlanItemView(expectation: MockPlanItemFields): PlanItemView | undefined {
+export function mockPlanItemView(
+  expectation: MockPlanItemFields,
+  kindLabel: (kind: PlanItemViewKind) => string,
+): PlanItemView | undefined {
   if (expectation.layer !== 'doctor_plan') return undefined;
   const kind = expectation.kind ?? mockPlanKind(expectation.ruleId);
   const closedByClinician =
@@ -63,7 +65,7 @@ export function mockPlanItemView(expectation: MockPlanItemFields): PlanItemView 
     expectation.closedReason === REJECTED_BY_CLINICIAN;
   return {
     kind,
-    kindLabel: planItemCopy().kinds[kind],
+    kindLabel: kindLabel(kind),
     review:
       expectation.closedReason === CORRECTED_BY_CLINICIAN
         ? 'corrected'

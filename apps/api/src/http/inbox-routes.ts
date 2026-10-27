@@ -21,7 +21,8 @@ import type { Context } from 'hono';
 import { z } from 'zod';
 import { conditionView, InboxPresenter } from '../inbox/presenter.ts';
 import { humanName, patientSummary } from '../inbox/fhir-display.ts';
-import { CONTACT_LOOP_MESSAGES, invalidTransitionMessage } from '../inbox/labels.ts';
+import type { ApiMessages } from '../i18n/index.ts';
+import { invalidTransitionMessage } from '../inbox/labels.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
 import { followUpUser } from './security.ts';
@@ -55,12 +56,13 @@ function actor(c: Context<AppEnv>): CaseEventActor & { readonly id: string } {
 
 async function requireCase(
   runtime: EngineRuntime,
+  t: ApiMessages,
   clinicId: ClinicId,
   id: string,
 ): Promise<FollowUpCase> {
   const found = await runtime.storage.stores.cases.get(clinicId, id as CaseId);
   if (found === undefined) {
-    throw notFound('No encontramos ese caso.');
+    throw notFound(t, t.errors.caseNotFound);
   }
   return found;
 }
@@ -71,6 +73,7 @@ async function requireCase(
  */
 async function requestContact(
   runtime: EngineRuntime,
+  t: ApiMessages,
   clinicId: ClinicId,
   current: FollowUpCase,
   user: CaseEventActor,
@@ -80,7 +83,7 @@ async function requestContact(
     throw new HttpError(
       409,
       'invalid_transition',
-      invalidTransitionMessage(current.status, 'notified', 'pedir contacto para'),
+      invalidTransitionMessage(t, current.status, 'notified', t.transitions.requestContactVerb),
     );
   }
   const caseId = current.id;
@@ -98,6 +101,7 @@ async function requestContact(
  */
 async function suppressibleRuleIds(
   runtime: EngineRuntime,
+  t: ApiMessages,
   clinicId: ClinicId,
   followUpCase: FollowUpCase,
 ): Promise<string[]> {
@@ -112,7 +116,7 @@ async function suppressibleRuleIds(
     }
   }
   if (ruleIds.size === 0) {
-    const message = CONTACT_LOOP_MESSAGES.nothingToSuppress;
+    const message = t.contactLoop.nothingToSuppress;
     throw new HttpError(422, 'invalid_request', message, [{ path: 'suppress', message }]);
   }
   return [...ruleIds];
@@ -252,7 +256,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
   app.get('/api/inbox/cases', async (c) => {
     const query = readQuery(c, CaseListQuerySchema);
     const clinicId = c.var.clinicId;
-    const presenter = await InboxPresenter.create(runtime, clinicId);
+    const presenter = await InboxPresenter.create(runtime, clinicId, c.var.t);
     const statuses =
       query.view === 'active'
         ? ACTIVE_CASE_STATUSES
@@ -295,7 +299,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
   /** Who owns the cases of the inbox, by id, for the "Responsable" filter. */
   app.get('/api/inbox/owners', async (c) => {
     const clinicId = c.var.clinicId;
-    const presenter = await InboxPresenter.create(runtime, clinicId);
+    const presenter = await InboxPresenter.create(runtime, clinicId, c.var.t);
     const released = await listAll(runtime, clinicId, { releasedAsOf: presenter.now });
     const active = new Map<string, number>();
     for (const item of released) {
@@ -311,20 +315,20 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
         activeCases,
       })),
     );
-    items.sort((left, right) => left.name.localeCompare(right.name, 'es'));
+    items.sort((left, right) => left.name.localeCompare(right.name, c.var.t.intlLocale));
     return c.json({ items });
   });
 
   app.get('/api/inbox/cases/:id', async (c) => {
-    const followUpCase = await requireCase(runtime, c.var.clinicId, c.req.param('id'));
-    const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
+    const followUpCase = await requireCase(runtime, c.var.t, c.var.clinicId, c.req.param('id'));
+    const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
     return c.json(await presenter.caseDetail(followUpCase));
   });
 
   app.post('/api/inbox/cases/:id/actions', async (c) => {
     const body = await readJson(c, CaseActionRequestSchema);
     const caseId = c.req.param('id') as CaseId;
-    const current = await requireCase(runtime, c.var.clinicId, caseId);
+    const current = await requireCase(runtime, c.var.t, c.var.clinicId, caseId);
     const now = runtime.clock.now();
     const user = actor(c);
     const note = body.note?.trim() === '' ? undefined : body.note?.trim();
@@ -337,14 +341,16 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     // internal note on its case event.
     let updated: FollowUpCase;
     if (body.action === 'notify') {
-      updated = await requestContact(runtime, c.var.clinicId, current, user, note);
+      updated = await requestContact(runtime, c.var.t, c.var.clinicId, current, user, note);
     } else if (body.action === 'dismiss') {
       const reason = body.reason ?? 'other';
       const result = await engine.cases.dismiss(c.var.clinicId, caseId, user, {
         reason,
         ...withNote,
         ...(body.suppress === true
-          ? { suppressRuleIds: await suppressibleRuleIds(runtime, c.var.clinicId, current) }
+          ? {
+              suppressRuleIds: await suppressibleRuleIds(runtime, c.var.t, c.var.clinicId, current),
+            }
           : {}),
       });
       updated = result.followUpCase;
@@ -367,7 +373,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
       );
     }
     c.var.log.info({ caseId, action: body.action, status: updated.status }, 'case action');
-    const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
+    const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
     return c.json(await presenter.caseDetail(updated));
   });
 
@@ -375,7 +381,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
   app.post('/api/inbox/cases/:id/call-outcome', async (c) => {
     const body = await readJson(c, CallOutcomeRequestSchema);
     const caseId = c.req.param('id') as CaseId;
-    await requireCase(runtime, c.var.clinicId, caseId);
+    await requireCase(runtime, c.var.t, c.var.clinicId, caseId);
     const result = await engine.cases.recordCallOutcome(
       c.var.clinicId,
       caseId,
@@ -389,8 +395,10 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
       { caseId, outcome: body.outcome, reactions: result.reactions },
       'call outcome recorded',
     );
-    const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
-    return c.json(await presenter.caseDetail(await requireCase(runtime, c.var.clinicId, caseId)));
+    const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
+    return c.json(
+      await presenter.caseDetail(await requireCase(runtime, c.var.t, c.var.clinicId, caseId)),
+    );
   });
 
   /** "Volver a activar": the rule applies to the patient again. */
@@ -398,14 +406,14 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     const id = c.req.param('id') as SuppressionId;
     const existing = await stores.suppressions.get(c.var.clinicId, id);
     if (existing === undefined) {
-      throw notFound(CONTACT_LOOP_MESSAGES.suppressionNotFound);
+      throw notFound(c.var.t, c.var.t.contactLoop.suppressionNotFound);
     }
     if (existing.revokedAt !== undefined) {
-      throw new HttpError(409, 'conflict', CONTACT_LOOP_MESSAGES.suppressionAlreadyActive);
+      throw new HttpError(409, 'conflict', c.var.t.contactLoop.suppressionAlreadyActive);
     }
     const revoked = await engine.suppressions.reactivate(c.var.clinicId, id, actor(c));
     c.var.log.info({ suppressionId: id, ruleId: revoked.ruleId }, 'suppression reactivated');
-    const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
+    const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
     return c.json(await presenter.suppressionView(revoked));
   });
 
@@ -437,21 +445,23 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     // reads why in Spanish, not as a schema path.
     const body = await readJson(c, FeedbackRequestSchema).catch((error: unknown) => {
       if (error instanceof z.ZodError && error.issues.some((issue) => issue.path[0] === 'reason')) {
-        const message = 'Elige un motivo cuando el caso no fue útil: así podemos mejorar la regla.';
+        const message = c.var.t.errors.feedbackReasonRequired;
         throw new HttpError(422, 'invalid_request', message, [{ path: 'reason', message }]);
       }
       throw error;
     });
     const caseId = c.req.param('id') as CaseId;
-    await requireCase(runtime, c.var.clinicId, caseId);
+    await requireCase(runtime, c.var.t, c.var.clinicId, caseId);
     await engine.cases.recordFeedback(c.var.clinicId, caseId, {
       useful: body.useful,
       ...(body.reason === undefined ? {} : { reason: body.reason }),
       ...(body.comment === undefined || body.comment === '' ? {} : { comment: body.comment }),
       authorId: actor(c).id,
     });
-    const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
-    return c.json(await presenter.caseDetail(await requireCase(runtime, c.var.clinicId, caseId)));
+    const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
+    return c.json(
+      await presenter.caseDetail(await requireCase(runtime, c.var.t, c.var.clinicId, caseId)),
+    );
   });
 
   app.get('/api/inbox/patients', async (c) => {
@@ -463,7 +473,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     });
     return c.json({
       items: records.map((record) => {
-        const summary = patientSummary(record.id, record.resource, now);
+        const summary = patientSummary(c.var.t, record.id, record.resource, now);
         return {
           id: summary.id,
           name: summary.name,
@@ -475,10 +485,10 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
   });
 
   app.get('/api/inbox/patients/:id', async (c) => {
-    const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
+    const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
     const detail = await presenter.patientDetail(toPatientId(c.req.param('id')));
     if (detail === undefined) {
-      throw notFound('No encontramos ese paciente.');
+      throw notFound(c.var.t, c.var.t.errors.patientNotFound);
     }
     return c.json(detail);
   });
@@ -487,7 +497,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     app.post(`/api/inbox/conditions/:id/${command}`, async (c) => {
       const parsed = parseConditionId(c.req.param('id'));
       if (parsed === undefined) {
-        throw new HttpError(400, 'invalid_identifier', 'Identificador de condición no válido.');
+        throw new HttpError(400, 'invalid_identifier', c.var.t.errors.invalidConditionId);
       }
       const user = actor(c).id;
       const condition =
@@ -496,7 +506,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
           : (await engine.conditions.reject(c.var.clinicId, parsed.patientId, parsed.code, user))
               .condition;
       c.var.log.info({ command, code: parsed.code.code }, 'condition reviewed');
-      return c.json(conditionView(condition));
+      return c.json(conditionView(c.var.t, condition));
     });
   }
 
@@ -511,7 +521,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     });
     const start = offsetCursor(query.cursor);
     const slice = pending.slice(start, start + query.limit);
-    const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
+    const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
     const next = start + query.limit;
     return c.json({
       items: await presenter.caseViews(slice),
@@ -523,7 +533,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
   app.get('/api/inbox/stats', async (c) => {
     const clinicId = c.var.clinicId;
     const now = runtime.clock.now();
-    const presenter = await InboxPresenter.create(runtime, clinicId);
+    const presenter = await InboxPresenter.create(runtime, clinicId, c.var.t);
     const [active, feedback, usage, notes] = await Promise.all([
       listAll(runtime, clinicId, { statuses: ACTIVE_CASE_STATUSES, releasedAsOf: now }),
       stores.feedback.listSince(clinicId, new Date(0), 100_000),

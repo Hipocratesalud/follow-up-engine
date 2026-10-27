@@ -87,7 +87,7 @@ async function read(text: string, authoredAt = AUTHORED) {
 
 describe('model schema and prompt', () => {
   it('asks for the pregnancy in a new, strict-compatible prompt version', () => {
-    expect(NOTE_EXTRACTION_PROMPT_VERSION).toBe('note-extraction@4');
+    expect(NOTE_EXTRACTION_PROMPT_VERSION).toBe('note-extraction@5');
     expect(Object.keys(ModelExtractionSchema.shape)).toContain('pregnancy');
     expect(isStrictCompatible(toJsonSchema(ModelExtractionSchema))).toBe(true);
     const schema = JSON.stringify(toJsonSchema(ModelExtractionSchema));

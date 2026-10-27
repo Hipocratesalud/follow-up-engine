@@ -18,11 +18,9 @@ import { EmptyState, ErrorState, fieldError, InlineError } from '../../component
 import { Button, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { INPUT_LIMITS } from '../../lib/limits.ts';
+import { useT } from '../../i18n/index.ts';
 import { CaseRowSkeleton } from '../inbox/case-row.tsx';
-import { patientQueueCopy } from './copy.ts';
 import { isNewPatient, PatientRow } from './patient-row.tsx';
-
-const copy = patientQueueCopy();
 
 const VIEWS: readonly CaseListView[] = ['active', 'closed', 'all'];
 
@@ -37,13 +35,14 @@ function ViewFilter({
   readonly value: CaseListView;
   readonly onChange: (view: CaseListView) => void;
 }): ReactNode {
+  const t = useT();
   function handleClick(event: MouseEvent<HTMLButtonElement>): void {
     onChange(parseView(event.currentTarget.value));
   }
   return (
     <div
       role="group"
-      aria-label={copy.list.viewsLabel}
+      aria-label={t.inbox.viewGroup}
       className="inline-flex rounded-lg bg-surface-2 p-0.5"
     >
       {VIEWS.map((view) => (
@@ -58,7 +57,7 @@ function ViewFilter({
             value === view ? 'bg-surface text-fg shadow-card' : 'text-muted hover:text-fg',
           )}
         >
-          {copy.list.views[view]}
+          {t.inbox.views[view]}
         </button>
       ))}
     </div>
@@ -119,14 +118,15 @@ function holdsCase(item: PatientQueueItem, caseId: string | undefined): boolean 
  * count second, and infinite scroll by patient.
  */
 export function PatientQueueList(): ReactNode {
+  const t = useT();
   const { caseId } = useParams();
   const now = useNow();
   const [searchParams, setSearchParams] = useSearchParams();
-  const view = parseView(searchParams.get('vista'));
-  const assignee = searchParams.get('responsable') ?? '';
+  const view = parseView(searchParams.get('view'));
+  const assignee = searchParams.get('assignee') ?? '';
   // A shared link may carry a longer search than the box accepts.
   const [searchText, setSearchText] = useState(
-    (searchParams.get('buscar') ?? '').slice(0, INPUT_LIMITS.search),
+    (searchParams.get('q') ?? '').slice(0, INPUT_LIMITS.search),
   );
   const search = useDebounced(searchText.trim(), SEARCH_DEBOUNCE_MS);
   const queue = usePatientQueuePages({
@@ -153,15 +153,15 @@ export function PatientQueueList(): ReactNode {
   );
 
   useEffect(() => {
-    updateParam('buscar', search, '');
+    updateParam('q', search, '');
   }, [search, updateParam]);
 
   function handleViewChange(next: CaseListView): void {
-    updateParam('vista', next, 'active');
+    updateParam('view', next, 'active');
   }
 
   function handleAssigneeChange(event: ChangeEvent<HTMLSelectElement>): void {
-    updateParam('responsable', event.target.value, '');
+    updateParam('assignee', event.target.value, '');
   }
 
   function handleSearchChange(event: ChangeEvent<HTMLInputElement>): void {
@@ -189,17 +189,17 @@ export function PatientQueueList(): ReactNode {
   const totalCases = queue.data?.pages[0]?.totalCases;
   const ownerName = owners.data?.items.find((owner) => owner.id === assignee)?.name;
   const emptyCopy = search
-    ? copy.list.noMatch(search)
+    ? t.inbox.noMatches(search)
     : assignee
-      ? copy.list.noOwner(ownerName)
-      : copy.list.empty[view].body;
+      ? t.inbox.noOwnerCases(ownerName ?? t.inbox.thisOwner)
+      : t.inbox.empty[view].body;
 
   return (
     <section aria-labelledby="case-list-title" className="flex min-w-0 flex-col gap-3">
       <div className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-border bg-surface p-3 shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="case-list-title" className="text-sm font-semibold text-fg">
-            {copy.list.title}
+            {t.inbox.patients}
             {total === undefined ? null : (
               <span className="ml-2 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted tabular-nums">
                 {total}
@@ -210,7 +210,7 @@ export function PatientQueueList(): ReactNode {
         </div>
         <div className="relative">
           <label className="sr-only" htmlFor="case-search">
-            {copy.list.searchLabel}
+            {t.inbox.searchLabel}
           </label>
           <Search
             aria-hidden="true"
@@ -225,14 +225,14 @@ export function PatientQueueList(): ReactNode {
             aria-invalid={searchError ? true : undefined}
             aria-describedby={searchError ? 'case-search-error' : undefined}
             autoComplete="off"
-            placeholder={copy.list.searchPlaceholder}
+            placeholder={t.inbox.searchPlaceholder}
             className={cx(INPUT_CLASS, 'h-9 py-0 pr-9 pl-9')}
           />
           {searchText ? (
             <button
               type="button"
               onClick={handleClearSearch}
-              aria-label={copy.list.clearSearch}
+              aria-label={t.inbox.clearSearch}
               className="absolute top-1/2 right-1.5 grid size-7 -translate-y-1/2 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg"
             >
               <X className="size-4" aria-hidden="true" />
@@ -245,7 +245,7 @@ export function PatientQueueList(): ReactNode {
           </p>
         ) : null}
         <label className="sr-only" htmlFor="assignee-filter">
-          {copy.list.ownerLabel}
+          {t.inbox.ownerLabel}
         </label>
         <select
           id="assignee-filter"
@@ -253,7 +253,7 @@ export function PatientQueueList(): ReactNode {
           onChange={handleAssigneeChange}
           className={cx(INPUT_CLASS, 'h-9 py-0')}
         >
-          <option value="">{copy.list.allOwners}</option>
+          <option value="">{t.inbox.allOwners}</option>
           {(owners.data?.items ?? []).map((owner) => (
             <option key={owner.id} value={owner.id}>
               {owner.name}
@@ -263,17 +263,17 @@ export function PatientQueueList(): ReactNode {
       </div>
 
       {queue.isPending ? (
-        <div aria-busy="true" aria-label={copy.list.loading} className="flex flex-col gap-1">
+        <div aria-busy="true" aria-label={t.inbox.loading} className="flex flex-col gap-1">
           {[0, 1, 2, 3, 4].map((key) => (
             <CaseRowSkeleton key={key} />
           ))}
         </div>
       ) : searchError && items.length === 0 ? null : queue.isError && items.length === 0 ? (
-        <ErrorState error={queue.error} onRetry={handleRetry} title={copy.list.loadError} />
+        <ErrorState error={queue.error} onRetry={handleRetry} title={t.inbox.error} />
       ) : items.length === 0 ? (
         <EmptyState
           icon={<CheckCheck className="size-5" aria-hidden="true" />}
-          title={search ? copy.list.noResults : copy.list.empty[view].title}
+          title={search ? t.inbox.noResults : t.inbox.empty[view].title}
         >
           {emptyCopy}
         </EmptyState>
@@ -286,7 +286,7 @@ export function PatientQueueList(): ReactNode {
               <li key={item.patient.id} className="min-w-0">
                 <PatientRow
                   item={item}
-                  to={`/bandeja/${item.nextAction.caseId}${suffix}`}
+                  to={`/inbox/${item.nextAction.caseId}${suffix}`}
                   selected={holdsCase(item, caseId)}
                   isNew={isNewPatient(item, now)}
                 />
@@ -297,7 +297,7 @@ export function PatientQueueList(): ReactNode {
             <p aria-live="polite">
               {total === undefined || totalCases === undefined
                 ? null
-                : copy.list.showing(items.length, total, totalCases)}
+                : t.inbox.showingPatients(items.length, total, totalCases)}
             </p>
             {queue.hasNextPage ? (
               <Button
@@ -306,7 +306,7 @@ export function PatientQueueList(): ReactNode {
                 loading={queue.isFetchingNextPage}
                 disabled={queue.isFetchingNextPage}
               >
-                {copy.list.loadMore}
+                {t.inbox.loadMore}
               </Button>
             ) : null}
             {queue.isFetchNextPageError ? <InlineError error={queue.error} /> : null}

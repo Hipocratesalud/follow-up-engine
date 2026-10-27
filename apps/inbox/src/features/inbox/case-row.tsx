@@ -14,9 +14,10 @@ import {
 import { Badge } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { useNow } from '../../api/queries.ts';
+import { type Messages, messages, useT } from '../../i18n/index.ts';
 import { daysAgo, formatOverdue, formatShortDate, initials } from '../../lib/format.ts';
 
-/** A live case opened this recently (API clock) is marked "Nuevo". */
+/** A live case opened this recently (API clock) is marked "New". */
 export const NEW_CASE_DAYS = 7;
 
 /**
@@ -34,26 +35,27 @@ const AVATAR_TONES: Record<CaseView['priorityLabel'], string> = {
   baja: 'bg-surface-2 text-muted',
 };
 
-export function patientMeta(patient: CaseView['patient']): string {
+/** "58 y · F": age and sex, as short as a list row needs. */
+export function patientMeta(patient: CaseView['patient'], t: Messages = messages()): string {
   const parts: string[] = [];
-  if (patient.age !== undefined) parts.push(`${String(patient.age)} años`);
-  if (patient.sex === 'female') parts.push('F');
-  if (patient.sex === 'male') parts.push('M');
-  return parts.join(' · ');
+  if (patient.age !== undefined) parts.push(t.caseRow.age(patient.age));
+  if (patient.sex === 'female') parts.push(t.labels.sexShort.female);
+  if (patient.sex === 'male') parts.push(t.labels.sexShort.male);
+  return parts.join(t.common.separator);
 }
 
 /**
- * When a held case enters the inbox: "Entra a la bandeja mañana (6 ene)",
- * "… el 9 ene". A held case with no release day is too old to notify: it
+ * When a held case enters the inbox: "Enters the inbox tomorrow (Jan 6)",
+ * "… on Jan 9". A held case with no release day is too old to notify: it
  * waits here until the team picks it.
  */
-export function releaseLabel(releaseAt: string | undefined, now: Date): string {
-  if (releaseAt === undefined) return 'No entra sola a la bandeja (pendiente muy antiguo)';
+export function releaseLabel(t: Messages, releaseAt: string | undefined, now: Date): string {
+  if (releaseAt === undefined) return t.caseRow.releaseNever;
   const days = daysAgo(now.toISOString(), new Date(releaseAt));
   const date = formatShortDate(releaseAt);
-  if (days <= 0) return `Entra a la bandeja hoy (${date})`;
-  if (days === 1) return `Entra a la bandeja mañana (${date})`;
-  return `Entra a la bandeja el ${date}`;
+  if (days <= 0) return t.caseRow.releaseToday(date);
+  if (days === 1) return t.caseRow.releaseTomorrow(date);
+  return t.caseRow.releaseOn(date);
 }
 
 function uniqueLayers(item: CaseView): Layer[] {
@@ -78,6 +80,7 @@ export function CaseRow({
   readonly showRelease?: boolean;
   readonly isNew?: boolean;
 }): ReactNode {
+  const t = useT();
   const now = useNow();
   const top = item.reasons[0];
   const extra = item.reasons.length - 1;
@@ -109,10 +112,10 @@ export function CaseRow({
             <span className="block truncate text-sm font-semibold text-fg">
               {item.patient.name}
             </span>
-            <span className="block text-xs text-muted">{patientMeta(item.patient)}</span>
+            <span className="block text-xs text-muted">{patientMeta(item.patient, t)}</span>
           </span>
           <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-            {isNew ? <Badge tone="primary">Nuevo</Badge> : null}
+            {isNew ? <Badge tone="primary">{t.common.newBadge}</Badge> : null}
             <PriorityBadge label={item.priorityLabel} priority={item.priority} />
           </span>
         </span>
@@ -121,7 +124,7 @@ export function CaseRow({
             {top.label}
             {extra > 0 ? (
               <span className="ml-1.5 text-xs font-medium whitespace-nowrap text-muted">
-                +{extra} {extra === 1 ? 'motivo' : 'motivos'}
+                {t.caseRow.moreReasons(extra)}
               </span>
             ) : null}
           </span>
@@ -145,7 +148,7 @@ export function CaseRow({
           {showRelease ? (
             <span className="inline-flex items-center gap-1 font-medium text-info">
               <History className="size-3" aria-hidden="true" />
-              {releaseLabel(item.releaseAt, now)}
+              {releaseLabel(t, item.releaseAt, now)}
             </span>
           ) : null}
           {item.assignee ? (

@@ -31,15 +31,15 @@ import { ErrorState, InlineError, NotFoundState } from '../../components/states.
 import { Badge, Button, Card, SectionTitle, Skeleton, type Tone } from '../../components/ui.tsx';
 import { PreVisitQuestions } from '../reviewer/pre-visit-questions.tsx';
 import { cx } from '../../lib/cx.ts';
-import { SUPPRESSIONS_COPY } from '../../lib/copy.ts';
+import { useT } from '../../i18n/index.ts';
 import { ContactFlagNotice } from '../case/contact-panel.tsx';
-import { formatDate, formatPercent, formatRelative, initials } from '../../lib/format.ts';
 import {
-  CONDITION_SOURCE_LABELS,
-  CONDITION_STATUS_LABELS,
-  EXPECTATION_STATUS_LABELS,
-  SEX_LABELS,
-} from '../../lib/labels.ts';
+  formatDate,
+  formatLanguage,
+  formatPercent,
+  formatRelative,
+  initials,
+} from '../../lib/format.ts';
 
 const CONDITION_TONES: Record<ConditionView['status'], Tone> = {
   confirmed: 'success',
@@ -49,13 +49,8 @@ const CONDITION_TONES: Record<ConditionView['status'], Tone> = {
   entered_in_error: 'neutral',
 };
 
-/** Who ruled the condition out: the clinic's own system (its FHIR record) or the team here. */
-const REJECTED_BY_LABELS: Record<NonNullable<ConditionView['rejectedBy']>, string> = {
-  host: 'Descartada por el sistema del consultorio',
-  clinician: 'Descartada por el equipo',
-};
-
 function ConfidenceBar({ value }: { readonly value: number }): ReactNode {
+  const t = useT();
   return (
     <span className="inline-flex items-center gap-2 text-xs text-muted">
       <span
@@ -64,14 +59,14 @@ function ConfidenceBar({ value }: { readonly value: number }): ReactNode {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(value * 100)}
-        aria-label="Confianza"
+        aria-label={t.patient.confidence}
       >
         <span
           className="block h-full rounded-full bg-primary"
           style={{ width: `${String(value * 100)}%` }}
         />
       </span>
-      {formatPercent(value)} de confianza
+      {t.patient.confidenceValue(formatPercent(value))}
     </span>
   );
 }
@@ -83,6 +78,7 @@ function ConditionItem({
   readonly condition: ConditionView;
   readonly patientId: string;
 }): ReactNode {
+  const t = useT();
   const review = useConditionReview(patientId);
   const reader = useNoteReader();
   const [decision, setDecision] = useState<'confirm' | 'reject'>();
@@ -106,38 +102,35 @@ function ConditionItem({
         <div className="min-w-0">
           <p className="text-[15px] font-semibold text-fg">{condition.display}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
-            <code className="font-mono">CIE-10 {condition.code}</code>
+            <code className="font-mono">{t.patient.icd10(condition.code)}</code>
             <span>·</span>
             <span className="inline-flex items-center gap-1">
               {fromAi ? <Sparkles className="size-3 text-layer-plan" aria-hidden="true" /> : null}
               {fromAi && reader.simulated
-                ? 'Leída de la nota (lectura simulada)'
-                : (CONDITION_SOURCE_LABELS[condition.sourceType] ?? condition.sourceType)}
+                ? t.patient.readFromNoteSimulated
+                : (t.labels.conditionSources[condition.sourceType] ?? condition.sourceType)}
             </span>
           </p>
         </div>
         <div className="flex items-center gap-2">
           {condition.status === 'rejected' ? null : <ConfidenceBar value={condition.confidence} />}
           <Badge tone={CONDITION_TONES[condition.status]}>
-            {CONDITION_STATUS_LABELS[condition.status]}
+            {t.labels.conditionStatuses[condition.status]}
           </Badge>
         </div>
       </div>
       {condition.status === 'rejected' && condition.rejectedBy ? (
-        <p className="text-xs text-muted">{REJECTED_BY_LABELS[condition.rejectedBy]}</p>
+        <p className="text-xs text-muted">{t.patient.rejectedBy[condition.rejectedBy]}</p>
       ) : null}
       {condition.evidence ? (
         <p className="text-sm">
-          <span className="mr-1.5 text-xs font-medium text-muted">Evidencia:</span>
+          <span className="mr-1.5 text-xs font-medium text-muted">{t.patient.evidence}</span>
           <InlineQuote quote={condition.evidence.quote} />
         </p>
       ) : null}
       {probable ? (
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-muted">
-            ¿Es correcta? Si la confirmas, sus controles de protocolo quedan firmes; si la
-            descartas, se cancelan.
-          </p>
+          <p className="text-xs text-muted">{t.patient.reviewPrompt}</p>
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
@@ -147,7 +140,7 @@ function ConditionItem({
               loading={review.isPending && decision === 'confirm'}
               icon={<Check className="size-3.5" aria-hidden="true" />}
             >
-              Confirmar
+              {t.patient.confirm}
             </Button>
             <Button
               size="sm"
@@ -157,7 +150,7 @@ function ConditionItem({
               loading={review.isPending && decision === 'reject'}
               icon={<X className="size-3.5" aria-hidden="true" />}
             >
-              Descartar
+              {t.patient.reject}
             </Button>
           </div>
           <InlineError error={review.error} />
@@ -180,6 +173,7 @@ function ExpectationItem({
 }: {
   readonly expectation: PatientExpectationView;
 }): ReactNode {
+  const t = useT();
   return (
     <li className="flex flex-col gap-2 border-b border-border py-3 last:border-b-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -188,16 +182,16 @@ function ExpectationItem({
           <span className="text-sm font-medium text-fg">{expectation.label}</span>
         </div>
         <Badge tone={EXPECTATION_TONES[expectation.status]}>
-          {EXPECTATION_STATUS_LABELS[expectation.status]}
+          {t.labels.expectationStatuses[expectation.status]}
         </Badge>
       </div>
       <ReasonProtocol
         protocol={expectation.protocol}
         withDraftBadge={expectation.status === 'open' || expectation.status === 'expired'}
       />
-      <p className="text-xs text-muted">Fecha límite: {formatDate(expectation.dueAt)}</p>
+      <p className="text-xs text-muted">{t.patient.deadline(formatDate(expectation.dueAt))}</p>
       {expectation.closedReason ? (
-        <p className="text-xs text-muted">Motivo del cierre: {expectation.closedReason}</p>
+        <p className="text-xs text-muted">{t.patient.closedReason(expectation.closedReason)}</p>
       ) : null}
       {expectation.evidence ? <InlineQuote quote={expectation.evidence.quote} /> : null}
       {expectation.planItem ? (
@@ -218,6 +212,7 @@ function SuppressionItem({
   readonly suppression: SuppressionView;
   readonly patientId: string;
 }): ReactNode {
+  const t = useT();
   const reactivate = useReactivateSuppression(patientId);
   const [done, setDone] = useState(false);
 
@@ -236,24 +231,25 @@ function SuppressionItem({
         <div className="min-w-0">
           <p className="text-sm font-medium text-fg">{suppression.label}</p>
           <p className="mt-0.5 text-xs text-muted">
-            {suppression.dismissReasonLabel} ·{' '}
+            {suppression.dismissReasonLabel}
+            {t.common.separator}
             {suppression.createdBy ? `${suppression.createdBy}, ` : ''}
             {formatDate(suppression.createdAt)}
             {suppression.caseId ? (
               <>
-                {' · '}
+                {t.common.separator}
                 <Link
-                  to={`/casos/${suppression.caseId}`}
+                  to={`/cases/${suppression.caseId}`}
                   className="font-medium text-primary underline underline-offset-2"
                 >
-                  {SUPPRESSIONS_COPY.caseLink}
+                  {t.suppressions.caseLink}
                 </Link>
               </>
             ) : null}
           </p>
           {!suppression.active && suppression.revokedAt ? (
             <p className="mt-0.5 text-xs text-muted">
-              {SUPPRESSIONS_COPY.reactivatedBy(
+              {t.suppressions.reactivatedBy(
                 suppression.revokedBy,
                 formatDate(suppression.revokedAt),
               )}
@@ -267,10 +263,10 @@ function SuppressionItem({
             onClick={handleReactivate}
             icon={<BellRing className="size-3.5" aria-hidden="true" />}
           >
-            {SUPPRESSIONS_COPY.reactivate}
+            {t.suppressions.reactivate}
           </Button>
         ) : (
-          <Badge tone="neutral">{SUPPRESSIONS_COPY.reactivatedBadge}</Badge>
+          <Badge tone="neutral">{t.suppressions.reactivatedBadge}</Badge>
         )}
       </div>
       {suppression.note ? (
@@ -278,7 +274,7 @@ function SuppressionItem({
       ) : null}
       <InlineError error={reactivate.error} />
       <p aria-live="polite" className={cx('text-xs text-success', !done && 'sr-only')}>
-        {done ? SUPPRESSIONS_COPY.reactivatedDone : ''}
+        {done ? t.suppressions.reactivatedDone : ''}
       </p>
     </li>
   );
@@ -291,18 +287,19 @@ function SuppressionsSection({
   readonly suppressions: readonly SuppressionView[];
   readonly patientId: string;
 }): ReactNode {
+  const t = useT();
   const active = suppressions.filter((suppression) => suppression.active);
   const history = suppressions.filter((suppression) => !suppression.active);
   return (
     <Card className="flex flex-col p-5" aria-labelledby="suppressions-title">
       <SectionTitle id="suppressions-title" count={active.length}>
-        {SUPPRESSIONS_COPY.title}
+        {t.suppressions.title}
       </SectionTitle>
-      <p className="mt-1 text-xs text-muted">{SUPPRESSIONS_COPY.intro}</p>
+      <p className="mt-1 text-xs text-muted">{t.suppressions.intro}</p>
       {active.length === 0 ? (
         <p className="mt-3 flex items-center gap-1.5 text-sm text-muted">
           <ShieldOff className="size-4" aria-hidden="true" />
-          {SUPPRESSIONS_COPY.empty}
+          {t.suppressions.empty}
         </p>
       ) : (
         <ul className="mt-1">
@@ -314,7 +311,7 @@ function SuppressionsSection({
       {history.length > 0 ? (
         <details className="mt-2 rounded-lg border border-border">
           <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-muted hover:text-fg">
-            {SUPPRESSIONS_COPY.history(history.length)}
+            {t.suppressions.history(history.length)}
           </summary>
           <ul className="px-3">
             {history.map((suppression) => (
@@ -332,6 +329,7 @@ function SuppressionsSection({
 }
 
 function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode {
+  const t = useT();
   const now = useNow();
   const { patient } = detail;
   const open = detail.expectations.filter(
@@ -354,11 +352,11 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
       <Link
-        to="/bandeja"
+        to="/inbox"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-fg"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Bandeja
+        {t.patient.back}
       </Link>
 
       <Card className="flex flex-wrap items-center gap-4 p-5">
@@ -372,14 +370,19 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
           <h1 className="text-xl font-semibold tracking-tight text-fg">{patient.name}</h1>
           <p className="text-sm text-muted">
             {[
-              patient.age === undefined ? undefined : `${String(patient.age)} años`,
+              patient.age === undefined ? undefined : t.patient.age(patient.age),
               patient.sex === undefined || patient.sex === 'unknown'
                 ? undefined
-                : SEX_LABELS[patient.sex],
+                : t.labels.sexes[patient.sex],
             ]
               .filter((part) => part !== undefined)
-              .join(' · ') || 'Sin edad ni sexo registrados'}
+              .join(t.common.separator) || t.patient.noDemographics}
           </p>
+          {detail.language ? (
+            <p className="mt-0.5 text-xs text-muted">
+              {t.common.preferredLanguage(formatLanguage(detail.language))}
+            </p>
+          ) : null}
         </div>
         {contact ? (
           <div className="flex flex-col items-start gap-1 text-xs sm:items-end">
@@ -388,20 +391,20 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
                 tone="warning"
                 icon={<MessageSquareOff className="size-3" aria-hidden="true" />}
               >
-                No acepta mensajes
+                {t.patient.noMessages}
               </Badge>
             ) : (
               <Badge
                 tone="success"
                 icon={<MessageSquareText className="size-3" aria-hidden="true" />}
               >
-                Contacto permitido
+                {t.patient.contactAllowed}
               </Badge>
             )}
             <span className="text-muted">
               {contact.lastContactAt
-                ? `Último contacto ${formatRelative(contact.lastContactAt, now)}`
-                : 'Sin contactos registrados'}
+                ? t.patient.lastContact(formatRelative(contact.lastContactAt, now))
+                : t.patient.noContacts}
             </span>
           </div>
         ) : null}
@@ -413,17 +416,15 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
 
       <section aria-labelledby="conditions-title" className="flex flex-col gap-3">
         <SectionTitle id="conditions-title" count={current.length}>
-          Condiciones
+          {t.patient.conditions}
         </SectionTitle>
         {probable > 0 ? (
           <p className="text-sm text-muted">
-            {probable === 1
-              ? 'Hay una condición probable leída de las notas. Revísala: mientras no la confirmes, nadie contacta al paciente por ella.'
-              : `Hay ${String(probable)} condiciones probables leídas de las notas. Revísalas: mientras no las confirmes, nadie contacta al paciente por ellas.`}
+            {probable === 1 ? t.patient.probableOne : t.patient.probableMany(probable)}
           </p>
         ) : null}
         {current.length === 0 ? (
-          <Card className="p-4 text-sm text-muted">Sin condiciones registradas.</Card>
+          <Card className="p-4 text-sm text-muted">{t.patient.noConditions}</Card>
         ) : (
           <ul className="flex flex-col gap-2.5">
             {current.map((condition) => (
@@ -434,7 +435,7 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
         {rejected.length > 0 ? (
           <details className="group rounded-xl border border-border bg-surface">
             <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-muted hover:text-fg">
-              Descartadas ({rejected.length})
+              {t.patient.ruledOut(rejected.length)}
             </summary>
             <ul className="flex flex-col gap-2.5 px-4 pb-4">
               {rejected.map((condition) => (
@@ -448,10 +449,10 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="flex flex-col p-5" aria-labelledby="open-expectations-title">
           <SectionTitle id="open-expectations-title" count={open.length}>
-            Expectativas abiertas
+            {t.patient.openExpectations}
           </SectionTitle>
           {open.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">Nada pendiente.</p>
+            <p className="mt-3 text-sm text-muted">{t.patient.nothingPending}</p>
           ) : (
             <ul className="mt-1">
               {open.map((expectation) => (
@@ -462,10 +463,10 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
         </Card>
         <Card className="flex flex-col p-5" aria-labelledby="closed-expectations-title">
           <SectionTitle id="closed-expectations-title" count={closed.length}>
-            Expectativas cerradas
+            {t.patient.closedExpectations}
           </SectionTitle>
           {closed.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">Aún no hay expectativas cerradas.</p>
+            <p className="mt-3 text-sm text-muted">{t.patient.noClosed}</p>
           ) : (
             <ul className="mt-1">
               {closed.map((expectation) => (
@@ -480,12 +481,10 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
 
       <section aria-labelledby="quality-title" className="flex flex-col gap-3">
         <SectionTitle id="quality-title" count={detail.qualityFindings.length}>
-          Calidad de la documentación
+          {t.patient.quality}
         </SectionTitle>
         {detail.qualityFindings.length === 0 ? (
-          <Card className="p-4 text-sm text-muted">
-            Las notas de este paciente tienen plan de seguimiento.
-          </Card>
+          <Card className="p-4 text-sm text-muted">{t.patient.qualityOk}</Card>
         ) : (
           <ul className="flex flex-col gap-2.5">
             {detail.qualityFindings.map((finding) => (
@@ -497,19 +496,9 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
                 <div>
                   <p className="text-sm font-semibold text-fg">{finding.label}</p>
                   <p className="mt-0.5 text-sm text-muted">
-                    {finding.code === 'note_truncated' ? (
-                      <>
-                        La nota del {formatDate(finding.at)} es más larga de lo que se lee: se
-                        leyeron su inicio y su final, no la parte del medio. Revisa la nota por si
-                        el plan pide algo más.
-                      </>
-                    ) : (
-                      <>
-                        La nota del {formatDate(finding.at)} no indica cuándo debe volver el
-                        paciente. Sin plan, el seguimiento depende de la frecuencia habitual de la
-                        especialidad.
-                      </>
-                    )}
+                    {finding.code === 'note_truncated'
+                      ? t.patient.truncated(formatDate(finding.at))
+                      : t.patient.noPlan(formatDate(finding.at))}
                   </p>
                 </div>
               </li>
@@ -522,6 +511,7 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
 }
 
 export function PatientPage(): ReactNode {
+  const t = useT();
   const { patientId = '' } = useParams();
   const query = usePatient(patientId);
   function handleRetry(): void {
@@ -531,7 +521,7 @@ export function PatientPage(): ReactNode {
     return (
       <div
         aria-busy="true"
-        aria-label="Cargando paciente"
+        aria-label={t.patient.loading}
         className="mx-auto flex max-w-4xl flex-col gap-4"
       >
         <Skeleton className="h-24 rounded-xl" />
@@ -546,8 +536,8 @@ export function PatientPage(): ReactNode {
         <ErrorState
           error={query.error}
           onRetry={handleRetry}
-          title="No pudimos cargar el paciente"
-          notFoundTitle="No encontramos ese paciente"
+          title={t.patient.error}
+          notFoundTitle={t.patient.notFound}
           notFoundHeading="h1"
         />
       </div>
@@ -557,10 +547,11 @@ export function PatientPage(): ReactNode {
 }
 
 export function NotFoundPage(): ReactNode {
+  const t = useT();
   return (
     <div className="mx-auto max-w-4xl">
-      <NotFoundState title="Esta página no existe" heading="h1">
-        Revisa la dirección o vuelve a la bandeja.
+      <NotFoundState title={t.errors.pageNotFound} heading="h1">
+        {t.errors.pageNotFoundBody}
       </NotFoundState>
     </div>
   );

@@ -9,11 +9,15 @@ import type {
   ProtocolStatus,
   Sex,
 } from '../api/contract.ts';
+import type { Locale } from '../i18n/index.ts';
+import type { Localized } from './localized.ts';
 
 /**
  * Synthetic clinic used by the mock API. Every name, note and result here is
  * invented. Offsets are in days relative to the mock clock's start, so the
- * data always looks fresh.
+ * data always looks fresh. Labels the API would write (reasons, sources,
+ * suggested actions, protocol names) come in English and Spanish; notes,
+ * quotes, names and diagnoses are clinical content and stay as written.
  */
 
 export type Specialty = 'diabetology' | 'internal_medicine' | 'psychology' | 'gynecology';
@@ -21,10 +25,10 @@ export type Specialty = 'diabetology' | 'internal_medicine' | 'psychology' | 'gy
 export interface SeedReason {
   readonly ruleId: string;
   readonly layer: Layer;
-  readonly label: string;
+  readonly label: Localized;
   /** Days past due at the mock start. Negative means it is still in the future. */
   readonly overdueDays: number;
-  readonly source: { readonly resourceType: string; readonly display: string };
+  readonly source: { readonly resourceType: string; readonly display: Localized };
   /** Verbatim substring of the seed note, for doctor's-plan reasons. */
   readonly quote?: string;
 }
@@ -90,7 +94,7 @@ export interface SeedPatient {
   readonly case?: SeedCase;
   /** Already-closed expectations, for the patient's history. */
   readonly history?: readonly {
-    readonly label: string;
+    readonly label: Localized;
     readonly layer: Layer;
     readonly ruleId: string;
     readonly daysAgo: number;
@@ -109,25 +113,43 @@ export const CLINIC_NAME = 'Centro Médico Los Álamos';
 const MOCK_PROTOCOLS: Readonly<
   Record<
     string,
-    { readonly name: string; readonly version: string; readonly status: ProtocolStatus }
+    { readonly name: Localized; readonly version: string; readonly status: ProtocolStatus }
   >
 > = {
-  diabetes: { name: 'Control de diabetes', version: '1.2.1', status: 'draft' },
-  hypertension: { name: 'Control de hipertensión', version: '1.1.1', status: 'draft' },
-  pregnancy: { name: 'Embarazo y puerperio', version: '0.1.0', status: 'draft' },
+  diabetes: {
+    name: { en: 'Diabetes follow-up', es: 'Control de diabetes' },
+    version: '1.2.1',
+    status: 'draft',
+  },
+  hypertension: {
+    name: { en: 'Hypertension follow-up', es: 'Control de hipertensión' },
+    version: '1.1.1',
+    status: 'draft',
+  },
+  pregnancy: {
+    name: { en: 'Pregnancy and postpartum', es: 'Embarazo y puerperio' },
+    version: '0.1.0',
+    status: 'draft',
+  },
   womens_screening: {
-    name: 'Tamizaje preventivo de la mujer',
+    name: { en: 'Women’s preventive screening', es: 'Tamizaje preventivo de la mujer' },
     version: '1.0.0',
     status: 'validated',
   },
-  fibroid: { name: 'Seguimiento de miomatosis uterina', version: '1.0.0', status: 'validated' },
+  fibroid: {
+    name: { en: 'Uterine fibroid follow-up', es: 'Seguimiento de miomatosis uterina' },
+    version: '1.0.0',
+    status: 'validated',
+  },
 };
 
-/** The protocol behind a `protocol_<id>_<item>` rule id, as the API names it. */
-export function mockProtocolRef(ruleId: string): ProtocolRef | undefined {
+/** The protocol behind a `protocol_<id>_<item>` rule id, as the API names it in `locale`. */
+export function mockProtocolRef(ruleId: string, locale: Locale): ProtocolRef | undefined {
   const id = Object.keys(MOCK_PROTOCOLS).find((key) => ruleId.startsWith(`protocol_${key}_`));
   const protocol = id === undefined ? undefined : MOCK_PROTOCOLS[id];
-  return id === undefined || protocol === undefined ? undefined : { id, ...protocol };
+  return id === undefined || protocol === undefined
+    ? undefined
+    : { id, name: protocol.name[locale], version: protocol.version, status: protocol.status };
 }
 
 export const ASSIGNEES = {
@@ -135,15 +157,9 @@ export const ASSIGNEES = {
   rivas: 'Dr. Andrés Rivas',
   medina: 'Lic. Sofía Medina',
   ibarra: 'Dra. Carmen Ibarra',
-  reception: 'Recepción',
+  /** The front desk: a role, not a person (the API names it in the request's language). */
+  reception: 'front_desk',
 } as const;
-
-export const SPECIALTY_LABELS: Record<Specialty, string> = {
-  diabetology: 'Diabetología',
-  internal_medicine: 'Medicina interna',
-  psychology: 'Psicología',
-  gynecology: 'Ginecología y obstetricia',
-};
 
 const DM2: SeedCondition = {
   code: 'E11',
@@ -178,24 +194,39 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'doctor_plan_follow_up_visit',
         layer: 'doctor_plan',
-        label: 'Control de diabetes indicado en la nota sin agendar',
+        label: {
+          en: 'Diabetes follow-up ordered in the note not booked',
+          es: 'Control de diabetes indicado en la nota sin agendar',
+        },
         overdueDays: 22,
-        source: { resourceType: 'DocumentReference', display: 'Nota de evolución · Diabetología' },
+        source: {
+          resourceType: 'DocumentReference',
+          display: { en: 'Progress note · Diabetology', es: 'Nota de evolución · Diabetología' },
+        },
         quote: 'control en 3 meses con HbA1c y perfil lipídico',
       },
       {
         ruleId: 'lab_order_result_pending',
         layer: 'universal',
-        label: 'Resultado de HbA1c pendiente',
+        label: { en: 'HbA1c result pending', es: 'Resultado de HbA1c pendiente' },
         overdueDays: 18,
-        source: { resourceType: LAB, display: 'Hemoglobina glicosilada (HbA1c)' },
+        source: {
+          resourceType: LAB,
+          display: { en: 'Glycated hemoglobin (HbA1c)', es: 'Hemoglobina glicosilada (HbA1c)' },
+        },
       },
       {
         ruleId: 'doctor_plan_referral',
         layer: 'doctor_plan',
-        label: 'Referencia a oftalmología sin registrar',
+        label: {
+          en: 'Ophthalmology referral not on record',
+          es: 'Referencia a oftalmología sin registrar',
+        },
         overdueDays: 12,
-        source: { resourceType: 'DocumentReference', display: 'Nota de evolución · Diabetología' },
+        source: {
+          resourceType: 'DocumentReference',
+          display: { en: 'Progress note · Diabetology', es: 'Nota de evolución · Diabetología' },
+        },
         quote: 'Referir a oftalmología para fondo de ojo anual',
       },
     ],
@@ -203,7 +234,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     case: { status: 'escalated', escalationStep: 2, origin: 'live' },
     history: [
       {
-        label: 'Resultado de perfil lipídico',
+        label: { en: 'Lipid panel result', es: 'Resultado de perfil lipídico' },
         layer: 'universal',
         ruleId: 'lab_order_result_pending',
         daysAgo: 200,
@@ -225,17 +256,32 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'doctor_plan_follow_up_visit',
         layer: 'doctor_plan',
-        label: 'Control de presión arterial a las 6 semanas sin agendar',
+        label: {
+          en: 'Blood pressure follow-up at 6 weeks not booked',
+          es: 'Control de presión arterial a las 6 semanas sin agendar',
+        },
         overdueDays: 33,
-        source: { resourceType: 'DocumentReference', display: 'Nota de evolución · Hipertensión' },
+        source: {
+          resourceType: 'DocumentReference',
+          display: { en: 'Progress note · Hypertension', es: 'Nota de evolución · Hipertensión' },
+        },
         quote: 'Control en 6 semanas con resultados',
       },
       {
         ruleId: 'procedure_result_pending',
         layer: 'universal',
-        label: 'Resultado de MAPA de 24 horas pendiente',
+        label: {
+          en: '24-hour ambulatory BP monitoring result pending',
+          es: 'Resultado de MAPA de 24 horas pendiente',
+        },
         overdueDays: 31,
-        source: { resourceType: LAB, display: 'Monitoreo ambulatorio de presión (MAPA)' },
+        source: {
+          resourceType: LAB,
+          display: {
+            en: 'Ambulatory blood pressure monitoring (ABPM)',
+            es: 'Monitoreo ambulatorio de presión (MAPA)',
+          },
+        },
       },
     ],
     conditions: [HTA],
@@ -256,9 +302,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'doctor_plan_session',
         layer: 'doctor_plan',
-        label: 'Sesión semanal de psicoterapia sin agendar',
+        label: {
+          en: 'Weekly psychotherapy session not booked',
+          es: 'Sesión semanal de psicoterapia sin agendar',
+        },
         overdueDays: 26,
-        source: { resourceType: 'DocumentReference', display: 'Nota de sesión · Psicología' },
+        source: {
+          resourceType: 'DocumentReference',
+          display: { en: 'Session note · Psychology', es: 'Nota de sesión · Psicología' },
+        },
         quote: 'sesiones semanales durante 8 semanas; próxima sesión en 7 días',
       },
     ],
@@ -284,16 +336,28 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'cadence_annual_gynecology',
         layer: 'cadence',
-        label: 'Control ginecológico anual vencido',
+        label: {
+          en: 'Yearly gynecology check-up overdue',
+          es: 'Control ginecológico anual vencido',
+        },
         overdueDays: 35,
-        source: { resourceType: 'Encounter', display: 'Última consulta de ginecología' },
+        source: {
+          resourceType: 'Encounter',
+          display: { en: 'Last gynecology visit', es: 'Última consulta de ginecología' },
+        },
       },
       {
         ruleId: 'protocol_womens_screening_cervical_cytology',
         layer: 'protocol',
-        label: 'Citología cervical vencida según protocolo',
+        label: {
+          en: 'Cervical cytology overdue per protocol',
+          es: 'Citología cervical vencida según protocolo',
+        },
         overdueDays: 35,
-        source: { resourceType: 'PlanDefinition', display: 'Tamizaje de cáncer de cuello uterino' },
+        source: {
+          resourceType: 'PlanDefinition',
+          display: { en: 'Cervical cancer screening', es: 'Tamizaje de cáncer de cuello uterino' },
+        },
       },
     ],
     case: { status: 'open', escalationStep: 0, origin: 'live' },
@@ -313,16 +377,25 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'protocol_diabetes_hba1c',
         layer: 'protocol',
-        label: 'Sin HbA1c reciente (cada 3 meses)',
+        label: { en: 'No recent HbA1c (every 3 months)', es: 'Sin HbA1c reciente (cada 3 meses)' },
         overdueDays: 41,
-        source: { resourceType: 'PlanDefinition', display: 'Protocolo de diabetes tipo 2' },
+        source: {
+          resourceType: 'PlanDefinition',
+          display: { en: 'Type 2 diabetes protocol', es: 'Protocolo de diabetes tipo 2' },
+        },
       },
       {
         ruleId: 'lab_order_result_pending',
         layer: 'universal',
-        label: 'Resultado de microalbuminuria pendiente',
+        label: {
+          en: 'Microalbuminuria result pending',
+          es: 'Resultado de microalbuminuria pendiente',
+        },
         overdueDays: 27,
-        source: { resourceType: LAB, display: 'Microalbuminuria en orina de 24 h' },
+        source: {
+          resourceType: LAB,
+          display: { en: '24-hour urine microalbumin', es: 'Microalbuminuria en orina de 24 h' },
+        },
       },
     ],
     conditions: [
@@ -352,17 +425,29 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'doctor_plan_follow_up_visit',
         layer: 'doctor_plan',
-        label: 'Control con resultados a las 4 semanas sin agendar',
+        label: {
+          en: 'Follow-up with results at 4 weeks not booked',
+          es: 'Control con resultados a las 4 semanas sin agendar',
+        },
         overdueDays: 32,
-        source: { resourceType: 'DocumentReference', display: 'Nota de evolución · Ginecología' },
+        source: {
+          resourceType: 'DocumentReference',
+          display: { en: 'Progress note · Gynecology', es: 'Nota de evolución · Ginecología' },
+        },
         quote: 'Control con resultados en 4 semanas',
       },
       {
         ruleId: 'lab_order_result_pending',
         layer: 'universal',
-        label: 'Resultado de perfil hormonal pendiente',
+        label: { en: 'Hormone panel result pending', es: 'Resultado de perfil hormonal pendiente' },
         overdueDays: 30,
-        source: { resourceType: LAB, display: 'Perfil hormonal (LH, FSH, testosterona total)' },
+        source: {
+          resourceType: LAB,
+          display: {
+            en: 'Hormone panel (LH, FSH, total testosterone)',
+            es: 'Perfil hormonal (LH, FSH, testosterona total)',
+          },
+        },
       },
     ],
     conditions: [
@@ -388,9 +473,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'cadence_internal_medicine_visit',
         layer: 'cadence',
-        label: 'Sin control de presión arterial en 7 meses',
+        label: {
+          en: 'No blood pressure check in 7 months',
+          es: 'Sin control de presión arterial en 7 meses',
+        },
         overdueDays: 30,
-        source: { resourceType: 'Encounter', display: 'Última consulta de hipertensión' },
+        source: {
+          resourceType: 'Encounter',
+          display: { en: 'Last hypertension visit', es: 'Última consulta de hipertensión' },
+        },
       },
     ],
     conditions: [HTA],
@@ -410,9 +501,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'doctor_plan_session',
         layer: 'doctor_plan',
-        label: 'Sesión quincenal con reevaluación PHQ-9 sin agendar',
+        label: {
+          en: 'Biweekly session with PHQ-9 reassessment not booked',
+          es: 'Sesión quincenal con reevaluación PHQ-9 sin agendar',
+        },
         overdueDays: 36,
-        source: { resourceType: 'DocumentReference', display: 'Nota de sesión · Psicología' },
+        source: {
+          resourceType: 'DocumentReference',
+          display: { en: 'Session note · Psychology', es: 'Nota de sesión · Psicología' },
+        },
         quote: 'sesiones quincenales; reevaluar con PHQ-9 en la próxima sesión',
       },
     ],
@@ -428,16 +525,25 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'cadence_diabetology_visit',
         layer: 'cadence',
-        label: 'Sin consulta de diabetología en 5 meses',
+        label: {
+          en: 'No diabetology visit in 5 months',
+          es: 'Sin consulta de diabetología en 5 meses',
+        },
         overdueDays: 60,
-        source: { resourceType: 'Encounter', display: 'Última consulta de diabetología' },
+        source: {
+          resourceType: 'Encounter',
+          display: { en: 'Last diabetology visit', es: 'Última consulta de diabetología' },
+        },
       },
       {
         ruleId: 'protocol_diabetes_fundus',
         layer: 'protocol',
-        label: 'Fondo de ojo anual pendiente',
+        label: { en: 'Yearly eye fundus exam due', es: 'Fondo de ojo anual pendiente' },
         overdueDays: 15,
-        source: { resourceType: 'PlanDefinition', display: 'Protocolo de diabetes tipo 2' },
+        source: {
+          resourceType: 'PlanDefinition',
+          display: { en: 'Type 2 diabetes protocol', es: 'Protocolo de diabetes tipo 2' },
+        },
       },
     ],
     conditions: [DM2],
@@ -472,17 +578,26 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'doctor_plan_follow_up_visit',
         layer: 'doctor_plan',
-        label: 'Control cardiológico con ecocardiograma sin agendar',
+        label: {
+          en: 'Cardiology follow-up with echocardiogram not booked',
+          es: 'Control cardiológico con ecocardiograma sin agendar',
+        },
         overdueDays: 50,
-        source: { resourceType: 'DocumentReference', display: 'Nota de evolución · Hipertensión' },
+        source: {
+          resourceType: 'DocumentReference',
+          display: { en: 'Progress note · Hypertension', es: 'Nota de evolución · Hipertensión' },
+        },
         quote: 'Control en 1 mes con ecocardiograma',
       },
       {
         ruleId: 'imaging_result_pending',
         layer: 'universal',
-        label: 'Resultado de ecocardiograma pendiente',
+        label: { en: 'Echocardiogram result pending', es: 'Resultado de ecocardiograma pendiente' },
         overdueDays: 48,
-        source: { resourceType: LAB, display: 'Ecocardiograma transtorácico' },
+        source: {
+          resourceType: LAB,
+          display: { en: 'Transthoracic echocardiogram', es: 'Ecocardiograma transtorácico' },
+        },
       },
     ],
     conditions: [HTA],
@@ -515,16 +630,28 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'lab_order_result_pending',
         layer: 'universal',
-        label: 'Resultado de citología pendiente',
+        label: { en: 'Cytology result pending', es: 'Resultado de citología pendiente' },
         overdueDays: 21,
-        source: { resourceType: LAB, display: 'Citología cervicovaginal' },
+        source: {
+          resourceType: LAB,
+          display: { en: 'Cervicovaginal cytology', es: 'Citología cervicovaginal' },
+        },
       },
       {
         ruleId: 'protocol_pregnancy_glucose_tolerance',
         layer: 'protocol',
-        label: 'Prueba de tolerancia a la glucosa pendiente (semanas 24 a 28)',
+        label: {
+          en: 'Glucose tolerance test due (weeks 24 to 28)',
+          es: 'Prueba de tolerancia a la glucosa pendiente (semanas 24 a 28)',
+        },
         overdueDays: 6,
-        source: { resourceType: 'PlanDefinition', display: 'Protocolo de embarazo y puerperio' },
+        source: {
+          resourceType: 'PlanDefinition',
+          display: {
+            en: 'Pregnancy and postpartum protocol',
+            es: 'Protocolo de embarazo y puerperio',
+          },
+        },
       },
     ],
     case: {
@@ -548,9 +675,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'doctor_plan_session',
         layer: 'doctor_plan',
-        label: 'Sesión de seguimiento a las 2 semanas sin agendar',
+        label: {
+          en: 'Follow-up session at 2 weeks not booked',
+          es: 'Sesión de seguimiento a las 2 semanas sin agendar',
+        },
         overdueDays: 16,
-        source: { resourceType: 'DocumentReference', display: 'Nota de sesión · Psicología' },
+        source: {
+          resourceType: 'DocumentReference',
+          display: { en: 'Session note · Psychology', es: 'Nota de sesión · Psicología' },
+        },
         quote: 'próxima sesión en 2 semanas para revisar el registro de exposición',
       },
     ],
@@ -566,16 +699,25 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'protocol_diabetes_hba1c',
         layer: 'protocol',
-        label: 'Sin HbA1c reciente (cada 3 meses)',
+        label: { en: 'No recent HbA1c (every 3 months)', es: 'Sin HbA1c reciente (cada 3 meses)' },
         overdueDays: 300,
-        source: { resourceType: 'PlanDefinition', display: 'Protocolo de diabetes tipo 2' },
+        source: {
+          resourceType: 'PlanDefinition',
+          display: { en: 'Type 2 diabetes protocol', es: 'Protocolo de diabetes tipo 2' },
+        },
       },
       {
         ruleId: 'cadence_diabetology_visit',
         layer: 'cadence',
-        label: 'Sin consulta de diabetología en 14 meses',
+        label: {
+          en: 'No diabetology visit in 14 months',
+          es: 'Sin consulta de diabetología en 14 meses',
+        },
         overdueDays: 240,
-        source: { resourceType: 'Encounter', display: 'Última consulta de diabetología' },
+        source: {
+          resourceType: 'Encounter',
+          display: { en: 'Last diabetology visit', es: 'Última consulta de diabetología' },
+        },
       },
     ],
     conditions: [DM2],
@@ -591,9 +733,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'protocol_hypertension_labs',
         layer: 'protocol',
-        label: 'Laboratorio anual pendiente (creatinina, potasio)',
+        label: {
+          en: 'Yearly labs due (creatinine, potassium)',
+          es: 'Laboratorio anual pendiente (creatinina, potasio)',
+        },
         overdueDays: 20,
-        source: { resourceType: 'PlanDefinition', display: 'Protocolo de hipertensión arterial' },
+        source: {
+          resourceType: 'PlanDefinition',
+          display: { en: 'Hypertension protocol', es: 'Protocolo de hipertensión arterial' },
+        },
       },
     ],
     conditions: [HTA],
@@ -609,9 +757,12 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'imaging_result_pending',
         layer: 'universal',
-        label: 'Resultado de mamografía pendiente',
+        label: { en: 'Mammogram result pending', es: 'Resultado de mamografía pendiente' },
         overdueDays: 25,
-        source: { resourceType: LAB, display: 'Mamografía bilateral' },
+        source: {
+          resourceType: LAB,
+          display: { en: 'Bilateral mammogram', es: 'Mamografía bilateral' },
+        },
       },
     ],
     case: { status: 'open', escalationStep: 1, origin: 'live' },
@@ -626,9 +777,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'cadence_psychology_session',
         layer: 'cadence',
-        label: 'Sin sesión en 6 semanas (frecuencia semanal)',
+        label: {
+          en: 'No session in 6 weeks (weekly frequency)',
+          es: 'Sin sesión en 6 semanas (frecuencia semanal)',
+        },
         overdueDays: 28,
-        source: { resourceType: 'Encounter', display: 'Última sesión de psicología' },
+        source: {
+          resourceType: 'Encounter',
+          display: { en: 'Last psychology session', es: 'Última sesión de psicología' },
+        },
       },
     ],
     case: { status: 'open', escalationStep: 0, origin: 'live' },
@@ -647,9 +804,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'cadence_diabetology_visit',
         layer: 'cadence',
-        label: 'Sin consulta de diabetología en 3 meses',
+        label: {
+          en: 'No diabetology visit in 3 months',
+          es: 'Sin consulta de diabetología en 3 meses',
+        },
         overdueDays: 10,
-        source: { resourceType: 'Encounter', display: 'Última consulta de diabetología' },
+        source: {
+          resourceType: 'Encounter',
+          display: { en: 'Last diabetology visit', es: 'Última consulta de diabetología' },
+        },
       },
     ],
     conditions: [
@@ -676,9 +839,12 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'lab_order_result_pending',
         layer: 'universal',
-        label: 'Resultado de creatinina sérica pendiente',
+        label: {
+          en: 'Serum creatinine result pending',
+          es: 'Resultado de creatinina sérica pendiente',
+        },
         overdueDays: 40,
-        source: { resourceType: LAB, display: 'Creatinina sérica' },
+        source: { resourceType: LAB, display: { en: 'Serum creatinine', es: 'Creatinina sérica' } },
       },
     ],
     conditions: [HTA],
@@ -699,9 +865,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'cadence_diabetology_visit',
         layer: 'cadence',
-        label: 'Sin consulta de diabetología en 4 meses',
+        label: {
+          en: 'No diabetology visit in 4 months',
+          es: 'Sin consulta de diabetología en 4 meses',
+        },
         overdueDays: 44,
-        source: { resourceType: 'Encounter', display: 'Última consulta de diabetología' },
+        source: {
+          resourceType: 'Encounter',
+          display: { en: 'Last diabetology visit', es: 'Última consulta de diabetología' },
+        },
       },
     ],
     conditions: [DM2],
@@ -726,9 +898,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'cadence_psychology_session',
         layer: 'cadence',
-        label: 'Sin sesión en 4 meses (frecuencia quincenal)',
+        label: {
+          en: 'No session in 4 months (biweekly frequency)',
+          es: 'Sin sesión en 4 meses (frecuencia quincenal)',
+        },
         overdueDays: 120,
-        source: { resourceType: 'Encounter', display: 'Última sesión de psicología' },
+        source: {
+          resourceType: 'Encounter',
+          display: { en: 'Last psychology session', es: 'Última sesión de psicología' },
+        },
       },
     ],
     case: { status: 'lost_to_follow_up', escalationStep: 3, origin: 'live' },
@@ -743,9 +921,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'protocol_womens_screening_mammography',
         layer: 'protocol',
-        label: 'Mamografía bienal vencida según protocolo',
+        label: {
+          en: 'Biennial mammogram overdue per protocol',
+          es: 'Mamografía bienal vencida según protocolo',
+        },
         overdueDays: 38,
-        source: { resourceType: 'PlanDefinition', display: 'Tamizaje de cáncer de mama' },
+        source: {
+          resourceType: 'PlanDefinition',
+          display: { en: 'Breast cancer screening', es: 'Tamizaje de cáncer de mama' },
+        },
       },
     ],
     case: { status: 'resolved', escalationStep: 0, origin: 'live', feedback: { useful: true } },
@@ -760,9 +944,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'procedure_result_pending',
         layer: 'universal',
-        label: 'Resultado de electrocardiograma pendiente',
+        label: {
+          en: 'Electrocardiogram result pending',
+          es: 'Resultado de electrocardiograma pendiente',
+        },
         overdueDays: 19,
-        source: { resourceType: LAB, display: 'Electrocardiograma de 12 derivaciones' },
+        source: {
+          resourceType: LAB,
+          display: { en: '12-lead electrocardiogram', es: 'Electrocardiograma de 12 derivaciones' },
+        },
       },
     ],
     conditions: [HTA],
@@ -779,16 +969,25 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'cadence_diabetology_visit',
         layer: 'cadence',
-        label: 'Sin consulta de diabetología en 16 meses',
+        label: {
+          en: 'No diabetology visit in 16 months',
+          es: 'Sin consulta de diabetología en 16 meses',
+        },
         overdueDays: 400,
-        source: { resourceType: 'Encounter', display: 'Última consulta de diabetología' },
+        source: {
+          resourceType: 'Encounter',
+          display: { en: 'Last diabetology visit', es: 'Última consulta de diabetología' },
+        },
       },
       {
         ruleId: 'protocol_diabetes_hba1c',
         layer: 'protocol',
-        label: 'Sin HbA1c reciente (cada 3 meses)',
+        label: { en: 'No recent HbA1c (every 3 months)', es: 'Sin HbA1c reciente (cada 3 meses)' },
         overdueDays: 380,
-        source: { resourceType: 'PlanDefinition', display: 'Protocolo de diabetes tipo 2' },
+        source: {
+          resourceType: 'PlanDefinition',
+          display: { en: 'Type 2 diabetes protocol', es: 'Protocolo de diabetes tipo 2' },
+        },
       },
     ],
     conditions: [DM2],
@@ -804,9 +1003,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'cadence_internal_medicine_visit',
         layer: 'cadence',
-        label: 'Sin control de presión arterial en 13 meses',
+        label: {
+          en: 'No blood pressure check in 13 months',
+          es: 'Sin control de presión arterial en 13 meses',
+        },
         overdueDays: 300,
-        source: { resourceType: 'Encounter', display: 'Última consulta de hipertensión' },
+        source: {
+          resourceType: 'Encounter',
+          display: { en: 'Last hypertension visit', es: 'Última consulta de hipertensión' },
+        },
       },
     ],
     conditions: [HTA],
@@ -822,9 +1027,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'protocol_womens_screening_cervical_cytology',
         layer: 'protocol',
-        label: 'Citología cervical vencida según protocolo',
+        label: {
+          en: 'Cervical cytology overdue per protocol',
+          es: 'Citología cervical vencida según protocolo',
+        },
         overdueDays: 500,
-        source: { resourceType: 'PlanDefinition', display: 'Tamizaje de cáncer de cuello uterino' },
+        source: {
+          resourceType: 'PlanDefinition',
+          display: { en: 'Cervical cancer screening', es: 'Tamizaje de cáncer de cuello uterino' },
+        },
       },
     ],
     case: { status: 'open', escalationStep: 0, origin: 'backfill', releaseInDays: 2 },
@@ -839,9 +1050,12 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'lab_order_result_pending',
         layer: 'universal',
-        label: 'Resultado de HbA1c pendiente',
+        label: { en: 'HbA1c result pending', es: 'Resultado de HbA1c pendiente' },
         overdueDays: 210,
-        source: { resourceType: LAB, display: 'Hemoglobina glicosilada (HbA1c)' },
+        source: {
+          resourceType: LAB,
+          display: { en: 'Glycated hemoglobin (HbA1c)', es: 'Hemoglobina glicosilada (HbA1c)' },
+        },
       },
     ],
     conditions: [DM2],
@@ -857,9 +1071,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'cadence_psychology_session',
         layer: 'cadence',
-        label: 'Sin sesión en 5 meses (frecuencia semanal)',
+        label: {
+          en: 'No session in 5 months (weekly frequency)',
+          es: 'Sin sesión en 5 meses (frecuencia semanal)',
+        },
         overdueDays: 150,
-        source: { resourceType: 'Encounter', display: 'Última sesión de psicología' },
+        source: {
+          resourceType: 'Encounter',
+          display: { en: 'Last psychology session', es: 'Última sesión de psicología' },
+        },
       },
     ],
     case: { status: 'open', escalationStep: 0, origin: 'backfill', releaseInDays: 3 },
@@ -874,9 +1094,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'protocol_hypertension_labs',
         layer: 'protocol',
-        label: 'Laboratorio anual pendiente (creatinina, potasio)',
+        label: {
+          en: 'Yearly labs due (creatinine, potassium)',
+          es: 'Laboratorio anual pendiente (creatinina, potasio)',
+        },
         overdueDays: 450,
-        source: { resourceType: 'PlanDefinition', display: 'Protocolo de hipertensión arterial' },
+        source: {
+          resourceType: 'PlanDefinition',
+          display: { en: 'Hypertension protocol', es: 'Protocolo de hipertensión arterial' },
+        },
       },
     ],
     conditions: [HTA],
@@ -897,9 +1123,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'doctor_plan_follow_up_visit',
         layer: 'doctor_plan',
-        label: 'Control de prediabetes indicado en la nota sin agendar',
+        label: {
+          en: 'Prediabetes follow-up ordered in the note not booked',
+          es: 'Control de prediabetes indicado en la nota sin agendar',
+        },
         overdueDays: -12,
-        source: { resourceType: 'DocumentReference', display: 'Nota de evolución · Diabetología' },
+        source: {
+          resourceType: 'DocumentReference',
+          display: { en: 'Progress note · Diabetology', es: 'Nota de evolución · Diabetología' },
+        },
         quote: 'control en 3 meses con glicemia en ayunas y HbA1c',
       },
     ],
@@ -918,9 +1150,15 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'doctor_plan_session',
         layer: 'doctor_plan',
-        label: 'Sesión de seguimiento a la semana sin agendar',
+        label: {
+          en: 'Follow-up session in a week not booked',
+          es: 'Sesión de seguimiento a la semana sin agendar',
+        },
         overdueDays: -8,
-        source: { resourceType: 'DocumentReference', display: 'Nota de sesión · Psicología' },
+        source: {
+          resourceType: 'DocumentReference',
+          display: { en: 'Session note · Psychology', es: 'Nota de sesión · Psicología' },
+        },
         quote: 'próxima sesión en 1 semana',
       },
     ],
@@ -935,9 +1173,12 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'lab_order_result_pending',
         layer: 'universal',
-        label: 'Resultado de potasio sérico pendiente',
+        label: {
+          en: 'Serum potassium result pending',
+          es: 'Resultado de potasio sérico pendiente',
+        },
         overdueDays: -20,
-        source: { resourceType: LAB, display: 'Potasio sérico' },
+        source: { resourceType: LAB, display: { en: 'Serum potassium', es: 'Potasio sérico' } },
       },
     ],
     conditions: [HTA],
@@ -952,44 +1193,89 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       {
         ruleId: 'imaging_result_pending',
         layer: 'universal',
-        label: 'Resultado de ecografía pélvica pendiente',
+        label: {
+          en: 'Pelvic ultrasound result pending',
+          es: 'Resultado de ecografía pélvica pendiente',
+        },
         overdueDays: -5,
-        source: { resourceType: LAB, display: 'Ecografía pélvica transvaginal' },
+        source: {
+          resourceType: LAB,
+          display: { en: 'Transvaginal pelvic ultrasound', es: 'Ecografía pélvica transvaginal' },
+        },
       },
     ],
   },
 ];
 
 /** Suggested next step per rule, shown to the clinic team (never to the patient). */
-export const SUGGESTED_ACTIONS: Record<string, string> = {
-  lab_order_result_pending:
-    'Confirma con el paciente si ya se hizo el examen. Si lo hizo, pide el resultado; si no, recuérdale la orden y ofrécele una fecha.',
-  procedure_result_pending:
-    'Verifica si el estudio se realizó y carga el informe. Si no se hizo, contacta al paciente para reprogramarlo.',
-  imaging_result_pending:
-    'Verifica si el estudio de imagen se realizó y adjunta el informe. Si no se hizo, ofrécele una cita para realizarlo.',
-  doctor_plan_follow_up_visit:
-    'Agenda la consulta de control que indicó el médico en la nota y confirma que el paciente traiga sus resultados.',
-  doctor_plan_session:
-    'Ofrécele al consultante el próximo horario disponible para retomar la frecuencia de sesiones acordada.',
-  doctor_plan_referral:
-    'Confirma si el paciente ya asistió a la referencia. Si no, ayúdalo a conseguir la cita con el especialista.',
-  cadence_annual_gynecology: 'Ofrécele a la paciente su control ginecológico anual.',
-  cadence_internal_medicine_visit:
-    'Agenda un control de presión arterial y pide al paciente que traiga su registro en casa.',
-  cadence_diabetology_visit:
-    'Agenda una consulta de control de diabetes; si toca, ordena la HbA1c antes de la cita.',
-  cadence_psychology_session: 'Contacta al consultante para retomar las sesiones.',
-  protocol_diabetes_hba1c:
-    'Ordena la HbA1c trimestral que indica el protocolo y agenda la revisión del resultado.',
-  protocol_womens_screening_cervical_cytology:
-    'Ofrécele la citología de tamizaje que corresponde según el protocolo.',
-  protocol_hypertension_labs: 'Ordena el laboratorio anual que indica el protocolo.',
-  protocol_diabetes_fundus: 'Ayuda al paciente a agendar su fondo de ojo anual.',
-  protocol_womens_screening_mammography: 'Ofrécele la mamografía de tamizaje que corresponde.',
-  protocol_pregnancy_glucose_tolerance:
-    'Ordena la prueba de tolerancia a la glucosa que indica el protocolo y agenda la revisión.',
+export const SUGGESTED_ACTIONS: Record<string, Localized> = {
+  lab_order_result_pending: {
+    en: 'Check with the patient whether the test was done. If so, ask for the result; if not, remind them of the order and offer a date.',
+    es: 'Confirma con el paciente si ya se hizo el examen. Si lo hizo, pide el resultado; si no, recuérdale la orden y ofrécele una fecha.',
+  },
+  procedure_result_pending: {
+    en: 'Check whether the study was done and upload the report. If not, contact the patient to reschedule it.',
+    es: 'Verifica si el estudio se realizó y carga el informe. Si no se hizo, contacta al paciente para reprogramarlo.',
+  },
+  imaging_result_pending: {
+    en: 'Check whether the imaging study was done and attach the report. If not, offer them an appointment for it.',
+    es: 'Verifica si el estudio de imagen se realizó y adjunta el informe. Si no se hizo, ofrécele una cita para realizarlo.',
+  },
+  doctor_plan_follow_up_visit: {
+    en: 'Book the follow-up visit the doctor ordered in the note and make sure the patient brings their results.',
+    es: 'Agenda la consulta de control que indicó el médico en la nota y confirma que el paciente traiga sus resultados.',
+  },
+  doctor_plan_session: {
+    en: 'Offer the client the next available slot to resume the agreed session frequency.',
+    es: 'Ofrécele al consultante el próximo horario disponible para retomar la frecuencia de sesiones acordada.',
+  },
+  doctor_plan_referral: {
+    en: 'Check whether the patient went to the referral. If not, help them get the specialist appointment.',
+    es: 'Confirma si el paciente ya asistió a la referencia. Si no, ayúdalo a conseguir la cita con el especialista.',
+  },
+  cadence_annual_gynecology: {
+    en: 'Offer the patient her yearly gynecology check-up.',
+    es: 'Ofrécele a la paciente su control ginecológico anual.',
+  },
+  cadence_internal_medicine_visit: {
+    en: 'Book a blood pressure check and ask the patient to bring their home log.',
+    es: 'Agenda un control de presión arterial y pide al paciente que traiga su registro en casa.',
+  },
+  cadence_diabetology_visit: {
+    en: 'Book a diabetes follow-up visit; if due, order the HbA1c before the appointment.',
+    es: 'Agenda una consulta de control de diabetes; si toca, ordena la HbA1c antes de la cita.',
+  },
+  cadence_psychology_session: {
+    en: 'Contact the client to resume the sessions.',
+    es: 'Contacta al consultante para retomar las sesiones.',
+  },
+  protocol_diabetes_hba1c: {
+    en: 'Order the quarterly HbA1c the protocol calls for and book the result review.',
+    es: 'Ordena la HbA1c trimestral que indica el protocolo y agenda la revisión del resultado.',
+  },
+  protocol_womens_screening_cervical_cytology: {
+    en: 'Offer the screening cytology the protocol calls for.',
+    es: 'Ofrécele la citología de tamizaje que corresponde según el protocolo.',
+  },
+  protocol_hypertension_labs: {
+    en: 'Order the yearly labs the protocol calls for.',
+    es: 'Ordena el laboratorio anual que indica el protocolo.',
+  },
+  protocol_diabetes_fundus: {
+    en: 'Help the patient book their yearly eye fundus exam.',
+    es: 'Ayuda al paciente a agendar su fondo de ojo anual.',
+  },
+  protocol_womens_screening_mammography: {
+    en: 'Offer the screening mammogram that is due.',
+    es: 'Ofrécele la mamografía de tamizaje que corresponde.',
+  },
+  protocol_pregnancy_glucose_tolerance: {
+    en: 'Order the glucose tolerance test the protocol calls for and book the review.',
+    es: 'Ordena la prueba de tolerancia a la glucosa que indica el protocolo y agenda la revisión.',
+  },
 };
 
-export const DEFAULT_SUGGESTED_ACTION =
-  'Revisa el caso con el médico tratante y define el próximo paso con el paciente.';
+export const DEFAULT_SUGGESTED_ACTION: Localized = {
+  en: 'Review the case with the treating doctor and agree on the next step with the patient.',
+  es: 'Revisa el caso con el médico tratante y define el próximo paso con el paciente.',
+};

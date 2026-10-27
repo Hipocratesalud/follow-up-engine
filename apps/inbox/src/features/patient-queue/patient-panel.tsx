@@ -46,10 +46,8 @@ import { formatLimit, INPUT_LIMITS } from '../../lib/limits.ts';
 import { CASE_TITLE_ID, patientMessagePreview } from '../case/case-actions.tsx';
 import { CaseDetailPanel, CaseDetailView } from '../case/case-detail.tsx';
 import { ContactFlagNotice } from '../case/contact-panel.tsx';
-import { patientQueueCopy } from './copy.ts';
-import { patientLine } from './patient-row.tsx';
-
-const copy = patientQueueCopy();
+import { useT } from '../../i18n/index.ts';
+import { patientMeta } from '../inbox/case-row.tsx';
 
 function isActive(view: Pick<CaseView, 'status'>): boolean {
   return (ACTIVE_CASE_STATUSES as readonly string[]).includes(view.status);
@@ -63,6 +61,7 @@ function ContactStatus({
   readonly card: PatientQueueItem;
   readonly now: Date;
 }): ReactNode {
+  const t = useT();
   const { patientContact } = card;
   const blocked = !patientContact.allowed || patientContact.optedOut;
   return (
@@ -70,17 +69,17 @@ function ContactStatus({
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {blocked ? (
           <Badge tone="warning" icon={<MessageSquareOff className="size-3" aria-hidden="true" />}>
-            {patientContact.optedOut ? copy.panel.optedOut : copy.panel.contactNotAllowed}
+            {patientContact.optedOut ? t.patientCard.optedOut : t.patientCard.contactNotAllowed}
           </Badge>
         ) : (
           <Badge tone="success" icon={<MessageSquareText className="size-3" aria-hidden="true" />}>
-            {copy.panel.contactAllowed}
+            {t.patientCard.contactAllowed}
           </Badge>
         )}
         <span className="text-muted">
           {patientContact.lastContactAt
-            ? copy.panel.lastContact(formatRelative(patientContact.lastContactAt, now))
-            : copy.panel.noContacts}
+            ? t.patientCard.lastContact(formatRelative(patientContact.lastContactAt, now))
+            : t.patientCard.noContacts}
         </span>
       </div>
       {patientContact.contactFlag ? (
@@ -96,6 +95,7 @@ function ContactStatus({
  * patient per contact window, across cases).
  */
 function RequestContact({ card }: { readonly card: PatientQueueItem }): ReactNode {
+  const t = useT();
   const ids = useId();
   const mutation = useRequestPatientContact(card.patient.id);
   const [open, setOpen] = useState(false);
@@ -136,13 +136,13 @@ function RequestContact({ card }: { readonly card: PatientQueueItem }): ReactNod
     if (mutation.isPending) return;
     const trimmed = note.trim();
     if (trimmed.length > INPUT_LIMITS.note) {
-      setNoteError(copy.panel.noteTooLong(formatLimit(INPUT_LIMITS.note)));
+      setNoteError(t.validation.noteTooLong(formatLimit(INPUT_LIMITS.note)));
       return;
     }
     mutation.mutate(trimmed ? { note: trimmed } : {}, {
       onSuccess: () => {
         setOpen(false);
-        setDone(copy.panel.done);
+        setDone(t.patientCard.done);
       },
     });
   }
@@ -156,10 +156,10 @@ function RequestContact({ card }: { readonly card: PatientQueueItem }): ReactNod
           onClick={handleOpen}
           icon={<BellRing className="size-4" aria-hidden="true" />}
         >
-          {copy.panel.requestContact}
+          {t.patientCard.requestContact}
         </Button>
       </div>
-      <p className="text-xs text-muted">{copy.panel.requestHint}</p>
+      <p className="text-xs text-muted">{t.patientCard.requestHint}</p>
       <p aria-live="polite" className={cx('text-sm text-success', !done && 'sr-only')}>
         {done}
       </p>
@@ -167,11 +167,11 @@ function RequestContact({ card }: { readonly card: PatientQueueItem }): ReactNod
         open={open}
         onOpenChange={handleOpenChange}
         returnFocus={returnFocus}
-        title={copy.panel.requestTitle}
+        title={t.patientCard.requestTitle}
         footer={
           <>
             <Button variant="secondary" onClick={handleClose}>
-              {blocked ? copy.panel.gotIt : copy.panel.cancel}
+              {blocked ? t.common.gotIt : t.common.cancel}
             </Button>
             {blocked ? null : (
               <Button
@@ -181,7 +181,7 @@ function RequestContact({ card }: { readonly card: PatientQueueItem }): ReactNod
                 disabled={mutation.isPending}
                 onClick={handleSend}
               >
-                {copy.panel.send}
+                {t.patientCard.requestContact}
               </Button>
             )}
           </>
@@ -190,26 +190,28 @@ function RequestContact({ card }: { readonly card: PatientQueueItem }): ReactNod
         {blocked ? (
           <p className="flex gap-2 rounded-lg bg-warning-soft px-3 py-2.5 text-sm text-warning">
             <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            {copy.panel.blocked(card.patient.name)}
+            {t.patientCard.blocked(card.patient.name)}
           </p>
         ) : (
           <>
             <p className="text-sm text-muted">
-              {copy.panel.requestIntro(card.patient.name, activeCases)}
+              {t.patientCard.requestBody(card.patient.name, activeCases)}
             </p>
             <div className="rounded-lg border border-border bg-surface-2 p-3">
-              <p className="text-xs font-medium text-muted">{copy.panel.messagePreview}</p>
-              <p className="mt-1.5 text-sm text-fg">{patientMessagePreview(card.patient.name)}</p>
+              <p className="text-xs font-medium text-muted">{t.caseActions.messagePreview}</p>
+              <p className="mt-1.5 text-sm text-fg">
+                {patientMessagePreview(t, card.patient.name)}
+              </p>
               <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
                 <Lock className="size-3" aria-hidden="true" />
-                {copy.panel.noDiagnosis}
+                {t.caseActions.messagePrivacy}
               </p>
             </div>
             <Field
-              label={copy.panel.noteLabel}
+              label={t.caseActions.noteOptional}
               htmlFor={`${ids}-note`}
               error={noteMessage}
-              hint={copy.panel.noteHint(formatLimit(INPUT_LIMITS.note))}
+              hint={t.caseActions.noteHint(formatLimit(INPUT_LIMITS.note))}
             >
               <textarea
                 id={`${ids}-note`}
@@ -232,6 +234,7 @@ function RequestContact({ card }: { readonly card: PatientQueueItem }): ReactNod
 
 /** The open case's own detail inside the card: its reasons, actions, escalation and history. */
 function FocusedCase({ caseId }: { readonly caseId: string }): ReactNode {
+  const t = useT();
   const query = useCase(caseId);
   const now = useNow();
   function handleRetry(): void {
@@ -246,9 +249,7 @@ function FocusedCase({ caseId }: { readonly caseId: string }): ReactNode {
     );
   }
   if (query.isError) {
-    return (
-      <ErrorState error={query.error} onRetry={handleRetry} title={copy.panel.caseLoadError} />
-    );
+    return <ErrorState error={query.error} onRetry={handleRetry} title={t.patientCard.caseError} />;
   }
   const detail = query.data;
   return (
@@ -257,9 +258,9 @@ function FocusedCase({ caseId }: { readonly caseId: string }): ReactNode {
         <span className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
           <EscalationMeter escalation={detail.escalation} showLabel />
         </span>
-        {detail.origin === 'backfill' ? <Badge tone="info">{copy.panel.fromHistory}</Badge> : null}
+        {detail.origin === 'backfill' ? <Badge tone="info">{t.caseDetail.recovered}</Badge> : null}
         <span className="text-xs text-muted">
-          {copy.panel.caseOpened(formatRelative(detail.openedAt, now))}
+          {t.caseDetail.openedAgo(formatRelative(detail.openedAt, now))}
         </span>
       </div>
       <CaseDetailView detail={detail} embedded />
@@ -281,6 +282,7 @@ function CaseSection({
   readonly focused: boolean;
   readonly to: string;
 }): ReactNode {
+  const t = useT();
   const now = useNow();
   const ids = useId();
   const section = useRef<HTMLElement>(null);
@@ -316,7 +318,7 @@ function CaseSection({
           <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs">
             <StatusBadge status={view.status} />
             <PriorityBadge label={view.priorityLabel} priority={view.priority} />
-            <span className="text-muted">{copy.panel.reasons(view.reasons.length)}</span>
+            <span className="text-muted">{t.patientCard.reasons(view.reasons.length)}</span>
             {top ? (
               <span className={cx('font-medium', overdueTone(top.overdueDays))}>
                 {formatOverdue(top.overdueDays, top.dueAt, now)}
@@ -355,6 +357,7 @@ function PatientCasesView({
   readonly backTo?: string;
   readonly caseLink: (caseId: string) => string;
 }): ReactNode {
+  const t = useT();
   const now = useNow();
   const heading = useRef<HTMLHeadingElement>(null);
   const active = card.cases.filter(isActive);
@@ -378,7 +381,7 @@ function PatientCasesView({
           className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-fg lg:hidden"
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
-          {copy.panel.back}
+          {t.common.backToInbox}
         </Link>
       ) : null}
 
@@ -395,26 +398,26 @@ function PatientCasesView({
             </h2>
             <p className="mt-0.5 text-sm text-muted">
               {[
-                patientLine(card.patient),
-                card.assignees.length > 0 ? copy.panel.owners(card.assignees) : '',
+                patientMeta(card.patient, t),
+                card.assignees.length > 0 ? t.patientCard.owners(card.assignees.join(', ')) : '',
               ]
                 .filter(Boolean)
                 .join(' · ')}
             </p>
           </div>
           <Link
-            to={`/pacientes/${card.patient.id}`}
+            to={`/patients/${card.patient.id}`}
             className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border-strong px-3 text-[13px] font-medium text-fg hover:bg-surface-2"
           >
             <UserRound className="size-3.5" aria-hidden="true" />
-            {copy.panel.viewPatient}
+            {t.common.viewPatient}
           </Link>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={card.status} />
           <PriorityBadge label={card.priorityLabel} priority={card.priority} />
           {active.length > 0 ? (
-            <Badge tone="neutral">{copy.panel.activeCases(active.length)}</Badge>
+            <Badge tone="neutral">{t.patientCard.activeCases(active.length)}</Badge>
           ) : null}
         </div>
         <ContactStatus card={card} now={now} />
@@ -424,7 +427,7 @@ function PatientCasesView({
       {active.length > 0 ? (
         <section aria-labelledby="patient-cases-title" className="flex flex-col gap-3">
           <SectionTitle id="patient-cases-title" count={active.length}>
-            {copy.panel.casesTitle}
+            {t.patientCard.casesTitle}
           </SectionTitle>
           {active.map((view) => (
             <CaseSection
@@ -440,7 +443,7 @@ function PatientCasesView({
       {closed.length > 0 ? (
         <section aria-labelledby="patient-closed-title" className="flex flex-col gap-3">
           <SectionTitle id="patient-closed-title" count={closed.length}>
-            {copy.panel.closedTitle}
+            {t.patientCard.closedTitle}
           </SectionTitle>
           {closed.map((view) => (
             <CaseSection
@@ -457,8 +460,9 @@ function PatientCasesView({
 }
 
 function PanelSkeleton(): ReactNode {
+  const t = useT();
   return (
-    <div aria-busy="true" aria-label={copy.panel.loading} className="flex flex-col gap-4">
+    <div aria-busy="true" aria-label={t.patientCard.loading} className="flex flex-col gap-4">
       <Skeleton className="h-36 rounded-xl" />
       <Skeleton className="h-28 rounded-xl" />
       <Skeleton className="h-40 rounded-xl" />
@@ -483,6 +487,7 @@ export function PatientCasesPanel({
   /** Where a case of the card opens (the inbox route, keeping its filters). */
   readonly caseLink: (caseId: string) => string;
 }): ReactNode {
+  const t = useT();
   const focused = useCase(caseId);
   const card = usePatientCard(focused.data?.patient.id);
   function handleRetry(): void {
@@ -495,8 +500,8 @@ export function PatientCasesPanel({
       <ErrorState
         error={focused.error}
         onRetry={handleRetry}
-        title={copy.panel.loadError}
-        notFoundTitle={copy.panel.notFound}
+        title={t.patientCard.error}
+        notFoundTitle={t.caseDetail.notFound}
       />
     );
   }
@@ -504,7 +509,7 @@ export function PatientCasesPanel({
     return isApiError(card.error) && card.error.status === 404 ? (
       <CaseDetailPanel caseId={caseId} {...(backTo ? { backTo } : {})} />
     ) : (
-      <ErrorState error={card.error} onRetry={handleRetry} title={copy.panel.loadError} />
+      <ErrorState error={card.error} onRetry={handleRetry} title={t.patientCard.error} />
     );
   }
   if (card.data === undefined) return <PanelSkeleton />;

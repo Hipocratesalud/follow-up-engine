@@ -127,6 +127,40 @@ describe.each(STORAGES)('clinic:create (%s)', (storage) => {
     expect(unknown.code).toBe(1);
     expect(unknown.output).toMatch(/Unknown escalation policy default_v9/);
   });
+
+  it('sets the clinic locale, new or existing, and refuses what is not a language tag (HIP-138)', async () => {
+    const created = await runClinicCommand(h.runtime, ['--name', 'Clínica Idioma']);
+    expect(created.code).toBe(0);
+    const id = clinicId('clinica-idioma');
+    expect((await h.runtime.storage.clinics.get(id))?.settings.locale).toBe('en-US');
+
+    const switched = await runClinicCommand(h.runtime, [
+      '--id',
+      'clinica-idioma',
+      '--locale',
+      'es_ve',
+      '--label',
+      'inbox',
+      '--scopes',
+      'inbox:read',
+    ]);
+    expect(switched.code).toBe(0);
+    expect(switched.output).toMatch(/\(updated\)/);
+    expect((await h.runtime.storage.clinics.get(id))?.settings.locale).toBe('es-VE');
+    // Its labels now default to Spanish; the user's Accept-Language still wins.
+    const key = keyOf(switched.output);
+    const spanish = await h.call<{ error: { message: string } }>('/api/inbox/cases/none', { key });
+    expect(spanish.body.error.message).toBe('No encontramos ese caso.');
+
+    const invalid = await runClinicCommand(h.runtime, [
+      '--id',
+      'clinica-idioma',
+      '--locale',
+      'Spanish',
+    ]);
+    expect(invalid.code).toBe(1);
+    expect(invalid.output).toMatch(/not a BCP-47 language tag/);
+  });
 });
 
 describe('clinicSlug', () => {

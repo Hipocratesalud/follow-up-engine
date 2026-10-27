@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { CaseView } from './api/contract.ts';
 import { DraftProtocolBadge, ReasonProtocol } from './components/case-badges.tsx';
-import { DRAFT_PROTOCOL_HINT, DRAFT_PROTOCOL_LABEL } from './lib/labels.ts';
+import { messagesFor } from './i18n/index.ts';
 import { createMockStore } from './mocks/store.ts';
 import { renderApp } from './test/render.tsx';
 
@@ -13,6 +13,9 @@ import { renderApp } from './test/render.tsx';
  * protocol reason (draft) and Carmen Elena Salazar a women's screening one
  * (validated).
  */
+
+const DRAFT_PROTOCOL_LABEL = messagesFor('en').labels.draftProtocol;
+const DRAFT_PROTOCOL_HINT = messagesFor('en').labels.draftProtocolHint;
 
 function caseOf(name: string): CaseView {
   const page = createMockStore().listCases({ view: 'active', limit: 200 });
@@ -52,9 +55,9 @@ describe('draft protocol badge', () => {
   });
 });
 
-describe('protocol reasons in the inbox', () => {
+describe('protocol reasons in the inbox (English, the default)', () => {
   it('flags the case row once when a reason comes from a draft protocol', async () => {
-    renderApp('/bandeja');
+    renderApp('/inbox');
     const row = await screen.findByRole('link', { name: /Daniela Castillo/ });
     expect(within(row).getAllByText(DRAFT_PROTOCOL_LABEL)).toHaveLength(1);
     // Inside the link only the tooltip explains it: the link name stays short.
@@ -65,32 +68,47 @@ describe('protocol reasons in the inbox', () => {
 
   it('names the protocol and flags the draft on the case detail, one badge per reason', async () => {
     const item = caseOf('Daniela Castillo');
-    renderApp(`/casos/${item.id}`);
+    renderApp(`/cases/${item.id}`);
+    const title = await screen.findByRole('heading', {
+      name: 'Glucose tolerance test due (weeks 24 to 28)',
+    });
+    const card = title.closest('li');
+    if (!card) throw new Error('reason card not found');
+    expect(within(card).getByText('Pregnancy and postpartum')).toBeInTheDocument();
+    expect(within(card).getAllByText(DRAFT_PROTOCOL_LABEL)).toHaveLength(1);
+    expect(within(card).getByTitle(DRAFT_PROTOCOL_HINT)).toBeInTheDocument();
+    // The other reason (a pending result) has neither.
+    const other = screen.getByRole('heading', { name: 'Cytology result pending' });
+    expect(within(other.closest('li') ?? other).queryByText(/Protocol:/)).not.toBeInTheDocument();
+    expect(screen.getAllByText(DRAFT_PROTOCOL_LABEL)).toHaveLength(1);
+  });
+
+  it("names the protocol on the patient's expectations and flags only the drafts", async () => {
+    const pregnant = caseOf('Daniela Castillo');
+    renderApp(`/patients/${pregnant.patient.id}`);
+    expect(await screen.findByText('Pregnancy and postpartum')).toBeInTheDocument();
+    expect(screen.getAllByText(DRAFT_PROTOCOL_LABEL)).toHaveLength(1);
+  });
+
+  it('names a validated protocol without flagging it', async () => {
+    const screened = caseOf('Carmen Elena Salazar');
+    renderApp(`/patients/${screened.patient.id}`);
+    expect(await screen.findByText('Women’s preventive screening')).toBeInTheDocument();
+    expect(screen.queryByText(DRAFT_PROTOCOL_LABEL)).not.toBeInTheDocument();
+  });
+});
+
+describe('protocol reasons in Spanish', () => {
+  const es = messagesFor('es').labels;
+  it('names the protocol and its draft state in Spanish', async () => {
+    const item = caseOf('Daniela Castillo');
+    renderApp(`/cases/${item.id}`, { locale: 'es' });
     const title = await screen.findByRole('heading', {
       name: 'Prueba de tolerancia a la glucosa pendiente (semanas 24 a 28)',
     });
     const card = title.closest('li');
     if (!card) throw new Error('reason card not found');
     expect(within(card).getByText('Embarazo y puerperio')).toBeInTheDocument();
-    expect(within(card).getAllByText(DRAFT_PROTOCOL_LABEL)).toHaveLength(1);
-    expect(within(card).getByTitle(DRAFT_PROTOCOL_HINT)).toBeInTheDocument();
-    // The other reason (a pending result) has neither.
-    const other = screen.getByRole('heading', { name: 'Resultado de citología pendiente' });
-    expect(within(other.closest('li') ?? other).queryByText(/Protocolo:/)).not.toBeInTheDocument();
-    expect(screen.getAllByText(DRAFT_PROTOCOL_LABEL)).toHaveLength(1);
-  });
-
-  it("names the protocol on the patient's expectations and flags only the drafts", async () => {
-    const pregnant = caseOf('Daniela Castillo');
-    renderApp(`/pacientes/${pregnant.patient.id}`);
-    expect(await screen.findByText('Embarazo y puerperio')).toBeInTheDocument();
-    expect(screen.getAllByText(DRAFT_PROTOCOL_LABEL)).toHaveLength(1);
-  });
-
-  it('names a validated protocol without flagging it', async () => {
-    const screened = caseOf('Carmen Elena Salazar');
-    renderApp(`/pacientes/${screened.patient.id}`);
-    expect(await screen.findByText('Tamizaje preventivo de la mujer')).toBeInTheDocument();
-    expect(screen.queryByText(DRAFT_PROTOCOL_LABEL)).not.toBeInTheDocument();
+    expect(within(card).getAllByText(es.draftProtocol)).toHaveLength(1);
   });
 });

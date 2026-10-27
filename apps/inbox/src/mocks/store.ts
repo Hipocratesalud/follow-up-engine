@@ -9,7 +9,6 @@ import {
   type CallTaskView,
   CALL_OUTCOMES,
   type CalibrationReportView,
-  type CaseAction,
   type CaseActionRequest,
   type CaseDetail,
   type CaseFeedbackView,
@@ -48,18 +47,14 @@ import {
   type SuppressionView,
   type WebhookDelivery,
 } from '../api/contract.ts';
-import { MOCK_TIMELINE_COPY, VALIDATION_COPY } from '../lib/copy.ts';
-import { planItemCopy } from '../features/plan-items/copy.ts';
 import {
-  ATTEMPT_STATUS_LABELS,
-  CALL_OUTCOME_LABELS,
-  CHANNEL_LABELS,
-  CONTACT_FLAG_LABEL,
-  CONTACT_OUTCOME_LABELS,
-  DISMISS_REASON_LABELS,
-  HOST_CHANNEL_LABEL,
-} from '../lib/labels.ts';
-import { extractFromNote, MOCK_MODEL } from './extraction.ts';
+  DEFAULT_LOCALE,
+  INTL_LOCALES,
+  type Locale,
+  type Messages,
+  messagesFor,
+} from '../i18n/index.ts';
+import { type MockApiCopy, mockApiCopy } from './api-copy.ts';
 import type {
   PatientQueueItem,
   PatientQueuePage,
@@ -82,13 +77,14 @@ import {
   mockPlanKind,
   REJECTED_BY_CLINICIAN,
 } from './patient-queue.ts';
+import { detectNoteLanguage, extractFromNote, MOCK_MODEL } from './extraction.ts';
+import { localized, type Text } from './localized.ts';
 import {
   ASSIGNEES,
   CLINIC_NAME,
   DEFAULT_SUGGESTED_ACTION,
   mockProtocolRef,
   SEED_PATIENTS,
-  SPECIALTY_LABELS,
   SUGGESTED_ACTIONS,
   type SeedPatient,
   type Specialty,
@@ -135,6 +131,8 @@ interface MockPatient {
   age?: number;
   sex: Sex;
   contact: PatientContact;
+  /** Preferred language (BCP-47), as the host's `Patient.communication` states it. */
+  language?: string;
 }
 
 interface MockDocument {
@@ -150,11 +148,10 @@ interface MockExpectation {
   patientId: string;
   ruleId: string;
   layer: Layer;
-  label: string;
-  protocol?: ProtocolRef;
+  label: Text;
   dueAt: Date;
   status: ExpectationStatus;
-  source: { resourceType: string; id: string; display: string };
+  source: { resourceType: string; id: string; display: Text };
   evidence?: { quote: string; documentId: string };
   caseId?: string;
   origin: 'live' | 'backfill';
@@ -170,7 +167,7 @@ interface TimelineEntry {
   at: Date;
   type: string;
   actor: { type: ActorType; id?: string };
-  label: string;
+  label: Text;
   note?: string;
 }
 
@@ -198,7 +195,7 @@ interface MockSuppression {
   id: string;
   patientId: string;
   ruleId: string;
-  label: string;
+  label: Text;
   dismissReason: DismissReason;
   note?: string;
   caseId?: string;
@@ -278,8 +275,8 @@ interface MockLlmCall {
 }
 
 /** `{ protocol }` for a protocol layer rule id, as the API adds it; `{}` otherwise. */
-function protocolOf(ruleId: string): { protocol?: ProtocolRef } {
-  const protocol = mockProtocolRef(ruleId);
+function protocolOf(ruleId: string, locale: Locale): { protocol?: ProtocolRef } {
+  const protocol = mockProtocolRef(ruleId, locale);
   return protocol === undefined ? {} : { protocol };
 }
 
@@ -293,13 +290,6 @@ const LAYER_WEIGHT: Record<Layer, number> = {
   cadence: 16,
 };
 
-/** Timeline label of each escalation step the mock runs (index = step reached - 1). */
-const ESCALATION_LABELS = [
-  'Aviso al responsable del caso',
-  'Prioridad aumentada por falta de respuesta',
-  'Escalado a coordinación del consultorio',
-] as const;
-
 /** The mock's escalation policy, shaped like the engine's (`afterDays` from the case opening). */
 const MOCK_POLICY: readonly { action: EscalationAction; afterDays: number }[] = [
   { action: 'notify_clinic', afterDays: 7 },
@@ -308,16 +298,17 @@ const MOCK_POLICY: readonly { action: EscalationAction; afterDays: number }[] = 
   { action: 'mark_lost_to_follow_up', afterDays: 111 },
 ];
 
-/** Same step labels as the API. */
-const ESCALATION_STEP_LABELS: Record<EscalationAction, string> = {
-  notify_clinic: 'Aviso al responsable',
-  raise_priority: 'Aumento de prioridad',
-  request_patient_contact: 'Pedido de contacto al paciente',
-  escalate_to_coordinator: 'Paso a coordinación',
-  mark_lost_to_follow_up: 'Cierre como perdido en seguimiento',
-};
+/** Timeline label of the escalation step a case reached (1-based), as the API writes it. */
+function escalationLabel(step: number): Text {
+  const action = MOCK_POLICY[step - 1]?.action;
+  return (at) =>
+    action === undefined
+      ? mockApiCopy(at).timeline.escalated
+      : mockApiCopy(at).escalationActions[action];
+}
 
-const COORDINATION = 'Coordinación';
+/** Owner of a case escalated to coordination: a role, named in the request's language. */
+const COORDINATION = 'coordinator';
 
 /** Owner id of a display name, as the API's owner ids (`recepcion`, `dra-lucia-paredes`). */
 export function mockOwnerId(name: string): string {
@@ -391,6 +382,11 @@ function isSpecialty(value: string): value is Specialty {
 
 /** The mock API surface: one method per contract endpoint. */
 export interface MockStore {
+  /**
+   * The language of the request being answered (its `Accept-Language`):
+   * every label of the next views is written in it.
+   */
+  setLocale(locale: Locale): void;
   now(): Date;
   clinic(): ClinicInfo;
   listCases(query: CaseListQuery): Page<CaseView>;
@@ -446,7 +442,40 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     comm: 0,
     sup: 0,
   };
-  const reviewer = createReviewerMock(() => now);
+  let locale: Locale = DEFAULT_LOCALE;
+  const reviewer = createReviewerMock(
+    () => now,
+    () => locale,
+  );
+
+  /** A stored label in the request's language. */
+  function say(text: Text): string {
+    return text(locale);
+  }
+  /** The inbox catalog of the request's language (enumerated labels the API shares). */
+  function ui(): Messages {
+    return messagesFor(locale);
+  }
+  /** The mock API's own copy in the request's language. */
+  function api(): MockApiCopy {
+    return mockApiCopy(locale);
+  }
+  /** Text from the mock API's copy, resolved when a view is built. */
+  function apiText(render: (copy: MockApiCopy) => string): Text {
+    return (at) => render(mockApiCopy(at));
+  }
+  /** An owner's display name: people as they are, roles in the request's language. */
+  function ownerName(assignee: string): string {
+    if (assignee === ASSIGNEES.reception) return api().people.frontDesk;
+    if (assignee === COORDINATION) return api().people.coordinator;
+    return assignee;
+  }
+  /** Owner ids as the API's (`front_desk`, `dra-lucia-paredes`). */
+  function ownerId(assignee: string): string {
+    return assignee === ASSIGNEES.reception || assignee === COORDINATION
+      ? assignee
+      : mockOwnerId(assignee);
+  }
 
   function nextId(kind: keyof typeof counters, prefix: string): string {
     counters[kind] += 1;
@@ -478,6 +507,8 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       name: seed.name,
       age: seed.age,
       sex: seed.sex,
+      // The synthetic clinic's patients speak Spanish (Venezuela).
+      language: 'es-VE',
       contact: {
         allowed: !(seed.contact?.optedOut ?? false),
         optedOut: seed.contact?.optedOut ?? false,
@@ -490,7 +521,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
               contactDataInvalid: true,
               contactFlag: {
                 issue: 'wrong_number' as const,
-                label: CONTACT_FLAG_LABEL,
+                label: '',
                 raisedAt: addDays(now, -seed.contact.wrongNumberDaysAgo).toISOString(),
                 channel: 'whatsapp' as const,
               },
@@ -547,8 +578,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         patientId,
         ruleId: reason.ruleId,
         layer: reason.layer,
-        label: reason.label,
-        ...protocolOf(reason.ruleId),
+        label: localized(reason.label),
         dueAt: addDays(now, -reason.overdueDays),
         status: caseId ? (closed ? 'fulfilled' : 'expired') : 'open',
         source: {
@@ -557,7 +587,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
             reason.source.resourceType === 'DocumentReference' && documentId
               ? documentId
               : `${reason.source.resourceType.toLowerCase()}-${id}`,
-          display: reason.source.display,
+          display: localized(reason.source.display),
         },
         origin: caseSeed?.origin ?? 'live',
         ...(caseId ? { caseId } : {}),
@@ -572,11 +602,14 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         patientId,
         ruleId: past.ruleId,
         layer: past.layer,
-        label: past.label,
-        ...protocolOf(past.ruleId),
+        label: localized(past.label),
         dueAt: addDays(now, -past.daysAgo),
         status: past.status,
-        source: { resourceType: 'ServiceRequest', id: `servicerequest-${id}`, display: past.label },
+        source: {
+          resourceType: 'ServiceRequest',
+          id: `servicerequest-${id}`,
+          display: localized(past.label),
+        },
         origin: 'live',
       });
     }
@@ -590,14 +623,15 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       at: openedAt,
       type: 'opened',
       actor: { type: 'rule', id: firstReason?.ruleId ?? 'rule' },
-      label: `Caso abierto: ${firstReason?.label ?? 'expectativa vencida'}`,
+      label: (at: Locale) =>
+        mockApiCopy(at).timeline.opened(firstReason ? firstReason.label[at] : ''),
     });
     for (const reason of seed.reasons.slice(1)) {
       timeline.push({
         at: addDays(now, -Math.max(0, reason.overdueDays - 1)),
         type: 'reason_added',
         actor: { type: 'rule', id: reason.ruleId },
-        label: `Motivo agregado: ${reason.label}`,
+        label: (at: Locale) => mockApiCopy(at).timeline.reasonAdded(reason.label[at]),
       });
     }
     if (caseSeed.origin === 'backfill') {
@@ -605,7 +639,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         at: addDays(now, -Math.max(0, maxOverdue - 1)),
         type: 'backfill_found',
         actor: { type: 'system' },
-        label: 'Encontrado al revisar el historial del consultorio',
+        label: apiText((copy) => copy.timeline.backfillFound),
       });
     }
     for (let step = 1; step <= caseSeed.escalationStep; step += 1) {
@@ -616,7 +650,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         ),
         type: 'escalated',
         actor: { type: 'system' },
-        label: ESCALATION_LABELS[step - 1] ?? 'Escalado',
+        label: escalationLabel(step),
       });
     }
     const lastContact = patients.get(patientId)?.contact.lastContactAt;
@@ -625,7 +659,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         at: new Date(lastContact),
         type: 'patient_contact_requested',
         actor: { type: 'user', id: seed.assignee },
-        label: 'Se pidió al sistema del consultorio contactar al paciente',
+        label: apiText((copy) => copy.timeline.contactRequested),
       });
     }
     let snoozedUntil: Date | undefined;
@@ -635,7 +669,9 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         at: addDays(now, -2),
         type: 'snoozed',
         actor: { type: 'user', id: seed.assignee },
-        label: `Pospuesto ${String(caseSeed.snoozeDays + 2)} días: el paciente pidió que lo llamen después`,
+        label: apiText((copy) =>
+          copy.timeline.snoozedAtPatientRequest((caseSeed.snoozeDays ?? 0) + 2),
+        ),
       });
     }
     if (CLOSED_STATUSES.includes(caseSeed.status)) {
@@ -649,12 +685,15 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
             : { type: 'user', id: seed.assignee },
         label:
           caseSeed.status === 'resolved'
-            ? 'Resuelto: el paciente asistió y se cargó el resultado'
+            ? apiText((copy) => copy.timeline.resolvedAttended)
             : caseSeed.status === 'dismissed'
-              ? MOCK_TIMELINE_COPY.dismissed(
-                  DISMISS_REASON_LABELS[caseSeed.dismissal?.reason ?? 'already_done'],
-                )
-              : 'Sin respuesta tras todos los escalamientos: perdido en seguimiento',
+              ? (at: Locale) =>
+                  mockApiCopy(at).timeline.dismissedBecause(
+                    messagesFor(at).labels.dismissReasons[
+                      caseSeed.dismissal?.reason ?? 'already_done'
+                    ],
+                  )
+              : apiText((copy) => copy.timeline.lostToFollowUp),
       });
     }
     if (caseSeed.feedback) {
@@ -662,7 +701,9 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         at: addDays(now, -1),
         type: 'feedback_recorded',
         actor: { type: 'user', id: seed.assignee },
-        label: caseSeed.feedback.useful ? 'Marcado como útil' : 'Marcado como no útil',
+        label: apiText((copy) =>
+          caseSeed.feedback?.useful === true ? copy.timeline.useful : copy.timeline.notUseful,
+        ),
       });
     }
     timeline.sort((a, b) => a.at.getTime() - b.at.getTime());
@@ -676,11 +717,13 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           seedAttempt.trigger === 'user'
             ? { type: 'user', id: seed.assignee }
             : { type: 'system', id: 'default_v2' },
-        label:
+        label: (at: Locale) =>
           seedAttempt.channel === 'phone_call'
-            ? MOCK_TIMELINE_COPY.callAssigned
-            : MOCK_TIMELINE_COPY.contactRequested(
-                seedAttempt.channel ? CHANNEL_LABELS[seedAttempt.channel] : HOST_CHANNEL_LABEL,
+            ? mockApiCopy(at).timeline.call
+            : mockApiCopy(at).timeline.contactRequestedVia(
+                seedAttempt.channel
+                  ? messagesFor(at).labels.channels[seedAttempt.channel]
+                  : messagesFor(at).labels.hostChannel,
               ),
       });
       return {
@@ -697,7 +740,10 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
             at,
             type: 'contact_outcome_recorded',
             actor: { type: 'patient' },
-            label: MOCK_TIMELINE_COPY.contactOutcome(CONTACT_OUTCOME_LABELS[reported.outcome]),
+            label: (at: Locale) =>
+              mockApiCopy(at).timeline.contactOutcome(
+                messagesFor(at).labels.contactOutcomes[reported.outcome],
+              ),
           });
           return {
             id: nextId('comm', 'comm'),
@@ -789,12 +835,12 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       expectationId: expectation.id,
       ruleId: expectation.ruleId,
       layer: expectation.layer,
-      label: expectation.label,
-      ...(expectation.protocol ? { protocol: { ...expectation.protocol } } : {}),
+      label: say(expectation.label),
+      ...protocolOf(expectation.ruleId, locale),
       dueAt: expectation.dueAt.toISOString(),
       overdueDays: Math.max(0, daysBetween(expectation.dueAt, now)),
       suppressible: isSuppressible(expectation.layer),
-      source: { ...expectation.source },
+      source: { ...expectation.source, display: say(expectation.source.display) },
       ...(expectation.evidence && document
         ? {
             evidence: {
@@ -809,24 +855,29 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     };
   }
 
+  function planKindOf(expectation: MockExpectation): PlanItemViewKind {
+    return expectation.kind ?? mockPlanKind(expectation.ruleId);
+  }
+
   function planItemField(expectation: MockExpectation): { planItem?: PlanItemView } {
-    const planItem = mockPlanItemView(expectation);
+    const planItem = mockPlanItemView(expectation, (kind) => ui().labels.planKinds[kind]);
     return planItem === undefined ? {} : { planItem };
   }
 
   function expectationView(expectation: MockExpectation): PatientExpectationView {
+    const copy = api().patientQueue;
     const closedLabel =
       expectation.closedReason === CORRECTED_BY_CLINICIAN
-        ? 'Corrected by a clinician'
+        ? copy.correctedByClinician
         : expectation.closedReason === REJECTED_BY_CLINICIAN
-          ? 'Rejected by a clinician: the note did not ask for it'
+          ? copy.rejectedByClinician
           : undefined;
     return {
       id: expectation.id,
       ruleId: expectation.ruleId,
       layer: expectation.layer,
-      label: expectation.label,
-      ...(expectation.protocol ? { protocol: { ...expectation.protocol } } : {}),
+      label: say(expectation.label),
+      ...protocolOf(expectation.ruleId, locale),
       status: expectation.status,
       dueAt: expectation.dueAt.toISOString(),
       ...(closedLabel === undefined ? {} : { closedReason: closedLabel }),
@@ -848,7 +899,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
 
   function caseView(followUpCase: MockCase): CaseView {
     const patient = patients.get(followUpCase.patientId);
-    if (!patient) throw new MockHttpError(500, 'patient_missing', 'Paciente no encontrado');
+    if (!patient) throw new MockHttpError(500, 'patient_missing', api().errors.patientMissing);
     const reasons = followUpCase.expectationIds
       .map((id) => expectations.get(id))
       .filter((expectation): expectation is MockExpectation => expectation !== undefined)
@@ -872,10 +923,13 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       origin: followUpCase.origin,
       openedAt: followUpCase.openedAt.toISOString(),
       reasons,
-      suggestedAction: SUGGESTED_ACTIONS[topRule] ?? DEFAULT_SUGGESTED_ACTION,
-      patientContact: { ...patient.contact },
+      suggestedAction: (SUGGESTED_ACTIONS[topRule] ?? DEFAULT_SUGGESTED_ACTION)[locale],
+      patientContact: contactView(patient),
       ...(followUpCase.assignee
-        ? { assignee: followUpCase.assignee, assigneeId: mockOwnerId(followUpCase.assignee) }
+        ? {
+            assignee: ownerName(followUpCase.assignee),
+            assigneeId: ownerId(followUpCase.assignee),
+          }
         : {}),
       ...(followUpCase.nextActionAt && ACTIVE.includes(followUpCase.status)
         ? { nextActionAt: followUpCase.nextActionAt.toISOString() }
@@ -918,7 +972,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         const scheduledAt = schedule.get(index);
         return {
           action: step.action,
-          label: ESCALATION_STEP_LABELS[step.action],
+          label: api().escalationSteps[step.action],
           afterDays: step.afterDays,
           ...(detail && index < current ? { outcome: 'done' as const } : {}),
           ...(scheduledAt ? { scheduledAt: scheduledAt.toISOString() } : {}),
@@ -928,12 +982,20 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         ? {
             next: {
               action: nextStep.action,
-              label: ESCALATION_STEP_LABELS[nextStep.action],
+              label: api().escalationSteps[nextStep.action],
               at: followUpCase.nextActionAt.toISOString(),
             },
           }
         : {}),
     };
+  }
+
+  /** The patient's contact status, its flag labelled in the request's language. */
+  function contactView(patient: MockPatient): PatientContact {
+    const { contactFlag, ...contact } = patient.contact;
+    return contactFlag
+      ? { ...contact, contactFlag: { ...contactFlag, label: ui().labels.contactFlag } }
+      : contact;
   }
 
   function ageOf(patient: MockPatient): { age?: number } {
@@ -949,8 +1011,11 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         .map((entry) => ({
           at: entry.at.toISOString(),
           type: entry.type,
-          actor: { ...entry.actor },
-          label: entry.label,
+          actor:
+            entry.actor.id === undefined
+              ? { ...entry.actor }
+              : { ...entry.actor, id: ownerName(entry.actor.id) },
+          label: say(entry.label),
           ...(entry.note ? { note: entry.note } : {}),
         })),
       ...(followUpCase.feedback ? { feedback: { ...followUpCase.feedback } } : {}),
@@ -989,17 +1054,19 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       id: attempt.id,
       attempt: attempt.attempt,
       ...(attempt.channel ? { channel: attempt.channel } : {}),
-      channelLabel: attempt.channel ? CHANNEL_LABELS[attempt.channel] : HOST_CHANNEL_LABEL,
+      channelLabel: attempt.channel
+        ? ui().labels.channels[attempt.channel]
+        : ui().labels.hostChannel,
       trigger: attempt.trigger,
       requestedAt: attempt.requestedAt.toISOString(),
       dueBy: attempt.dueBy.toISOString(),
       ...(attempt.requestedBy ? { requestedBy: attempt.requestedBy } : {}),
       status,
-      statusLabel: ATTEMPT_STATUS_LABELS[status],
+      statusLabel: ui().labels.attemptStatuses[status],
       ...(best?.outcome
         ? {
             outcome: best.outcome,
-            outcomeLabel: CONTACT_OUTCOME_LABELS[best.outcome],
+            outcomeLabel: ui().labels.contactOutcomes[best.outcome],
             outcomeAt: best.at.toISOString(),
           }
         : {}),
@@ -1010,7 +1077,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         ...(communication.outcome
           ? {
               outcome: communication.outcome,
-              outcomeLabel: CONTACT_OUTCOME_LABELS[communication.outcome],
+              outcomeLabel: ui().labels.contactOutcomes[communication.outcome],
             }
           : {}),
         sender: communication.sender,
@@ -1037,7 +1104,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         trigger: call.trigger,
         outcomes: CALL_OUTCOMES.map((outcome) => ({
           outcome,
-          label: CALL_OUTCOME_LABELS[outcome],
+          label: ui().labels.callOutcomes[outcome],
         })),
       },
     };
@@ -1047,9 +1114,9 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     return {
       id: suppression.id,
       ruleId: suppression.ruleId,
-      label: suppression.label,
+      label: say(suppression.label),
       dismissReason: suppression.dismissReason,
-      dismissReasonLabel: DISMISS_REASON_LABELS[suppression.dismissReason],
+      dismissReasonLabel: ui().labels.dismissReasons[suppression.dismissReason],
       ...(suppression.note ? { note: suppression.note } : {}),
       ...(suppression.caseId ? { caseId: suppression.caseId } : {}),
       createdAt: suppression.createdAt.toISOString(),
@@ -1063,7 +1130,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   function dismissalView(dismissal: MockDismissal): DismissalView {
     return {
       reason: dismissal.reason,
-      reasonLabel: DISMISS_REASON_LABELS[dismissal.reason],
+      reasonLabel: ui().labels.dismissReasons[dismissal.reason],
       ...(dismissal.note ? { note: dismissal.note } : {}),
       ...(dismissal.by ? { by: dismissal.by } : {}),
       at: dismissal.at.toISOString(),
@@ -1076,7 +1143,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
 
   function getCaseOrThrow(id: string): MockCase {
     const followUpCase = cases.get(id);
-    if (!followUpCase) throw new MockHttpError(404, 'case_not_found', 'No encontramos ese caso.');
+    if (!followUpCase) throw new MockHttpError(404, 'case_not_found', api().errors.caseNotFound);
     return followUpCase;
   }
 
@@ -1114,7 +1181,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         at: expectation.dueAt,
         type: 'reason_added',
         actor: { type: 'rule', id: expectation.ruleId },
-        label: `Motivo agregado: ${expectation.label}`,
+        label: (at: Locale) => mockApiCopy(at).timeline.reasonAdded(expectation.label(at)),
       });
       emit('case.reason_added', webhookCasePayload(existing), expectation.dueAt);
       return;
@@ -1136,7 +1203,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           at: expectation.dueAt,
           type: 'opened',
           actor: { type: 'rule', id: expectation.ruleId },
-          label: `Caso abierto: ${expectation.label}`,
+          label: (at: Locale) => mockApiCopy(at).timeline.opened(expectation.label(at)),
         },
       ],
       ...(patient ? { assignee: assigneeFor(patient.id) } : {}),
@@ -1171,7 +1238,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         at: followUpCase.releaseAt,
         type: 'released',
         actor: { type: 'system' },
-        label: 'Entró a la bandeja desde la revisión del historial',
+        label: apiText((copy) => copy.timeline.released),
       });
       followUpCase.nextActionAt = addDays(followUpCase.releaseAt, ESCALATION_DELAYS_DAYS[0]);
       emit('case.opened', webhookCasePayload(followUpCase), followUpCase.releaseAt);
@@ -1190,7 +1257,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         at,
         type: 'reopened',
         actor: { type: 'system' },
-        label: 'Volvió a la bandeja al terminar el plazo pospuesto',
+        label: apiText((copy) => copy.timeline.reopened),
       });
     }
   }
@@ -1213,7 +1280,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
             at,
             type: 'lost_to_follow_up',
             actor: { type: 'system' },
-            label: 'Sin respuesta tras todos los escalamientos: perdido en seguimiento',
+            label: apiText((copy) => copy.timeline.lostToFollowUp),
           });
           emit('case.lost_to_follow_up', webhookCasePayload(followUpCase), at);
           break;
@@ -1229,7 +1296,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           at,
           type: 'escalated',
           actor: { type: 'system' },
-          label: ESCALATION_LABELS[followUpCase.escalationStep - 1] ?? 'Escalado',
+          label: escalationLabel(followUpCase.escalationStep),
         });
         emit('case.escalated', webhookCasePayload(followUpCase), at);
       }
@@ -1238,20 +1305,13 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
 
   // ---------------------------------------------------------------- commands
 
-  const ACTION_LABELS: Record<CaseAction, string> = {
-    notify: 'Se pidió al sistema del consultorio contactar al paciente',
-    snooze: 'Pospuesto',
-    resolve: 'Resuelto por el equipo',
-    dismiss: 'Descartado por el equipo',
-  };
-
   function act(id: string, request: CaseActionRequest, actorId = 'Dra. Lucía Paredes'): CaseDetail {
     const followUpCase = getCaseOrThrow(id);
     if (!ACTIVE.includes(followUpCase.status)) {
       throw new MockHttpError(
         409,
         'invalid_transition',
-        `No se puede cambiar este caso: ya está ${followUpCase.status === 'resolved' ? 'resuelto' : 'cerrado'}.`,
+        api().errors.cannotChange(followUpCase.status === 'resolved'),
       );
     }
     const patient = patients.get(followUpCase.patientId);
@@ -1263,7 +1323,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           throw new MockHttpError(
             409,
             'patient_contact_not_allowed',
-            'El paciente no acepta mensajes del consultorio. Contáctalo por otra vía.',
+            api().errors.contactNotAllowed,
           );
         }
         followUpCase.status = 'notified';
@@ -1282,7 +1342,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           at: now,
           type: 'patient_contact_requested',
           actor: { type: 'user', id: actorId },
-          label: ACTION_LABELS.notify,
+          label: apiText((copy) => copy.timeline.contactRequested),
           ...withNote,
         });
         emit('case.patient_contact_requested', {
@@ -1301,7 +1361,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           throw new MockHttpError(
             422,
             'invalid_snooze_days',
-            `Indica entre 1 y ${String(MAX_SNOOZE_DAYS)} días.`,
+            api().errors.snoozeDays(MAX_SNOOZE_DAYS),
           );
         }
         followUpCase.status = 'snoozed';
@@ -1311,7 +1371,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           at: now,
           type: 'snoozed',
           actor: { type: 'user', id: actorId },
-          label: `Pospuesto ${String(days)} ${days === 1 ? 'día' : 'días'}`,
+          label: apiText((copy) => copy.timeline.snoozed(days)),
           ...withNote,
         });
         emit('case.snoozed', webhookCasePayload(followUpCase));
@@ -1357,7 +1417,10 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           at: now,
           type: 'dismissed',
           actor: { type: 'user', id: actorId },
-          label: MOCK_TIMELINE_COPY.dismissed(DISMISS_REASON_LABELS[reason]),
+          label: (at: Locale) =>
+            mockApiCopy(at).timeline.dismissedBecause(
+              messagesFor(at).labels.dismissReasons[reason],
+            ),
           ...withNote,
         });
         emit('case.dismissed', webhookCasePayload(followUpCase));
@@ -1375,7 +1438,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           at: now,
           type: followUpCase.status,
           actor: { type: 'user', id: actorId },
-          label: ACTION_LABELS.resolve,
+          label: apiText((copy) => copy.timeline.resolvedByTeam),
           ...withNote,
         });
         emit(`case.${followUpCase.status}`, webhookCasePayload(followUpCase));
@@ -1393,15 +1456,15 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   ): DismissReason {
     const reason = DISMISS_REASONS.find((candidate) => candidate === request.reason);
     if (!reason) {
-      const message = VALIDATION_COPY.dismissReasonRequired;
+      const message = ui().validation.dismissReasonRequired;
       throw new MockHttpError(422, 'invalid_request', message, [{ path: 'reason', message }]);
     }
     if (reason === 'other' && !note) {
-      const message = VALIDATION_COPY.dismissNoteRequired;
+      const message = ui().validation.dismissNoteRequired;
       throw new MockHttpError(422, 'invalid_request', message, [{ path: 'note', message }]);
     }
     if (request.suppress && reason !== 'not_applicable_to_patient') {
-      const message = VALIDATION_COPY.suppressOnlyNotApplicable;
+      const message = ui().validation.suppressOnlyNotApplicable;
       throw new MockHttpError(422, 'invalid_request', message, [{ path: 'suppress', message }]);
     }
     const suppressible = followUpCase.expectationIds.some((id) => {
@@ -1409,9 +1472,8 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       return expectation !== undefined && isSuppressible(expectation.layer);
     });
     if (request.suppress && !suppressible) {
-      throw new MockHttpError(422, 'invalid_request', VALIDATION_COPY.nothingToSuppress, [
-        { path: 'suppress', message: VALIDATION_COPY.nothingToSuppress },
-      ]);
+      const message = ui().validation.nothingToSuppress;
+      throw new MockHttpError(422, 'invalid_request', message, [{ path: 'suppress', message }]);
     }
     return reason;
   }
@@ -1423,7 +1485,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   ): CaseDetail {
     const followUpCase = getCaseOrThrow(id);
     if (!ACTIVE.includes(followUpCase.status)) {
-      throw new MockHttpError(409, 'invalid_transition', VALIDATION_COPY.caseClosed);
+      throw new MockHttpError(409, 'invalid_transition', ui().validation.caseClosed);
     }
     const call = request.requestId
       ? followUpCase.contactAttempts.find(
@@ -1431,7 +1493,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         )
       : pendingCall(followUpCase);
     if (!call) {
-      throw new MockHttpError(404, 'not_found', VALIDATION_COPY.noPendingCall);
+      throw new MockHttpError(404, 'not_found', ui().validation.noPendingCall);
     }
     const outcome: CallOutcome = request.outcome;
     call.communications.push({
@@ -1446,7 +1508,8 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       at: now,
       type: 'contact_outcome_recorded',
       actor: { type: 'user', id: actorId },
-      label: MOCK_TIMELINE_COPY.callOutcome(CALL_OUTCOME_LABELS[outcome]),
+      label: (at: Locale) =>
+        mockApiCopy(at).timeline.callOutcome(messagesFor(at).labels.callOutcomes[outcome]),
     });
     const patient = patients.get(followUpCase.patientId);
     if (patient && ANSWERED.includes(outcome)) {
@@ -1457,7 +1520,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       patient.contact.contactDataInvalid = true;
       patient.contact.contactFlag = {
         issue: 'wrong_number',
-        label: CONTACT_FLAG_LABEL,
+        label: '',
         raisedAt: now.toISOString(),
         channel: 'phone_call',
       };
@@ -1470,10 +1533,11 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         at: now,
         type: 'resolved',
         actor: { type: 'user', id: actorId },
-        label:
+        label: apiText((copy) =>
           outcome === 'declined'
-            ? MOCK_TIMELINE_COPY.resolvedDeclined
-            : MOCK_TIMELINE_COPY.resolvedTreatedElsewhere,
+            ? copy.timeline.resolvedDeclined
+            : copy.timeline.resolvedTreatedElsewhere,
+        ),
       });
       emit('case.resolved', webhookCasePayload(followUpCase));
     }
@@ -1490,7 +1554,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   function reactivateSuppression(id: string, actorId = 'Dra. Lucía Paredes'): SuppressionView {
     const suppression = suppressions.get(id);
     if (!suppression || suppression.revokedAt) {
-      throw new MockHttpError(404, 'not_found', VALIDATION_COPY.suppressionAlreadyActive);
+      throw new MockHttpError(404, 'not_found', ui().validation.suppressionAlreadyActive);
     }
     suppression.revokedAt = now;
     suppression.revokedBy = actorId;
@@ -1505,7 +1569,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         if (!expectation) continue;
         const rule = rules.get(expectation.ruleId) ?? {
           ruleId: expectation.ruleId,
-          label: expectation.label,
+          label: say(expectation.label),
           layer: expectation.layer,
           casesWithFeedback: 0,
           useful: 0,
@@ -1542,11 +1606,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   ): CaseFeedbackView {
     const followUpCase = getCaseOrThrow(id);
     if (!request.useful && !request.reason) {
-      throw new MockHttpError(
-        422,
-        'feedback_reason_required',
-        'Cuéntanos por qué no fue útil para mejorar las reglas.',
-      );
+      throw new MockHttpError(422, 'feedback_reason_required', api().errors.feedbackReasonRequired);
     }
     const comment = request.comment?.trim();
     const value: CaseFeedbackView = {
@@ -1559,7 +1619,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       at: now,
       type: 'feedback_recorded',
       actor: { type: 'user', id: actorId },
-      label: request.useful ? 'Marcado como útil' : 'Marcado como no útil',
+      label: apiText((copy) => (request.useful ? copy.timeline.useful : copy.timeline.notUseful)),
     });
     return value;
   }
@@ -1568,7 +1628,8 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     return {
       id: condition.id,
       code: condition.code,
-      display: condition.display,
+      // Named like the API: from its ICD-10 table, in the request's language.
+      display: api().conditionNames[condition.code] ?? condition.display,
       status: condition.status,
       confidence: condition.confidence,
       sourceType: condition.sourceType,
@@ -1580,10 +1641,10 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   function reviewCondition(id: string, decision: 'confirm' | 'reject'): ConditionView {
     const condition = conditions.get(id);
     if (!condition || condition.rejected) {
-      throw new MockHttpError(404, 'condition_not_found', 'No encontramos esa condición.');
+      throw new MockHttpError(404, 'condition_not_found', api().errors.conditionNotFound);
     }
     if (condition.status !== 'probable') {
-      throw new MockHttpError(409, 'condition_not_probable', 'Esta condición ya fue revisada.');
+      throw new MockHttpError(409, 'condition_not_probable', api().errors.conditionReviewed);
     }
     if (decision === 'confirm') {
       condition.status = 'confirmed';
@@ -1602,14 +1663,13 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     fields: Omit<MockExpectation, 'id' | 'patientId' | 'status' | 'origin'>,
   ): CreatedExpectation {
     const id = nextId('exp', 'exp');
-    const protocol = protocolOf(fields.ruleId);
-    expectations.set(id, { id, patientId, status: 'open', origin: 'live', ...fields, ...protocol });
+    expectations.set(id, { id, patientId, status: 'open', origin: 'live', ...fields });
     return {
       id,
       ruleId: fields.ruleId,
       layer: fields.layer,
-      label: fields.label,
-      ...protocol,
+      label: say(fields.label),
+      ...protocolOf(fields.ruleId, locale),
       dueAt: fields.dueAt.toISOString(),
     };
   }
@@ -1617,16 +1677,16 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   function createConsultation(request: DemoConsultationRequest): DemoConsultationResponse {
     const text = request.noteText.trim();
     if (text.length < 20) {
-      throw new MockHttpError(422, 'note_too_short', 'Escribe una nota de al menos 20 caracteres.');
+      throw new MockHttpError(422, 'note_too_short', api().errors.noteTooShort);
     }
     let patient = request.patientId ? patients.get(request.patientId) : undefined;
     if (request.patientId && !patient) {
-      throw new MockHttpError(404, 'patient_not_found', 'No encontramos ese paciente.');
+      throw new MockHttpError(404, 'patient_not_found', api().errors.patientNotFound);
     }
     if (!patient) {
       const name = request.patientName?.trim();
       if (!name) {
-        throw new MockHttpError(422, 'patient_required', 'Elige un paciente o escribe un nombre.');
+        throw new MockHttpError(422, 'patient_required', api().errors.patientRequired);
       }
       const id = nextId('patient', 'pat');
       patient = { id, name, sex: 'unknown', contact: { allowed: true, optedOut: false } };
@@ -1643,6 +1703,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     });
 
     const extracted = extractFromNote(text, now);
+    const noteLanguage = detectNoteLanguage(text);
     const inputTokens = 1150 + Math.round(text.length / 3.6);
     const outputTokens = 180 + extracted.planItems.length * 70 + extracted.conditions.length * 45;
     const costUsd = Number(((inputTokens * 0.35 + outputTokens * 1.4) / 1_000_000).toFixed(6));
@@ -1656,34 +1717,31 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         createExpectation(patientId, {
           ruleId: 'lab_order_result_pending',
           layer: 'universal',
-          label: `Resultado de ${order.display} pendiente`,
+          label: (at: Locale) =>
+            mockApiCopy(at).demo.resultPending(
+              messagesFor(at).consultation.labs[order.loinc] ?? order.display,
+            ),
           dueAt: addDays(now, 21),
           source: {
             resourceType: 'ServiceRequest',
             id: `sr-${order.loinc}-${documentId}`,
-            display: order.display,
+            display: (at: Locale) =>
+              messagesFor(at).consultation.labs[order.loinc] ?? order.display,
           },
         }),
       );
     }
-    const planLabels = {
-      follow_up_visit: 'Consulta de control indicada en la nota',
-      lab: 'Exámenes indicados en el plan',
-      imaging: 'Estudio de imagen indicado en el plan',
-      session: 'Sesión de seguimiento indicada en la nota',
-      other: 'Indicación del plan pendiente',
-    } as const;
     for (const item of extracted.planItems) {
       created.push(
         createExpectation(patientId, {
           ruleId: `doctor_plan_${item.kind}`,
           layer: 'doctor_plan',
-          label: planLabels[item.kind],
+          label: apiText((copy) => copy.demo.plan[item.kind]),
           dueAt: new Date(item.dueAt),
           source: {
             resourceType: 'DocumentReference',
             id: documentId,
-            display: 'Nota de la consulta',
+            display: apiText((copy) => copy.demo.note),
           },
           evidence: { quote: item.evidenceQuote, documentId },
         }),
@@ -1698,12 +1756,15 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         createExpectation(patientId, {
           ruleId: `cadence_${specialty}_visit`,
           layer: 'cadence',
-          label: `Próxima consulta de ${SPECIALTY_LABELS[specialty].toLowerCase()} según la frecuencia habitual`,
+          label: (at: Locale) =>
+            mockApiCopy(at).demo.nextVisit(
+              messagesFor(at).labels.specialties[specialty].toLocaleLowerCase(INTL_LOCALES[at]),
+            ),
           dueAt: addDays(now, CADENCE_DAYS[specialty]),
           source: {
             resourceType: 'Encounter',
             id: `enc-${documentId}`,
-            display: 'Consulta de hoy',
+            display: apiText((copy) => copy.demo.todayVisit),
           },
         }),
       );
@@ -1716,12 +1777,12 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         createExpectation(patientId, {
           ruleId: 'protocol_diabetes_hba1c',
           layer: 'protocol',
-          label: 'Sin HbA1c reciente (cada 3 meses)',
+          label: apiText((copy) => copy.demo.hba1c),
           dueAt: addDays(now, 90),
           source: {
             resourceType: 'PlanDefinition',
             id: 'protocol-dm2',
-            display: 'Protocolo de diabetes tipo 2',
+            display: apiText((copy) => copy.demo.diabetesProtocol),
           },
         }),
       );
@@ -1731,12 +1792,12 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         createExpectation(patientId, {
           ruleId: 'protocol_fibroid_ultrasound',
           layer: 'protocol',
-          label: 'Ecografía de control de mioma (protocolo)',
+          label: apiText((copy) => copy.demo.fibroid),
           dueAt: addDays(now, 180),
           source: {
             resourceType: 'PlanDefinition',
             id: 'protocol-fibroid',
-            display: 'Seguimiento de miomatosis uterina',
+            display: apiText((copy) => copy.demo.fibroidProtocol),
           },
         }),
       );
@@ -1796,7 +1857,9 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
             status: 'current',
             subject: { reference: `Patient/${patientId}` },
             date: now.toISOString(),
-            content: [{ attachment: { contentType: 'text/plain; charset=utf-8', language: 'es' } }],
+            content: [
+              { attachment: { contentType: 'text/plain; charset=utf-8', language: noteLanguage } },
+            ],
           },
         },
         ...orders.map((order) => ({
@@ -1820,11 +1883,18 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       extraction: {
         model: MOCK_MODEL,
         hasPlan: extracted.hasPlan,
-        conditions: extracted.conditions,
+        conditions: extracted.conditions.map((condition) => ({
+          ...condition,
+          code: {
+            ...condition.code,
+            display: api().conditionNames[condition.code.code] ?? condition.code.display ?? '',
+          },
+        })),
         medications: extracted.medications,
         planItems: extracted.planItems,
         costUsd,
         latencyMs,
+        noteLanguage,
       },
       expectationsCreated: created,
     };
@@ -1834,6 +1904,17 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
 
   /** One message per patient every 14 days, whatever the number of cases (the engine's window). */
   const CONTACT_WINDOW_DAYS = 14;
+
+  /** A plan item review's timeline label, in the request's language. */
+  function reviewLabel(
+    key: 'planItemConfirmed' | 'planItemCorrected' | 'planItemRejected',
+    kind: PlanItemViewKind,
+  ): Text {
+    return (at) =>
+      mockApiCopy(at).patientQueue[key](
+        messagesFor(at).labels.planKinds[kind].toLocaleLowerCase(INTL_LOCALES[at]),
+      );
+  }
 
   function requestPatientContact(
     patientId: string,
@@ -1852,22 +1933,14 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       .sort((left, right) => right.view.priority - left.view.priority);
     const primary = active[0];
     if (!patient || !primary) {
-      throw new MockHttpError(404, 'not_found', 'This patient has no active cases in the inbox.');
+      throw new MockHttpError(404, 'not_found', api().patientQueue.noActiveCases);
     }
     if (!patient.contact.allowed || patient.contact.optedOut) {
-      throw new MockHttpError(
-        409,
-        'patient_contact_not_allowed',
-        'El paciente no acepta mensajes del consultorio. Contáctalo por otra vía.',
-      );
+      throw new MockHttpError(409, 'patient_contact_not_allowed', api().errors.contactNotAllowed);
     }
     const last = patient.contact.lastContactAt;
     if (last !== undefined && daysBetween(new Date(last), now) < CONTACT_WINDOW_DAYS) {
-      throw new MockHttpError(
-        409,
-        'patient_contact_not_allowed',
-        'Ya se pidió contactar a este paciente hace pocos días. Espera a que responda o contáctalo por otra vía.',
-      );
+      throw new MockHttpError(409, 'patient_contact_not_allowed', api().patientQueue.contactWindow);
     }
     const trimmed = note?.trim();
     act(
@@ -1880,7 +1953,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         at: now,
         type: 'patient_contact_requested',
         actor: { type: 'user', id: actorId },
-        label: 'Contact requested for the patient (one request covers all their cases)',
+        label: (at: Locale) => mockApiCopy(at).patientQueue.contactRequestedForPatient,
         ...(trimmed ? { note: trimmed } : {}),
       });
       if (followUpCase.status === 'open' || followUpCase.status === 'snoozed') {
@@ -1897,7 +1970,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       .filter((followUpCase) => followUpCase.patientId === patientId && isReleased(followUpCase))
       .map(caseView);
     if (views.length === 0) {
-      throw new MockHttpError(404, 'not_found', 'This patient has no active cases in the inbox.');
+      throw new MockHttpError(404, 'not_found', api().patientQueue.noActiveCases);
     }
     return mockPatientQueueItem(views);
   }
@@ -1917,7 +1990,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       at: now,
       type: 'resolved',
       actor: { type: 'user', id: actorId },
-      label: 'Resuelto: no hacía falta',
+      label: (at: Locale) => mockApiCopy(at).patientQueue.resolvedNotNeeded,
     });
     emit('case.resolved', webhookCasePayload(followUpCase));
     return [followUpCase.id];
@@ -1931,11 +2004,10 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   ): PlanItemReviewResponse {
     const expectation = expectations.get(expectationId);
     if (!expectation) {
-      throw new MockHttpError(404, 'not_found', 'We could not find that plan item.');
+      throw new MockHttpError(404, 'not_found', api().patientQueue.planItemNotFound);
     }
     if (expectation.layer !== 'doctor_plan') {
-      const message =
-        'Only a plan item the AI read from a note can be confirmed, corrected or rejected.';
+      const message = api().patientQueue.notAPlanItem;
       throw new MockHttpError(422, 'invalid_request', message, [
         { path: 'expectationId', message },
       ]);
@@ -1944,18 +2016,13 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       expectation.closedReason === CORRECTED_BY_CLINICIAN ||
       expectation.closedReason === REJECTED_BY_CLINICIAN
     ) {
-      throw new MockHttpError(
-        409,
-        'conflict',
-        'A clinician already corrected or rejected this plan item.',
-      );
+      throw new MockHttpError(409, 'conflict', api().patientQueue.alreadyReviewed);
     }
     const live = expectation.status === 'open' || expectation.status === 'expired';
     const followUpCase =
       expectation.caseId === undefined ? undefined : cases.get(expectation.caseId);
     const activeCase =
       followUpCase && ACTIVE.includes(followUpCase.status) ? followUpCase : undefined;
-    const kindLabel = planItemCopy().kinds;
     if (command === 'confirm') {
       if (expectation.confirmedBy === undefined) {
         expectation.confirmedBy = actorId;
@@ -1964,17 +2031,13 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           at: now,
           type: 'plan_item_confirmed',
           actor: { type: 'user', id: actorId },
-          label: `Plan item confirmed: ${kindLabel[expectation.kind ?? mockPlanKind(expectation.ruleId)].toLowerCase()}`,
+          label: reviewLabel('planItemConfirmed', planKindOf(expectation)),
         });
       }
       return { expectation: expectationView(expectation), casesResolved: [] };
     }
     if (!live) {
-      throw new MockHttpError(
-        409,
-        'conflict',
-        'This plan item is already closed: there is nothing left to correct or reject.',
-      );
+      throw new MockHttpError(409, 'conflict', api().patientQueue.planItemClosed);
     }
     if (command === 'reject') {
       expectation.status = 'cancelled';
@@ -1983,28 +2046,25 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         at: now,
         type: 'plan_item_rejected',
         actor: { type: 'user', id: actorId },
-        label: `Plan item rejected: ${kindLabel[expectation.kind ?? mockPlanKind(expectation.ruleId)].toLowerCase()}`,
+        label: reviewLabel('planItemRejected', planKindOf(expectation)),
       });
       return {
         expectation: expectationView(expectation),
         casesResolved: resolveIfSatisfied(activeCase?.id, actorId),
       };
     }
-    const kind = correction.kind ?? expectation.kind ?? mockPlanKind(expectation.ruleId);
+    const kind = correction.kind ?? planKindOf(expectation);
     const dueAt =
       correction.dueDate === undefined
         ? expectation.dueAt
         : new Date(`${correction.dueDate}T12:00:00.000Z`);
     if (Number.isNaN(dueAt.getTime())) {
-      throw new MockHttpError(422, 'invalid_request', 'Enter a valid due date.', [
-        { path: 'dueDate', message: 'Enter a valid due date.' },
+      throw new MockHttpError(422, 'invalid_request', api().patientQueue.invalidDueDate, [
+        { path: 'dueDate', message: api().patientQueue.invalidDueDate },
       ]);
     }
-    if (
-      kind === (expectation.kind ?? mockPlanKind(expectation.ruleId)) &&
-      dueAt.getTime() === expectation.dueAt.getTime()
-    ) {
-      const message = 'Change the due date or the kind to correct the plan item.';
+    if (kind === planKindOf(expectation) && dueAt.getTime() === expectation.dueAt.getTime()) {
+      const message = api().patientQueue.nothingToCorrect;
       throw new MockHttpError(422, 'invalid_request', message, [{ path: 'correction', message }]);
     }
     expectation.status = 'superseded';
@@ -2032,7 +2092,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       at: now,
       type: 'plan_item_corrected',
       actor: { type: 'user', id: actorId },
-      label: `Plan item corrected: ${kindLabel[kind].toLowerCase()}`,
+      label: reviewLabel('planItemCorrected', kind),
     });
     return {
       expectation: expectationView(expectation),
@@ -2044,6 +2104,10 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   // --------------------------------------------------------------- queries
 
   return {
+    setLocale(next: Locale): void {
+      locale = next;
+    },
+
     now: (): Date => new Date(now),
 
     listCases(query: CaseListQuery): Page<CaseView> {
@@ -2070,7 +2134,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           (followUpCase) =>
             !query.assignee ||
             (followUpCase.assignee !== undefined &&
-              mockOwnerId(followUpCase.assignee) === query.assignee),
+              ownerId(followUpCase.assignee) === query.assignee),
         )
         .map(caseView)
         .sort((a, b) => b.priority - a.priority || a.patient.name.localeCompare(b.patient.name));
@@ -2081,13 +2145,19 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       const owners = new Map<string, OwnerView>();
       for (const followUpCase of cases.values()) {
         if (!isReleased(followUpCase) || !followUpCase.assignee) continue;
-        const id = mockOwnerId(followUpCase.assignee);
-        const owner = owners.get(id) ?? { id, name: followUpCase.assignee, activeCases: 0 };
+        const id = ownerId(followUpCase.assignee);
+        const owner = owners.get(id) ?? {
+          id,
+          name: ownerName(followUpCase.assignee),
+          activeCases: 0,
+        };
         if (ACTIVE.includes(followUpCase.status)) owner.activeCases += 1;
         owners.set(id, owner);
       }
       return {
-        items: [...owners.values()].sort((a, b) => a.name.localeCompare(b.name, 'es')),
+        items: [...owners.values()].sort((a, b) =>
+          a.name.localeCompare(b.name, INTL_LOCALES[locale]),
+        ),
       };
     },
 
@@ -2122,16 +2192,16 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
 
     getPatient(id: string): PatientDetail {
       const patient = patients.get(id);
-      if (!patient)
-        throw new MockHttpError(404, 'patient_not_found', 'No encontramos ese paciente.');
+      if (!patient) throw new MockHttpError(404, 'patient_not_found', api().errors.patientNotFound);
       return {
         patient: {
           id: patient.id,
           name: patient.name,
           sex: patient.sex,
           ...ageOf(patient),
-          contact: { ...patient.contact },
+          contact: contactView(patient),
         },
+        ...(patient.language === undefined ? {} : { language: patient.language }),
         conditions: [...conditions.values()]
           .filter((condition) => condition.patientId === id)
           .sort((a, b) => (a.status === b.status ? 0 : a.status === 'probable' ? -1 : 1))
@@ -2147,7 +2217,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
             code: 'note_without_plan' as const,
             documentId: finding.documentId,
             at: finding.at.toISOString(),
-            label: 'Nota sin plan de seguimiento',
+            label: api().noteWithoutPlan,
           })),
         suppressions: [...suppressions.values()]
           .filter((suppression) => suppression.patientId === id)
@@ -2222,7 +2292,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
 
     advance(days: number): { now: string } {
       if (!Number.isInteger(days) || days < 1 || days > 365) {
-        throw new MockHttpError(422, 'invalid_days', 'Indica entre 1 y 365 días.');
+        throw new MockHttpError(422, 'invalid_days', api().errors.invalidDays);
       }
       now = addDays(now, days);
       releaseBackfill();

@@ -3,25 +3,24 @@ import type { ReactNode } from 'react';
 import { Outlet, useParams } from 'react-router';
 import { EmptyState } from '../../components/states.tsx';
 import { StatsBar } from '../../components/stats-bar.tsx';
+import { useT } from '../../i18n/index.ts';
 import { cx } from '../../lib/cx.ts';
-import { patientQueueCopy } from '../patient-queue/copy.ts';
 import { PatientQueueList } from '../patient-queue/patient-queue-list.tsx';
-
-const copy = patientQueueCopy();
 
 /**
  * The follow-up inbox: one card per patient (HIP-141) on the left, the
  * patient's cases on the right (or on their own screen on a phone).
  */
 export function InboxPage(): ReactNode {
+  const t = useT();
   const { caseId } = useParams();
   const hasSelection = caseId !== undefined;
   return (
     <div className="flex flex-col gap-4">
       {/* With a case open on a phone the header is visually hidden, but the page keeps its h1. */}
       <header className={cx('flex flex-col gap-0.5', hasSelection && 'sr-only lg:not-sr-only')}>
-        <h1 className="text-xl font-semibold tracking-tight text-fg">{copy.page.title}</h1>
-        <p className="text-sm text-muted">{copy.page.intro}</p>
+        <h1 className="text-xl font-semibold tracking-tight text-fg">{t.inbox.title}</h1>
+        <p className="text-sm text-muted">{t.inbox.intro}</p>
       </header>
       <div className={cx(hasSelection && 'hidden lg:block')}>
         <StatsBar />
@@ -42,9 +41,9 @@ export function InboxPage(): ReactNode {
             <div className="rounded-xl border border-dashed border-border-strong">
               <EmptyState
                 icon={<MousePointerClick className="size-5" aria-hidden="true" />}
-                title={copy.page.chooseTitle}
+                title={t.inbox.selectTitle}
               >
-                {copy.page.chooseBody}
+                {t.inbox.selectBody}
               </EmptyState>
             </div>
           )}

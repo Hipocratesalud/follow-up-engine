@@ -11,7 +11,8 @@ import { fieldError, InlineError } from '../../components/states.tsx';
 import { Button, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatLimit, INPUT_LIMITS } from '../../lib/limits.ts';
-import { FEEDBACK_REASON_LABELS, verdictReasonLabel } from '../../lib/labels.ts';
+import { useT } from '../../i18n/index.ts';
+import { verdictReasonLabel } from '../../lib/labels.ts';
 
 function parseReason(value: string): FeedbackReason | undefined {
   return FEEDBACK_REASONS.find((reason) => reason === value);
@@ -24,6 +25,7 @@ function FeedbackSummary({
   readonly feedback: CaseFeedbackView;
   readonly onChange: () => void;
 }): ReactNode {
+  const t = useT();
   function handleChange(): void {
     onChange();
   }
@@ -36,13 +38,17 @@ function FeedbackSummary({
           <ThumbsDown className="size-4 text-danger" aria-hidden="true" />
         )}
         <span>
-          {feedback.useful ? 'Marcaste este caso como útil.' : 'Marcaste este caso como no útil'}
-          {!feedback.useful && feedback.reason ? `: ${verdictReasonLabel(feedback.reason)}.` : null}
-          {feedback.comment ? <span className="text-muted"> «{feedback.comment}»</span> : null}
+          {feedback.useful ? t.feedback.markedUseful : t.feedback.markedNotUseful}
+          {!feedback.useful && feedback.reason
+            ? t.feedback.reasonSuffix(verdictReasonLabel(t, feedback.reason))
+            : null}
+          {feedback.comment ? (
+            <span className="text-muted"> {t.common.quoted(feedback.comment)}</span>
+          ) : null}
         </span>
       </p>
       <Button size="sm" variant="ghost" onClick={handleChange}>
-        Cambiar
+        {t.common.change}
       </Button>
     </div>
   );
@@ -59,6 +65,7 @@ export function FeedbackPanel({
   readonly caseId: string;
   readonly feedback: CaseFeedbackView | undefined;
 }): ReactNode {
+  const t = useT();
   const ids = useId();
   const mutation = useCaseFeedback(caseId);
   const [editing, setEditing] = useState(false);
@@ -104,13 +111,11 @@ export function FeedbackPanel({
 
   function handleSubmitNotUseful(): void {
     if (!reason) {
-      setReasonError('Elige un motivo para continuar: así sabemos qué ajustar.');
+      setReasonError(t.validation.feedbackReasonRequired);
       return;
     }
     if (comment.trim().length > INPUT_LIMITS.comment) {
-      setCommentError(
-        `El comentario puede tener hasta ${formatLimit(INPUT_LIMITS.comment)} caracteres.`,
-      );
+      setCommentError(t.validation.commentTooLong(formatLimit(INPUT_LIMITS.comment)));
       return;
     }
     submit({ useful: false, reason, ...(comment.trim() ? { comment: comment.trim() } : {}) });
@@ -135,7 +140,7 @@ export function FeedbackPanel({
           disabled={mutation.isPending}
           icon={<ThumbsUp className="size-3.5" aria-hidden="true" />}
         >
-          Útil
+          {t.feedback.useful}
         </Button>
         <Button
           size="sm"
@@ -145,7 +150,7 @@ export function FeedbackPanel({
           className={cx(notUseful && 'border-danger text-danger')}
           icon={<ThumbsDown className="size-3.5" aria-hidden="true" />}
         >
-          No útil
+          {t.feedback.notUseful}
         </Button>
       </div>
 
@@ -155,7 +160,7 @@ export function FeedbackPanel({
             aria-describedby={reasonError ? `${ids}-reason-error` : undefined}
             aria-invalid={reasonError ? true : undefined}
           >
-            <legend className="mb-2 text-sm font-medium text-fg">¿Por qué no fue útil?</legend>
+            <legend className="mb-2 text-sm font-medium text-fg">{t.feedback.whyNot}</legend>
             <div className="grid gap-1.5 sm:grid-cols-2">
               {FEEDBACK_REASONS.map((value) => (
                 <label
@@ -175,7 +180,7 @@ export function FeedbackPanel({
                     onChange={handleReasonChange}
                     className="accent-[var(--primary)]"
                   />
-                  {FEEDBACK_REASON_LABELS[value]}
+                  {t.labels.feedbackReasons[value]}
                 </label>
               ))}
             </div>
@@ -187,7 +192,7 @@ export function FeedbackPanel({
           </fieldset>
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${ids}-comment`} className="text-sm font-medium text-fg">
-              Comentario (opcional)
+              {t.feedback.comment}
             </label>
             <textarea
               id={`${ids}-comment`}
@@ -213,7 +218,7 @@ export function FeedbackPanel({
               disabled={mutation.isPending}
               onClick={handleSubmitNotUseful}
             >
-              Enviar comentario
+              {t.feedback.send}
             </Button>
           </div>
         </div>

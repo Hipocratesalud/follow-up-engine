@@ -133,6 +133,7 @@ export async function extractNotes(
         text: note.text,
         authoredAt: note.authoredAt,
         ...(note.specialty === undefined ? {} : { specialty: note.specialty }),
+        ...(note.language === undefined ? {} : { language: note.language }),
       });
       pass.derived.push(
         deriveFromExtraction(

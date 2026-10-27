@@ -461,18 +461,46 @@ function calibration(makeHarness: (options: HarnessOptions) => Promise<EngineHar
   describe('old history sent through live ingestion', () => {
     const contactClinic = { settings: { allowPatientContact: true } } as const;
 
-    async function oldOrder(orderDay: number) {
+    /** The bundle's Patient also states a preferred language, without `meta.lastUpdated`. */
+    function withPatientLanguage(bundle: unknown): unknown {
+      const fhir = bundle as { readonly entry?: readonly { resource?: Record<string, unknown> }[] };
+      return {
+        ...fhir,
+        entry: (fhir.entry ?? []).map((entry) =>
+          entry.resource?.['resourceType'] === 'Patient'
+            ? {
+                ...entry,
+                resource: {
+                  ...entry.resource,
+                  communication: [
+                    {
+                      language: { coding: [{ system: 'urn:ietf:bcp:47', code: 'es-VE' }] },
+                      preferred: true,
+                    },
+                  ],
+                },
+              }
+            : entry,
+        ),
+      };
+    }
+
+    async function oldOrder(
+      orderDay: number,
+      options: { readonly patientLanguage?: boolean } = {},
+    ) {
       const harness = await harnessWith(
         new FakeNoteExtractor().setExtraction('old-note', { hasPlan: false }),
         contactClinic,
       );
       // Received today (day 0), dated `orderDay`.
+      const bundle = visit('old', orderDay, {
+        specialty: 'internal_medicine',
+        noteText: 'Se solicita creatinina.',
+        orders: [{ loinc: '2160-0', display: 'Creatinina' }],
+      });
       await day(harness, 0, [
-        visit('old', orderDay, {
-          specialty: 'internal_medicine',
-          noteText: 'Se solicita creatinina.',
-          orders: [{ loinc: '2160-0', display: 'Creatinina' }],
-        }),
+        options.patientLanguage === true ? withPatientLanguage(bundle) : bundle,
       ]);
       await daysPass(harness, 1, 60);
       const events = await harness.pendingEvents();
@@ -510,6 +538,12 @@ function calibration(makeHarness: (options: HarnessOptions) => Promise<EngineHar
       const result = await oldOrder(-200);
       expect(result.inbox.map((followUpCase) => followUpCase.patientId)).toEqual([patient]);
       expect(result.types).toContain('case.opened');
+      expect(result.types).not.toContain('patient_contact.requested');
+    });
+
+    it("a Patient's preferred language, dated on arrival, does not make old history new (HIP-138)", async () => {
+      const result = await oldOrder(-200, { patientLanguage: true });
+      expect(result.inbox.map((followUpCase) => followUpCase.patientId)).toEqual([patient]);
       expect(result.types).not.toContain('patient_contact.requested');
     });
 

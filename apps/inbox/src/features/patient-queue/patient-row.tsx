@@ -1,7 +1,6 @@
 import { ChevronRight, Layers3 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { PatientSummary } from '../../api/contract.ts';
 import type { PatientQueueItem } from '../../api/patient-queue-contract.ts';
 import { useNow } from '../../api/queries.ts';
 import {
@@ -16,10 +15,8 @@ import {
 import { Badge } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { daysAgo, formatOverdue, initials } from '../../lib/format.ts';
-import { NEW_CASE_DAYS } from '../inbox/case-row.tsx';
-import { patientQueueCopy } from './copy.ts';
-
-const copy = patientQueueCopy();
+import { useT } from '../../i18n/index.ts';
+import { NEW_CASE_DAYS, patientMeta } from '../inbox/case-row.tsx';
 
 const AVATAR_TONES: Record<PatientQueueItem['priorityLabel'], string> = {
   urgente: 'bg-danger-soft text-danger',
@@ -34,15 +31,6 @@ const AVATAR_TONES: Record<PatientQueueItem['priorityLabel'], string> = {
  */
 export function isNewPatient(item: PatientQueueItem, now: Date): boolean {
   return item.origin === 'live' && daysAgo(item.latestOpenedAt, now) <= NEW_CASE_DAYS;
-}
-
-/** "54 y · F". */
-export function patientLine(patient: PatientSummary): string {
-  const parts: string[] = [];
-  if (patient.age !== undefined) parts.push(copy.row.age(patient.age));
-  if (patient.sex === 'female') parts.push(copy.row.female);
-  if (patient.sex === 'male') parts.push(copy.row.male);
-  return parts.join(' · ');
 }
 
 /** The case whose escalation the card's meter shows: the one furthest along. */
@@ -68,6 +56,7 @@ export function PatientRow({
   readonly selected?: boolean;
   readonly isNew?: boolean;
 }): ReactNode {
+  const t = useT();
   const now = useNow();
   const top = item.topReason;
   const extra = item.reasonCount - 1;
@@ -102,10 +91,10 @@ export function PatientRow({
             <span className="block truncate text-sm font-semibold text-fg">
               {item.patient.name}
             </span>
-            <span className="block text-xs text-muted">{patientLine(item.patient)}</span>
+            <span className="block text-xs text-muted">{patientMeta(item.patient, t)}</span>
           </span>
           <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-            {isNew ? <Badge tone="primary">{copy.row.newBadge}</Badge> : null}
+            {isNew ? <Badge tone="primary">{t.common.newBadge}</Badge> : null}
             <PriorityBadge label={item.priorityLabel} priority={item.priority} />
           </span>
         </span>
@@ -114,7 +103,7 @@ export function PatientRow({
             {top.label}
             {extra > 0 ? (
               <span className="ml-1.5 text-xs font-medium whitespace-nowrap text-muted">
-                {copy.row.moreReasons(extra)}
+                {t.caseRow.moreReasons(extra)}
               </span>
             ) : null}
           </span>
@@ -122,7 +111,7 @@ export function PatientRow({
         <span className="flex flex-wrap items-center gap-1.5">
           {item.caseCount > 1 ? (
             <Badge tone="neutral" icon={<Layers3 className="size-3" aria-hidden="true" />}>
-              {copy.row.cases(item.caseCount)}
+              {t.patientCard.cases(item.caseCount)}
             </Badge>
           ) : null}
           {item.layers.map((layer) => (

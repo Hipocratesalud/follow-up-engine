@@ -52,6 +52,12 @@ export interface PatientContactRequestedPayload {
   readonly channel?: ContactChannel;
   /** 1-based attempt number within the case. */
   readonly attempt?: number;
+  /**
+   * The patient's preferred language (BCP-47, from `Patient.communication`):
+   * the host writes its message in it. Absent: the host did not state one
+   * (the host falls back to the clinic's language).
+   */
+  readonly language?: string;
 }
 
 /**

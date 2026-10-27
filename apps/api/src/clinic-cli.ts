@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util';
-import { clinicId as toClinicId } from '@follow-up-engine/core';
+import { normalizeLanguageTag, clinicId as toClinicId } from '@follow-up-engine/core';
 import {
   API_KEY_SCOPES,
   type ApiKeyScope,
@@ -23,6 +23,9 @@ Registers a clinic (or updates one) and issues a scoped API key, printed once.
                              (demo:clock moves the shared fake clock of every clinic)
   --allow-patient-contact    Enable patient contact requests for a new clinic (default: off)
   --timezone <iana>          Clinic time zone for a new clinic (default: UTC)
+  --locale <bcp47>           Clinic locale, the language of API labels when the user's
+                             Accept-Language names none the engine has (default: en-US);
+                             also updates an existing clinic
   --escalation-policy <id>   Named escalation policy of the clinic, new or existing
                              (default_v1, default_v2; cases already open keep theirs)
   --protocols <a,b>          Care protocols the clinic runs, once its clinical team validated
@@ -76,6 +79,7 @@ export async function runClinicCommand(
         'allow-patient-contact': { type: 'boolean' },
         'allow-demo': { type: 'boolean' },
         timezone: { type: 'string' },
+        locale: { type: 'string' },
         'escalation-policy': { type: 'string' },
         protocols: { type: 'string' },
         help: { type: 'boolean' },
@@ -125,6 +129,12 @@ export async function runClinicCommand(
         'gets them, unless you pass --allow-demo.',
     );
   }
+  const locale = values.locale === undefined ? undefined : normalizeLanguageTag(values.locale);
+  if (values.locale !== undefined && locale === undefined) {
+    return fail(
+      `--locale ${values.locale} is not a BCP-47 language tag (for example en-US, es-VE).`,
+    );
+  }
   const protocols = values.protocols
     ?.split(',')
     .map((protocol) => protocol.trim())
@@ -152,11 +162,13 @@ export async function runClinicCommand(
   const enabled = protocols === undefined ? {} : { enabledProtocols: protocols };
   const renamed =
     existing !== undefined && values.name !== undefined && values.name !== existing.name;
+  const relocalized =
+    existing !== undefined && locale !== undefined && locale !== existing.settings.locale;
   const repoliced =
     existing !== undefined &&
     policyId !== undefined &&
     policyId !== existing.settings.escalationPolicyId;
-  if (existing === undefined || renamed || repoliced || protocols !== undefined) {
+  if (existing === undefined || renamed || repoliced || relocalized || protocols !== undefined) {
     await runtime.storage.registerClinic({
       id: toClinicId(id),
       name: values.name ?? existing?.name ?? id,
@@ -167,9 +179,18 @@ export async function runClinicCommand(
               ...(values.timezone === undefined ? {} : { timezone: values.timezone }),
               ...policy,
               ...enabled,
+              ...(locale === undefined ? {} : { locale }),
             },
           }
-        : { settings: { ...existing.settings, ...policy, ...enabled }, active: existing.active }),
+        : {
+            settings: {
+              ...existing.settings,
+              ...policy,
+              ...enabled,
+              ...(locale === undefined ? {} : { locale }),
+            },
+            active: existing.active,
+          }),
     });
     action =
       existing === undefined

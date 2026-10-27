@@ -1,6 +1,7 @@
 import * as RadixDialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useT } from '../i18n/index.ts';
 
 /**
  * Accessible modal built on Radix: focus trap, Escape to close, labelled by
@@ -25,6 +26,7 @@ export function Dialog({
   readonly footer?: ReactNode;
   readonly returnFocus?: () => HTMLElement | null | undefined;
 }): ReactNode {
+  const t = useT();
   function handleCloseAutoFocus(event: Event): void {
     const target = returnFocus?.();
     if (!target) return;
@@ -54,7 +56,7 @@ export function Dialog({
             </div>
             <RadixDialog.Close
               className="grid size-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg"
-              aria-label="Cerrar"
+              aria-label={t.common.close}
             >
               <X className="size-4" aria-hidden="true" />
             </RadixDialog.Close>

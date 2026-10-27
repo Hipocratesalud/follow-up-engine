@@ -1,20 +1,19 @@
 import type { ReactNode } from 'react';
 import type { FindingTrend } from '../../api/reviewer-contract.ts';
-import { formatDate, formatShortDate } from '../../lib/format.ts';
-import { REVIEW_COPY } from './copy.ts';
-
-const COPY = REVIEW_COPY.trend;
+import { type Messages, messages, useT } from '../../i18n/index.ts';
+import { formatDate, formatDecimal, formatShortDate } from '../../lib/format.ts';
 
 const WIDTH = 420;
 const HEIGHT = 170;
 const PAD = { top: 14, right: 14, bottom: 30, left: 46 } as const;
 
 function formatValue(value: number): string {
-  return value.toLocaleString('es', { maximumFractionDigits: 2 });
+  return formatDecimal(value);
 }
 
-/** "Creatinina: 1,05 → 1,1 → 1,75 mg/dL entre el 12 jul 2024 y el 20 nov 2025". */
-export function trendDescription(trend: FindingTrend): string {
+/** "Creatinine: 1.05 → 1.1 → 1.75 mg/dL between Jul 12, 2024 and Nov 20, 2025". */
+export function trendDescription(trend: FindingTrend, t: Messages = messages()): string {
+  const COPY = t.review.trend;
   const first = trend.points[0];
   const last = trend.points.at(-1);
   const values = trend.points.map((point) => formatValue(point.value)).join(' → ');
@@ -38,6 +37,8 @@ export function trendDescription(trend: FindingTrend): string {
  * reference limits as dashed lines and the cited results emphasized.
  */
 export function TrendChart({ trend }: { readonly trend: FindingTrend }): ReactNode {
+  const t = useT();
+  const COPY = t.review.trend;
   const points = trend.points;
   if (points.length === 0) return null;
   const times = points.map((point) => new Date(point.date).getTime());
@@ -82,7 +83,7 @@ export function TrendChart({ trend }: { readonly trend: FindingTrend }): ReactNo
       </figcaption>
       <svg
         role="img"
-        aria-label={trendDescription(trend)}
+        aria-label={trendDescription(trend, t)}
         viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
         className="h-auto w-full max-w-[520px] text-muted"
       >
