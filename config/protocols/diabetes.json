@@ -1,6 +1,6 @@
 {
   "id": "diabetes",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Diabetes mellitus follow-up: a control visit at least every 6 months, HbA1c every 3 months, lipid panel and fundus exam yearly. Fills only what the doctor's plan did not cover.",
   "reason": { "code": "protocol_diabetes", "label": "Control de diabetes" },
   "caseGroup": "follow_up",
@@ -62,7 +62,23 @@
       "code": { "system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c" },
       "reason": { "code": "protocol_diabetes_hba1c", "label": "Sin HbA1c reciente (cada 3 meses)" },
       "everyDays": 90,
-      "fulfilledBy": [{ "event": "result.received", "match": "same_code" }],
+      "fulfilledBy": [
+        {
+          "event": "result.received",
+          "filter": { "code.code": ["4548-4", "17856-6", "4549-2"] },
+          "match": "any"
+        }
+      ],
+      "planTerms": [
+        "hba1c",
+        "hb a1c",
+        "a1c",
+        "hemoglobina glicosilada",
+        "hemoglobina glucosilada",
+        "hemoglobina glicada",
+        "glycated hemoglobin",
+        "hemoglobin a1c"
+      ],
       "priority": 40,
       "suggestedAction": {
         "code": "order_lab",
@@ -82,6 +98,14 @@
           "filter": { "code.code": ["24331-1", "57698-3", "2093-3", "13457-7", "2085-9"] },
           "match": "any"
         }
+      ],
+      "planTerms": [
+        "perfil lipidico",
+        "lipidograma",
+        "lipidos",
+        "colesterol",
+        "trigliceridos",
+        "lipid panel"
       ],
       "priority": 20,
       "suggestedAction": {
@@ -108,6 +132,7 @@
           "match": "any"
         }
       ],
+      "planTerms": ["fondo de ojo", "oftalmologia", "oftalmologo", "retinografia", "fundus"],
       "priority": 20,
       "suggestedAction": {
         "code": "refer_ophthalmology",

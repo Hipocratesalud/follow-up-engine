@@ -1,13 +1,25 @@
 [
   {
     "id": "cadence_break",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "layer": "cadence",
-    "description": "A patient with an established visit pattern (2+ previous visits in the same specialty) should come back within 3 times their usual interval.",
+    "description": "A patient with an established visit pattern (2+ previous visits in the same specialty) should come back within 3 times their usual interval. Visits of closed episodes are not a pattern: a pregnancy once the postpartum visit came, an acute episode and its control, everything up to a discharge.",
     "reason": { "code": "cadence_break", "label": "Dejó de venir a su control habitual" },
     "trigger": { "event": "encounter.finished" },
     "dueInDays": 90,
-    "cadence": { "multiplier": 3, "minPreviousVisits": 2, "minIntervalDays": 7 },
+    "cadence": {
+      "multiplier": 3,
+      "minPreviousVisits": 2,
+      "minIntervalDays": 7,
+      "episodes": [
+        {
+          "key": "pregnancy",
+          "conditionCodes": ["O", "Z32.01", "Z33", "Z34", "Z35", "Z36", "Z37", "Z3A"],
+          "closedBy": ["Z39"]
+        }
+      ],
+      "acuteEpisode": { "treatmentRule": "short_treatment_followup", "controlWithinDays": 14 }
+    },
     "expects": "follow_up_visit",
     "caseGroup": "follow_up",
     "fulfilledBy": [
