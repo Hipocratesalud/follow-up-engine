@@ -13,9 +13,9 @@ A host EHR (Hipócrates today, any EHR tomorrow) pushes clinical data as HL7 FHI
   Host EHR ─────────────────┐                ┌──────────────────────▶ Host EHR
                             ▼                │
                   ┌──────────────────┐  ┌──────────────────┐
-                  │     apps/api     │  │   apps/worker    │   composition roots
+                  │     apps/api     │  │   apps/worker    │   process entry points
                   └────────┬─────────┘  └────────┬─────────┘
-                           │   wire adapters to ports
+                           │  packages/runtime: wires adapters to ports
         ┌──────────────────┼─────────────────────┼──────────────────┐
         │                  ▼   packages/core     ▼                  │
         │   domain: clinical events, expectations, cases, rules     │
@@ -33,10 +33,11 @@ A host EHR (Hipócrates today, any EHR tomorrow) pushes clinical data as HL7 FHI
 
 ```
 apps/
-  api/                HTTP API, FHIR in and out (composition root)
-  worker/             job runner, outbox delivery, deadline sweeps (composition root)
-  inbox/              clinic inbox UI (placeholder)
+  api/                HTTP API: FHIR in and out, clinic inbox JSON API, demo controls
+  worker/             worker process (jobs, sweeps, outbox delivery) and dev webhook sink
+  inbox/              clinic inbox UI (React; talks to apps/api over HTTP, or an in-browser mock)
 packages/
+  runtime/            composition root: adapters from env, ingestion, worker loops, webhooks
   core/               pure domain + ports, zero I/O
   fhir/               FHIR R4 types, validation, mapping to domain events
   adapter-postgres/   Postgres adapters (vanilla Postgres and Supabase)
@@ -58,8 +59,36 @@ Requires Node 22 (`.nvmrc`) and pnpm 10 (pinned in `package.json` through `packa
 corepack enable pnpm      # or: npm i -g pnpm@10 (an older global pnpm is rejected by engines)
 pnpm install
 pnpm verify               # lint + typecheck + boundaries + test
-docker compose up -d postgres   # Postgres 16 on localhost:54329, for integration tests
-cp .env.example .env
+```
+
+### The demo in one command
+
+```sh
+pnpm demo                 # API on http://localhost:3000, in memory, fake clock, embedded worker
+pnpm inbox                # in another terminal, with the variables below; inbox on http://localhost:5173
+```
+
+Run the inbox against the API with `VITE_API_URL=http://localhost:3000 VITE_API_KEY=demo-clinic-key pnpm inbox`. Without those variables it opens on an in-browser mock instead.
+
+`pnpm demo` loads the synthetic clinic (120 fictional patients, two years of history) through the initial backfill, the way a real clinic is switched on: about 1 s in memory. It ends with 104 cases with origin `backfill`: 103 released to the inbox on day 0 and 1 waiting in "Por recuperar". The Demo page saves a consultation, shows how the note was read and moves the simulated clock; signed webhooks land in an in-process sink. Notes are read by the fake provider (rules, no model) unless you set `LLM_PROVIDER=meta` and `META_API_KEY` (see `.env.example`).
+
+### On Postgres
+
+```sh
+docker compose up -d postgres                                   # Postgres 16 on localhost:54329
+export DATABASE_URL=postgres://postgres:postgres@localhost:54329/follow_up_engine
+pnpm demo                 # migrates, seeds through the backfill (about 9 s; a no-op once seeded), serves
+pnpm e2e                  # end-to-end suite: API + worker against Postgres, real signed webhooks
+pnpm test                 # with DATABASE_URL set, the contract and acceptance suites also run on Postgres
+```
+
+`DEMO_API_KEY=demo-clinic-key pnpm seed` seeds without serving. The fake clock lives in the API process: restarting the demo starts again on the seed date (2026-01-05).
+
+### Docker
+
+```sh
+docker compose --profile demo up --build      # Postgres + the demo (API, worker, seed) on http://localhost:3000
+docker compose --profile app up --build       # production-like split: API, worker and a webhook sink, system clock
 ```
 
 | Command           | What it does                                                     |
@@ -69,6 +98,9 @@ cp .env.example .env
 | `pnpm typecheck`  | `tsc` in every package                                           |
 | `pnpm boundaries` | dependency-cruiser: hexagonal import rules, no cycles            |
 | `pnpm test`       | Vitest, every package as a project                               |
+| `pnpm e2e`        | End-to-end suite against `DATABASE_URL`                          |
+| `pnpm demo`       | API + embedded worker on a fake clock, synthetic clinic seeded   |
+| `pnpm inbox`      | The clinic inbox (Vite dev server)                               |
 | `pnpm format`     | Prettier write                                                   |
 
 ## Architecture decisions
@@ -77,6 +109,7 @@ cp .env.example .env
 - [0002 Hexagonal architecture](docs/adr/0002-hexagonal-architecture.md)
 - [0003 Postgres job runner and transactional outbox](docs/adr/0003-postgres-job-runner-and-outbox.md)
 - [0004 Single llm_gateway, Meta models first](docs/adr/0004-llm-gateway-meta-models.md)
+- [0005 HTTP API on Hono, one engine runtime for the API and the worker](docs/adr/0005-http-api-and-runtime.md) (amended: the runtime is `packages/runtime`)
 
 ## Principles
 
