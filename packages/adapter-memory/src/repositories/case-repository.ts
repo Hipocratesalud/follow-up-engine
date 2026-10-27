@@ -78,7 +78,7 @@ export class MemoryCaseRepository implements CaseRepository {
     if (clash) {
       return Promise.reject(new ConflictError('FollowUpCase', value.dedupKey));
     }
-    this.#db.state.cases.set(tenantKey(clinicId, value.id), value);
+    this.#db.setIn(this.#db.state.cases, tenantKey(clinicId, value.id), value);
     return Promise.resolve();
   }
 
@@ -90,7 +90,7 @@ export class MemoryCaseRepository implements CaseRepository {
     if (!this.#db.state.cases.has(key)) {
       return Promise.reject(new NotFoundError('FollowUpCase', value.id));
     }
-    this.#db.state.cases.set(key, value);
+    this.#db.setIn(this.#db.state.cases, key, value);
     return Promise.resolve();
   }
 

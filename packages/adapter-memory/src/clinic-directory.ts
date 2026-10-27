@@ -60,7 +60,7 @@ export class MemoryLlmUsageLog implements LlmUsageLog {
   }
 
   record(call: LlmCallRecord): Promise<void> {
-    this.#db.state.llmCalls.push(call);
+    this.#db.pushTo(this.#db.state.llmCalls, call);
     return Promise.resolve();
   }
 

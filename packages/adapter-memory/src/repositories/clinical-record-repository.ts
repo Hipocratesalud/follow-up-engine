@@ -45,7 +45,7 @@ export class MemoryClinicalRecordRepository implements ClinicalRecordRepository 
       return Promise.resolve({ versionId: existing.versionId, changed: false });
     }
     const versionId = String(existing === undefined ? 1 : Number(existing.versionId) + 1);
-    this.#db.state.resources.set(key, {
+    this.#db.setIn(this.#db.state.resources, key, {
       clinicId,
       patientId,
       resource: structuredClone(resource),
@@ -74,6 +74,10 @@ export class MemoryClinicalRecordRepository implements ClinicalRecordRepository 
     events: readonly ClinicalEvent[],
   ): Promise<{ inserted: number }> {
     const state = this.#db.state;
+    if (!state.events.has(clinicId)) {
+      this.#db.setIn(state.events, clinicId, []);
+      this.#db.setIn(state.eventKeys, clinicId, new Set<string>());
+    }
     const stored = state.events.get(clinicId) ?? [];
     const keys = state.eventKeys.get(clinicId) ?? new Set<string>();
     let inserted = 0;
@@ -84,12 +88,10 @@ export class MemoryClinicalRecordRepository implements ClinicalRecordRepository 
       if (keys.has(event.idempotencyKey)) {
         continue;
       }
-      keys.add(event.idempotencyKey);
-      stored.push(event);
+      this.#db.addTo(keys, event.idempotencyKey);
+      this.#db.pushTo(stored, event);
       inserted += 1;
     }
-    state.events.set(clinicId, stored);
-    state.eventKeys.set(clinicId, keys);
     return Promise.resolve({ inserted });
   }
 

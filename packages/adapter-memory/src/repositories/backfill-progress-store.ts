@@ -56,7 +56,7 @@ export class MemoryBackfillProgressStore implements BackfillProgressStore {
       startedAt: options.now,
       updatedAt: options.now,
     };
-    runs.set(tenantKey(clinicId, runId), progress);
+    this.#db.setIn(runs, tenantKey(clinicId, runId), progress);
     return Promise.resolve(progress);
   }
 
@@ -140,7 +140,7 @@ export class MemoryBackfillProgressStore implements BackfillProgressStore {
       return Promise.reject(new NotFoundError('BackfillRun', runId));
     }
     const changed = next(run);
-    this.#db.state.backfillRuns.set(key, changed);
+    this.#db.setIn(this.#db.state.backfillRuns, key, changed);
     return Promise.resolve(changed);
   }
 }

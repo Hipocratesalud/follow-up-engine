@@ -51,7 +51,7 @@ export class MemoryJobQueue implements JobQueue {
     }
     const id = jobId(`job-${String(this.#db.nextSequence())}`);
     const now = this.#clock.now();
-    jobs.set(id, {
+    this.#db.setIn(jobs, id, {
       id,
       clinicId,
       type: job.type,
@@ -82,7 +82,7 @@ export class MemoryJobQueue implements JobQueue {
         break;
       }
       if (job.attempt >= job.maxAttempts) {
-        this.#db.state.jobs.set(job.id, {
+        this.#db.setIn(this.#db.state.jobs, job.id, {
           ...job,
           status: 'dead',
           lastError: job.lastError ?? 'lease expired',
@@ -92,7 +92,7 @@ export class MemoryJobQueue implements JobQueue {
       const attempt = job.attempt + 1;
       const leaseToken = `${job.id}:${String(attempt)}:${String(this.#db.nextSequence())}`;
       const leaseExpiresAt = new Date(now + durationToMilliseconds(options.leaseFor));
-      this.#db.state.jobs.set(job.id, {
+      this.#db.setIn(this.#db.state.jobs, job.id, {
         ...job,
         attempt,
         status: 'running',
@@ -122,7 +122,7 @@ export class MemoryJobQueue implements JobQueue {
     if (job === undefined) {
       return Promise.resolve('lease_lost');
     }
-    this.#db.state.jobs.set(job.id, { ...job, status: 'completed' });
+    this.#db.setIn(this.#db.state.jobs, job.id, { ...job, status: 'completed' });
     return Promise.resolve('acknowledged');
   }
 
@@ -139,7 +139,7 @@ export class MemoryJobQueue implements JobQueue {
       return Promise.resolve('lease_lost');
     }
     const exhausted = job.attempt >= job.maxAttempts;
-    this.#db.state.jobs.set(job.id, {
+    this.#db.setIn(this.#db.state.jobs, job.id, {
       ...job,
       status: exhausted ? 'dead' : 'pending',
       runAt: failure.retryAt ?? this.#clock.now(),
@@ -182,7 +182,11 @@ export class MemoryOutbox implements Outbox {
     if (event.clinicId !== clinicId) {
       return Promise.reject(new TenantMismatchError());
     }
-    this.#db.state.outbox.push({ sequence: this.#db.nextSequence(), clinicId, event });
+    this.#db.pushTo(this.#db.state.outbox, {
+      sequence: this.#db.nextSequence(),
+      clinicId,
+      event,
+    });
     return Promise.resolve();
   }
 
@@ -217,7 +221,7 @@ export class MemoryOutbox implements Outbox {
     for (const record of this.#db.state.outbox.filter((item) => item.deliveredAt === undefined)) {
       await publisher.publish(record.clinicId, record.event);
       const index = this.#db.state.outbox.findIndex((item) => item.sequence === record.sequence);
-      this.#db.state.outbox[index] = { ...record, deliveredAt: now };
+      this.#db.replaceAt(this.#db.state.outbox, index, { ...record, deliveredAt: now });
       delivered += 1;
     }
     return delivered;

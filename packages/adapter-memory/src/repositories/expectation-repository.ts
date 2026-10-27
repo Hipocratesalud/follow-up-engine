@@ -39,8 +39,12 @@ export class MemoryExpectationRepository implements ExpectationRepository {
     if (existing !== undefined) {
       return Promise.resolve({ expectation: existing, created: false });
     }
-    state.expectations.set(tenantKey(clinicId, expectation.id), expectation);
-    state.expectationKeys.set(tenantKey(clinicId, expectation.idempotencyKey), expectation.id);
+    this.#db.setIn(state.expectations, tenantKey(clinicId, expectation.id), expectation);
+    this.#db.setIn(
+      state.expectationKeys,
+      tenantKey(clinicId, expectation.idempotencyKey),
+      expectation.id,
+    );
     return Promise.resolve({ expectation, created: true });
   }
 
@@ -94,7 +98,7 @@ export class MemoryExpectationRepository implements ExpectationRepository {
     if (!this.#db.state.expectations.has(key)) {
       return Promise.reject(new NotFoundError('Expectation', expectation.id));
     }
-    this.#db.state.expectations.set(key, expectation);
+    this.#db.setIn(this.#db.state.expectations, key, expectation);
     return Promise.resolve();
   }
 

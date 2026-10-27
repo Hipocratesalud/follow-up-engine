@@ -94,30 +94,111 @@ export function tenantKey(clinicId: ClinicId, ...parts: readonly string[]): stri
   return [clinicId, ...parts].join('|');
 }
 
+type Undo = () => void;
+
 /**
- * The shared in-memory "database" behind every memory adapter. Adapters read
- * `state` on each call, so `restore` (used by the unit of work to roll back)
- * swaps the whole database atomically.
+ * The shared in-memory "database" behind every memory adapter.
+ *
+ * Repositories write through the helpers below (`setIn`, `deleteIn`,
+ * `pushTo`, `replaceAt`, `addTo`, `nextSequence`). Inside a transaction each
+ * helper also records how to undo its write, so a rollback costs as much as
+ * the transaction wrote, not as much as the database holds. Stored values
+ * are never mutated in place: a write replaces them.
  */
 export class MemoryDatabase {
   #state: MemoryState = emptyState();
+  #journal: Undo[] | undefined;
 
   get state(): MemoryState {
     return this.#state;
   }
 
-  /** A deep copy of the current state. */
+  /** Whether a transaction is recording undo entries. */
+  get inTransaction(): boolean {
+    return this.#journal !== undefined;
+  }
+
+  /** Starts recording undo entries (one transaction at a time). */
+  begin(): void {
+    this.#journal = [];
+  }
+
+  /** Keeps every write since `begin`. */
+  commit(): void {
+    this.#journal = undefined;
+  }
+
+  /** Undoes every write since `begin`, newest first. */
+  rollback(): void {
+    const journal = this.#journal ?? [];
+    this.#journal = undefined;
+    for (let index = journal.length - 1; index >= 0; index -= 1) {
+      journal[index]?.();
+    }
+  }
+
+  setIn<TKey, TValue>(map: Map<TKey, TValue>, key: TKey, value: TValue): void {
+    if (this.#journal !== undefined) {
+      const previous = map.get(key);
+      this.#journal.push(
+        map.has(key) ? () => map.set(key, previous as TValue) : () => map.delete(key),
+      );
+    }
+    map.set(key, value);
+  }
+
+  deleteIn<TKey, TValue>(map: Map<TKey, TValue>, key: TKey): void {
+    if (this.#journal !== undefined && map.has(key)) {
+      const previous = map.get(key) as TValue;
+      this.#journal.push(() => map.set(key, previous));
+    }
+    map.delete(key);
+  }
+
+  pushTo<TValue>(array: TValue[], value: TValue): void {
+    if (this.#journal !== undefined) {
+      const length = array.length;
+      this.#journal.push(() => {
+        array.length = length;
+      });
+    }
+    array.push(value);
+  }
+
+  replaceAt<TValue>(array: TValue[], index: number, value: TValue): void {
+    if (this.#journal !== undefined) {
+      const previous = array[index] as TValue;
+      this.#journal.push(() => {
+        array[index] = previous;
+      });
+    }
+    array[index] = value;
+  }
+
+  addTo<TValue>(set: Set<TValue>, value: TValue): void {
+    if (this.#journal !== undefined && !set.has(value)) {
+      this.#journal.push(() => set.delete(value));
+    }
+    set.add(value);
+  }
+
+  nextSequence(): number {
+    const previous = this.#state.sequence;
+    this.#journal?.push(() => {
+      this.#state.sequence = previous;
+    });
+    this.#state.sequence = previous + 1;
+    return this.#state.sequence;
+  }
+
+  /** A deep copy of the current state (fixtures, debugging). */
   snapshot(): MemoryState {
     return structuredClone(this.#state);
   }
 
+  /** Replaces the whole state with a snapshot. Not inside a transaction. */
   restore(snapshot: MemoryState): void {
     this.#state = snapshot;
-  }
-
-  nextSequence(): number {
-    this.#state.sequence += 1;
-    return this.#state.sequence;
   }
 
   /** Empties every table. */
