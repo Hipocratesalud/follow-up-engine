@@ -11,3 +11,20 @@ Source of truth for scope and specs: Linear project "Follow-up Engine AI"
 - This repo will be public: no proprietary Hipócrates code, no credentials, no real patient data. Synthetic data only.
 - Never phrase output as medical advice to patients; findings are suggestions to the clinician with cited evidence.
 - Nothing is enabled for a clinic without clinical team validation.
+
+## Commands
+
+Use pnpm 10 (`corepack enable pnpm`; a global pnpm 7 is rejected by `engines`).
+
+- `pnpm verify`: lint + typecheck + boundaries + test. Run it before every commit.
+- `pnpm lint`, `pnpm typecheck`, `pnpm boundaries`, `pnpm test`, `pnpm format`.
+- `pnpm test --project @follow-up-engine/core`: one package.
+- `docker compose up -d postgres`: Postgres 16 on `localhost:54329`.
+
+## Boundaries (enforced by dependency-cruiser, see docs/adr/0002)
+
+- `packages/core`: domain + ports only. Imports itself and zod. No `pg`, no vendor SDKs, no `node:fs|net|http|child_process`, no other workspace packages.
+- `packages/fhir` → core. Adapters (`adapter-postgres`, `adapter-memory`, `llm`) → core, fhir. Never adapter → adapter.
+- Only `apps/*` (composition roots) wire adapters. Nothing imports an app. `testkit` only from tests.
+- No circular dependencies. Type-only imports count.
+- TypeScript runs without a build step (`erasableSyntaxOnly`): no enums, no parameter properties, relative imports end in `.ts`.
