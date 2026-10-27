@@ -3,6 +3,7 @@ import {
   caseId,
   type ConditionRepository,
   type FeedbackRepository,
+  feedbackId,
   ICD10_SYSTEM,
   patientId,
   type QualityFindingRepository,
@@ -40,6 +41,25 @@ export function describeFeedbackRepositoryContract(
       const other = aFeedback(a, { caseId: caseId('case-other') });
       for (const f of [second, first, other]) await repo().record(a, f);
       expect(await repo().listForCase(a, c)).toEqual([first, second]);
+    });
+
+    it('keeps recording order for feedback with the same instant (a fake clock)', async () => {
+      const { a } = freshClinics();
+      const c = caseId('case-fb-tie');
+      // Ids sort opposite to recording order, so an id tiebreaker would fail.
+      const verdicts = ['fb-z', 'fb-m', 'fb-a', 'fb-y', 'fb-b'].map((id, index) =>
+        aFeedback(a, {
+          id: feedbackId(id),
+          caseId: c,
+          createdAt: at(1),
+          useful: index % 2 === 0,
+        }),
+      );
+      for (const f of verdicts) await repo().record(a, f);
+      expect((await repo().listForCase(a, c)).map((f) => f.id)).toEqual(verdicts.map((f) => f.id));
+      expect((await repo().listSince(a, at(1), 10)).map((f) => f.id)).toEqual(
+        verdicts.map((f) => f.id),
+      );
     });
 
     it('rejects a duplicate id with ConflictError', async () => {

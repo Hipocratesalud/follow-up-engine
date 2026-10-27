@@ -134,7 +134,7 @@ export class PostgresFeedbackRepository implements FeedbackRepository {
     const { rows } = await this.#ctx.db().query<FeedbackRow>(
       `SELECT ${FEEDBACK_COLUMNS} FROM ${this.#ctx.tables.case_feedback}
        WHERE clinic_id = $1 AND case_id = $2
-       ORDER BY created_at, id`,
+       ORDER BY created_at, seq`,
       [clinicId, caseId],
     );
     return rows.map(toFeedback);
@@ -148,7 +148,7 @@ export class PostgresFeedbackRepository implements FeedbackRepository {
     const { rows } = await this.#ctx.db().query<FeedbackRow>(
       `SELECT ${FEEDBACK_COLUMNS} FROM ${this.#ctx.tables.case_feedback}
        WHERE clinic_id = $1 AND created_at >= $2
-       ORDER BY created_at, id
+       ORDER BY created_at, seq
        LIMIT $3`,
       [clinicId, since, limit],
     );
