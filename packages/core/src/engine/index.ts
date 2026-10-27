@@ -90,3 +90,5 @@ export { caseDedupKey, type WatcherReport } from './watcher/watcher.ts';
 export { codeMatchKey, matchKeyFor, parseCodeMatchKey } from './matching/match-key.ts';
 export { matchesFilter } from './matching/filter.ts';
 export { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from './settings.ts';
+
+export * from './reviewer/index.ts';

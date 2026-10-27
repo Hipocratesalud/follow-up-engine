@@ -73,6 +73,11 @@ export const DEFAULT_PRICING: PricingTable = {
     outputPerMTok: 0,
     source: 'Deterministic in-process fake; free.',
   },
+  'fake:fake-reviewer': {
+    inputPerMTok: 0,
+    outputPerMTok: 0,
+    source: 'Deterministic scripted clinical reviewer (in-process); free.',
+  },
 };
 
 export function priceFor(

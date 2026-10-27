@@ -137,3 +137,20 @@ DROP POLICY IF EXISTS clinic_reads_own_rows ON follow_up.patient_rule_suppressio
 CREATE POLICY clinic_reads_own_rows ON follow_up.patient_rule_suppressions
   FOR SELECT TO authenticated
   USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id'));
+
+-- Clinical reviewer (migration 0010). Shadow findings are never readable by
+-- clinic users, not even their own clinic's: only the engine API's batch
+-- review shows them, to the clinical staff validating the reviewer. Live
+-- findings and the flags are readable like every other clinic row. Review
+-- runs (cost, tool trace) stay internal.
+GRANT SELECT ON follow_up.clinical_findings, follow_up.finding_flags TO authenticated;
+
+DROP POLICY IF EXISTS clinic_reads_own_live_findings ON follow_up.clinical_findings;
+CREATE POLICY clinic_reads_own_live_findings ON follow_up.clinical_findings
+  FOR SELECT TO authenticated
+  USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id') AND mode <> 'shadow');
+
+DROP POLICY IF EXISTS clinic_reads_own_rows ON follow_up.finding_flags;
+CREATE POLICY clinic_reads_own_rows ON follow_up.finding_flags
+  FOR SELECT TO authenticated
+  USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id'));

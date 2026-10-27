@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   type ClaimedJob,
+  CLINICAL_REVIEW_JOB,
   type ClinicId,
   type EscalationReport,
   NOTE_EXTRACTION_JOB,
@@ -11,7 +12,11 @@ import { activeClinicIds, type EngineRuntime } from './runtime.ts';
 import type { DrainResult } from './storage.ts';
 
 /** Job types this worker handles. */
-export const WORKER_JOB_TYPES = [INGEST_BUNDLE_JOB, NOTE_EXTRACTION_JOB] as const;
+export const WORKER_JOB_TYPES = [
+  INGEST_BUNDLE_JOB,
+  NOTE_EXTRACTION_JOB,
+  CLINICAL_REVIEW_JOB,
+] as const;
 
 const RETRY_BASE_MS = 5_000;
 const RETRY_CAP_MS = 3_600_000;
@@ -44,6 +49,8 @@ export interface SweepResult {
   readonly clinicId: ClinicId;
   readonly watcher: WatcherReport;
   readonly escalation: EscalationReport;
+  /** Reviews queued for high-priority patients not reviewed in 30 days. */
+  readonly reviewsQueued: number;
 }
 
 /**
@@ -187,6 +194,7 @@ export class Worker {
       const now = this.#runtime.clock.now();
       const watcher = await this.#runtime.engine.runWatcher(clinicId, now);
       const escalation = await this.#runtime.engine.runEscalation(clinicId, now);
+      const reviewsQueued = await this.#runtime.reviewer.scheduleStaleReviews(clinicId, now);
       if (watcher.expired > 0 || escalation.casesProcessed > 0) {
         this.#runtime.logger.info(
           {
@@ -200,7 +208,7 @@ export class Worker {
           'sweep',
         );
       }
-      results.push({ clinicId, watcher, escalation });
+      results.push({ clinicId, watcher, escalation, reviewsQueued });
     }
     return results;
   }
@@ -305,6 +313,28 @@ export class Worker {
           await engine.runNoteExtractionJob(job.clinicId, job.payload);
           logger.info(context, 'note extraction retried');
           break;
+        case CLINICAL_REVIEW_JOB: {
+          const report = await this.#runtime.reviewer.runReviewJob(job.clinicId, job.payload);
+          if (report === undefined) {
+            logger.info(context, 'clinical review not due any more');
+            break;
+          }
+          const { run } = report;
+          // Counts and cost only: findings may quote the record.
+          logger.info(
+            {
+              ...context,
+              runId: run.id,
+              status: run.status,
+              findings: run.findingsCount,
+              discarded: run.discardedCount,
+              toolCalls: run.toolCalls,
+              costUsd: run.costUsd,
+            },
+            'clinical review',
+          );
+          break;
+        }
         default:
           throw new Error(`No handler for job type ${job.type}`);
       }

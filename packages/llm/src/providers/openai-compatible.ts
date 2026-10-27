@@ -26,6 +26,8 @@ export interface OpenAiCompatibleProviderOptions {
   readonly strict?: boolean;
   /** Defaults to `max_tokens`, the field every OpenAI-compatible server accepts. */
   readonly maxTokensParam?: 'max_completion_tokens' | 'max_tokens';
+  /** How agent steps with tools are sent (default `native`, see `ChatCompletionsProviderOptions`). */
+  readonly toolCalling?: 'native' | 'structured';
   readonly extraBody?: Readonly<Record<string, unknown>>;
   readonly headers?: Readonly<Record<string, string>>;
   readonly fetch?: FetchLike;
@@ -50,6 +52,7 @@ export function createOpenAiCompatibleProvider(
     outputMode: options.outputMode ?? 'json_schema',
     maxTokensParam: options.maxTokensParam ?? 'max_tokens',
     ...(options.strict === undefined ? {} : { strict: options.strict }),
+    ...(options.toolCalling === undefined ? {} : { toolCalling: options.toolCalling }),
     ...(options.extraBody ? { extraBody: options.extraBody } : {}),
     ...(options.headers ? { headers: options.headers } : {}),
     ...(options.fetch ? { fetch: options.fetch } : {}),

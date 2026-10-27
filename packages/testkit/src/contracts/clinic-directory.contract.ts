@@ -156,6 +156,20 @@ export function describeLlmUsageLogContract(
       });
     });
 
+    it('summarizes one task when asked (notes read vs clinical reviews)', async () => {
+      const { a } = freshClinics();
+      await log().record(aCall(a, { task: 'note_extraction', costUsd: 0.5 }));
+      await log().record(aCall(a, { task: 'clinical_review', costUsd: 0.25 }));
+      await log().record(aCall(a, { task: 'clinical_review', costUsd: 0.125 }));
+      expect(await log().summary(a, at(-30), { task: 'clinical_review' })).toMatchObject({
+        calls: 2,
+        successfulCalls: 2,
+        costUsd: 0.375,
+      });
+      expect((await log().summary(a, at(-30), { task: 'note_extraction' })).calls).toBe(1);
+      expect((await log().summary(a, at(-30))).calls).toBe(3);
+    });
+
     it('isolates clinics', async () => {
       const { a, b } = freshClinics();
       await log().record(aCall(a, { costUsd: 1 }));

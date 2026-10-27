@@ -26,6 +26,11 @@ import { MemoryJobQueue, MemoryOutbox } from './job-queue.ts';
 import { MemoryDatabase } from './memory-database.ts';
 import { MemoryBackfillProgressStore } from './repositories/backfill-progress-store.ts';
 import { MemoryCaseRepository } from './repositories/case-repository.ts';
+import {
+  MemoryClinicalFindingRepository,
+  MemoryClinicalReviewRunRepository,
+  MemoryFindingFlagRepository,
+} from './repositories/clinical-finding-repositories.ts';
 import { MemoryClinicalRecordRepository } from './repositories/clinical-record-repository.ts';
 import {
   MemoryContactRepository,
@@ -50,6 +55,9 @@ export interface MemoryStores extends TransactionalStores {
   readonly backfillProgress: MemoryBackfillProgressStore;
   readonly contacts: MemoryContactRepository;
   readonly suppressions: MemorySuppressionRepository;
+  readonly clinicalFindings: MemoryClinicalFindingRepository;
+  readonly reviewRuns: MemoryClinicalReviewRunRepository;
+  readonly findingFlags: MemoryFindingFlagRepository;
 }
 
 /** Builds every memory store over one database. */
@@ -67,6 +75,9 @@ export function createMemoryStores(db: MemoryDatabase, clock: Clock): MemoryStor
     backfillProgress: new MemoryBackfillProgressStore(db),
     contacts: new MemoryContactRepository(db),
     suppressions: new MemorySuppressionRepository(db),
+    clinicalFindings: new MemoryClinicalFindingRepository(db),
+    reviewRuns: new MemoryClinicalReviewRunRepository(db),
+    findingFlags: new MemoryFindingFlagRepository(db),
   };
 }
 

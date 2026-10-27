@@ -1,0 +1,474 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "rev-0013",
+  "name": "Lisbeth Garcés",
+  "gender": "female",
+  "birthDate": "1984-01-25",
+  "kind": "control",
+  "story": "One episode of headache, resolved; other visits deny it",
+  "expected": [],
+  "entries": [
+    {
+      "at": "2025-03-31T14:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "rev-0013-bundle05",
+        "type": "transaction",
+        "timestamp": "2025-03-31T14:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:56137146-cde5-55a1-92d9-8328b9f2d992",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "rev-0013",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://hipocratesalud.com/fhir/NamingSystem/demo-patient",
+                  "value": "REV-0013"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Lisbeth Garcés",
+                  "family": "Garcés",
+                  "given": ["Lisbeth"]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "1984-01-25",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/rev-0013" }
+          },
+          {
+            "fullUrl": "urn:uuid:b627d501-1922-574d-a8c4-54c3d2e9cdf4",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "rev-0013-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/rev-0013" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "period": { "start": "2025-03-31T14:00:00.000Z", "end": "2025-03-31T14:30:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/rev-0013-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:72913bac-357d-5405-a289-05c9386b980e",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "rev-0013-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/rev-0013" },
+              "date": "2025-03-31T14:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "Q29uc3VsdGEgcG9yIGNlZmFsZWEgdGVuc2lvbmFsIHRyYXMgc2VtYW5hIGRlIGV4w6FtZW5lcy4gQWxlcmdpYXM6IG5pZWdhLiBQbGFuOiBwYXJhY2V0YW1vbCBzaSBkb2xvciwgY29udHJvbCBzaSBwZXJzaXN0ZS4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-03-31T14:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/rev-0013-enc01" }],
+                "period": {
+                  "start": "2025-03-31T14:00:00.000Z",
+                  "end": "2025-03-31T14:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/rev-0013-doc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:e661aaac-c909-5f3b-ba43-9ebbcf936bf3",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "rev-0013-mr03",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "N02BE01",
+                    "display": "paracetamol"
+                  }
+                ],
+                "text": "Paracetamol 500 mg"
+              },
+              "subject": { "reference": "Patient/rev-0013" },
+              "encounter": { "reference": "Encounter/rev-0013-enc01" },
+              "authoredOn": "2025-03-31T14:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/8h si dolor x 5 días" }],
+              "dispenseRequest": {
+                "validityPeriod": { "start": "2025-03-31T14:30:00.000Z" },
+                "expectedSupplyDuration": {
+                  "value": 5,
+                  "unit": "días",
+                  "system": "http://unitsofmeasure.org",
+                  "code": "d"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/rev-0013-mr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:c56b868e-4b09-5adb-bf85-b8d0f3ca7264",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0013-vs04-bp",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0013" },
+              "encounter": { "reference": "Encounter/rev-0013-enc01" },
+              "effectiveDateTime": "2025-03-31T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "85354-9",
+                    "display": "Blood pressure panel"
+                  }
+                ],
+                "text": "Presión arterial"
+              },
+              "component": [
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8480-6",
+                        "display": "Systolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 114,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                },
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8462-4",
+                        "display": "Diastolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 72,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0013-vs04-bp" }
+          },
+          {
+            "fullUrl": "urn:uuid:a2a98f55-b0c9-579d-b6ef-58559f6c18c4",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0013-vs04-wt",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0013" },
+              "encounter": { "reference": "Encounter/rev-0013-enc01" },
+              "effectiveDateTime": "2025-03-31T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "29463-7", "display": "Body weight" }
+                ],
+                "text": "Peso"
+              },
+              "valueQuantity": {
+                "value": 57,
+                "unit": "kg",
+                "system": "http://unitsofmeasure.org",
+                "code": "kg"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0013-vs04-wt" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-27T14:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "rev-0013-bundle09",
+        "type": "transaction",
+        "timestamp": "2025-09-27T14:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:d0e39427-88f8-566a-82e0-3d7d3920fb2f",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "rev-0013-enc06",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/rev-0013" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "period": { "start": "2025-09-27T14:00:00.000Z", "end": "2025-09-27T14:30:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/rev-0013-enc06" }
+          },
+          {
+            "fullUrl": "urn:uuid:bbae498b-a68a-5f2f-b829-7c9551479005",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "rev-0013-doc07",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/rev-0013" },
+              "date": "2025-09-27T14:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "Q29udHJvbCBnZW5lcmFsLiBOaWVnYSBjZWZhbGVhIGRlc2RlIGxhIMO6bHRpbWEgY29uc3VsdGEuIFBsYW46IGNvbnRyb2wgYW51YWwu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-09-27T14:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/rev-0013-enc06" }],
+                "period": {
+                  "start": "2025-09-27T14:00:00.000Z",
+                  "end": "2025-09-27T14:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/rev-0013-doc07" }
+          },
+          {
+            "fullUrl": "urn:uuid:9c4b266f-268f-5586-ba29-cce5cff64e8b",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0013-vs08-bp",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0013" },
+              "encounter": { "reference": "Encounter/rev-0013-enc06" },
+              "effectiveDateTime": "2025-09-27T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "85354-9",
+                    "display": "Blood pressure panel"
+                  }
+                ],
+                "text": "Presión arterial"
+              },
+              "component": [
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8480-6",
+                        "display": "Systolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 112,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                },
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8462-4",
+                        "display": "Diastolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 70,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0013-vs08-bp" }
+          },
+          {
+            "fullUrl": "urn:uuid:fc2637df-0514-510e-8944-c74a741857c1",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0013-vs08-wt",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0013" },
+              "encounter": { "reference": "Encounter/rev-0013-enc06" },
+              "effectiveDateTime": "2025-09-27T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "29463-7", "display": "Body weight" }
+                ],
+                "text": "Peso"
+              },
+              "valueQuantity": {
+                "value": 57,
+                "unit": "kg",
+                "system": "http://unitsofmeasure.org",
+                "code": "kg"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0013-vs08-wt" }
+          }
+        ]
+      }
+    }
+  ]
+}

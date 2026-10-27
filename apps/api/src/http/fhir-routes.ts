@@ -24,6 +24,7 @@ import {
   type FhirResource,
   type OperationOutcome,
   patientConditionToFhir,
+  clinicalFindingToDetectedIssue,
   qualityFindingToDetectedIssue,
   suppressionToFlag,
   type Task,
@@ -720,20 +721,41 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
       unknownParams(c, PATIENT_SEARCH_PARAMS),
       repeatedParams(c, PATIENT_SEARCH_PARAMS),
     );
+    const patients = requiredPatients(c);
     const findings = (
       await Promise.all(
-        requiredPatients(c).map((patient) =>
+        patients.map((patient) =>
           stores.qualityFindings.listByPatient(c.var.clinicId, toPatientId(patient)),
         ),
       )
     ).flat();
+    // Clinical reviewer findings reach the host only once their category is
+    // live (validated): a shadow finding is never exported.
+    const clinical = (
+      await Promise.all(
+        patients.map(async (patient) => {
+          const page = await runtime.reviewer.listFindings(c.var.clinicId, {
+            mode: 'live',
+            patientId: toPatientId(patient),
+            limit: 100,
+          });
+          return page.items;
+        }),
+      )
+    ).flat();
     return fhirJson(
       c,
-      toSearchsetBundle(findings.map(qualityFindingToDetectedIssue), {
-        baseUrl: fhirBase(c),
-        selfUrl: c.req.url,
-        ...(outcome === undefined ? {} : { outcome }),
-      }),
+      toSearchsetBundle(
+        [
+          ...findings.map(qualityFindingToDetectedIssue),
+          ...clinical.map(clinicalFindingToDetectedIssue),
+        ],
+        {
+          baseUrl: fhirBase(c),
+          selfUrl: c.req.url,
+          ...(outcome === undefined ? {} : { outcome }),
+        },
+      ),
     );
   });
 

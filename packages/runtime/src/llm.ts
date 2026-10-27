@@ -1,7 +1,14 @@
-import type { ClinicDirectory, Clock, LlmUsageLog, NoteExtractor } from '@follow-up-engine/core';
+import type {
+  ClinicalReviewAgent,
+  ClinicDirectory,
+  Clock,
+  LlmUsageLog,
+  NoteExtractor,
+} from '@follow-up-engine/core';
 import {
   BASETEN_MUSE_SPARK_OPEN_MODEL,
   chainResponders,
+  CLINICAL_REVIEW_TASK,
   createBasetenProvider,
   createFakeProvider,
   createLlmGateway,
@@ -9,14 +16,17 @@ import {
   createNoteExtractor,
   createNoteFixtureResponder,
   createOpenAiCompatibleProvider,
+  createReviewAgent,
   DEFAULT_PRICING,
   FAKE_DEFAULT_MODEL,
+  FAKE_REVIEWER_MODEL,
   heuristicResponder,
   META_DEFAULT_MODEL,
   NOTE_EXTRACTION_PROMPT_VERSION,
   NOTE_EXTRACTION_TASK,
   type NoteFixture,
   type PricingTable,
+  scriptedReviewerResponder,
   type StructuredLlmProvider,
 } from '@follow-up-engine/llm';
 import type { LlmConfig } from './config.ts';
@@ -30,6 +40,10 @@ export interface ExtractorInfo {
 export interface ConfiguredExtractor {
   readonly extractor: NoteExtractor;
   readonly info: ExtractorInfo;
+  /** The clinical reviewer's agent, on the same gateway, provider and budget. */
+  readonly reviewAgent: ClinicalReviewAgent;
+  /** Model the reviewer runs on (the scripted reviewer on the fake provider). */
+  readonly reviewerModel: string;
 }
 
 export interface ExtractorDeps {
@@ -48,15 +62,19 @@ interface ProviderChoice {
   readonly provider: StructuredLlmProvider;
   readonly info: ExtractorInfo;
   readonly pricing: PricingTable;
+  /** The reviewer's model when it differs from the extractor's (the fake's scripted reviewer). */
+  readonly reviewerModel?: string;
 }
 
 function chooseProvider(config: LlmConfig, deps: ExtractorDeps): ProviderChoice {
   switch (config.provider) {
     case 'meta':
       return {
+        // Native tool calling for the reviewer's agent steps; extraction uses json_schema.
         provider: createMetaProvider({
           apiKey: config.metaApiKey ?? '',
           promptCacheKey: NOTE_EXTRACTION_PROMPT_VERSION,
+          toolCalling: 'native',
         }),
         info: { provider: 'meta', model: config.metaModel ?? META_DEFAULT_MODEL },
         pricing: DEFAULT_PRICING,
@@ -93,12 +111,14 @@ function chooseProvider(config: LlmConfig, deps: ExtractorDeps): ProviderChoice 
       return {
         provider: createFakeProvider({
           respond: chainResponders(
+            scriptedReviewerResponder,
             createNoteFixtureResponder(deps.noteFixtures ?? []),
             heuristicResponder,
           ),
         }),
         info: { provider: 'fake', model: FAKE_DEFAULT_MODEL },
         pricing: DEFAULT_PRICING,
+        reviewerModel: FAKE_REVIEWER_MODEL,
       };
   }
 }
@@ -121,6 +141,12 @@ export function createConfiguredExtractor(
         route: [{ provider: choice.info.provider, model: choice.info.model }],
         maxOutputTokens: 8_000,
       },
+      [CLINICAL_REVIEW_TASK]: {
+        route: [
+          { provider: choice.info.provider, model: choice.reviewerModel ?? choice.info.model },
+        ],
+        maxOutputTokens: 4_000,
+      },
     },
     usageLog: deps.usageLog,
     pricing: choice.pricing,
@@ -128,5 +154,10 @@ export function createConfiguredExtractor(
       (await deps.clinics.get(clinicId))?.settings.llmMonthlyBudgetUsd,
     clock: deps.clock,
   });
-  return { extractor: createNoteExtractor({ gateway }), info: choice.info };
+  return {
+    extractor: createNoteExtractor({ gateway }),
+    info: choice.info,
+    reviewAgent: createReviewAgent({ gateway }),
+    reviewerModel: choice.reviewerModel ?? choice.info.model,
+  };
 }

@@ -168,6 +168,22 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 
 `status = preliminary`, `severity = low`, `code` = `https://hipocratesalud.com/fhir/CodeSystem/follow-up-quality-finding#note-without-plan` (the note has no follow-up plan) or `#note-truncated` (the note was longer than the extractor reads: its head and its tail were read, its middle was not, so the plan may be incomplete), `patient`, `identifiedDateTime` = `detectedAt`, `implicated` = the document. A suggestion to the clinician, never to the patient.
 
+### Clinical finding → `DetectedIssue`
+
+Only **live** findings (a category the clinical team validated) are in `GET /fhir/DetectedIssue?patient=`; shadow findings are never exported to the host. The staff's batch review reads any finding with `GET /api/inbox/findings/{id}/fhir`. See [reviewer.md](reviewer.md).
+
+- `code`: `https://hipocratesalud.com/fhir/CodeSystem/clinical-finding-category#<category>` (`lab-trend`, `drug-interaction`, ...), with `text` the one-line summary.
+- `severity`: `high`, `moderate` or `low`.
+- `status`: `preliminary` until reviewed, `final` when marked relevant or already known, `cancelled` when not relevant or expired.
+- `patient`, `identifiedDateTime`, and `author`: a `Device`, the clinical reviewer.
+- `implicated`: the cited resources (`Observation/...`, `DocumentReference/...`, `MedicationRequest/...`, `Condition/...`).
+- `evidence[0].detail[]`: one reference per citation, its `display` the verbatim quote (checked against the document before the finding was stored).
+- `detail`: the rationale.
+- `mitigation[0].action.text`: the suggestion; with `date` and `author` once a clinician reviewed it.
+- Extensions: `clinical-finding-mode` (`valueCode` `shadow` or `live`), `clinical-finding-already-covered` (`valueBoolean`: an open expectation or case already covers it), `clinical-finding-origin` (`valueCode` `confirmed`, `added` or `fallback`), `clinical-finding-model` (`valueString`: model and prompt version).
+
+A suggestion to the clinician, never to the patient.
+
 ### Case event → `Provenance`
 
 `target` = the case `Task`; `recorded` and `occurredDateTime` = `at`; `activity` = `https://hipocratesalud.com/fhir/CodeSystem/follow-up-case-event#<type>`; one `agent` (type `performer`): a user is a logical reference in `https://hipocratesalud.com/fhir/NamingSystem/host-user`, a patient is `Patient/<id>`, a rule is a `Device` identified in `https://hipocratesalud.com/fhir/NamingSystem/follow-up-rule`, the engine is a `Device` in `https://hipocratesalud.com/fhir/NamingSystem/follow-up-engine`. The structured payload (ids and codes only) is JSON in the case-event-payload extension. Case events have no id of their own, so the id is derived from case, type, time and a hash of actor and payload.
@@ -223,6 +239,7 @@ Base: `https://hipocratesalud.com/fhir`. Every engine-defined CodeSystem, Naming
 | `CodeSystem/follow-up-case-resolution`    | `fulfilled`, `handled_outside`, `not_needed`, `patient_declined`, `patient_unreachable`                                                                                                                                                                 |
 | `CodeSystem/follow-up-reason`             | reason codes from rules and protocols                                                                                                                                                                                                                   |
 | `CodeSystem/follow-up-quality-finding`    | `note-without-plan`, `note-truncated`                                                                                                                                                                                                                   |
+| `CodeSystem/clinical-finding-category`    | `pre-visit-question`, `lab-trend`, `vital-trend`, `abnormal-result-no-followup`, `drug-interaction`, `drug-condition-conflict`, `unaddressed-symptom`, `missing-screening`, `record-quality`, `utilization-change`, `similar-patients`                  |
 | `CodeSystem/follow-up-case-event`         | `opened`, `reason_added`, `released`, `notified`, `assigned`, `snoozed`, `escalated`, `patient_contact_requested`, `contact_attempt_skipped`, `contact_outcome_recorded`, `resolved`, `dismissed`, `reopened`, `lost_to_follow_up`, `feedback_recorded` |
 | `CodeSystem/specialty`                    | specialty codes a host may send (`diabetology`, `cardiology`, `psychology`, `gynecology`, ...)                                                                                                                                                          |
 | `CodeSystem/follow-up-consent`            | `follow-up-opt-out`                                                                                                                                                                                                                                     |
@@ -264,6 +281,10 @@ Base: `https://hipocratesalud.com/fhir`. Every engine-defined CodeSystem, Naming
 | `follow-up-confirmed-by`              | Condition                     | `valueString` (host user id)                                                                                                                       |
 | `follow-up-refuted-by`                | Condition (`refuted`)         | `valueString` (host user id of the clinician who rejected it)                                                                                      |
 | `follow-up-case-event-payload`        | Provenance                    | `valueString` (JSON)                                                                                                                               |
+| `clinical-finding-mode`               | DetectedIssue (clinical)      | `valueCode`: `shadow` or `live`                                                                                                                    |
+| `clinical-finding-already-covered`    | DetectedIssue (clinical)      | `valueBoolean`: an open expectation or case already covers it                                                                                      |
+| `clinical-finding-origin`             | DetectedIssue (clinical)      | `valueCode`: `confirmed`, `added` or `fallback`                                                                                                    |
+| `clinical-finding-model`              | DetectedIssue (clinical)      | `valueString`: model and prompt version                                                                                                            |
 
 All URLs are exported as constants (`ENGINE_CODE_SYSTEMS`, `ENGINE_EXTENSIONS`, `ENGINE_IDENTIFIER_SYSTEMS`); never hard-code them.
 
@@ -1193,6 +1214,7 @@ expectationToTask(expectation: Expectation): Task;
 caseToTask(followUpCase: FollowUpCase): Task;
 patientConditionToFhir(condition: PatientCondition & { id?: string; evidence?: Evidence }): Condition;
 qualityFindingToDetectedIssue(finding: QualityFinding): DetectedIssue;
+clinicalFindingToDetectedIssue(finding: ClinicalFinding): DetectedIssue;
 caseEventToProvenance(event: CaseEvent): Provenance;
 contactRequestToFhir(request: ContactRequest, context?: { communications?; caseStatus? }): CommunicationRequest;
 communicationToFhir(communication: ContactCommunication): Communication;

@@ -711,6 +711,25 @@ Alert: the scan stopped before the end because the clinic's monthly LLM budget r
 }
 ```
 
+### `clinical_finding.created`
+
+The clinical reviewer ([docs/reviewer.md](reviewer.md)) found something in a patient's record, in a category the clinic's clinical team validated for live use. Shadow findings, those of categories still under validation, never produce it. The payload carries ids and severity only. Read the finding (summary, rationale, suggestion, cited evidence) as a FHIR `DetectedIssue` from `GET /fhir/DetectedIssue?patient=<patientId>` and show it to the clinical team, never to the patient.
+
+```json
+{
+  "id": "6b1f0f0e-3c55-4d3e-9a2b-0c7e8d9f1a2b",
+  "type": "clinical_finding.created",
+  "clinicId": "clinic-demo",
+  "occurredAt": "2026-01-05T12:10:00.000Z",
+  "data": {
+    "findingId": "2f8c1d4e-7a90-4b1c-8e3d-5f6a7b8c9d0e",
+    "patientId": "rev-0004",
+    "severity": "high",
+    "detectedIssue": "DetectedIssue/2f8c1d4e-7a90-4b1c-8e3d-5f6a7b8c9d0e"
+  }
+}
+```
+
 ### Verifying the signature (Node)
 
 Verify the exact bytes received, before parsing, in constant time; reject (401) a signature that does not match or a timestamp more than 5 minutes from your clock; then deduplicate on the (signed) delivery id.

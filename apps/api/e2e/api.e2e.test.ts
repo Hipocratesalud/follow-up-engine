@@ -11,7 +11,9 @@ import {
   WEBHOOK_SINK_PATH,
   WebhookSink,
 } from '@follow-up-engine/runtime';
+import { loadReviewerCohort, validateFhirR4 } from '@follow-up-engine/testkit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { FindingView } from '../src/http/reviewer-schemas.ts';
 import type { CaseDetail, CaseView } from '../src/http/schemas.ts';
 import { type ApiServer, createApiServer } from '../src/server.ts';
 
@@ -543,5 +545,98 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
       key: ownFeed.apiKey,
     });
     expect(webhooks.body.items).toEqual([]);
+  });
+
+  describe('clinical reviewer (HIP-112)', () => {
+    const cohort = loadReviewerCohort();
+
+    /** Sends the patient's history and waits until the worker has ingested every Bundle. */
+    async function send(patientId: string): Promise<void> {
+      const jobs: string[] = [];
+      for (const entry of cohort.patients.find((item) => item.patientId === patientId)?.entries ??
+        []) {
+        const response = await call('/fhir', { body: entry.bundle, fhir: true });
+        expect(response.status).toBe(202);
+        jobs.push(response.headers.get('x-followup-job') ?? '');
+      }
+      for (const job of jobs) {
+        await eventually(async () => {
+          const status = await call<{ status: string }>(`/jobs/${job}`);
+          return status.body.status === 'completed' ? true : undefined;
+        }, `ingest job ${job}`);
+      }
+    }
+
+    async function findingsOf(patientId: string, mode: 'shadow' | 'live'): Promise<FindingView[]> {
+      const page = await call<{ items: FindingView[] }>(
+        `/api/inbox/findings?mode=${mode}&patientId=${patientId}`,
+      );
+      return page.body.items;
+    }
+
+    it('reviews a patient 10 minutes after new results and stores shadow findings only', async () => {
+      await send('rev-0004');
+      // A day on the fake clock: the worker ingests, then runs the debounced review.
+      expect((await call('/api/demo/clock/advance', { body: { days: 1 } })).status).toBe(200);
+      const findings = await eventually(async () => {
+        const items = await findingsOf('rev-0004', 'shadow');
+        return items.length > 0 ? items : undefined;
+      }, 'a shadow finding for rev-0004');
+      expect(findings.map((finding) => finding.category)).toEqual(['drug_interaction']);
+      expect(findings[0]?.citations).toHaveLength(3);
+      // Shadow: no webhook, no DetectedIssue for the host.
+      expect(sink.list({ type: 'clinical_finding.created' })).toEqual([]);
+      const issues = await call<{ total: number }>('/fhir/DetectedIssue?patient=rev-0004');
+      expect(issues.body.total).toBe(0);
+      const fhir = await call<Record<string, unknown>>(
+        `/api/inbox/findings/${findings[0]?.id ?? ''}/fhir`,
+      );
+      expect(validateFhirR4(fhir.body).issues).toEqual([]);
+    });
+
+    it('a category signed off for live use reaches the host: signed webhook and DetectedIssue', async () => {
+      const unsigned = await call('/api/inbox/finding-flags', {
+        method: 'PUT',
+        body: { category: 'drug_interaction', enabled: true, mode: 'live' },
+      });
+      expect(unsigned.status).toBe(422);
+      const live = await call('/api/inbox/finding-flags', {
+        method: 'PUT',
+        body: {
+          category: 'drug_interaction',
+          enabled: true,
+          mode: 'live',
+          validatedBy: 'Dra. Médica Peña',
+        },
+      });
+      expect(live.status).toBe(200);
+      await send('rev-0009');
+      expect((await call('/api/demo/clock/advance', { body: { days: 1 } })).status).toBe(200);
+      const [finding] = await eventually(async () => {
+        const items = await findingsOf('rev-0009', 'live');
+        return items.length > 0 ? items : undefined;
+      }, 'a live finding for rev-0009');
+      const webhook = await eventually(
+        () =>
+          Promise.resolve(
+            sink
+              .list({ type: 'clinical_finding.created' })
+              .find((delivery) => delivery.signatureValid),
+          ),
+        'the clinical_finding.created webhook',
+      );
+      expect(webhook.payload).toMatchObject({
+        type: 'clinical_finding.created',
+        data: { findingId: finding?.id, patientId: 'rev-0009', severity: 'high' },
+      });
+      const issues = await call<{ entry: { resource: Record<string, unknown> }[] }>(
+        '/fhir/DetectedIssue?patient=rev-0009',
+      );
+      const issue = issues.body.entry.find(
+        (entry) => entry.resource['resourceType'] === 'DetectedIssue',
+      );
+      expect(issue).toBeDefined();
+      expect(validateFhirR4(issue?.resource).issues).toEqual([]);
+    });
   });
 });

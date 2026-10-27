@@ -6,6 +6,7 @@ import {
 } from '@follow-up-engine/runtime';
 import { loadApiConfig } from '../config.ts';
 import { createApiServer } from '../server.ts';
+import { seedReviewerPilot } from './seed-reviewer.ts';
 import { seedSyntheticClinic } from './seed.ts';
 
 /**
@@ -34,6 +35,10 @@ if (process.env['SEED'] !== 'false') {
       : { patients: Number(process.env['SEED_PATIENTS']) }),
   });
   runtime.logger.info(report, 'synthetic clinic seeded');
+  if (process.env['SEED_REVIEWER'] !== 'false') {
+    // The clinical reviewer's shadow pilot: the planted cohort, then one review per patient.
+    runtime.logger.info(await seedReviewerPilot(runtime), 'clinical reviewer shadow pilot seeded');
+  }
 }
 const server = createApiServer(runtime, { ...loadApiConfig(), embeddedWorker: true });
 const port = await server.listen();

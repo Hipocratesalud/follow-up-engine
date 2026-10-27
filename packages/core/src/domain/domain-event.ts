@@ -12,6 +12,7 @@ export const DOMAIN_EVENT_TYPES = [
   'contact.outcome_recorded',
   'backfill.completed',
   'backfill.paused',
+  'clinical_finding.created',
 ] as const;
 export type DomainEventType = (typeof DOMAIN_EVENT_TYPES)[number];
 
@@ -85,6 +86,17 @@ export interface BackfillPausedPayload extends BackfillCounts {
   readonly reason: 'llm_budget_exceeded';
 }
 
+/**
+ * A clinical reviewer finding of a category validated for live use. Shadow
+ * findings never produce it. Ids and severity only: the host reads the
+ * finding as a FHIR `DetectedIssue` with its API key.
+ */
+export interface ClinicalFindingCreatedPayload {
+  readonly findingId: string;
+  readonly patientId: PatientId;
+  readonly severity: 'low' | 'medium' | 'high';
+}
+
 interface DomainEventBase<TType extends DomainEventType, TPayload> {
   /** Unique; the host uses it as idempotency key (delivery is at least once). */
   readonly id: string;
@@ -102,7 +114,8 @@ export type DomainEvent =
   | DomainEventBase<'patient_contact.requested', PatientContactRequestedPayload>
   | DomainEventBase<'contact.outcome_recorded', ContactOutcomeRecordedPayload>
   | DomainEventBase<'backfill.completed', BackfillCompletedPayload>
-  | DomainEventBase<'backfill.paused', BackfillPausedPayload>;
+  | DomainEventBase<'backfill.paused', BackfillPausedPayload>
+  | DomainEventBase<'clinical_finding.created', ClinicalFindingCreatedPayload>;
 
 /** The domain event variant with the given `type`. */
 export type DomainEventOf<TType extends DomainEventType> = Extract<

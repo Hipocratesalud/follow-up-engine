@@ -14,6 +14,7 @@ export * from './domain/contact.ts';
 export * from './domain/backfill.ts';
 export * from './domain/condition.ts';
 export type * from './domain/quality-finding.ts';
+export * from './domain/clinical-finding.ts';
 export * from './domain/domain-event.ts';
 export * from './domain/errors.ts';
 

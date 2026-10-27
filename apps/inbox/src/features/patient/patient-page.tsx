@@ -28,6 +28,7 @@ import { LayerChip, ReasonProtocol } from '../../components/case-badges.tsx';
 import { InlineQuote } from '../../components/evidence.tsx';
 import { ErrorState, InlineError, NotFoundState } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, Skeleton, type Tone } from '../../components/ui.tsx';
+import { PreVisitQuestions } from '../reviewer/pre-visit-questions.tsx';
 import { cx } from '../../lib/cx.ts';
 import { SUPPRESSIONS_COPY } from '../../lib/copy.ts';
 import { ContactFlagNotice } from '../case/contact-panel.tsx';
@@ -399,6 +400,8 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
       </Card>
 
       {contact?.contactFlag ? <ContactFlagNotice flag={contact.contactFlag} now={now} /> : null}
+
+      <PreVisitQuestions patientId={detail.patient.id} />
 
       <section aria-labelledby="conditions-title" className="flex flex-col gap-3">
         <SectionTitle id="conditions-title" count={current.length}>

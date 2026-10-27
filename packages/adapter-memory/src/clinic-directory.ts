@@ -72,9 +72,16 @@ export class MemoryLlmUsageLog implements LlmUsageLog {
     );
   }
 
-  summary(clinicId: ClinicId, since: Date): Promise<LlmUsageSummary> {
+  summary(
+    clinicId: ClinicId,
+    since: Date,
+    options: { readonly task?: string } = {},
+  ): Promise<LlmUsageSummary> {
     const calls = this.#db.state.llmCalls.filter(
-      (call) => call.clinicId === clinicId && call.at.getTime() >= since.getTime(),
+      (call) =>
+        call.clinicId === clinicId &&
+        call.at.getTime() >= since.getTime() &&
+        (options.task === undefined || call.task === options.task),
     );
     const byModel = new Map<
       string,

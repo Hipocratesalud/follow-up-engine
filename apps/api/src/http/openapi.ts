@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import './schemas.ts';
+import './reviewer-schemas.ts';
 
 /*
  * OpenAPI 3.1 document of the API. Component schemas are generated from the
@@ -417,6 +418,83 @@ const OPERATIONS: readonly Operation[] = [
   },
   {
     method: 'get',
+    path: '/api/inbox/findings',
+    tag: 'Inbox',
+    summary: 'Clinical reviewer findings for the batch review (shadow by default), newest first',
+    description:
+      'Shadow findings are only for the clinical staff validating the reviewer: never exported ' +
+      'to /fhir nor sent as webhooks. `counts` covers the whole mode.',
+    params: [
+      { name: 'mode', in: 'query', enum: ['shadow', 'live'] },
+      {
+        name: 'status',
+        in: 'query',
+        enum: ['open', 'relevant', 'already_known', 'not_relevant', 'expired', 'reviewed'],
+      },
+      { name: 'category', in: 'query', description: 'Comma-separated categories' },
+      { name: 'severity', in: 'query', description: 'Comma-separated: low, medium, high' },
+      { name: 'patientId', in: 'query' },
+      { name: 'cursor', in: 'query' },
+      { name: 'limit', in: 'query' },
+    ],
+    response: 'FindingPage',
+    errors: [422],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/findings/metrics',
+    tag: 'Inbox',
+    summary:
+      'Reviewer metrics of the last 90 days: runs, findings per 100 patients, cost, precision',
+    response: 'ReviewMetrics',
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/findings/{id}',
+    tag: 'Inbox',
+    summary: "A finding with its citations, trend and the agent's run (tool trace, cost)",
+    params: [id('Finding id')],
+    response: 'FindingDetail',
+    errors: [404],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/findings/{id}/fhir',
+    tag: 'Inbox',
+    summary: 'A finding as a FHIR R4 DetectedIssue (shadow ones included, for the staff)',
+    params: [id('Finding id')],
+    response: 'fhir',
+    errors: [404],
+  },
+  {
+    method: 'post',
+    path: '/api/inbox/findings/{id}/review',
+    tag: 'Inbox',
+    summary: 'Verdict on a finding: relevant, already_known or not_relevant (reason required)',
+    params: [id('Finding id')],
+    body: 'FindingReviewRequest',
+    response: 'Finding',
+    errors: [404, 422],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/finding-flags',
+    tag: 'Inbox',
+    summary: 'Finding categories of the clinic: on/off, shadow/live, sign-off and shadow precision',
+    response: 'FindingFlagList',
+  },
+  {
+    method: 'put',
+    path: '/api/inbox/finding-flags',
+    tag: 'Inbox',
+    summary:
+      'Turn a category on or off, or move it between shadow and live (live needs validatedBy)',
+    body: 'FindingFlagUpdate',
+    response: 'FindingFlag',
+    errors: [422],
+  },
+  {
+    method: 'get',
     path: '/api/demo/clock',
     tag: 'Demo',
     summary: 'Fake clock (404 with a real clock)',
@@ -455,6 +533,15 @@ const OPERATIONS: readonly Operation[] = [
       { name: 'type', in: 'query' },
     ],
     response: 'WebhookList',
+    errors: [404],
+  },
+  {
+    method: 'post',
+    path: '/api/demo/review/{patientId}',
+    tag: 'Demo',
+    summary: 'Review a patient now (no 10-minute debounce): the run and the findings it stored',
+    params: [{ name: 'patientId', in: 'path', required: true }],
+    response: 'DemoReviewResponse',
     errors: [404],
   },
 ];

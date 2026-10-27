@@ -10,6 +10,8 @@ const PREFIXES: Readonly<Record<IdKind, string>> = {
   contact_request: 'cr',
   communication: 'comm',
   suppression: 'sup',
+  clinical_finding: 'cf',
+  review_run: 'rr',
 };
 
 /** Deterministic ids (`case-1`, `exp-2`, ...) for tests and reproducible demos. */

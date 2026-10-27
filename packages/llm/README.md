@@ -54,6 +54,7 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
 | Errors     | `LlmProviderError` (status, code, retryable, retryAfterMs), `LlmTimeoutError`, `LlmSchemaError` (raw output, issues, usage, repairable), `LlmUnavailableError`, `LlmConfigError`; core's `LlmBudgetExceededError` and `LlmOutputError` are thrown as is                                                                                                                                                                                                                                                                                                                                                                    |
 | Extraction | `createNoteExtractor`, `NOTE_EXTRACTION_PROMPT_VERSION`, `NOTE_EXTRACTION_TASK`, `buildExtractionMessages`, `sanitizeSpecialty`, `ModelExtractionSchema`, `ModelPregnancySchema`, `PREGNANCY_OUTCOME_KINDS`, `postProcessExtraction`, `postProcessPregnancy`, `MAX_ITEM_CONFIDENCE`, `prepareNote`, `MAX_NOTE_CHARS`, `REDACTION_PLACEHOLDER`, `DEFAULT_CONDITION_TERMS`, `resolveDueAt`, `addInterval`, `createQuoteIndex`, `locateQuote`, `isValidLoinc`, port types (`NoteExtractor`, `NoteExtraction`, `ExtractedPregnancy`, ...) and `DetailedNoteExtraction` (with `rejected`, `warnings`, `dischargeEvidenceQuote`) |
 | Fixtures   | `createNoteFixtureResponder`, `chainResponders`, `ExpectedPregnancySchema`, `modelOutputFromExpected` (gold `expected`), `modelOutputFromExtraction` (scenario `llmFixture`), `heuristicExtraction` / `heuristicResponder` (rule-based baseline)                                                                                                                                                                                                                                                                                                                                                                           |
+| Reviewer   | `createReviewAgent` (the `ClinicalReviewAgent` port: a bounded tool-calling loop on the gateway), `CLINICAL_REVIEW_TASK`, `CLINICAL_REVIEW_PROMPT_VERSION`, `ReviewerActionSchema`, `reviewerSystemPrompt`, `scriptedReviewerResponder` + `FAKE_REVIEWER_MODEL` (deterministic agent for CI and the demo), `quoteFromOriginal`, `inertJson`, `maskStrings`; the `eval:reviewer` harness                                                                                                                                                                                                                                    |
 | Evals      | `loadGoldNotes`, `runExtractionEval`, `compareExtraction`, `pregnancyOutcomeCounts`, `pregnancyDatingCounts`, `scores`, `renderReport`, `renderComparison`                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ### Wiring example (in an app)
@@ -304,6 +305,27 @@ Real-network smoke test, never run by `pnpm verify`:
 ```sh
 RUN_LLM_SMOKE=1 node --env-file=.env node_modules/vitest/vitest.mjs run --project @follow-up-engine/llm meta.smoke
 ```
+
+## Clinical reviewer agent
+
+`createReviewAgent({ gateway })` implements core's `ClinicalReviewAgent`.
+
+- Each step is one gateway call (task `clinical_review`, prompt `clinical-review@1`) that returns one tool call `{ thought, tool, arguments }`.
+- Arguments are validated with the tool's zod schema; a malformed or unknown call gets an error back and costs a step.
+- Limits: at most 8 steps, 6 read-only tool calls and 60k tokens, plus the gateway's budget and accounting on every call.
+- Tools run over one patient's dossier and return document handles (`N1`, `R4`), never host ids.
+- The patient's names and identifiers are masked in the input and every tool result, and host text is JSON-escaped so it cannot forge `</review_input>`.
+- Quotes copied from masked text are mapped back to the original before the engine checks them verbatim.
+
+On the Meta Model API and Baseten, a step uses **native tool calling** (`tools`, `tool_choice: "required"`). `toolCalling: 'structured'` sends the same action as strict structured output instead, for endpoints without tools. The fake provider runs `scriptedReviewerResponder`: a deterministic agent that speaks the same protocol (it checks each detector signal with the tools and submits the confirmed ones), so CI and the demo run the real loop.
+
+```sh
+pnpm --filter @follow-up-engine/llm eval:reviewer --provider fake        # scripted agent, offline
+pnpm --filter @follow-up-engine/llm eval:reviewer --provider detectors   # no agent
+pnpm --filter @follow-up-engine/llm eval:reviewer --provider meta        # Muse Spark (META_API_KEY)
+```
+
+The eval reviews the testkit's reviewer cohort (10 planted, 10 controls) through the whole pipeline. It reports precision and recall per category, hallucinated citations (which must be 0; the CLI fails otherwise), steps, tool calls, tokens and cost per review. Reports go to `docs/evals/reviewer/`. See [docs/reviewer.md](../../docs/reviewer.md).
 
 ## Adding a provider
 

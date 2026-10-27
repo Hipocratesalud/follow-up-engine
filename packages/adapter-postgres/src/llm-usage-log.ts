@@ -46,7 +46,11 @@ export class PostgresLlmUsageLog implements LlmUsageLog {
   }
 
   /** Calls, successful calls and cost since `since`, in total and per provider and model. */
-  async summary(clinicId: ClinicId, since: Date): Promise<LlmUsageSummary> {
+  async summary(
+    clinicId: ClinicId,
+    since: Date,
+    options: { readonly task?: string } = {},
+  ): Promise<LlmUsageSummary> {
     const { rows } = await this.#ctx.db().query<{
       provider: string;
       model: string;
@@ -57,10 +61,10 @@ export class PostgresLlmUsageLog implements LlmUsageLog {
       `SELECT provider, model, count(*)::int AS calls, count(*) FILTER (WHERE ok)::int AS ok,
               sum(cost_usd)::text AS cost
        FROM ${this.#ctx.tables.llm_calls}
-       WHERE clinic_id = $1 AND at >= $2
+       WHERE clinic_id = $1 AND at >= $2 AND ($3::text IS NULL OR task = $3)
        GROUP BY provider, model
        ORDER BY count(*) DESC, provider, model`,
-      [clinicId, since],
+      [clinicId, since, options.task ?? null],
     );
     // Sum the exact numeric texts per model before turning them into floats.
     const total = rows.reduce((sum, row) => sum + Number(row.cost), 0);
