@@ -133,7 +133,16 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 
 ### Patient condition → `Condition`
 
-`category` = `problem-list-item`; `code` = the ICD-10 coding; `confirmed` → verification `confirmed`, `probable` → `provisional`, `resolved` → verification `confirmed` with clinical status `resolved` (otherwise `active`); `evidence.detail` → the source resource (the `DocumentReference` for conditions extracted from a note); `meta.lastUpdated` = `updatedAt`. Extensions: confidence (`valueDecimal`), condition source, confirmed by, evidence (quote + source document). The default id is `<patientId>-<code>`.
+`category` = `problem-list-item`; `code` = the ICD-10 coding; `evidence.detail` → the source resource (the `DocumentReference` for conditions extracted from a note); `meta.lastUpdated` = `updatedAt`. Extensions: confidence (`valueDecimal`), condition source, confirmed by (or refuted by), evidence (quote + source document). The default id is `<patientId>-<code>`.
+
+| Engine status | `verificationStatus` | `clinicalStatus` | Meaning                                                                                      |
+| ------------- | -------------------- | ---------------- | -------------------------------------------------------------------------------------------- |
+| `confirmed`   | `confirmed`          | `active`         | Recorded by a clinician, or confirmed in the inbox (`follow-up-confirmed-by`)                |
+| `probable`    | `provisional`        | `active`         | Inferred or read from a note; waiting for a clinician                                        |
+| `resolved`    | `confirmed`          | `resolved`       | The patient had it and no longer does                                                        |
+| `rejected`    | `refuted`            | `inactive`       | A clinician said the patient does not have it (`follow-up-refuted-by`); never inferred again |
+
+`GET /fhir/Condition` leaves out a `provisional` ICD-10 code when a `confirmed` code of the same or a more specific concept exists (the note says "DM2" → provisional `E11`; the chart records confirmed `E11.9`): the host sees the clinician's diagnosis, not an unconfirmed duplicate. The inbox hides the same duplicates.
 
 ### Quality finding → `DetectedIssue`
 
@@ -187,6 +196,7 @@ Base: `https://hipocratesalud.com/fhir`. Every engine-defined CodeSystem, Naming
 | `follow-up-confidence`                | Condition                     | `valueDecimal` 0..1                                                                                                 |
 | `follow-up-condition-source`          | Condition                     | `valueCode`: `recorded`, `inferred_from_medication`, `inferred_from_result`, `extracted_from_note`                  |
 | `follow-up-confirmed-by`              | Condition                     | `valueString` (host user id)                                                                                        |
+| `follow-up-refuted-by`                | Condition (`refuted`)         | `valueString` (host user id of the clinician who rejected it)                                                       |
 | `follow-up-case-event-payload`        | Provenance                    | `valueString` (JSON)                                                                                                |
 
 All URLs are exported as constants (`ENGINE_CODE_SYSTEMS`, `ENGINE_EXTENSIONS`, `ENGINE_IDENTIFIER_SYSTEMS`); never hard-code them.

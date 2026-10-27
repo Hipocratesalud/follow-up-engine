@@ -5,6 +5,7 @@ import {
   caseToTask,
   ENGINE_CODE_SYSTEMS,
   ENGINE_EXTENSIONS,
+  exportableConditions,
   expectationToTask,
   fhirToPatientCondition,
   isActiveCaseTask,
@@ -26,6 +27,7 @@ import {
   extractedCondition,
   noteWithoutPlan,
   openExpectation,
+  rejectedCondition,
   resolvedCase,
   resolvedCondition,
   snoozedCase,
@@ -226,7 +228,36 @@ describe('patient condition → Condition', () => {
     );
   });
 
-  it.each([extractedCondition, confirmedCondition, resolvedCondition])(
+  it('maps a rejected condition as refuted, never confirmed, naming who refuted it', () => {
+    const condition = patientConditionToFhir(rejectedCondition);
+    expect(condition.verificationStatus?.coding?.[0]?.code).toBe('refuted');
+    expect(condition.clinicalStatus?.coding?.[0]?.code).toBe('inactive');
+    expect(extension(condition.extension, ENGINE_EXTENSIONS.confirmedBy)).toBeUndefined();
+    expect(extension(condition.extension, ENGINE_EXTENSIONS.refutedBy)?.valueString).toBe(
+      'user-doctor-7',
+    );
+  });
+
+  it('does not export a provisional code subsumed by a confirmed, more specific one', () => {
+    const icd10 = 'http://hl7.org/fhir/sid/icd-10';
+    const parent = { ...extractedCondition, code: { system: icd10, code: 'E11' } };
+    const child = { ...extractedCondition, code: { system: icd10, code: 'E11.9' } };
+    const confirmedChild = { ...child, status: 'confirmed' as const, confidence: 1 };
+    const unrelated = { ...extractedCondition, code: { system: icd10, code: 'I10' } };
+    expect(exportableConditions([parent, confirmedChild, unrelated])).toEqual([
+      confirmedChild,
+      unrelated,
+    ]);
+    // Without a confirmed child the provisional parent stays, and so does a refuted one.
+    expect(exportableConditions([parent, child])).toEqual([parent, child]);
+    const refutedParent = { ...rejectedCondition, code: { system: icd10, code: 'E11' } };
+    expect(exportableConditions([refutedParent, confirmedChild])).toEqual([
+      refutedParent,
+      confirmedChild,
+    ]);
+  });
+
+  it.each([extractedCondition, confirmedCondition, resolvedCondition, rejectedCondition])(
     'round-trips losslessly (%#)',
     (condition) => {
       const fhir = patientConditionToFhir(condition);

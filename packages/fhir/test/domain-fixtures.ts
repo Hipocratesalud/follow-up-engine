@@ -144,6 +144,16 @@ export const resolvedCondition: PatientConditionInput = {
   confidence: 1,
 };
 
+/** A note-extracted condition the clinician rejected. */
+export const rejectedCondition: PatientConditionInput = {
+  ...extractedCondition,
+  id: 'cond-dm-rejected',
+  status: 'rejected',
+  confidence: 0,
+  confirmedBy: 'user-doctor-7',
+  updatedAt: new Date('2026-02-02T12:00:00Z'),
+};
+
 export const noteWithoutPlan: QualityFinding = {
   id: 'qf-0001',
   clinicId: CLINIC,

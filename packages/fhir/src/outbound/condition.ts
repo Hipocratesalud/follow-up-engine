@@ -1,4 +1,9 @@
-import type { Evidence, PatientCondition, PatientConditionStatus } from '@follow-up-engine/core';
+import {
+  type Evidence,
+  ICD10_SYSTEM,
+  type PatientCondition,
+  type PatientConditionStatus,
+} from '@follow-up-engine/core';
 import type { Condition, Extension } from '../fhir-types.ts';
 import { toFhirInstant } from '../support/datetime.ts';
 import { toFhirId } from '../support/hash.ts';
@@ -11,11 +16,17 @@ import { concept, ext, patientReference, referenceTo } from './elements.ts';
  */
 export type PatientConditionInput = PatientCondition & { readonly id?: string };
 
-/** `Condition.verificationStatus` and `clinicalStatus` codes for each engine status. */
+/**
+ * `Condition.verificationStatus` and `clinicalStatus` codes for each engine
+ * status. A clinician's rejection is `refuted` (never `confirmed`); its
+ * clinical status is `inactive`, since R4 (con-3) requires one on a
+ * problem-list item that is not entered-in-error.
+ */
 export const CONDITION_STATUS_CODES = {
   confirmed: { verification: 'confirmed', clinical: 'active' },
   probable: { verification: 'provisional', clinical: 'active' },
   resolved: { verification: 'confirmed', clinical: 'resolved' },
+  rejected: { verification: 'refuted', clinical: 'inactive' },
 } as const satisfies Record<
   PatientConditionStatus,
   { readonly verification: string; readonly clinical: string }
@@ -56,7 +67,12 @@ export function patientConditionToFhir(condition: PatientConditionInput): Condit
     extension: [
       ...ext.decimal(ENGINE_EXTENSIONS.confidence, condition.confidence),
       ...ext.code(ENGINE_EXTENSIONS.conditionSource, condition.sourceType),
-      ...ext.string(ENGINE_EXTENSIONS.confirmedBy, condition.confirmedBy),
+      ...ext.string(
+        condition.status === 'rejected'
+          ? ENGINE_EXTENSIONS.refutedBy
+          : ENGINE_EXTENSIONS.confirmedBy,
+        condition.confirmedBy,
+      ),
       ...evidenceExtension(condition.evidence),
     ],
     clinicalStatus: concept(TERMINOLOGY.conditionClinical, codes.clinical),
@@ -75,4 +91,31 @@ export function patientConditionToFhir(condition: PatientConditionInput): Condit
     subject: patientReference(condition.patientId),
     evidence: [{ detail: [referenceTo(condition.source)] }],
   };
+}
+
+function icd10Key(code: string): string {
+  return code.replace('.', '').trim().toUpperCase();
+}
+
+/**
+ * The conditions to show a host: drops a provisional (`probable`) ICD-10 code
+ * when a confirmed code of the same or a more specific concept exists (a note
+ * says "DM2" → provisional `E11`; the chart records confirmed `E11.9`): the
+ * host would otherwise read "diabetes, unconfirmed" for a patient whose
+ * doctor recorded it. Rejected and resolved conditions are always kept.
+ */
+export function exportableConditions<TCondition extends PatientCondition>(
+  conditions: readonly TCondition[],
+): TCondition[] {
+  const confirmed = conditions
+    .filter(
+      (condition) => condition.status === 'confirmed' && condition.code.system === ICD10_SYSTEM,
+    )
+    .map((condition) => icd10Key(condition.code.code));
+  return conditions.filter(
+    (condition) =>
+      condition.status !== 'probable' ||
+      condition.code.system !== ICD10_SYSTEM ||
+      !confirmed.some((code) => code.startsWith(icd10Key(condition.code.code))),
+  );
 }

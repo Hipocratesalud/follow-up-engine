@@ -92,6 +92,8 @@ export const ENGINE_EXTENSIONS = {
   conditionSource: structureDefinition('follow-up-condition-source'),
   /** Condition, `valueString`: host user id of the clinician who confirmed it. */
   confirmedBy: structureDefinition('follow-up-confirmed-by'),
+  /** Condition (`refuted`), `valueString`: host user id of the clinician who rejected it. */
+  refutedBy: structureDefinition('follow-up-refuted-by'),
   /** Provenance, `valueString`: the case event payload as JSON (ids and codes only). */
   caseEventPayload: structureDefinition('follow-up-case-event-payload'),
 } as const;

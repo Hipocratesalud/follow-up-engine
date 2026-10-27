@@ -10,6 +10,7 @@ import {
   type BundleEntry,
   caseToTask,
   expectationToTask,
+  exportableConditions,
   FHIR_VERSION,
   type FhirResource,
   type OperationOutcome,
@@ -380,7 +381,7 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
     const conditions = await stores.conditions.listByPatient(c.var.clinicId, toPatientId(patient));
     return fhirJson(
       c,
-      toSearchsetBundle(conditions.map(patientConditionToFhir), {
+      toSearchsetBundle(exportableConditions(conditions).map(patientConditionToFhir), {
         baseUrl: fhirBase(c),
         selfUrl: c.req.url,
       }),

@@ -20,7 +20,7 @@ const PROVISIONAL_CONFIDENCE = 0.6;
 /** A condition the current batch suggests, before merging with what is stored. */
 export interface ConditionCandidate {
   readonly code: Coding;
-  readonly status: Exclude<PatientConditionStatus, 'resolved'>;
+  readonly status: Exclude<PatientConditionStatus, 'resolved' | 'rejected'>;
   readonly confidence: number;
   readonly sourceType: ConditionSourceType;
   readonly source: ResourceRef;
@@ -204,7 +204,7 @@ export function mergeCondition(
     ...(candidate.evidence === undefined ? {} : { evidence: candidate.evidence }),
     updatedAt: context.now,
   };
-  if (existing === undefined || existing.status === 'resolved') {
+  if (existing === undefined || existing.status === 'resolved' || existing.status === 'rejected') {
     return existing?.confirmedBy === undefined ? next : undefined;
   }
   if (existing.confirmedBy !== undefined) {

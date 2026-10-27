@@ -1,7 +1,7 @@
 import { type ServerType, serve } from '@hono/node-server';
 import { type EngineRuntime, Worker } from '@follow-up-engine/runtime';
 import type { ApiConfig } from './config.ts';
-import { createApp } from './http/app.ts';
+import { type AppOptions, createApp } from './http/app.ts';
 import type { App } from './http/context.ts';
 
 export interface ApiServer {
@@ -17,10 +17,16 @@ export interface ApiServer {
 /**
  * Wires the HTTP app on a runtime and, with `embeddedWorker`, starts the
  * worker loops in the same process (single-container deployments, demo).
+ * `appOptions` overrides HTTP tuning (tests).
  */
-export function createApiServer(runtime: EngineRuntime, config: ApiConfig): ApiServer {
+export function createApiServer(
+  runtime: EngineRuntime,
+  config: ApiConfig,
+  appOptions: Partial<AppOptions> = {},
+): ApiServer {
   const worker = config.embeddedWorker ? new Worker(runtime) : undefined;
   const app = createApp(runtime, {
+    ...appOptions,
     corsOrigins: config.corsOrigins,
     ...(worker === undefined ? {} : { worker }),
   });

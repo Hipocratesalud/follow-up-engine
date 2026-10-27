@@ -47,6 +47,7 @@ export {
 export {
   CONDITION_STATUS_CODES,
   conditionId,
+  exportableConditions,
   patientConditionToFhir,
   type PatientConditionInput,
 } from './outbound/condition.ts';
