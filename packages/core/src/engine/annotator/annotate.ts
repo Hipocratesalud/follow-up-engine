@@ -2,7 +2,7 @@ import type { ClinicalEvent } from '../../domain/clinical-event.ts';
 import type { Origin } from '../../domain/common.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
 import type { Expectation } from '../../domain/expectation.ts';
-import { type CaseId, expectationId } from '../../domain/ids.ts';
+import { type CaseId, type ExpectationId, expectationId } from '../../domain/ids.ts';
 import { CaseWriter } from '../case-manager/case-writer.ts';
 import { closeExpectation, resolveSatisfiedCases } from '../case-manager/reconcile.ts';
 import {
@@ -129,7 +129,7 @@ export async function annotate(
   const cadence = cadenceDrafts(ordered, state.timeline, context.catalog).filter(
     (draft) => !coveredByPlan(state.live, draft.matchKey),
   );
-  created.push(...(await createExpectations(context, state.live, cadence, lateHistory)));
+  const afterFulfillment = await createExpectations(context, state.live, cadence, lateHistory);
 
   const protocols = protocolDrafts({
     catalog: context.catalog,
@@ -138,8 +138,19 @@ export async function annotate(
     live: state.live.list(),
     now: context.now,
   });
-  created.push(...(await createExpectations(context, state.live, protocols.drafts, lateHistory)));
-  closed.push(...(await fulfillFromRecord(context, state, created, ordered)));
+  afterFulfillment.push(
+    ...(await createExpectations(context, state.live, protocols.drafts, lateHistory)),
+  );
+  created.push(...afterFulfillment);
+  closed.push(
+    ...(await fulfillFromRecord(
+      context,
+      state,
+      created,
+      ordered,
+      new Set(afterFulfillment.map((expectation) => expectation.id)),
+    )),
+  );
 
   const casesResolved: CaseId[] = [];
   for (const { expectation } of closed) {
@@ -420,13 +431,18 @@ async function recheckTouched(
  * A new expectation may already be met by something in the record that is
  * not part of this batch: typically a follow-up appointment booked before an
  * abnormal result arrived. Correlations still require the event to happen
- * after the expectation's trigger, so past events never count.
+ * after the expectation's trigger, so past events never count. Cadence and
+ * protocol expectations (`afterFulfillment`) are drafted once the batch's
+ * events were matched, so the batch counts for them too: the next control
+ * booked in the Bundle that fulfilled the doctor's plan (which is what
+ * opened the protocol's gap) also brings in the protocol visit.
  */
 async function fulfillFromRecord(
   context: AnnotationContext,
   state: PatientState,
   created: readonly Expectation[],
   batch: readonly ClinicalEvent[],
+  afterFulfillment: ReadonlySet<ExpectationId>,
 ): Promise<ClosedExpectation[]> {
   const inBatch = new Set(batch.map((event) => event.idempotencyKey));
   const record = state.timeline.events.filter((event) => !inBatch.has(event.idempotencyKey));
@@ -442,7 +458,8 @@ async function fulfillFromRecord(
       state.timeline,
       matchContext(context),
     );
-    const event = record.find(
+    const candidates = afterFulfillment.has(expectation.id) ? state.timeline.events : record;
+    const event = candidates.find(
       (candidate) => findFulfillment(candidate, target, state.timeline) !== undefined,
     );
     if (event !== undefined) {

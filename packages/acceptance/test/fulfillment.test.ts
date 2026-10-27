@@ -317,7 +317,10 @@ function fulfillment(makeHarness: (options: HarnessOptions) => Promise<EngineHar
     expect(rule(snapshot, 'doctor_plan_followup')[0]?.status).toBe('fulfilled');
   });
 
-  it('cancelling a booking also withdraws the protocol visit anchored on it', async () => {
+  it('a booking fulfills the protocol visit but never anchors it; cancelled, the visit is open again', async () => {
+    // HIP-135: the protocol counts its next visit from a visit that took
+    // place, never from a booking (a promise that may be cancelled or never
+    // kept); the booking only fulfills it, until it is cancelled.
     const harness = await makeHarness(options('cancel-protocol'));
     const patient = 'p-cancel-protocol';
     await day(harness, 0, [
@@ -340,10 +343,13 @@ function fulfillment(makeHarness: (options: HarnessOptions) => Promise<EngineHar
     let snapshot = await snapshotPatient(harness, patientId(patient));
     expect(rule(snapshot, 'doctor_plan_followup').map((e) => e.status)).toEqual(['fulfilled']);
     expect(
-      rule(snapshot, 'protocol_diabetes_visit')
-        .filter((e) => e.status === 'open')
-        .map((e) => e.source.id),
-    ).toEqual(['cp-ap1']);
+      rule(snapshot, 'protocol_diabetes_visit').map((e) => [
+        e.source.id,
+        e.status,
+        e.closedBy?.id,
+        e.dueAt.toISOString().slice(0, 10),
+      ]),
+    ).toEqual([['cp-e1', 'fulfilled', 'cp-ap1', dayToDate(180).toISOString().slice(0, 10)]]);
 
     await day(harness, 10, [
       transactionOf(
@@ -351,14 +357,15 @@ function fulfillment(makeHarness: (options: HarnessOptions) => Promise<EngineHar
       ),
     ]);
     snapshot = await snapshotPatient(harness, patientId(patient));
-    // The plan is open again and covers the visit: no protocol visit is left in play.
+    // Everything the cancelled booking fulfilled is open again, still counted from the visit.
     expect(rule(snapshot, 'doctor_plan_followup').map((e) => e.status)).toEqual(['open']);
-    const visits = rule(snapshot, 'protocol_diabetes_visit');
-    expect(visits.filter((e) => e.status === 'open')).toEqual([]);
-    expect(visits.find((e) => e.source.id === 'cp-ap1')).toMatchObject({
-      status: 'cancelled',
-      closedReason: 'source_withdrawn',
-    });
+    expect(
+      rule(snapshot, 'protocol_diabetes_visit').map((e) => [
+        e.source.id,
+        e.status,
+        e.dueAt.toISOString().slice(0, 10),
+      ]),
+    ).toEqual([['cp-e1', 'open', dayToDate(180).toISOString().slice(0, 10)]]);
   });
 }
 

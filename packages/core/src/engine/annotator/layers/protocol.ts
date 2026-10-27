@@ -14,12 +14,23 @@ import { type ExpectationDraft, expectationIdempotencyKey } from '../draft.ts';
 /** Layers whose expectations are explicit enough to make a protocol item redundant. */
 const COVERING_LAYERS: ReadonlySet<Expectation['layer']> = new Set(['doctor_plan', 'universal']);
 
+/**
+ * The last time a protocol item happened: a visit, a result. A booking is a
+ * promise, not a visit: it fulfills the item's expectation (until it is
+ * cancelled or its date passes with no visit, when that expectation opens
+ * again) but never anchors the next one, so the next item is always counted
+ * from something that took place, live or replayed by the backfill, whether
+ * the booking came in its own Bundle or with the consultation.
+ */
 function latestFulfillingEvent(
   definition: ExpectationDefinition,
   timeline: PatientTimeline,
 ): ClinicalEvent | undefined {
   let latest: ClinicalEvent | undefined;
   for (const event of timeline.events) {
+    if (event.type === 'appointment.booked') {
+      continue;
+    }
     const matches =
       definition.fulfilledBy.some((correlation) =>
         matchesShape(correlation, event, definition.code),
