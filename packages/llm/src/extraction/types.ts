@@ -77,6 +77,8 @@ export type RejectionReason =
   | 'not_current'
   /** A conditional or as-needed return ("volver si presenta fiebre"), not scheduled follow-up. */
   | 'conditional'
+  /** The note cancels that follow-up ("se suspende el control en 1 mes", "el control queda suspendido"). */
+  | 'cancelled'
   /** The model's interval disagrees with the interval stated where it quotes. */
   | 'timing_mismatch'
   /**

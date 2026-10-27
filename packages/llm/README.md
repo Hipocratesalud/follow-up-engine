@@ -116,7 +116,8 @@ the real gateway, validation and post-checks.
   weekdays, "Alta", "Dolores", "Delgado", "HTA", any condition, plan or test term) is masked alone only
   when capitalized right after a form of address ("Sra. Alta", "Paciente Julio"), so "se da de alta"
   and "control el 15 de julio" reach the model intact. Identifiers are masked as whole numbers
-  however punctuated ("V-15.120.850", "15120850"); phones also in national or international format
+  however punctuated ("V-15.120.850", "15,120,850", "15120850"; a comma only before three digits, so
+  "2,5 mg" is a dose); phones also in national or international format
   ("0412-555-1234" for "+58 412 555 1234" and the reverse). Loose digit groups are never masked:
   "TA 120/80" and "metformina 850 mg" stay. Identifiers with letters ("SECMARK-77") and emails are
   masked as their whole token sequence. Quotes the model copies from the masked text are mapped back
@@ -146,7 +147,9 @@ the real gateway, validation and post-checks.
   Measurements ("Hemoglobina 10,8 g/dL", "HbA1c 7.4%") are `not_a_medication`. Conditional returns in
   any word order ("volver si fiebre", "ctrl en 1 semana solo si persisten los síntomas", "volver en 1
   mes si no mejora", "si no mejora en 1 semana, reconsultar") are `conditional`, while "control en 1
-  mes o antes si empeora" stays.
+  mes o antes si empeora" stays. A follow-up the note cancels ("se suspende el control en 1 mes que
+  estaba previsto", "el control queda suspendido") is `cancelled`, read within the list item the quote
+  ends in, so "se suspende metformina, control en 3 meses" keeps the control.
 - **What a plan item is.** Decided by its quote, not by the model's word (`lab-tests.ts`, a lexicon of
   Spanish test names and abbreviations, the English words a model writes, and LOINC codes per test).
   A lab or imaging item keeps the model's description only when it names tests the quote names
@@ -240,6 +243,18 @@ medications 82.2% → 82.2%, plan items 88.7% → 92.2%, hasPlan 91.4% → 94.3%
 The older gold notes label "perfil lipídico y creatinina" as one lab item; the extractor now returns
 one item per test (each with its own code, so each is fulfilled by its own result), which shows as
 four plan false positives on gold-003, 014, 022 and 039.
+
+QA round 3 added gold-071 to 076: two intervals in one sentence ("TSH en 6 semanas, control en 3
+meses" and the reverse, "HbA1c en 1 mes y control en 3 meses"), frequency words ("Control anual",
+"Control semestral") and a suspended control ("Se suspende el control en 1 mes que estaba previsto;
+control en 6 meses"). The heuristic reader now binds each plan item to its nearest interval (its own
+list item, else the next one, else the previous one), quotes a test by its own words when the timing
+belongs to the list ("perfil lipídico" and "microalbuminuria antes de la próxima consulta", never one
+quote inside the other), reads frequency words except next to a dose or in a description of today's
+visit ("acude a control anual", "sesión de seguimiento mensual"), and skips cancelled follow-ups. The
+post-checks drop a model item whose list item cancels it (`cancelled`). Heuristic baseline on the 76
+notes, before and after: plan items F1 87.3% → 93.1%; conditions 80.0%, medications 83.2%, hasPlan
+94.7% and discharge 98.7% unchanged (the 70 older notes score exactly as before).
 
 Real-network smoke test, never run by `pnpm verify`:
 

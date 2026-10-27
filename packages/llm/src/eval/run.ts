@@ -20,6 +20,7 @@ const EVIDENCE_REASONS: ReadonlySet<RejectionReason> = new Set<RejectionReason>(
   'quote_unrelated',
   'negated',
   'conditional',
+  'cancelled',
   'timing_mismatch',
   'not_a_medication',
 ]);

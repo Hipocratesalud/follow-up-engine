@@ -21,6 +21,7 @@ import {
   parseAmount,
   segmentAround,
   statedTiming,
+  statesSuspension,
 } from './signals.ts';
 
 /**
@@ -35,7 +36,10 @@ import {
  * ("Hemoglobina 10,8 g/dL"), discharge ("se da de alta", "se cierra el
  * proceso terapeutico", not "dado de alta del hospital") and named tests
  * (one lab item per test, "perfil lipidico y microalbuminuria antes de la
- * proxima consulta" due with the next control).
+ * proxima consulta" due with the next control). Each plan item keeps its
+ * own interval ("TSH en 6 semanas, control en 3 meses"), frequency words are
+ * intervals ("control anual") and cancelled follow-ups are skipped ("se
+ * suspende el control en 1 mes").
  */
 
 interface ConditionPattern {
@@ -117,8 +121,23 @@ const CONDITION_PATTERNS: readonly ConditionPattern[] = [
 
 const AMOUNT = String.raw`(\d+(?:[.,]\d+)?|${Object.keys(NUMBER_WORDS).join('|')})`;
 const UNIT = String.raw`(dias|dia|semanas|semana|sem|meses|mes|anos|ano)`;
-const RELATIVE_TIMING = new RegExp(String.raw`\b(?:en|cada) ${AMOUNT} ${UNIT}\b`);
-const NEXT_TIMING = /\b(proximo mes|proxima semana|proximo ano|mes que viene)\b/;
+const RELATIVE_TIMING = new RegExp(String.raw`\b(?:en|cada) ${AMOUNT} ${UNIT}\b`, 'g');
+const NEXT_TIMING = /\b(proximo mes|proxima semana|proximo ano|mes que viene)\b/g;
+/** "control anual", "control semestral": the interval is the frequency word. */
+const PERIODIC_TIMING =
+  /\b(semanal|semanalmente|quincenal|mensual|mensualmente|bimestral|trimestral|semestral|anual|anualmente)\b/g;
+const PERIODIC_INTERVALS: Readonly<Record<string, { amount: number; unit: TimeUnit }>> = {
+  semanal: { amount: 1, unit: 'week' },
+  semanalmente: { amount: 1, unit: 'week' },
+  quincenal: { amount: 15, unit: 'day' },
+  mensual: { amount: 1, unit: 'month' },
+  mensualmente: { amount: 1, unit: 'month' },
+  bimestral: { amount: 2, unit: 'month' },
+  trimestral: { amount: 3, unit: 'month' },
+  semestral: { amount: 6, unit: 'month' },
+  anual: { amount: 1, unit: 'year' },
+  anualmente: { amount: 1, unit: 'year' },
+};
 
 const KIND_PATTERNS: readonly (readonly [PlanItemKind, RegExp])[] = [
   [
@@ -167,12 +186,29 @@ const NOT_DRUGS = new Set([
   'actual',
   'peso',
 ]);
-const ABSOLUTE_DATE = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/;
+const ABSOLUTE_DATE = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
 const NAMED_DATE =
-  /\b(\d{1,2}) de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b/;
+  /\b(\d{1,2}) de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b/g;
 /** "antes de la proxima consulta", "al proximo control": due with the next visit. */
 const WITH_NEXT_VISIT =
-  /\b(?:antes de|para|a|al|en) (?:la |el )?prox(?:im[oa])?\.? (?:control|ctrl|cita|consulta|visita)\b/;
+  /\b(?:antes de|para|a|al|en) (?:la |el )?prox(?:im[oa])?\.? (?:control|ctrl|cita|consulta|visita)\b/g;
+/** Where one item of a plan list ends: a comma (not a decimal one), "y", "pero", "aunque". */
+const SEGMENT_BREAK = /(?<!\d),|,(?!\d)|\b(?:y|pero|aunque)\b/g;
+/** A dose ("50000 UI", "500 mg"): a frequency word next to it is a dosing schedule. */
+const DOSE = /\d ?(?:mg|mcg|ug|g|ui|ml|gotas|puff|tabletas?|comprimidos?|capsulas?)\b/;
+/**
+ * The visit being described, not the next one: "acude a control
+ * ginecologico anual", "sesion de seguimiento mensual".
+ */
+const VISIT_DESCRIPTION =
+  /\b(?:acude|acudio|asiste|asistio|viene|vino|consulta por|motivo)\b|\b(?:sesion|consulta|cita|control) de\b|\bde (?:control|seguimiento|sesion)\b/;
+
+/** Whether a frequency word in this list item is a dosing schedule or describes today's visit. */
+function notAPlanFrequency(segment: string): boolean {
+  return DOSE.test(segment) || VISIT_DESCRIPTION.test(segment);
+}
+/** Fewest letters and digits a plan quote needs (the post-checks reject shorter ones). */
+const MIN_QUOTE_ALNUM = 4;
 
 function sentences(normalized: string): { text: string; start: number }[] {
   const out: { text: string; start: number }[] = [];
@@ -226,92 +262,8 @@ export function heuristicExtraction(note: string, noteDay?: string): ModelExtrac
   }
 
   const planItems: ModelPlanItem[] = [];
-  const keyword = (kind: PlanItemKind, text: string): RegExpExecArray | null =>
-    KIND_PATTERNS.find(([k]) => k === kind)?.[1].exec(text) ?? null;
   for (const sentence of sentences(normalized)) {
-    const relative = RELATIVE_TIMING.exec(sentence.text);
-    const next = NEXT_TIMING.exec(sentence.text);
-    const absolute = ABSOLUTE_DATE.exec(sentence.text);
-    const named = noteDay === undefined ? null : NAMED_DATE.exec(sentence.text);
-    const withNextVisit = WITH_NEXT_VISIT.exec(sentence.text);
-    const timingMatch = relative ?? next ?? absolute ?? named ?? withNextVisit;
-    if (!timingMatch) continue;
-    const timingStart = sentence.start + timingMatch.index;
-    const segment = segmentAround(normalized, timingStart, timingStart + timingMatch[0].length);
-    if (isConditional(segment, sentence.text)) continue;
-    let timing: ModelPlanItem['timing'] = { amount: 1, unit: 'month', date: null };
-    if (timingMatch === absolute) {
-      const [, d = '', m = '', y = ''] = absolute;
-      timing = {
-        amount: null,
-        unit: null,
-        date: `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`,
-      };
-    } else if (timingMatch === named && noteDay !== undefined) {
-      const date = statedTiming(named[0], noteDay).dates[0];
-      timing = date === undefined ? null : { amount: null, unit: null, date };
-    } else if (timingMatch === withNextVisit) {
-      timing = null;
-    } else if (relative?.[1] && relative[2]) {
-      timing = {
-        amount: parseAmount(relative[1]),
-        unit: UNIT_WORDS[relative[2]] ?? 'day',
-        date: null,
-      };
-    } else if (next?.[1]) {
-      const unit: TimeUnit = next[1].includes('semana')
-        ? 'week'
-        : next[1].includes('ano')
-          ? 'year'
-          : 'month';
-      timing = { amount: 1, unit, date: null };
-    }
-    // Quote from the item's words (or sentence start) through the timing phrase.
-    const quoteAround = (from: number, to: number): string =>
-      quoteOf(
-        sentence.start + Math.min(from, timingMatch.index),
-        sentence.start + Math.max(to, timingMatch.index + timingMatch[0].length),
-      );
-    const add = (kind: PlanItemKind, description: string, quote: string, loinc: string | null) => {
-      planItems.push({
-        kind,
-        description,
-        timing,
-        loincCode: loinc,
-        evidenceQuote: quote,
-        confidence: 0.5,
-      });
-    };
-    const kinds = KIND_PATTERNS.filter(([, pattern]) => pattern.test(sentence.text)).map(
-      ([kind]) => kind,
-    );
-    const tests = namedTests(sentence.text);
-    for (const kind of kinds.length > 0 ? kinds : (['other'] as const)) {
-      if (timing === null && kind !== 'lab' && kind !== 'imaging') continue;
-      const testsOfKind = tests.filter((test) => test.group.kind === kind);
-      if ((kind === 'lab' || kind === 'imaging') && testsOfKind.length > 0) {
-        // One item per named test ("perfil lipidico y microalbuminuria").
-        const seen = new Set<string>();
-        for (const test of testsOfKind) {
-          if (seen.has(test.group.id)) continue;
-          seen.add(test.group.id);
-          add(
-            kind,
-            test.group.label,
-            quoteAround(test.start, test.end),
-            kind === 'lab' ? (test.group.loinc[0] ?? null) : null,
-          );
-        }
-        continue;
-      }
-      const match = keyword(kind, sentence.text);
-      add(
-        kind,
-        DESCRIPTIONS[kind],
-        quoteAround(match?.index ?? 0, (match?.index ?? 0) + (match?.[0].length ?? 0)),
-        null,
-      );
-    }
+    planItems.push(...sentencePlanItems(sentence, noteDay, quoteOf));
   }
 
   const discharge = findDischarge(normalized);
@@ -326,6 +278,202 @@ export function heuristicExtraction(note: string, noteDay?: string): ModelExtrac
     medications,
     planItems,
   };
+}
+
+/** A timing phrase of a sentence, with what it means as model timing. */
+interface TimingPhrase {
+  readonly start: number;
+  readonly end: number;
+  readonly timing: ModelPlanItem['timing'];
+  /** A frequency word ("control anual"): binds only to the words of its own list item. */
+  readonly periodic: boolean;
+}
+
+function timingPhrases(text: string, noteDay: string | undefined): TimingPhrase[] {
+  const found: TimingPhrase[] = [];
+  const push = (match: RegExpExecArray, timing: ModelPlanItem['timing'], periodic = false) => {
+    found.push({ start: match.index, end: match.index + match[0].length, timing, periodic });
+  };
+  for (const match of text.matchAll(RELATIVE_TIMING)) {
+    const [, amount = '', unit = ''] = match;
+    push(match, { amount: parseAmount(amount), unit: UNIT_WORDS[unit] ?? 'day', date: null });
+  }
+  for (const match of text.matchAll(NEXT_TIMING)) {
+    const phrase = match[1] ?? '';
+    const unit: TimeUnit = phrase.includes('semana')
+      ? 'week'
+      : phrase.includes('ano')
+        ? 'year'
+        : 'month';
+    push(match, { amount: 1, unit, date: null });
+  }
+  for (const match of text.matchAll(ABSOLUTE_DATE)) {
+    const [, d = '', m = '', y = ''] = match;
+    push(match, {
+      amount: null,
+      unit: null,
+      date: `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`,
+    });
+  }
+  if (noteDay !== undefined) {
+    for (const match of text.matchAll(NAMED_DATE)) {
+      const date = statedTiming(match[0], noteDay).dates[0];
+      push(match, date === undefined ? null : { amount: null, unit: null, date });
+    }
+  }
+  for (const match of text.matchAll(WITH_NEXT_VISIT)) push(match, null);
+  for (const match of text.matchAll(PERIODIC_TIMING)) {
+    const interval = PERIODIC_INTERVALS[match[1] ?? ''];
+    if (interval) push(match, { ...interval, date: null }, true);
+  }
+  // Earliest first; a phrase inside another one ("en 3 meses" in a date) is dropped.
+  found.sort((a, b) => a.start - b.start || b.end - a.end);
+  return found.filter((phrase, i) => i === 0 || phrase.start >= (found[i - 1]?.end ?? 0));
+}
+
+/** Where each list item of a sentence starts (split at commas, "y", "pero", "aunque"). */
+function segmentStarts(text: string): number[] {
+  const starts = [0];
+  for (const match of text.matchAll(SEGMENT_BREAK)) starts.push(match.index + match[0].length);
+  return starts;
+}
+
+function alnumCount(text: string): number {
+  return text.replace(/[^a-z0-9]/g, '').length;
+}
+
+/**
+ * The plan items of one sentence. Each item binds to its nearest timing:
+ * the one written in its own list item ("TSH en 6 semanas, control en 3
+ * meses"), else the next one ("HbA1c, perfil lipidico y creatinina en 3
+ * meses", "perfil lipidico y microalbuminuria antes de la proxima
+ * consulta"), else the previous one ("control en 3 meses con HbA1c y perfil
+ * lipidico"). A frequency word ("control anual") binds only within its own
+ * list item. Quotes run from the item's words to its timing when both are in
+ * the same list item; otherwise they are the item's own words, so no quote
+ * names another item's test.
+ */
+function sentencePlanItems(
+  sentence: { text: string; start: number },
+  noteDay: string | undefined,
+  quoteOf: (start: number, end: number) => string,
+): ModelPlanItem[] {
+  const text = sentence.text;
+  const phrases = timingPhrases(text, noteDay);
+  if (phrases.length === 0) return [];
+  const starts = segmentStarts(text);
+  const segmentOf = (at: number): number => {
+    let segment = 0;
+    for (let i = 0; i < starts.length; i += 1) if ((starts[i] ?? 0) <= at) segment = i;
+    return segment;
+  };
+  const segmentText = (at: number): string => {
+    const segment = segmentOf(at);
+    return text.slice(starts[segment] ?? 0, starts[segment + 1] ?? text.length);
+  };
+  const bind = (start: number): TimingPhrase | undefined => {
+    const segment = segmentOf(start);
+    const own = phrases.filter(
+      (phrase) =>
+        segmentOf(phrase.start) === segment &&
+        !(phrase.periodic && notAPlanFrequency(segmentText(phrase.start))),
+    );
+    if (own.length > 0) {
+      return own.reduce((best, phrase) =>
+        Math.abs(phrase.start - start) < Math.abs(best.start - start) ? phrase : best,
+      );
+    }
+    const linked = phrases.filter((phrase) => !phrase.periodic);
+    return (
+      linked.find((phrase) => phrase.start > start) ??
+      linked.filter((phrase) => phrase.end <= start).at(-1)
+    );
+  };
+  const quote = (start: number, end: number, phrase: TimingPhrase): string => {
+    const together =
+      segmentOf(phrase.start) === segmentOf(start) ||
+      alnumCount(text.slice(start, end)) < MIN_QUOTE_ALNUM;
+    return together
+      ? quoteOf(
+          sentence.start + Math.min(start, phrase.start),
+          sentence.start + Math.max(end, phrase.end),
+        )
+      : quoteOf(sentence.start + start, sentence.start + end);
+  };
+  const excluded = (start: number, phrase: TimingPhrase): boolean => {
+    const timingSegment = segmentAround(text, phrase.start, phrase.end);
+    return (
+      isConditional(timingSegment, text) ||
+      isConditional(segmentText(start)) ||
+      statesSuspension(segmentText(start))
+    );
+  };
+
+  const items: ModelPlanItem[] = [];
+  const seen = new Set<string>();
+  const add = (
+    kind: PlanItemKind,
+    description: string,
+    start: number,
+    end: number,
+    loinc: string | null,
+    key: string,
+  ): void => {
+    const phrase = bind(start);
+    if (phrase === undefined || excluded(start, phrase)) return;
+    if (phrase.timing === null && kind !== 'lab' && kind !== 'imaging') return;
+    const dedupe = `${key}|${JSON.stringify(phrase.timing)}`;
+    if (seen.has(dedupe)) return;
+    seen.add(dedupe);
+    items.push({
+      kind,
+      description,
+      timing: phrase.timing,
+      loincCode: loinc,
+      evidenceQuote: quote(start, end, phrase),
+      confidence: 0.5,
+    });
+  };
+
+  const tests = namedTests(text);
+  let anyKeyword = tests.length > 0;
+  for (const [kind, pattern] of KIND_PATTERNS) {
+    const testsOfKind = tests.filter((test) => test.group.kind === kind);
+    const keywords = [...text.matchAll(new RegExp(pattern.source, 'g'))];
+    if (keywords.length > 0) anyKeyword = true;
+    if ((kind === 'lab' || kind === 'imaging') && testsOfKind.length > 0) {
+      // One item per named test ("perfil lipidico y microalbuminuria").
+      for (const test of testsOfKind) {
+        add(
+          kind,
+          test.group.label,
+          test.start,
+          test.end,
+          kind === 'lab' ? (test.group.loinc[0] ?? null) : null,
+          test.group.id,
+        );
+      }
+      continue;
+    }
+    for (const match of keywords) {
+      add(kind, DESCRIPTIONS[kind], match.index, match.index + match[0].length, null, kind);
+    }
+  }
+  if (!anyKeyword) {
+    // No plan word: the timing alone ("en 2 semanas"), quoted from the sentence start.
+    const phrase = phrases.find((candidate) => !candidate.periodic);
+    if (phrase?.timing && !excluded(0, phrase)) {
+      items.push({
+        kind: 'other',
+        description: DESCRIPTIONS.other,
+        timing: phrase.timing,
+        loincCode: null,
+        evidenceQuote: quoteOf(sentence.start, sentence.start + phrase.end),
+        confidence: 0.5,
+      });
+    }
+  }
+  return items;
 }
 
 /** Fake-provider responder backed by {@link heuristicExtraction}. */

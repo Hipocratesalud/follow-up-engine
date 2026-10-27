@@ -472,6 +472,22 @@ export function isConditional(segment: string, clause?: string): boolean {
   return CONDITIONAL.test(segment) || (clause !== undefined && CONDITION_FIRST.test(clause));
 }
 
+/**
+ * Words that cancel a follow-up ("se suspende el control en 1 mes", "el
+ * control queda suspendido", "sin control por ahora").
+ */
+const SUSPENDED =
+  /(?<![a-z])(?:se suspende|suspender|suspende|suspendid[oa]s?|se cancela|cancelar|cancelad[oa]s?|se anula|anulad[oa]s?|queda sin efecto|sin (?:control|controles|cita|citas|seguimiento) por (?:ahora|el momento))(?![a-z])/;
+
+/**
+ * Whether a plan segment (one list item, see {@link segmentAround}) cancels
+ * the follow-up it names. Read per segment, so "se suspende metformina,
+ * control en 3 meses" keeps the control.
+ */
+export function statesSuspension(segment: string): boolean {
+  return SUSPENDED.test(segment);
+}
+
 // ---------------------------------------------------------------- clauses
 
 const CLAUSE_BREAK = /[;\n]|\.(?!\d)|(?<![a-z])(?:pero|aunque|sin embargo)(?![a-z])/g;

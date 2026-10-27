@@ -20,6 +20,7 @@ import {
   looksLikeMeasurement,
   segmentAround,
   statedTiming,
+  statesSuspension,
   termsPattern,
   type StatedTiming,
 } from './signals.ts';
@@ -249,7 +250,8 @@ export type PostProcessNote =
  *   suspected ones get a confidence below every engine threshold;
  *   measurements are never medications; conditional returns ("volver si
  *   fiebre", "volver en 1 mes si no mejora", "si no mejora en 1 semana,
- *   reconsultar") are not plan;
+ *   reconsultar") are not plan, nor is a cancelled one ("se suspende el
+ *   control en 1 mes");
  * - a lab or imaging item is what its quote names (`readPlanItem`): its
  *   description and LOINC code survive only when the quote names that test,
  *   and a lab quoted as "Control en 3 meses" becomes a generic follow-up;
@@ -464,6 +466,11 @@ export function postProcessExtraction(
     const clause = clauseAround(noteText, span.normalizedStart, span.normalizedEnd);
     if (isConditional(segmentAround(noteText, span.normalizedStart, span.normalizedEnd), clause)) {
       reject('planItem', 'conditional', item.evidenceQuote);
+      continue;
+    }
+    // The list item the quote ends in: "se suspende metformina, control en 3 meses" keeps the control.
+    if (statesSuspension(segmentAround(noteText, span.normalizedEnd - 1, span.normalizedEnd))) {
+      reject('planItem', 'cancelled', item.evidenceQuote);
       continue;
     }
     const reading = readPlanItem(item, quote);

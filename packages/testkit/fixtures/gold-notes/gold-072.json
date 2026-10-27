@@ -1,0 +1,33 @@
+{
+  "id": "gold-072",
+  "specialty": "diabetology",
+  "authoredAt": "2026-02-02",
+  "text": "Pcte masc 63a con DM2 en tto con metformina 850 mg c/12h. HbA1c 7,9 %.\nPlan: control en 3 meses, HbA1c en 1 mes.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [
+      {
+        "icd10": "E11",
+        "evidenceQuote": "DM2"
+      }
+    ],
+    "medications": [
+      {
+        "text": "metformina 850 mg c/12h",
+        "evidenceQuote": "metformina 850 mg c/12h"
+      }
+    ],
+    "planItems": [
+      {
+        "kind": "follow_up_visit",
+        "dueInDays": 89,
+        "evidenceQuote": "control en 3 meses"
+      },
+      {
+        "kind": "lab",
+        "dueInDays": 28,
+        "evidenceQuote": "HbA1c en 1 mes"
+      }
+    ]
+  }
+}
