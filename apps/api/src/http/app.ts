@@ -141,20 +141,6 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
 
   app.use('*', accessLog(runtime));
   app.use('*', securityHeaders());
-  app.use('*', rejectControlCharacters());
-  app.use(
-    '*',
-    bodyLimit({
-      maxSize: options.maxBodyBytes ?? MAX_BODY_BYTES,
-      onError: () => {
-        throw new HttpError(
-          413,
-          'payload_too_large',
-          `El cuerpo supera el máximo de ${String(Math.floor((options.maxBodyBytes ?? MAX_BODY_BYTES) / 1024))} KB.`,
-        );
-      },
-    }),
-  );
   app.use(
     '*',
     cors({
@@ -172,6 +158,21 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
         'X-FollowUp-Stale',
       ],
       maxAge: 600,
+    }),
+  );
+  // After CORS: a browser must be able to read a 400 or a 413.
+  app.use('*', rejectControlCharacters());
+  app.use(
+    '*',
+    bodyLimit({
+      maxSize: options.maxBodyBytes ?? MAX_BODY_BYTES,
+      onError: () => {
+        throw new HttpError(
+          413,
+          'payload_too_large',
+          `El cuerpo supera el máximo de ${String(Math.floor((options.maxBodyBytes ?? MAX_BODY_BYTES) / 1024))} KB.`,
+        );
+      },
     }),
   );
 

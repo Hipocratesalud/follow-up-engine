@@ -321,11 +321,8 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     // reads why in Spanish, not as a schema path.
     const body = await readJson(c, FeedbackRequestSchema).catch((error: unknown) => {
       if (error instanceof z.ZodError && error.issues.some((issue) => issue.path[0] === 'reason')) {
-        throw new HttpError(
-          422,
-          'validation_error',
-          'Elige un motivo cuando el caso no fue útil: así podemos mejorar la regla.',
-        );
+        const message = 'Elige un motivo cuando el caso no fue útil: así podemos mejorar la regla.';
+        throw new HttpError(422, 'invalid_request', message, [{ path: 'reason', message }]);
       }
       throw error;
     });

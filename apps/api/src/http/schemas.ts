@@ -29,7 +29,24 @@ export const FeedbackReasonSchema = z.enum([
 ]);
 
 export const ErrorBodySchema = z
-  .object({ error: z.object({ code: z.string(), message: z.string() }) })
+  .object({
+    error: z.object({
+      code: z.string().meta({
+        description:
+          'Stable code: invalid_request (422, see fields), not_found, insufficient_scope, ...',
+      }),
+      message: z.string().meta({ description: 'Spanish, ready to show to the clinic team' }),
+      fields: z
+        .array(
+          z.object({
+            path: z.string().meta({ description: 'Dotted path in the body or query (note)' }),
+            message: z.string().meta({ description: 'Spanish: what is wrong with the field' }),
+          }),
+        )
+        .optional()
+        .meta({ description: 'invalid_request only: one entry per invalid field' }),
+    }),
+  })
   .meta({ id: 'Error' });
 
 export const PatientSummarySchema = z
