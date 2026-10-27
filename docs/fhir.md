@@ -221,7 +221,7 @@ Each attempt to reach a patient is a `CommunicationRequest`; what came of it is 
 
 The strongest outcome of an attempt decides it (`delivered` < `read` < `no_answer` < `wrong_number` < `replied` < `booked` = `declined` = `treated_elsewhere`), so the host may send one `Communication` per update or new versions of one. Outbound, a `Communication` also has `about` = the case `Task`, the outcome in `statusReason` when it did not reach the patient, and `sender` = the clinic user for a call recorded in the inbox.
 
-**Rule suppressed for a patient → `Flag`** (`suppressionToFlag`): `category` = `https://hipocratesalud.com/fhir/CodeSystem/follow-up-flag-category#follow-up-suppression`; `code` = the rule in `CodeSystem/follow-up-expectation` (with its label); `status` `active`, `inactive` once reactivated ("Volver a activar"), with `period.start` / `period.end`; `author` = the user; extensions `follow-up-dismiss-reason`, `follow-up-source-case` (the dismissed case `Task`), `follow-up-note`, `follow-up-revoked-by`. `GET /fhir/Flag?patient=` lists them.
+**Rule suppressed for a patient → `Flag`** (`suppressionToFlag`): `category` = `https://hipocratesalud.com/fhir/CodeSystem/follow-up-flag-category#follow-up-suppression`; `code` = the rule in `CodeSystem/follow-up-expectation` (with its label); `status` `active`, `inactive` once reactivated ("Turn back on"), with `period.start` / `period.end`; `author` = the user; extensions `follow-up-dismiss-reason`, `follow-up-source-case` (the dismissed case `Task`), `follow-up-note`, `follow-up-revoked-by`. `GET /fhir/Flag?patient=` lists them.
 
 ### Searchset
 

@@ -610,7 +610,7 @@ The case moved along its escalation policy. `default_v1`: notify the owner at da
 
 ### `patient_contact.requested`
 
-The engine (escalation policy) or a clinic user ("Pedir contacto" in the inbox) asks the host to message the patient: one contact attempt, a FHIR `CommunicationRequest` (`communicationRequest`, readable with `GET /fhir/CommunicationRequest/<id>`). Only sent when the clinic allows patient contact (`ClinicSettings.allowPatientContact`), the patient has not opted out and their number is not flagged as wrong; automatic messages are capped at one per patient every 14 days, whatever the number of cases. `channel` is the policy's hint (`whatsapp`, `sms`, `email`), absent when the host chooses; `attempt` counts the attempts of the case; `dueBy` is when the attempt counts as unanswered. `language` is the patient's preferred language (BCP-47, from `Patient.communication`), or `null` when the host never stated one: **write the message in that language**, and in the clinic's own language when it is `null`. Calls are not sent: they are tasks for the clinic team in the inbox.
+The engine (escalation policy) or a clinic user ("Ask for contact" in the inbox) asks the host to message the patient: one contact attempt, a FHIR `CommunicationRequest` (`communicationRequest`, readable with `GET /fhir/CommunicationRequest/<id>`). Only sent when the clinic allows patient contact (`ClinicSettings.allowPatientContact`), the patient has not opted out and their number is not flagged as wrong; automatic messages are capped at one per patient every 14 days, whatever the number of cases. `channel` is the policy's hint (`whatsapp`, `sms`, `email`), absent when the host chooses; `attempt` counts the attempts of the case; `dueBy` is when the attempt counts as unanswered. `language` is the patient's preferred language (BCP-47, from `Patient.communication`), or `null` when the host never stated one: **write the message in that language**, and in the clinic's own language when it is `null`. Calls are not sent: they are tasks for the clinic team in the inbox.
 
 ```json
 {
@@ -636,7 +636,7 @@ The engine (escalation policy) or a clinic user ("Pedir contacto" in the inbox) 
 
 ### `contact.outcome_recorded`
 
-A clinic user recorded what came of a call ("Llamar al paciente" in the inbox). Sent because the host owns the patient's contact data and its own reminders: a `wrong_number` means the phone number needs fixing (send the `Patient` again with the corrected `telecom` and the engine trusts it again), `booked` or `declined` mean the host should not keep messaging about it. Outcomes the host itself reported are not echoed back. Codes and links only; `GET /fhir/Communication/<id>` has the rest.
+A clinic user recorded what came of a call ("Call the patient" in the inbox). Sent because the host owns the patient's contact data and its own reminders: a `wrong_number` means the phone number needs fixing (send the `Patient` again with the corrected `telecom` and the engine trusts it again), `booked` or `declined` mean the host should not keep messaging about it. Outcomes the host itself reported are not echoed back. Codes and links only; `GET /fhir/Communication/<id>` has the rest.
 
 ```json
 {
@@ -906,7 +906,7 @@ A `basedOn` that is not a `CommunicationRequest` of the clinic (another clinic's
 }
 ```
 
-**Wrong number.** The message could not reach the patient: a `not-done` `Communication` with the outcome in `statusReason` (or the extension). The engine flags the contact data and puts "Llamar al paciente" in the inbox at once.
+**Wrong number.** The message could not reach the patient: a `not-done` `Communication` with the outcome in `statusReason` (or the extension). The engine flags the contact data and puts "Call the patient" in the inbox at once.
 
 ```json
 {
@@ -927,7 +927,7 @@ A `basedOn` that is not a `CommunicationRequest` of the clinic (another clinic's
 }
 ```
 
-**A call the team made.** Calls are inbox tasks, never webhooks. When the team records the call ("Contestó y agendó", "Contestó, se atiende en otro lado", "No contestó", "Número equivocado", "No quiere seguimiento"), the engine stores it as a `Communication` (medium phone, `sender` the user), reacts as to any other outcome and sends [`contact.outcome_recorded`](#contactoutcome_recorded); `GET /fhir/Communication/<id>` returns it.
+**A call the team made.** Calls are inbox tasks, never webhooks. When the team records the call ("Answered and booked", "Answered, treated elsewhere", "No answer", "Wrong number", "Declined follow-up"), the engine stores it as a `Communication` (medium phone, `sender` the user), reacts as to any other outcome and sends [`contact.outcome_recorded`](#contactoutcome_recorded); `GET /fhir/Communication/<id>` returns it.
 
 What the engine does after each WhatsApp of `default_v2`, if nobody acts on the case in between:
 
