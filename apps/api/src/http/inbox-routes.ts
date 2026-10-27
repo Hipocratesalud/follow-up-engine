@@ -14,6 +14,7 @@ import type { EngineRuntime } from '@follow-up-engine/worker';
 import type { Context } from 'hono';
 import { conditionView, InboxPresenter, assigneeIdFromLabel } from '../inbox/presenter.ts';
 import { patientSummary } from '../inbox/fhir-display.ts';
+import { requestPatientContact } from '../inbox/patient-contact.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
 import {
@@ -122,19 +123,22 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     await requireCase(runtime, c.var.clinicId, caseId);
     const now = runtime.clock.now();
     const user = actor(c);
-    const updated = await engine.cases.apply(
-      c.var.clinicId,
-      caseId,
-      body.action === 'snooze'
-        ? {
-            type: 'snooze',
-            until: new Date(now.getTime() + (body.snoozeDays ?? 1) * MS_PER_DAY),
-          }
-        : body.action === 'notify'
-          ? { type: 'notify' }
-          : { type: body.action, ...(body.note === undefined ? {} : { note: body.note }) },
-      user,
-    );
+    // "Pedir contacto" asks the host to reach the patient; the other actions
+    // are case transitions the engine owns.
+    const updated =
+      body.action === 'notify'
+        ? await requestPatientContact(runtime, c.var.clinicId, caseId, user)
+        : await engine.cases.apply(
+            c.var.clinicId,
+            caseId,
+            body.action === 'snooze'
+              ? {
+                  type: 'snooze',
+                  until: new Date(now.getTime() + (body.snoozeDays ?? 1) * MS_PER_DAY),
+                }
+              : { type: body.action, ...(body.note === undefined ? {} : { note: body.note }) },
+            user,
+          );
     c.var.log.info({ caseId, action: body.action, status: updated.status }, 'case action');
     const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
     return c.json(await presenter.caseDetail(updated));

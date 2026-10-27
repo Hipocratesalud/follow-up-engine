@@ -166,6 +166,14 @@ describe('API over the memory runtime', () => {
       body: { action: 'snooze', snoozeDays: 3 },
     });
     expect(snoozed.body.status).toBe('snoozed');
+    const contacted = await h.call<CaseDetail>(`/api/inbox/cases/${caseId}/actions`, {
+      body: { action: 'notify' },
+    });
+    expect(contacted.body.status).toBe('notified');
+    expect(contacted.body.timeline.at(-1)).toMatchObject({
+      type: 'patient_contact_requested',
+      actor: { type: 'user', id: 'inbox-user' },
+    });
     const resolved = await h.call<CaseDetail>(`/api/inbox/cases/${caseId}/actions`, {
       body: { action: 'resolve', note: 'Agendado por teléfono' },
     });
@@ -195,7 +203,7 @@ describe('API over the memory runtime', () => {
       items: { type: string; signatureValid: boolean; payload: unknown }[];
     }>('/api/demo/webhooks?limit=50');
     expect(webhooks.body.items.map((item) => item.type)).toEqual(
-      expect.arrayContaining(['case.opened', 'case.resolved']),
+      expect.arrayContaining(['case.opened', 'patient_contact.requested', 'case.resolved']),
     );
     expect(webhooks.body.items.every((item) => item.signatureValid)).toBe(true);
     expect(JSON.stringify(webhooks.body.items)).not.toMatch(/diabetes|HbA1c|metformina/i);
