@@ -409,16 +409,16 @@ function lifecycle(makeHarness: (options: HarnessOptions) => Promise<EngineHarne
   });
 
   it.each([
-    ['without its result list', { resultIds: [] as string[] }],
-    ['with only its id and status', { resultIds: [] as string[], basedOn: undefined }],
-  ])(
+    ['without its result list', 'no-list', true],
+    ['without its result list nor its order', 'bare', false],
+  ] as const)(
     'a report re-sent entered in error %s withdraws the results it listed before (HIP-135)',
-    async (_label, resent) => {
+    async (_label, name, keepOrder) => {
       // QA round 3, clinical-verify #12: the host re-sends the report in
       // error without `result`; the engine finds its Observations through
       // what the report listed when it arrived.
-      const harness = await makeHarness(options(`report-error-bare-${String(resent.basedOn)}`));
-      const patient = `p-w2-${resent.basedOn === undefined ? 'id' : 'list'}`;
+      const harness = await makeHarness(options(`report-error-${name}`));
+      const patient = `p-w2-${name}`;
       await day(harness, 0, [
         transactionOf(
           labOrderResource({
@@ -458,8 +458,9 @@ function lifecycle(makeHarness: (options: HarnessOptions) => Promise<EngineHarne
       await day(harness, 5, [
         transactionOf(
           diagnosticReportResource({
-            ...report,
-            ...resent,
+            ...(keepOrder
+              ? { ...report, resultIds: [] }
+              : { id: report.id, patientId: patient, loinc: report.loinc, resultIds: [] }),
             status: 'entered-in-error',
             version: 2,
             at: dayToDate(5),

@@ -89,8 +89,12 @@ function history(
       at: input.on,
     });
     if (outcome !== 'cancelled-unversioned') return transactionOf(resource);
-    const { meta: _meta, ...unversioned } = resource;
-    return transactionOf(unversioned as typeof resource);
+    // The seed fixtures send Appointments without `meta` (no versionId, no lastUpdated).
+    return transactionOf(
+      Object.fromEntries(
+        Object.entries(resource).filter(([field]) => field !== 'meta'),
+      ) as typeof resource,
+    );
   };
   const next = { bookedOn: LAST_VISIT, start: nextFor };
   return [
