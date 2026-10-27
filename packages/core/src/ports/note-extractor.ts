@@ -95,6 +95,12 @@ export interface NoteExtraction {
   readonly model: string;
   readonly promptVersion: string;
   readonly costUsd: number;
+  /**
+   * Wall time of the model call in milliseconds, measured by the extractor.
+   * Optional; absent, the engine times the call with its clock (which a
+   * simulated clock does not advance).
+   */
+  readonly latencyMs?: number;
 }
 
 /**

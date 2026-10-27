@@ -147,7 +147,7 @@ export async function extractNotes(
         documentId: note.documentId,
         status: 'extracted',
         extraction,
-        latencyMs: deps.clock.now().getTime() - startedAt.getTime(),
+        latencyMs: extraction.latencyMs ?? deps.clock.now().getTime() - startedAt.getTime(),
       });
     } catch (error) {
       if (options.propagate?.(error) === true) {
