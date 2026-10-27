@@ -188,6 +188,9 @@ const CLOSED_REASON_LABELS: Readonly<Record<string, string>> = {
   // ended, never how (delivery or loss).
   protocol_closed: 'El protocolo terminó: se registró el fin del embarazo',
   rescheduled_by_protocol: 'Reprogramado: el protocolo pide el mismo control antes',
+  // A treatment protocol whose patient has no active prescription left.
+  // Neutral: never names the drug or the condition. (en: "The treatment it followed ended")
+  treatment_ended: 'Terminó el tratamiento que lo motivaba',
 };
 
 /** Spanish reason an expectation closed, or `undefined` for a code without copy. */

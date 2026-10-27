@@ -1,14 +1,29 @@
 import {
   itemSchedule,
+  type MedicationMatcher,
   type Protocol,
   type ProtocolItem,
   type ProtocolOutcome,
 } from '../../config/protocol.ts';
-import type { ClinicalEvent, ConditionRecordedEvent } from '../../domain/clinical-event.ts';
+import type {
+  ClinicalEvent,
+  ConditionRecordedEvent,
+  EncounterFinishedEvent,
+  MedicationPrescribedEvent,
+} from '../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
 import { enrollingConditions, icd10Matches } from '../annotator/conditions.ts';
+import { dischargedEncounters } from '../annotator/layers/cadence.ts';
+import { canonicalSpecialty } from '../matching/specialty.ts';
+import { visitSpecialtyFits } from '../matching/correlation.ts';
 import { encounterOf, type PatientTimeline } from '../timeline.ts';
 import { currentDating, dateAtGestationalWeek, type PregnancyDating } from './gestational-age.ts';
+import { medicationMatches } from './treatment-changes.ts';
+
+const MS_PER_DAY = 86_400_000;
+
+/** How an episode ended: an outcome of the protocol's `closing`, or a discharge (`closesOnDischarge`). */
+export type EpisodeEnd = ProtocolOutcome | 'discharge';
 
 /**
  * Where a patient stands in a protocol. Chronic protocols are `active`
@@ -38,9 +53,9 @@ export interface ActiveEpisode {
 
 export interface EndedEpisode {
   readonly status: 'ended';
-  readonly outcome: ProtocolOutcome;
-  /** The diagnosis that ended it (the delivery, the loss). */
-  readonly endedBy: ConditionRecordedEvent;
+  readonly outcome: EpisodeEnd;
+  /** What ended it: the diagnosis (the delivery, the loss), or the visit that discharged the patient. */
+  readonly endedBy: ClinicalEvent;
   /** The diagnosis was recorded at a visit after the outcome (a puerperal visit), which counts as one. */
   readonly endedAtFollowUp: boolean;
   /** End of the episode before this one, if any. */
@@ -103,26 +118,154 @@ export function startsAfter(
     : afterClosure(recorded, closure);
 }
 
+/** A closure of the protocol: what ended the last episode, and how. */
+interface Closure {
+  readonly event: ClinicalEvent;
+  readonly outcome: EpisodeEnd;
+  readonly atFollowUp: boolean;
+}
+
 /**
- * The patient's episode of `protocol` as the record stands, or `undefined`
- * when the patient was never enrolled.
+ * The latest visit of one of the protocol's specialties whose note
+ * discharged the patient, when the protocol `closesOnDischarge`.
+ */
+export function latestDischarge(
+  protocol: Protocol,
+  timeline: PatientTimeline,
+  before?: Date,
+): EncounterFinishedEvent | undefined {
+  if (protocol.closesOnDischarge !== true) {
+    return undefined;
+  }
+  const discharged = dischargedEncounters(timeline);
+  if (discharged.size === 0) {
+    return undefined;
+  }
+  const specialties = new Set((protocol.specialties ?? []).map(canonicalSpecialty));
+  return timeline
+    .encounters()
+    .filter(
+      (encounter) =>
+        discharged.has(encounterOf(encounter) ?? encounter.source.id) &&
+        (before === undefined || encounter.occurredAt.getTime() < before.getTime()) &&
+        visitSpecialtyFits(specialties, undefined, encounter, timeline),
+    )
+    .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime())
+    .at(-1);
+}
+
+/** The drugs that enroll in the protocol or keep the patient in it. */
+function protocolDrugs(protocol: Protocol): MedicationMatcher[] {
+  return [
+    ...(protocol.enrollment.medications ?? []),
+    ...(protocol.enrollment.activeTreatment === undefined
+      ? []
+      : [protocol.enrollment.activeTreatment]),
+  ];
+}
+
+/**
+ * The first record after a discharge that starts a new episode: an
+ * enrolling diagnosis or a prescription of the protocol's drugs, at a later
+ * consultation.
+ */
+function restartAfter(
+  protocol: Protocol,
+  closure: ClinicalEvent,
+  timeline: PatientTimeline,
+): ClinicalEvent | undefined {
+  const drugs = protocolDrugs(protocol);
+  return timeline.events.find(
+    (event) =>
+      afterClosure(event, closure) &&
+      ((event.type === 'condition.recorded' &&
+        icd10Matches(event.code, protocol.enrollment.conditionCodes)) ||
+        (event.type === 'medication.prescribed' &&
+          drugs.some((matcher) => medicationMatches(event.medication, matcher)))),
+  );
+}
+
+/** The latest closure of the protocol before `limit` (an outcome or a discharge), if any. */
+function closureOf(
+  protocol: Protocol,
+  timeline: PatientTimeline,
+  limit?: Date,
+): Closure | undefined {
+  const events =
+    limit === undefined
+      ? timeline.events
+      : timeline.events.filter((event) => event.occurredAt.getTime() < limit.getTime());
+  const outcome = protocol.closing === undefined ? undefined : latestClosure(protocol, events);
+  const discharge = latestDischarge(protocol, timeline, limit);
+  if (
+    discharge !== undefined &&
+    (outcome === undefined || discharge.occurredAt.getTime() > outcome.event.occurredAt.getTime())
+  ) {
+    return { event: discharge, outcome: 'discharge', atFollowUp: false };
+  }
+  return outcome;
+}
+
+/**
+ * Whether the patient has an active prescription of `matcher` (after
+ * `since`): one the record did not withdraw (stopped, cancelled) and, when
+ * it states how long it covers, whose supply and refills are not over at
+ * `now`.
+ */
+export function onActiveTreatment(
+  matcher: MedicationMatcher,
+  timeline: PatientTimeline,
+  now: Date | undefined,
+  since?: Date,
+): boolean {
+  return timeline.events.some(
+    (event): event is MedicationPrescribedEvent =>
+      event.type === 'medication.prescribed' &&
+      (since === undefined || event.occurredAt.getTime() > since.getTime()) &&
+      (now === undefined || event.occurredAt.getTime() <= now.getTime()) &&
+      medicationMatches(event.medication, matcher) &&
+      (now === undefined ||
+        event.durationDays === undefined ||
+        event.startAt.getTime() + event.durationDays * (1 + (event.refills ?? 0)) * MS_PER_DAY >=
+          now.getTime()),
+  );
+}
+
+/**
+ * The patient's episode of `protocol` as the record stands at `now`, or
+ * `undefined` when the patient is not enrolled: never enrolled, or (a
+ * treatment protocol, `activeTreatment`) not on an active prescription of
+ * its drugs.
  */
 export function protocolEpisode(
   protocol: Protocol,
   conditions: readonly PatientCondition[],
   timeline: PatientTimeline,
+  now?: Date,
 ): ProtocolEpisode | undefined {
-  const closure =
-    protocol.closing === undefined ? undefined : latestClosure(protocol, timeline.events);
-  // A condition recorded after the last end of the protocol starts a new episode.
-  const [enrolledBy] = enrollingConditions(protocol, conditions)
-    .filter((condition) => closure === undefined || startsAfter(condition, closure.event, timeline))
-    .sort(
-      (left, right) => Number(right.status === 'confirmed') - Number(left.status === 'confirmed'),
+  const closure = closureOf(protocol, timeline);
+  const enrolling = enrollingConditions(protocol, conditions);
+  let enrolledBy: PatientCondition | undefined;
+  let restart: ClinicalEvent | undefined;
+  if (closure?.outcome === 'discharge') {
+    // A discharge ends the episode; a later diagnosis or prescription starts the next one.
+    restart = restartAfter(protocol, closure.event, timeline);
+    enrolledBy = restart === undefined ? undefined : confirmedFirst(enrolling)[0];
+  } else {
+    // A condition recorded after the last end of the protocol starts a new episode.
+    [enrolledBy] = confirmedFirst(
+      enrolling.filter(
+        (condition) => closure === undefined || startsAfter(condition, closure.event, timeline),
+      ),
     );
-  const enrolledAt = enrolledBy === undefined ? undefined : timeline.bySource(enrolledBy.source);
-  if (enrolledBy !== undefined) {
-    const since = closure?.event.occurredAt;
+  }
+  const since = closure?.event.occurredAt;
+  const treatment = protocol.enrollment.activeTreatment;
+  if (
+    enrolledBy !== undefined &&
+    (treatment === undefined || onActiveTreatment(treatment, timeline, now, since))
+  ) {
+    const enrolledAt = restart ?? timeline.bySource(enrolledBy.source);
     const dating =
       protocol.closing === undefined ? undefined : currentDating(timeline.events, since);
     const maxWeeks = protocol.closing?.maxGestationalWeeks;
@@ -137,21 +280,26 @@ export function protocolEpisode(
         : { lastDay: dateAtGestationalWeek(dating, maxWeeks) }),
     };
   }
-  if (closure === undefined) {
+  if (
+    closure === undefined ||
+    (closure.outcome === 'discharge' && (enrolledBy !== undefined || enrolling.length === 0))
+  ) {
     return undefined;
   }
-  const limit = closure.event.occurredAt.getTime();
-  const since = latestClosure(
-    protocol,
-    timeline.events.filter((event) => event.occurredAt.getTime() < limit),
-  )?.event.occurredAt;
+  const previous = closureOf(protocol, timeline, closure.event.occurredAt);
   return {
     status: 'ended',
     outcome: closure.outcome,
     endedBy: closure.event,
     endedAtFollowUp: closure.atFollowUp,
-    ...(since === undefined ? {} : { since }),
+    ...(previous === undefined ? {} : { since: previous.event.occurredAt }),
   };
+}
+
+function confirmedFirst(conditions: readonly PatientCondition[]): PatientCondition[] {
+  return [...conditions].sort(
+    (left, right) => Number(right.status === 'confirmed') - Number(left.status === 'confirmed'),
+  );
 }
 
 /**

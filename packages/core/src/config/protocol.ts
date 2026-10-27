@@ -268,6 +268,13 @@ export const ProtocolSchema = z
       /** Results that make the condition probable. */
       results: z.array(EnrollmentResultSchema).optional(),
       /**
+       * Only patients with an active prescription of one of these drug
+       * classes are in the protocol (a treatment protocol): a diagnosis
+       * alone does not enroll. Active: not withdrawn (stopped, cancelled)
+       * and, when the prescription states how long it covers, not over yet.
+       */
+      activeTreatment: MedicationMatcherSchema.optional(),
+      /**
        * Orders or results of these codes (any value) that make the
        * condition probable: an obstetric ultrasound, an estimated delivery
        * date, a gestational age.
@@ -313,6 +320,15 @@ export const ProtocolSchema = z
         maxGestationalWeeks: z.number().int().positive().optional(),
       })
       .optional(),
+    /**
+     * A discharge (the note of a visit of one of the protocol's
+     * `specialties` ends follow-up: "se da de alta", "se cierra el proceso
+     * terapéutico") ends the episode: the protocol's live expectations are
+     * cancelled (`protocol_closed`) and nothing more is expected until a new
+     * episode starts, with an enrolling diagnosis or a prescription of the
+     * protocol's drugs recorded at a later consultation.
+     */
+    closesOnDischarge: z.boolean().optional(),
     /**
      * Specialties whose visits count as this protocol's control (engine
      * specialty codes, for example `diabetology`). A visit of another

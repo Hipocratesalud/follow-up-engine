@@ -158,7 +158,7 @@ export function protocolDrafts(input: {
         ];
   });
   for (const protocol of input.catalog.protocols) {
-    const episode = protocolEpisode(protocol, input.conditions, input.timeline);
+    const episode = protocolEpisode(protocol, input.conditions, input.timeline, input.now);
     if (episode === undefined) {
       continue;
     }
