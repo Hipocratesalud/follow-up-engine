@@ -192,8 +192,9 @@ describe('a plan item is what its quote names (security-verify #0)', () => {
       },
       { text: NOTE, authoredAt: AUTHORED },
     );
+    // The model's HIV code is dropped; the quote names HbA1c, so the item is HbA1c.
     expect(result.planItems.map((p) => [p.kind, p.description, p.code?.code])).toEqual([
-      ['lab', 'HbA1c', undefined],
+      ['lab', 'HbA1c', '4548-4'],
     ]);
     const honest = postProcessExtraction(
       {

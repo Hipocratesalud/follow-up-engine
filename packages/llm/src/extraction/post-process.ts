@@ -1,4 +1,10 @@
-import { ICD10_SYSTEM, type PlanItem, type PlanItemKind } from '@follow-up-engine/core';
+import {
+  type Coding,
+  ICD10_SYSTEM,
+  orderCodingOf,
+  type PlanItem,
+  type PlanItemKind,
+} from '@follow-up-engine/core';
 import { conditionTermsFor, type ConditionTermTable } from './condition-terms.ts';
 import { daysBetween, durationInDays, parseIsoDate, resolveDueAt } from './due-date.ts';
 import { lexiconLanguage, type LexiconLanguage } from './language.ts';
@@ -173,7 +179,8 @@ const GENERIC_DESCRIPTIONS: Readonly<Record<PlanItemKind, string>> = {
 interface PlanReading {
   readonly kind: PlanItemKind;
   readonly description: string;
-  readonly loinc?: string;
+  /** LOINC, or the lexicon's own code of a procedure (`fundus-exam`). */
+  readonly code?: Coding;
   /** What makes two items of the same kind and day the same item. */
   readonly key: string;
   /** The quote does not name what the model said (a lab quoted as "Control en 3 meses"). */
@@ -249,7 +256,11 @@ function isWholeTerm(kind: ModelPlanItem['kind'], quote: string, lang: LexiconLa
  * - a LOINC code is kept only on lab items, only when well formed and only
  *   when its test is one the quote names.
  */
-function readPlanItem(item: ModelPlanItem, quote: string, lang: LexiconLanguage): PlanReading {
+function readPlanItem(
+  item: ModelPlanItem,
+  quote: string,
+  lang: LexiconLanguage,
+): readonly [PlanReading, ...PlanReading[]] {
   const description = item.description.trim();
   const visit: PlanReading = {
     kind: 'follow_up_visit',
@@ -258,51 +269,135 @@ function readPlanItem(item: ModelPlanItem, quote: string, lang: LexiconLanguage)
     downgraded: true,
   };
   if (item.kind === 'lab' || item.kind === 'imaging') {
-    if (!namesKind(item.kind, quote, lang)) return visit;
+    const procedure = namedProcedure(quote, description, item.kind);
+    if (procedure !== undefined) return [procedure];
+    if (!namesKind(item.kind, quote, lang)) return [visit];
     const named = testGroupsIn(quote, item.kind);
     const described = testGroupsIn(normalizeForMatch(description), item.kind);
     if (named.size === 0) {
-      return {
-        kind: item.kind,
-        description: GENERIC_DESCRIPTIONS[item.kind],
-        key: '',
-        downgraded: false,
-      };
+      return [
+        {
+          kind: item.kind,
+          description: GENERIC_DESCRIPTIONS[item.kind],
+          key: '',
+          downgraded: false,
+        },
+      ];
     }
     const both = [...described].filter((id) => named.has(id));
     const resolved = both.length > 0 ? both : [...named];
     const keepsDescription = described.size > 0 && both.length === described.size;
-    const code = item.kind === 'lab' ? normalizeLoinc(item.loincCode) : undefined;
-    const codeGroup = code === undefined ? undefined : testGroupOfLoinc(code);
-    return {
-      kind: item.kind,
-      description: keepsDescription
-        ? description
-        : resolved.map((id) => testGroup(id)?.label ?? id).join(' and '),
-      ...(code !== undefined && codeGroup !== undefined && resolved.includes(codeGroup.id)
-        ? { loinc: code }
-        : {}),
-      key: [...resolved].sort().join('+'),
-      downgraded: false,
-    };
+    const loinc = item.kind === 'lab' ? normalizeLoinc(item.loincCode) : undefined;
+    const loincGroup = loinc === undefined ? undefined : testGroupOfLoinc(loinc);
+    if (resolved.length === 1 || item.kind === 'imaging') {
+      const single = resolved.length === 1 ? testGroup(resolved[0] ?? '') : undefined;
+      const code =
+        loinc !== undefined && loincGroup !== undefined && resolved.includes(loincGroup.id)
+          ? { system: LOINC_SYSTEM, code: loinc }
+          : single === undefined
+            ? undefined
+            : orderCodingOf(single);
+      return [
+        {
+          kind: item.kind,
+          description: keepsDescription
+            ? description
+            : resolved.map((id) => testGroup(id)?.label ?? id).join(' and '),
+          ...(code === undefined ? {} : { code: { system: code.system, code: code.code } }),
+          key: [...resolved].sort().join('+'),
+          downgraded: false,
+        },
+      ];
+    }
+    // One lab item for several tests ("pendiente HbA1c, creatinina y
+    // microalbuminuria"): one item per test, each with its code, so each
+    // waits for its own result.
+    const groups = resolved.flatMap((id) => {
+      const group = testGroup(id);
+      return group === undefined ? [] : [group];
+    });
+    const [first, ...rest] = groups.map((group): PlanReading => {
+      const code =
+        loinc !== undefined && loincGroup?.id === group.id
+          ? { system: LOINC_SYSTEM, code: loinc }
+          : orderCodingOf(group);
+      return {
+        kind: item.kind,
+        description: group.label,
+        ...(code === undefined ? {} : { code: { system: code.system, code: code.code } }),
+        key: group.id,
+        downgraded: false,
+      };
+    });
+    return first === undefined ? [visit] : [first, ...rest];
   }
-  if (item.kind === 'other' && findKindKeyword('other', quote, lang) === null) return visit;
+  if (item.kind === 'other') {
+    // "Fondo de ojo" is the eye fundus exam (a coded procedure), whatever
+    // the model called it: a test, never fulfilled by an unrelated visit.
+    const procedure = namedProcedure(quote, description, item.kind);
+    if (procedure !== undefined) return [procedure];
+    if (findKindKeyword('other', quote, lang) === null) return [visit];
+  }
   if (item.kind === 'follow_up_visit') {
     // "Próx. sesión en 1 semana": the next session of a series, whatever the model called it.
     const kind = SESSION_WORD.test(quote) ? 'session' : item.kind;
-    return {
-      kind,
-      description: description || GENERIC_DESCRIPTIONS.follow_up_visit,
-      key: '',
-      downgraded: false,
-    };
+    return [
+      {
+        kind,
+        description: description || GENERIC_DESCRIPTIONS.follow_up_visit,
+        key: '',
+        downgraded: false,
+      },
+    ];
   }
+  return [
+    {
+      kind: item.kind,
+      description: description || GENERIC_DESCRIPTIONS[item.kind],
+      key: normalizeForMatch(description),
+      downgraded: false,
+    },
+  ];
+}
+
+/**
+ * The coded procedure (a test with its own code, not a LOINC: the eye
+ * fundus exam) a plan item is about: the one its description names, else
+ * the only one its quote names. `undefined` when there is none.
+ */
+function namedProcedure(
+  quote: string,
+  description: string,
+  kind: ModelPlanItem['kind'],
+): PlanReading | undefined {
+  const procedures = (text: string) =>
+    [...testGroupsIn(text)].flatMap((id) => {
+      const group = testGroup(id);
+      return group?.code === undefined ? [] : [group];
+    });
+  const inQuote = procedures(quote);
+  const described = procedures(normalizeForMatch(description)).filter((group) =>
+    inQuote.includes(group),
+  );
+  const candidates = described.length > 0 ? described : inQuote;
+  const group = candidates.length === 1 ? candidates[0] : undefined;
+  // A lab item whose quote also names a procedure ("HbA1c y fondo de ojo")
+  // stays the lab tests, unless its description is the procedure.
+  if (group === undefined || (kind === 'lab' && described.length === 0 && namesLab(quote))) {
+    return undefined;
+  }
+  const code = orderCodingOf(group);
   return {
-    kind: item.kind,
-    description: description || GENERIC_DESCRIPTIONS[item.kind],
-    key: normalizeForMatch(description),
+    kind: group.kind,
+    description: group.label,
+    ...(code === undefined ? {} : { code: { system: code.system, code: code.code } }),
+    key: group.id,
     downgraded: false,
   };
+}
+
+function namesLab(quote: string): boolean {
+  return testGroupsIn(quote, 'lab').size > 0;
 }
 
 /** The note as the model read it, or a plain note (then nothing was masked). */
@@ -509,7 +604,8 @@ export function postProcessExtraction(
   // first; then untimed items inherit the earliest follow-up visit; then dedupe.
   interface Candidate {
     readonly item: ModelPlanItem;
-    readonly reading: PlanReading;
+    /** Usually one; one per test when a lab item named several. */
+    readonly readings: readonly PlanReading[];
     readonly quote: string;
     readonly cap: number;
     dueAt?: Date;
@@ -570,13 +666,14 @@ export function postProcessExtraction(
       reject('planItem', 'cancelled', item.evidenceQuote);
       continue;
     }
-    const reading = readPlanItem(item, quote, lang);
+    const readings = readPlanItem(item, quote, lang);
+    const [reading] = readings;
     const targetDue = gestationalTargetDue(clause, noteText, note.authoredAt, lang);
     if (targetDue !== undefined) {
       // "Eco morfológico a las 20 semanas" in a note at week 12: due in 8 weeks, computed here.
       candidates.push({
         item,
-        reading,
+        readings,
         quote: verbatim(span),
         cap: MAX_ITEM_CONFIDENCE,
         dueAt: targetDue,
@@ -588,21 +685,26 @@ export function postProcessExtraction(
       if (resolution.reason === 'due_before_note') {
         reject('planItem', 'due_before_note', item.evidenceQuote);
       } else {
-        candidates.push({ item, reading, quote: verbatim(span), cap: INHERITED_TIMING_CONFIDENCE });
+        candidates.push({
+          item,
+          readings,
+          quote: verbatim(span),
+          cap: INHERITED_TIMING_CONFIDENCE,
+        });
       }
       continue;
     }
     const fromDate = item.timing?.date ? parseIsoDate(item.timing.date) !== undefined : false;
     const timed = (cap: number): Candidate => ({
       item,
-      reading,
+      readings,
       quote: verbatim(span),
       cap,
       dueAt: resolution.dueAt,
     });
     const untimed: Candidate = {
       item,
-      reading,
+      readings,
       quote: verbatim(span),
       cap: INHERITED_TIMING_CONFIDENCE,
     };
@@ -634,34 +736,38 @@ export function postProcessExtraction(
     }
   }
   const nextVisit = candidates
-    .flatMap((c) => (c.reading.kind === 'follow_up_visit' && c.dueAt ? [c.dueAt] : []))
+    .flatMap((c) => (c.readings[0]?.kind === 'follow_up_visit' && c.dueAt ? [c.dueAt] : []))
     .sort((a, b) => a.getTime() - b.getTime())[0];
 
   const planItems: PlanItem[] = [];
   const planKeys = new Set<string>();
   for (const candidate of candidates) {
-    const { item, reading } = candidate;
-    const inherits = reading.kind === 'lab' || reading.kind === 'imaging';
+    const { item, readings } = candidate;
+    const [first] = readings;
+    if (first === undefined) continue;
+    const inherits = first.kind === 'lab' || first.kind === 'imaging';
     const dueAt = candidate.dueAt ?? (inherits ? nextVisit : undefined);
     if (!dueAt) {
       reject('planItem', 'no_due_date', item.evidenceQuote);
       continue;
     }
-    if (reading.downgraded) reject('planItem', 'test_not_named', item.evidenceQuote);
-    const key = `${reading.kind}|${utcDay(dueAt)}|${reading.key}`;
-    if (planKeys.has(key)) {
-      reject('planItem', 'duplicate', item.evidenceQuote);
-      continue;
+    if (first.downgraded) reject('planItem', 'test_not_named', item.evidenceQuote);
+    for (const reading of readings) {
+      const key = `${reading.kind}|${utcDay(dueAt)}|${reading.key}`;
+      if (planKeys.has(key)) {
+        reject('planItem', 'duplicate', item.evidenceQuote);
+        continue;
+      }
+      planKeys.add(key);
+      planItems.push({
+        kind: reading.kind,
+        description: reading.description,
+        dueAt,
+        evidenceQuote: candidate.quote,
+        confidence: Math.min(candidate.cap, clampConfidence(item.confidence)),
+        ...(reading.code ? { code: reading.code } : {}),
+      });
     }
-    planKeys.add(key);
-    planItems.push({
-      kind: reading.kind,
-      description: reading.description,
-      dueAt,
-      evidenceQuote: candidate.quote,
-      confidence: Math.min(candidate.cap, clampConfidence(item.confidence)),
-      ...(reading.loinc ? { code: { system: LOINC_SYSTEM, code: reading.loinc } } : {}),
-    });
   }
 
   const pregnancy = postProcessPregnancy(raw.pregnancy, {

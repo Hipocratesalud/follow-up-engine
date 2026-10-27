@@ -250,7 +250,7 @@ describe('LOINC codes', () => {
     expect(isValidLoinc('HbA1c')).toBe(false);
   });
 
-  it('keeps a valid LOINC on lab items only and drops invented ones', () => {
+  it('keeps a valid LOINC on lab items only, and codes an invented one by the test its quote names', () => {
     const result = postProcessExtraction(
       {
         ...empty,
@@ -267,7 +267,9 @@ describe('LOINC codes', () => {
       },
       note,
     );
-    expect(result.planItems.map((p) => p.code?.code)).toEqual(['4548-4', undefined, undefined]);
+    // "1234-1" is invented: the quote names a lipid panel, so the item gets
+    // the lexicon's lipid panel code instead (the engine matches results by it).
+    expect(result.planItems.map((p) => p.code?.code)).toEqual(['4548-4', '57698-3', undefined]);
   });
 });
 
@@ -282,5 +284,54 @@ describe('small helpers', () => {
     expect(normalizeIcd10('J45.20')).toBe('J45.20');
     expect(normalizeIcd10('E11')).toBe('E11');
     expect(normalizeIcd10('11E')).toBeUndefined();
+  });
+});
+
+describe('plan tests coded by the lexicon (diabetology audit)', () => {
+  const diabetes = {
+    text: 'DM2. Plan: pendiente HbA1c, creatinina, microalbuminuria y fondo de ojo, se reitera orden. Control en 3 meses.',
+    authoredAt: new Date('2025-03-10T12:00:00Z'),
+  };
+  const quote = 'pendiente HbA1c, creatinina, microalbuminuria y fondo de ojo, se reitera orden';
+
+  it('codes an uncoded lab item by the test its description and quote name', () => {
+    const result = postProcessExtraction(
+      {
+        ...empty,
+        planItems: [plan({ kind: 'lab', description: 'creatinine', evidenceQuote: quote })],
+      },
+      diabetes,
+    );
+    expect(result.planItems.map((p) => [p.kind, p.code?.code])).toEqual([['lab', '2160-0']]);
+  });
+
+  it('splits one lab item that names several tests into one coded item per test', () => {
+    const result = postProcessExtraction(
+      {
+        ...empty,
+        planItems: [plan({ kind: 'lab', description: 'laboratory tests', evidenceQuote: quote })],
+      },
+      diabetes,
+    );
+    expect(result.planItems.map((p) => [p.kind, p.description, p.code?.code])).toEqual([
+      ['lab', 'HbA1c', '4548-4'],
+      ['lab', 'creatinine', '2160-0'],
+      ['lab', 'urine microalbumin', '14959-1'],
+    ]);
+  });
+
+  it('reads "fondo de ojo" as the eye fundus exam, whatever kind the model gave it', () => {
+    const result = postProcessExtraction(
+      {
+        ...empty,
+        planItems: [
+          plan({ kind: 'other', description: 'ophthalmology referral', evidenceQuote: quote }),
+        ],
+      },
+      diabetes,
+    );
+    expect(result.planItems.map((p) => [p.kind, p.code?.system, p.code?.code])).toEqual([
+      ['imaging', 'https://hipocratesalud.com/fhir/CodeSystem/procedure', 'fundus-exam'],
+    ]);
   });
 });

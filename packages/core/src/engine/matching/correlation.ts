@@ -13,6 +13,7 @@ import { encounterOf, eventInstant, type PatientTimeline, refKey } from '../time
 import { matchesFilter } from './filter.ts';
 import { currentDating, gestationalAgeAt } from '../protocols/gestational-age.ts';
 import { resultAnswers, sameConcept } from '../terminology/loinc.ts';
+import { type TestGroup, testGroupOfCoding, testGroupsNamedIn } from '../terminology/test-names.ts';
 import { kindOfMatchKey, parseCodeMatchKey } from './match-key.ts';
 import { canonicalSpecialty, referredSpecialties } from './specialty.ts';
 
@@ -35,6 +36,12 @@ export interface CorrelationTarget {
   readonly definition: ExpectationDefinition;
   readonly kind: PlanItemKind;
   readonly code?: Coding;
+  /**
+   * For a lab or imaging expectation with no code (a doctor's-plan item the
+   * extraction could not code): the tests its quote names. Only a result of
+   * one of them can fulfill it (see {@link matchesShape}).
+   */
+  readonly namedTests?: readonly TestGroup[];
   /** The event that created it (order, prescription, note, ...), when still in the record. */
   readonly anchor?: ClinicalEvent;
   /**
@@ -95,11 +102,16 @@ export function toCorrelationTarget(
   );
   const practitionerId =
     anchor === undefined || referral ? undefined : timeline.practitionerOf(anchor);
+  const namedTests =
+    code === undefined && TEST_KINDS.has(kind)
+      ? testGroupsNamedIn(expectation.evidence?.quote ?? '')
+      : undefined;
   return {
     expectation,
     definition,
     kind,
     ...(code === undefined ? {} : { code }),
+    ...(namedTests === undefined ? {} : { namedTests }),
     ...(anchor === undefined ? {} : { anchor }),
     specialties: new Set(specialties),
     ...(practitionerId === undefined ? {} : { practitionerId }),
@@ -142,6 +154,8 @@ const VISIT_EVENTS: ReadonlySet<ClinicalEvent['type']> = new Set([
   'encounter.finished',
   'appointment.booked',
 ]);
+/** Expectation kinds that ask for a test result. */
+const TEST_KINDS: ReadonlySet<PlanItemKind> = new Set(['lab', 'imaging']);
 /** Expectation kinds that ask for a visit with someone, so the specialty matters. */
 const VISIT_KINDS: ReadonlySet<PlanItemKind> = new Set(['follow_up_visit', 'session']);
 
@@ -316,17 +330,59 @@ function orderIdsOf(target: CorrelationTarget): readonly string[] {
   return ids;
 }
 
-/** Event type, filter and code checks of a correlation, without timing or anchors. */
+/**
+ * Whether a result answers an uncoded test expectation: it must be a test
+ * its quote names ("se solicita creatinina" waits for a creatinine, never
+ * for the fundus report or an HbA1c that arrive first). A quote that names
+ * several tests ("pendiente HbA1c y creatinina") does not say which one the
+ * item is, so no single result closes it; one that names none ("control con
+ * laboratorios") is answered by a known test of its kind. A result of a
+ * test the lexicon does not know never closes it: the item stays open for
+ * the clinic to review rather than being closed by any result.
+ */
+function answersNamedTest(
+  event: ClinicalEvent,
+  namedTests: readonly TestGroup[],
+  kind: PlanItemKind | undefined,
+): boolean {
+  const eventCode = codeOfEvent(event);
+  const group =
+    (eventCode === undefined ? undefined : testGroupOfCoding(eventCode)) ??
+    testGroupsNamedIn(eventCode?.display ?? '')[0];
+  if (group === undefined) {
+    return false;
+  }
+  if (namedTests.length === 0) {
+    return kind === undefined || group.kind === kind;
+  }
+  return namedTests.length === 1 && namedTests[0]?.id === group.id;
+}
+
+/**
+ * Event type, filter and code checks of a correlation, without timing or
+ * anchors. `same_code` with no code: an uncoded test (`namedTests` given)
+ * is answered only by a result of the test its quote names; anything else
+ * uncoded matches on type and filter alone.
+ */
 export function matchesShape(
   correlation: EventCorrelation,
   event: ClinicalEvent,
   code: Coding | undefined,
+  namedTests?: readonly TestGroup[],
+  kind?: PlanItemKind,
 ): boolean {
   if (event.type !== correlation.event || !matchesFilter(correlation.filter, event)) {
     return false;
   }
-  if (correlation.match !== 'same_code' || code === undefined) {
+  if (correlation.match !== 'same_code') {
     return true;
+  }
+  if (code === undefined) {
+    return (
+      namedTests === undefined ||
+      event.type !== 'result.received' ||
+      answersNamedTest(event, namedTests, kind)
+    );
   }
   const eventCode = codeOfEvent(event);
   if (eventCode === undefined) {
@@ -349,7 +405,7 @@ export function correlates(
   if (correlation.forKinds !== undefined && !correlation.forKinds.includes(target.kind)) {
     return false;
   }
-  if (!matchesShape(correlation, event, target.code)) {
+  if (!matchesShape(correlation, event, target.code, target.namedTests, target.kind)) {
     return false;
   }
   switch (correlation.match) {

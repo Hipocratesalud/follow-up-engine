@@ -187,3 +187,10 @@ export {
   type PlanExplanation,
   type ProtocolExplanation,
 } from './explain/explain.ts';
+export {
+  orderCodingOf,
+  TEST_GROUPS,
+  testGroupOfCoding,
+  testGroupsNamedIn,
+  type TestGroup,
+} from './terminology/test-names.ts';

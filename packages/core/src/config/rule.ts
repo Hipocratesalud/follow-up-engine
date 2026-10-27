@@ -81,6 +81,14 @@ export const ResultTargetSchema = z.strictObject({
   conditionCodes: z.array(z.string().min(1)).min(1),
   /** Bounds on the numeric value that mean "at target". */
   atTarget: FilterConditionSchema,
+  /**
+   * The patient's own stable level of a chronic marker: a value no more
+   * than this above the patient's previous result of the same measurement
+   * (in the target's unit; lower is never worse) is their known level, not
+   * a new finding. With a control already booked or planned
+   * (`followUpWindowDays`), it opens nothing.
+   */
+  stableWithin: z.number().positive().optional(),
   /** English, for maintainers: the guideline behind the target. */
   description: z.string().min(1).optional(),
 });
@@ -254,6 +262,15 @@ export const RuleSchema = z.strictObject({
    * staying a pending result for years.
    */
   abandonedAfterVisits: z.number().int().positive().optional(),
+  /**
+   * `result.received` rules: how far ahead (days after the result) a visit
+   * with the ordering specialty, already booked (whenever it was booked) or
+   * planned by the doctor, is the follow-up of a non-critical result that
+   * is the patient's stable level of a chronic marker
+   * (`resultTargets[].stableWithin`). A critical result, a marker that got
+   * worse or a first abnormal value still expect a visit within `dueInDays`.
+   */
+  followUpWindowDays: z.number().int().positive().optional(),
 });
 
 export type Rule = z.infer<typeof RuleSchema>;
