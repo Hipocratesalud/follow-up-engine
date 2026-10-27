@@ -689,7 +689,7 @@ The initial scan of the clinic's history finished. Counters only: how much histo
     "runId": "backfill-2026-01-05",
     "shadow": false,
     "patientsScanned": 148,
-    "eventsProcessed": 6291,
+    "eventsProcessed": 6439,
     "documentsProcessed": 867,
     "expectationsCreated": 2713,
     "expectationsFulfilled": 2055,
