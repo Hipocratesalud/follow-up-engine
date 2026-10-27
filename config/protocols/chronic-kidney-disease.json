@@ -1,0 +1,300 @@
+{
+  "id": "chronic_kidney_disease",
+  "version": "0.1.0",
+  "status": "draft",
+  "description": "Chronic kidney disease (KDIGO): enrolled by N18, or by an eGFR below 60 or a urine albumin/creatinine ratio of 30 mg/g or more on two results at least 90 days apart. Creatinine/eGFR and urine albumin/creatinine ratio as often as the KDIGO 2012 heat map asks for the patient's stage (1 to 4 times a year: G3a A1 yearly, G4 every 3 to 4 months), and a control visit every 6 months up to G3a, every 4 months at G3b, every 3 months at G4-G5. Fills only what the doctor's plan did not cover.",
+  "reason": {
+    "code": "protocol_chronic_kidney_disease",
+    "label": "Control de enfermedad renal crónica"
+  },
+  "sources": [
+    {
+      "title": "KDIGO 2012 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease",
+      "organization": "Kidney Disease: Improving Global Outcomes",
+      "year": 2013,
+      "url": "https://kdigo.org/guidelines/ckd-evaluation-and-management/"
+    },
+    {
+      "title": "KDIGO 2024 Clinical Practice Guideline for the Evaluation and Management of Chronic Kidney Disease",
+      "organization": "Kidney Disease: Improving Global Outcomes",
+      "year": 2024,
+      "url": "https://doi.org/10.1016/j.kint.2023.10.018"
+    }
+  ],
+  "specialties": [
+    "nephrology",
+    "internal_medicine",
+    "diabetology",
+    "endocrinology",
+    "cardiology",
+    "general_practice",
+    "family_medicine"
+  ],
+  "caseGroup": "follow_up",
+  "enrollment": {
+    "conditionCodes": ["N18"],
+    "minimumStatus": "probable",
+    "results": [
+      {
+        "code": {
+          "system": "http://loinc.org",
+          "code": "62238-1",
+          "display": "eGFR (CKD-EPI)"
+        },
+        "lt": 60,
+        "conditionCode": "N18.9",
+        "confirm": {
+          "count": 2,
+          "minDaysApart": 90
+        }
+      },
+      {
+        "code": {
+          "system": "http://loinc.org",
+          "code": "9318-7",
+          "display": "Albumin/Creatinine [Mass Ratio] in Urine"
+        },
+        "gte": 30,
+        "conditionCode": "N18.9",
+        "confirm": {
+          "count": 2,
+          "minDaysApart": 90
+        }
+      }
+    ]
+  },
+  "items": [
+    {
+      "key": "renal_function",
+      "kind": "lab",
+      "code": {
+        "system": "http://loinc.org",
+        "code": "62238-1",
+        "display": "eGFR (CKD-EPI)"
+      },
+      "reason": {
+        "code": "protocol_chronic_kidney_disease_renal_function",
+        "label": "Creatinina y filtrado glomerular pendientes"
+      },
+      "schedule": {
+        "type": "ckd_stage",
+        "intervals": [
+          {
+            "gfr": ["G1", "G2"],
+            "albuminuria": ["A3"],
+            "everyDays": 182
+          },
+          {
+            "gfr": ["G1", "G2"],
+            "everyDays": 365
+          },
+          {
+            "gfr": ["G3a"],
+            "albuminuria": ["A2"],
+            "everyDays": 182
+          },
+          {
+            "gfr": ["G3a"],
+            "albuminuria": ["A3"],
+            "everyDays": 121
+          },
+          {
+            "gfr": ["G3a"],
+            "everyDays": 365
+          },
+          {
+            "gfr": ["G3b"],
+            "albuminuria": ["A2", "A3"],
+            "everyDays": 121
+          },
+          {
+            "gfr": ["G3b"],
+            "everyDays": 182
+          },
+          {
+            "gfr": ["G4"],
+            "albuminuria": ["A3"],
+            "everyDays": 91
+          },
+          {
+            "gfr": ["G4"],
+            "everyDays": 121
+          },
+          {
+            "gfr": ["G5"],
+            "everyDays": 91
+          }
+        ],
+        "everyDays": 182
+      },
+      "fulfilledBy": [
+        {
+          "event": "result.received",
+          "filter": {
+            "code.code": [
+              "33914-3",
+              "48642-3",
+              "48643-1",
+              "62238-1",
+              "77147-7",
+              "88293-6",
+              "88294-4",
+              "98979-8",
+              "2160-0",
+              "38483-4",
+              "14682-9"
+            ]
+          },
+          "match": "any"
+        }
+      ],
+      "planTerms": [
+        "creatinina",
+        "filtrado glomerular",
+        "tasa de filtracion",
+        "tfg",
+        "funcion renal",
+        "quimica sanguinea",
+        "creatinine",
+        "egfr"
+      ],
+      "priority": 30,
+      "suggestedAction": {
+        "code": "order_lab",
+        "label": "Indicar creatinina con filtrado glomerular",
+        "patientContactPurpose": "complete_pending_test"
+      }
+    },
+    {
+      "key": "albuminuria",
+      "kind": "lab",
+      "code": {
+        "system": "http://loinc.org",
+        "code": "9318-7",
+        "display": "Albumin/Creatinine [Mass Ratio] in Urine"
+      },
+      "reason": {
+        "code": "protocol_chronic_kidney_disease_albuminuria",
+        "label": "Relación albúmina/creatinina en orina pendiente"
+      },
+      "schedule": {
+        "type": "ckd_stage",
+        "intervals": [
+          {
+            "gfr": ["G1", "G2"],
+            "albuminuria": ["A3"],
+            "everyDays": 182
+          },
+          {
+            "gfr": ["G1", "G2"],
+            "everyDays": 365
+          },
+          {
+            "gfr": ["G3a"],
+            "albuminuria": ["A2"],
+            "everyDays": 182
+          },
+          {
+            "gfr": ["G3a"],
+            "albuminuria": ["A3"],
+            "everyDays": 121
+          },
+          {
+            "gfr": ["G3a"],
+            "everyDays": 365
+          },
+          {
+            "gfr": ["G3b"],
+            "albuminuria": ["A2", "A3"],
+            "everyDays": 121
+          },
+          {
+            "gfr": ["G3b"],
+            "everyDays": 182
+          },
+          {
+            "gfr": ["G4"],
+            "albuminuria": ["A3"],
+            "everyDays": 91
+          },
+          {
+            "gfr": ["G4"],
+            "everyDays": 121
+          },
+          {
+            "gfr": ["G5"],
+            "everyDays": 91
+          }
+        ],
+        "everyDays": 182
+      },
+      "fulfilledBy": [
+        {
+          "event": "result.received",
+          "filter": {
+            "code.code": ["9318-7", "14959-1", "32294-1", "13705-9"]
+          },
+          "match": "any"
+        }
+      ],
+      "planTerms": [
+        "albuminuria",
+        "microalbuminuria",
+        "albumina en orina",
+        "relacion albumina creatinina",
+        "relacion albumina/creatinina",
+        "rac",
+        "uacr"
+      ],
+      "priority": 25,
+      "suggestedAction": {
+        "code": "order_lab",
+        "label": "Indicar relación albúmina/creatinina en orina",
+        "patientContactPurpose": "complete_pending_test"
+      }
+    },
+    {
+      "key": "visit",
+      "kind": "follow_up_visit",
+      "reason": {
+        "code": "protocol_chronic_kidney_disease_visit",
+        "label": "Control renal pendiente"
+      },
+      "schedule": {
+        "type": "ckd_stage",
+        "intervals": [
+          {
+            "gfr": ["G1", "G2", "G3a"],
+            "everyDays": 182
+          },
+          {
+            "gfr": ["G3b"],
+            "everyDays": 121
+          },
+          {
+            "gfr": ["G4", "G5"],
+            "everyDays": 91
+          }
+        ],
+        "everyDays": 182
+      },
+      "fulfilledBy": [
+        {
+          "event": "encounter.finished",
+          "match": "any"
+        },
+        {
+          "event": "appointment.booked",
+          "match": "any"
+        }
+      ],
+      "priority": 30,
+      "suggestedAction": {
+        "code": "schedule_follow_up",
+        "label": "Agendar control renal",
+        "patientContactPurpose": "schedule_follow_up"
+      }
+    }
+  ],
+  "escalationPolicy": "default_v1"
+}

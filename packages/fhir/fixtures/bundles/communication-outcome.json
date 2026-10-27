@@ -1,0 +1,54 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Communication",
+        "id": "wa-msg-0001",
+        "meta": {
+          "versionId": "2",
+          "lastUpdated": "2026-01-22T15:10:00Z"
+        },
+        "extension": [
+          {
+            "url": "https://hipocratesalud.com/fhir/StructureDefinition/contact-outcome",
+            "valueCodeableConcept": {
+              "coding": [
+                {
+                  "system": "https://hipocratesalud.com/fhir/CodeSystem/contact-outcome",
+                  "code": "replied"
+                }
+              ]
+            }
+          }
+        ],
+        "basedOn": [
+          {
+            "reference": "CommunicationRequest/cr-0001"
+          }
+        ],
+        "status": "completed",
+        "medium": [
+          {
+            "coding": [
+              {
+                "system": "https://hipocratesalud.com/fhir/CodeSystem/contact-channel",
+                "code": "whatsapp"
+              }
+            ]
+          }
+        ],
+        "subject": {
+          "reference": "Patient/5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e01"
+        },
+        "sent": "2026-01-22T12:00:00Z",
+        "received": "2026-01-22T15:09:00Z"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Communication/wa-msg-0001"
+      }
+    }
+  ]
+}

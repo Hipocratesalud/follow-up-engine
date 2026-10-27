@@ -3,19 +3,29 @@ import {
   FlaskConical,
   HeartPulse,
   Inbox,
+  Stethoscope,
   UserRoundSearch,
   UsersRound,
 } from 'lucide-react';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { useClinic, useDemoClock, useRecovery, useStats } from '../api/queries.ts';
+import {
+  useClinic,
+  useDemoClock,
+  useOpenShadowFindings,
+  useRecovery,
+  useStats,
+} from '../api/queries.ts';
 import { cx } from '../lib/cx.ts';
 import { formatDate } from '../lib/format.ts';
+import { REVIEW_COPY } from '../features/reviewer/copy.ts';
 import { ThemeToggle } from './theme.tsx';
 
 interface NavItem {
   readonly to: string;
   readonly label: string;
+  /** Shorter label for the phone's top bar. */
+  readonly shortLabel?: string;
   readonly icon: typeof Inbox;
   readonly count?: number | undefined;
 }
@@ -41,10 +51,17 @@ function NavLinks({
 }): ReactNode {
   return (
     <>
-      {items.map(({ to, label, icon: Icon, count }) => (
+      {items.map(({ to, label, shortLabel, icon: Icon, count }) => (
         <NavLink key={to} to={to} className={compact ? compactNavClass : navClass}>
           <Icon className={cx('size-4 shrink-0', compact && 'max-sm:hidden')} aria-hidden="true" />
-          <span className={compact ? undefined : 'flex-1'}>{label}</span>
+          {compact && shortLabel ? (
+            <>
+              <span className="sm:hidden">{shortLabel}</span>
+              <span className="max-sm:hidden">{label}</span>
+            </>
+          ) : (
+            <span className={compact ? undefined : 'flex-1'}>{label}</span>
+          )}
           {count === undefined ? null : (
             <span className="rounded-full bg-surface-2 px-1.5 text-xs tabular-nums text-muted group-aria-[current=page]:bg-surface">
               {count}
@@ -116,6 +133,7 @@ export function Shell(): ReactNode {
   const stats = useStats();
   const recovery = useRecovery();
   const clock = useDemoClock();
+  const findings = useOpenShadowFindings();
 
   const items: NavItem[] = [
     { to: '/bandeja', label: 'Bandeja', icon: Inbox, count: stats.data?.activeCases },
@@ -124,6 +142,13 @@ export function Shell(): ReactNode {
       label: 'Por recuperar',
       icon: UserRoundSearch,
       count: recovery.data?.total,
+    },
+    {
+      to: '/revision-clinica',
+      label: REVIEW_COPY.nav.label,
+      shortLabel: REVIEW_COPY.nav.shortLabel,
+      icon: Stethoscope,
+      count: findings.data?.counts.byStatus.open,
     },
   ];
   if (clock.data) items.push({ to: '/demo', label: 'Demo', icon: FlaskConical });

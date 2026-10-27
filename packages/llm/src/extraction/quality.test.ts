@@ -42,6 +42,7 @@ const read = (text: string) =>
 const empty: ModelExtraction = {
   hasPlan: false,
   discharge: null,
+  pregnancy: null,
   conditions: [],
   medications: [],
   planItems: [],
@@ -59,7 +60,8 @@ const plan = (overrides: Partial<ModelPlanItem>): ModelPlanItem => ({
 
 describe('discharge ("se da de alta") is read by the real extraction path (clinical #3)', () => {
   it('is part of the model schema and of a new prompt version', () => {
-    expect(NOTE_EXTRACTION_PROMPT_VERSION).toBe('note-extraction@3');
+    // Discharge came with @3; later versions keep it.
+    expect(Number(NOTE_EXTRACTION_PROMPT_VERSION.split('@')[1])).toBeGreaterThanOrEqual(3);
     expect(Object.keys(ModelExtractionSchema.shape)).toContain('discharge');
     expect(isStrictCompatible(toJsonSchema(ModelExtractionSchema))).toBe(true);
     expect(NOTE_EXTRACTION_SYSTEM_PROMPT).toContain('se da de alta');

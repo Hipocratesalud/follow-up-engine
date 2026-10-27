@@ -2,6 +2,8 @@ import type { ApiConfig } from '../config.ts';
 import type {
   ApiErrorBody,
   ApiFieldError,
+  CalibrationReportView,
+  CallOutcomeRequest,
   CaseActionRequest,
   CaseDetail,
   CaseListQuery,
@@ -18,8 +20,19 @@ import type {
   PatientDetail,
   PatientSummary,
   RecoveryPage,
+  SuppressionView,
   WebhookDelivery,
 } from './contract.ts';
+import type {
+  FindingDetail,
+  FindingFlagUpdate,
+  FindingFlagView,
+  FindingListQuery,
+  FindingPage,
+  FindingReviewRequest,
+  FindingView,
+  ReviewMetrics,
+} from './reviewer-contract.ts';
 
 /** An HTTP error from the API, with the contract's `{ error: { code, message } }` body when present. */
 export class ApiError extends Error {
@@ -105,6 +118,9 @@ export interface ApiClient {
   getCase(id: string): Promise<CaseDetail>;
   actOnCase(id: string, body: CaseActionRequest): Promise<CaseDetail>;
   sendFeedback(id: string, body: FeedbackRequest): Promise<unknown>;
+  recordCallOutcome(id: string, body: CallOutcomeRequest): Promise<CaseDetail>;
+  reactivateSuppression(id: string): Promise<SuppressionView>;
+  getCalibration(): Promise<CalibrationReportView>;
   listOwners(): Promise<{ items: OwnerView[] }>;
   listPatients(query: { query?: string; limit?: number }): Promise<{ items: PatientSummary[] }>;
   getPatient(id: string): Promise<PatientDetail>;
@@ -117,6 +133,12 @@ export interface ApiClient {
   advanceClock(days: number): Promise<{ now: string }>;
   createDemoConsultation(body: DemoConsultationRequest): Promise<DemoConsultationResponse>;
   listWebhooks(limit: number, type?: string): Promise<{ items: WebhookDelivery[] }>;
+  listFindings(query: FindingListQuery): Promise<FindingPage>;
+  getFinding(id: string): Promise<FindingDetail>;
+  reviewFinding(id: string, body: FindingReviewRequest): Promise<FindingView>;
+  getReviewMetrics(): Promise<ReviewMetrics>;
+  listFindingFlags(): Promise<{ items: FindingFlagView[] }>;
+  updateFindingFlag(body: FindingFlagUpdate): Promise<FindingFlagView>;
 }
 
 export function createApiClient(config: ApiConfig): ApiClient {
@@ -130,7 +152,7 @@ export function createApiClient(config: ApiConfig): ApiClient {
   }
 
   async function request<T>(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PUT',
     path: string,
     options: { query?: Query; body?: unknown } = {},
   ): Promise<T> {
@@ -165,6 +187,11 @@ export function createApiClient(config: ApiConfig): ApiClient {
       request('POST', `/inbox/cases/${encodeURIComponent(id)}/actions`, { body }),
     sendFeedback: (id, body) =>
       request('POST', `/inbox/cases/${encodeURIComponent(id)}/feedback`, { body }),
+    recordCallOutcome: (id, body) =>
+      request('POST', `/inbox/cases/${encodeURIComponent(id)}/call-outcome`, { body }),
+    reactivateSuppression: (id) =>
+      request('POST', `/inbox/suppressions/${encodeURIComponent(id)}/reactivate`),
+    getCalibration: () => request('GET', '/inbox/calibration'),
     listOwners: () => request('GET', '/inbox/owners'),
     listPatients: (query) => request('GET', '/inbox/patients', { query: { ...query } }),
     getPatient: (id) => request('GET', `/inbox/patients/${encodeURIComponent(id)}`),
@@ -184,5 +211,12 @@ export function createApiClient(config: ApiConfig): ApiClient {
     advanceClock: (days) => request('POST', '/demo/clock/advance', { body: { days } }),
     createDemoConsultation: (body) => request('POST', '/demo/consultations', { body }),
     listWebhooks: (limit, type) => request('GET', '/demo/webhooks', { query: { limit, type } }),
+    listFindings: (query) => request('GET', '/inbox/findings', { query: { ...query } }),
+    getFinding: (id) => request('GET', `/inbox/findings/${encodeURIComponent(id)}`),
+    reviewFinding: (id, body) =>
+      request('POST', `/inbox/findings/${encodeURIComponent(id)}/review`, { body }),
+    getReviewMetrics: () => request('GET', '/inbox/findings/metrics'),
+    listFindingFlags: () => request('GET', '/inbox/finding-flags'),
+    updateFindingFlag: (body) => request('PUT', '/inbox/finding-flags', { body }),
   };
 }

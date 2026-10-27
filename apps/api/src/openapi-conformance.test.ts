@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { CaseView } from './http/schemas.ts';
-import { createHarness, fixture, type Harness } from './test/harness.ts';
+import { createHarness, FIXTURE_PATIENT, fixture, type Harness } from './test/harness.ts';
 
 /**
  * HIP-128: every status the API really answers is in /openapi.json. Each
@@ -72,6 +72,27 @@ describe('OpenAPI document', () => {
     ['POST', '/api/inbox/cases/{case}/feedback', { body: '{' }],
     ['POST', '/api/inbox/cases/{case}/feedback', { body: { useful: false } }],
     ['GET', '/jobs/unknown', {}],
+    ['GET', '/api/inbox/findings', {}],
+    ['GET', '/api/inbox/findings?category=nope', {}],
+    ['GET', '/api/inbox/findings?cursor=garbage', {}],
+    ['GET', '/api/inbox/findings/metrics', {}],
+    ['GET', '/api/inbox/findings/missing', {}],
+    ['GET', '/api/inbox/findings/missing/fhir', {}],
+    ['POST', '/api/inbox/findings/missing/review', { body: { verdict: 'relevant' } }],
+    ['POST', '/api/inbox/findings/missing/review', { body: '{' }],
+    ['GET', '/api/inbox/finding-flags', {}],
+    [
+      'PUT',
+      '/api/inbox/finding-flags',
+      { body: { category: 'lab_trend', enabled: true, mode: 'shadow' } },
+    ],
+    [
+      'PUT',
+      '/api/inbox/finding-flags',
+      { body: { category: 'lab_trend', enabled: true, mode: 'live' } },
+    ],
+    ['POST', '/api/demo/review/nobody', {}],
+    ['POST', `/api/demo/review/${FIXTURE_PATIENT}`, {}],
   ];
 
   it.each(requests)('documents %s %s', async (method, rawPath, init) => {
@@ -89,6 +110,15 @@ describe('OpenAPI document', () => {
       Object.keys(operation?.responses ?? {}),
       `${method} ${path} answered ${String(response.status)}`,
     ).toContain(String(response.status));
+  });
+
+  it('documents the protocol behind a reason, with its validation status', () => {
+    const reason = JSON.stringify(doc.components.schemas['CaseReasonView']);
+    expect(reason).toContain('"protocol":{');
+    expect(reason).toContain('#/components/schemas/ProtocolRef');
+    const protocol = JSON.stringify(doc.components.schemas['ProtocolRef']);
+    expect(protocol).toContain('"enum":["draft","validated"]');
+    expect(protocol).toMatch(/"required":\["id","version"\]/);
   });
 
   it('says that a reason is required when a case was not useful', () => {

@@ -14,6 +14,10 @@ function caseLink(caseId: string): string {
   return `Task/${caseId}`;
 }
 
+function requestLink(requestId: string): string {
+  return `CommunicationRequest/${requestId}`;
+}
+
 /** The counters of a backfill run (counts and a cost: nothing about any patient). */
 function backfillCounts(counts: BackfillCounts): Record<keyof BackfillCounts, number> {
   return {
@@ -85,7 +89,25 @@ export function toWebhookBody(event: DomainEvent): WebhookBody {
           // BCP-47 preferred language of the patient (Patient.communication);
           // null: the host writes in the clinic's language.
           language: event.payload.language ?? null,
+          ...(event.payload.channel === undefined ? {} : { channel: event.payload.channel }),
+          ...(event.payload.attempt === undefined ? {} : { attempt: event.payload.attempt }),
           task: caseLink(event.payload.caseId),
+          ...(event.payload.requestId === undefined
+            ? {}
+            : { communicationRequest: requestLink(event.payload.requestId) }),
+        },
+      };
+    case 'contact.outcome_recorded':
+      return {
+        ...base,
+        data: {
+          caseId: event.payload.caseId,
+          patientId: event.payload.patientId,
+          outcome: event.payload.outcome,
+          ...(event.payload.channel === undefined ? {} : { channel: event.payload.channel }),
+          task: caseLink(event.payload.caseId),
+          communicationRequest: requestLink(event.payload.requestId),
+          communication: `Communication/${event.payload.communicationId}`,
         },
       };
     case 'backfill.completed':
@@ -106,6 +128,16 @@ export function toWebhookBody(event: DomainEvent): WebhookBody {
           runId: event.payload.runId,
           reason: event.payload.reason,
           ...backfillCounts(event.payload),
+        },
+      };
+    case 'clinical_finding.created':
+      return {
+        ...base,
+        data: {
+          findingId: event.payload.findingId,
+          patientId: event.payload.patientId,
+          severity: event.payload.severity,
+          detectedIssue: `DetectedIssue/${event.payload.findingId}`,
         },
       };
   }

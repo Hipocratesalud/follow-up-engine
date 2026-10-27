@@ -21,7 +21,7 @@ export interface SeedOptions {
   readonly apiKey: string;
   /** The inbox key (`VITE_API_KEY`): inbox and demo scopes (fake clock), never `fhir:write`. */
   readonly inboxApiKey?: string;
-  /** Only the first N patients (by id). All 120 by default. */
+  /** Only the first N patients (by id). All 148 by default. */
   readonly patients?: number;
   /** Called every 100 staged bundles. */
   readonly onProgress?: (done: number, total: number) => void;

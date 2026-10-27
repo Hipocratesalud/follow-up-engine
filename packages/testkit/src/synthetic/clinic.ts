@@ -27,14 +27,24 @@ import {
   psychologyNote,
 } from './notes.ts';
 import { Prng } from './prng.ts';
+import { protocolPatient } from './protocol-patients.ts';
 import { PatientTimeline, type TimelineEntry } from './timeline.ts';
+import {
+  ageAt,
+  type Context,
+  dayOf,
+  HISTORY_DAYS,
+  maybePlan,
+  NO_PLAN_RATE,
+  plusDays,
+  record,
+  scheduleNext,
+  type Visit,
+  visitTime,
+} from './visits.ts';
 
 /** Seed of the committed fixtures. Changing it changes every generated file. */
 export const DEFAULT_SEED = 20_260_105;
-
-/** History starts two years before the base date. */
-const HISTORY_DAYS = 730;
-const MS_PER_DAY = 86_400_000;
 
 export const PATIENT_PATTERNS = {
   diabetology: ['adherent', 'dropout', 'unresulted_labs', 'new_patient', 'no_plan_notes'],
@@ -43,6 +53,11 @@ export const PATIENT_PATTERNS = {
     'hypertension_dropout',
     'short_treatment',
     'abnormal_result',
+    'hypothyroidism',
+    'dyslipidemia_statin',
+    'ckd_g3',
+    'ckd_g4',
+    'ckd_uncoded',
   ],
   psychology: [
     'weekly_discharged',
@@ -50,12 +65,17 @@ export const PATIENT_PATTERNS = {
     'monthly_ongoing',
     'monthly_dropout',
     'biweekly_dropout',
+    'ssri_stable',
+    'ssri_dose_change',
   ],
   gynecology: [
     'annual_control',
     'pregnancy_postpartum',
     'pregnancy_missed_postpartum',
     'acute_or_short',
+    'pregnancy_ongoing',
+    'pregnancy_delivered',
+    'pregnancy_loss',
   ],
 } as const satisfies Record<Specialty, readonly string[]>;
 
@@ -160,7 +180,13 @@ const PRACTITIONERS: readonly PractitionerInput[] = [
   },
 ];
 
-/** How many patients of each pattern the clinic has (35 / 30 / 30 / 25). */
+/**
+ * How many patients of each pattern the clinic has (35 / 43 / 35 / 35). Each
+ * patient is generated from its own forked generator by index, so patterns
+ * are only ever appended: the protocol patients (pregnancy, treatment
+ * follow-up, hypothyroidism, dyslipidemia, kidney disease) come last and
+ * leave pat-0001 to pat-0120 unchanged.
+ */
 const PATTERN_COUNTS: readonly (readonly [Specialty, PatientPattern, number])[] = [
   ['diabetology', 'adherent', 14],
   ['diabetology', 'dropout', 9],
@@ -180,108 +206,17 @@ const PATTERN_COUNTS: readonly (readonly [Specialty, PatientPattern, number])[] 
   ['gynecology', 'pregnancy_postpartum', 6],
   ['gynecology', 'pregnancy_missed_postpartum', 4],
   ['gynecology', 'acute_or_short', 6],
+  ['gynecology', 'pregnancy_ongoing', 5],
+  ['gynecology', 'pregnancy_delivered', 3],
+  ['gynecology', 'pregnancy_loss', 2],
+  ['psychology', 'ssri_stable', 2],
+  ['psychology', 'ssri_dose_change', 3],
+  ['internal_medicine', 'hypothyroidism', 4],
+  ['internal_medicine', 'dyslipidemia_statin', 3],
+  ['internal_medicine', 'ckd_g3', 2],
+  ['internal_medicine', 'ckd_g4', 2],
+  ['internal_medicine', 'ckd_uncoded', 2],
 ];
-
-/** Probability that a routine note has no plan section. */
-const NO_PLAN_RATE = 0.22;
-
-interface Context {
-  readonly rng: Prng;
-  readonly timeline: PatientTimeline;
-  readonly sex: 'female' | 'male';
-  readonly birthDate: Date;
-  /** Usual weight, so notes of the same patient stay consistent. */
-  readonly weightKg: number;
-  /** Previous pregnancies. */
-  readonly gravida: number;
-  readonly stats: { consultations: number; withoutPlan: number };
-}
-
-/** Age in whole years on `date`. */
-function ageAt(ctx: Context, date: Date): number {
-  const birth = ctx.birthDate;
-  let age = date.getUTCFullYear() - birth.getUTCFullYear();
-  const beforeBirthday =
-    date.getUTCMonth() < birth.getUTCMonth() ||
-    (date.getUTCMonth() === birth.getUTCMonth() && date.getUTCDate() < birth.getUTCDate());
-  if (beforeBirthday) age -= 1;
-  return age;
-}
-
-/** A weekday office-hours instant `day` days after the base date (local UTC-4, 08:00 to 16:45). */
-function visitTime(rng: Prng, day: number): Date {
-  let date = new Date(BASE_DATE.getTime() + Math.round(day) * MS_PER_DAY);
-  const weekday = date.getUTCDay();
-  if (weekday === 6) date = new Date(date.getTime() + 2 * MS_PER_DAY);
-  if (weekday === 0) date = new Date(date.getTime() + MS_PER_DAY);
-  date.setUTCHours(rng.int(12, 20), rng.pick([0, 15, 30, 45]), 0, 0);
-  return date;
-}
-
-const dayOf = (date: Date): number => (date.getTime() - BASE_DATE.getTime()) / MS_PER_DAY;
-const plusDays = (date: Date, days: number): Date => new Date(date.getTime() + days * MS_PER_DAY);
-
-function maybePlan(
-  ctx: Context,
-  followUp: FollowUp,
-  noPlanRate = NO_PLAN_RATE,
-): FollowUp | undefined {
-  return ctx.rng.chance(noPlanRate) ? undefined : followUp;
-}
-
-/** Counts a consultation; `hasPlan` is false when its note has no follow-up plan. */
-function record(ctx: Context, hasPlan: boolean): void {
-  ctx.stats.consultations += 1;
-  if (!hasPlan) ctx.stats.withoutPlan += 1;
-}
-
-interface Visit {
-  readonly start: Date;
-  readonly appointmentId?: string;
-}
-
-/**
- * Books the next visit at the end of a consultation (when the patient
- * leaves with a plan) and, when the patient will not show up, sometimes
- * cancels it. Returns the next visit, or undefined when it will not happen.
- */
-function scheduleNext(
-  ctx: Context,
-  end: Date,
-  nextDay: number,
-  options: {
-    readonly booked: boolean;
-    readonly attends: boolean;
-    readonly minutes: number;
-    readonly description: string;
-  },
-): Visit | undefined {
-  const start = visitTime(ctx.rng, nextDay);
-  let appointmentId: string | undefined;
-  if (options.booked) {
-    appointmentId = ctx.timeline.book(
-      plusDays(end, 10 / 1440),
-      start,
-      options.minutes,
-      options.description,
-    );
-    if (!options.attends && ctx.rng.chance(0.5)) {
-      const cancelAt = plusDays(start, -ctx.rng.int(1, 4));
-      if (cancelAt <= BASE_DATE && cancelAt > end) {
-        ctx.timeline.cancel(
-          appointmentId,
-          cancelAt,
-          plusDays(end, 10 / 1440),
-          start,
-          options.minutes,
-          options.description,
-        );
-      }
-    }
-  }
-  if (!options.attends || start > BASE_DATE) return undefined;
-  return { start, ...(appointmentId ? { appointmentId } : {}) };
-}
 
 function hba1cValue(rng: Prng, controlled: boolean): number {
   return controlled ? rng.around(6.5, 0.4, 1) : rng.around(8.6, 1.2, 1);
@@ -929,6 +864,8 @@ function ageFor(rng: Prng, specialty: Specialty, pattern: PatientPattern): numbe
 function generatePatient(
   rng: Prng,
   index: number,
+  /** Position of the patient within its pattern (picks the pattern's variant). */
+  ordinal: number,
   specialty: Specialty,
   pattern: PatientPattern,
   usedNames: Set<string>,
@@ -1007,6 +944,18 @@ function generatePatient(
     case 'acute_or_short':
       gynecologyAcute(ctx);
       break;
+    case 'pregnancy_ongoing':
+    case 'pregnancy_delivered':
+    case 'pregnancy_loss':
+    case 'ssri_stable':
+    case 'ssri_dose_change':
+    case 'hypothyroidism':
+    case 'dyslipidemia_statin':
+    case 'ckd_g3':
+    case 'ckd_g4':
+    case 'ckd_uncoded':
+      protocolPatient(ctx, pattern, ordinal);
+      break;
   }
 
   return {
@@ -1022,7 +971,7 @@ function generatePatient(
 }
 
 /**
- * Generates the synthetic demo clinic: about 120 fictional patients across
+ * Generates the synthetic demo clinic: about 150 fictional patients across
  * four specialties with two years of history ending at {@link BASE_DATE}.
  * Pure and deterministic: same seed, same output, no network.
  */
@@ -1038,6 +987,7 @@ export function generateSyntheticClinic(seed: number = DEFAULT_SEED): SyntheticC
         generatePatient(
           root.fork(`patient-${String(index)}`),
           index,
+          n,
           specialty,
           pattern,
           usedNames,

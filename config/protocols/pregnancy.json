@@ -1,0 +1,222 @@
+{
+  "id": "pregnancy",
+  "version": "0.1.0",
+  "status": "draft",
+  "description": "Pregnancy and postpartum follow-up: prenatal visits by gestational age (every 4 weeks up to week 28, every 2 weeks up to 36, weekly after), an oral glucose tolerance test between weeks 24 and 28, and a postpartum visit within 6 weeks of a delivery. The episode ends on a delivery or a loss: nothing prenatal is expected after it. Fills only what the doctor's plan did not cover.",
+  "reason": {
+    "code": "protocol_pregnancy",
+    "label": "Embarazo y puerperio"
+  },
+  "sources": [
+    {
+      "title": "Guidelines for Perinatal Care, 8th edition",
+      "organization": "American Academy of Pediatrics and American College of Obstetricians and Gynecologists",
+      "year": 2017,
+      "url": "https://publications.aap.org/aapbooks/book/522/Guidelines-for-Perinatal-Care"
+    },
+    {
+      "title": "WHO recommendations on antenatal care for a positive pregnancy experience",
+      "organization": "World Health Organization",
+      "year": 2016,
+      "url": "https://www.who.int/publications/i/item/9789241549912"
+    },
+    {
+      "title": "Gestational Diabetes: Screening",
+      "organization": "US Preventive Services Task Force",
+      "year": 2021,
+      "url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/gestational-diabetes-screening"
+    },
+    {
+      "title": "Committee Opinion No. 736: Optimizing Postpartum Care",
+      "organization": "American College of Obstetricians and Gynecologists",
+      "year": 2018,
+      "url": "https://www.acog.org/clinical/clinical-guidance/committee-opinion/articles/2018/05/optimizing-postpartum-care"
+    }
+  ],
+  "specialties": ["gynecology", "obstetrics", "general_practice", "family_medicine"],
+  "caseGroup": "follow_up",
+  "enrollment": {
+    "conditionCodes": [
+      "Z33",
+      "Z34",
+      "Z35",
+      "Z3A",
+      "O09",
+      "O1",
+      "O2",
+      "O3",
+      "O40",
+      "O41",
+      "O42",
+      "O43",
+      "O44",
+      "O45",
+      "O46",
+      "O47",
+      "O48"
+    ],
+    "minimumStatus": "probable",
+    "records": [
+      {
+        "codes": [
+          {
+            "system": "http://loinc.org",
+            "code": "11525-3",
+            "display": "US Pelvis Fetus for pregnancy"
+          },
+          {
+            "system": "http://loinc.org",
+            "code": "11778-8",
+            "display": "Delivery date Estimated"
+          },
+          {
+            "system": "http://loinc.org",
+            "code": "11884-4",
+            "display": "Gestational age Estimated"
+          }
+        ],
+        "conditionCode": "Z34"
+      }
+    ]
+  },
+  "closing": {
+    "outcomes": [
+      {
+        "outcome": "delivery",
+        "conditionCodes": ["O80", "O81", "O82", "O83", "O84", "Z37"]
+      },
+      {
+        "outcome": "delivery",
+        "conditionCodes": ["O85", "O86", "O87", "O88", "O89", "O90", "O91", "O92", "Z39"],
+        "recordedAtFollowUp": true
+      },
+      {
+        "outcome": "loss",
+        "conditionCodes": ["O00", "O01", "O02", "O03", "O04", "O05", "O06", "O07", "O08", "O36.4"]
+      }
+    ],
+    "maxGestationalWeeks": 42
+  },
+  "items": [
+    {
+      "key": "prenatal_visit",
+      "kind": "follow_up_visit",
+      "reason": {
+        "code": "protocol_pregnancy_prenatal_visit",
+        "label": "Control prenatal pendiente"
+      },
+      "schedule": {
+        "type": "gestational_age",
+        "intervals": [
+          {
+            "untilWeek": 28,
+            "everyDays": 28
+          },
+          {
+            "untilWeek": 36,
+            "everyDays": 14
+          },
+          {
+            "untilWeek": 43,
+            "everyDays": 7
+          }
+        ],
+        "undatedEveryDays": 28
+      },
+      "fulfilledBy": [
+        {
+          "event": "encounter.finished",
+          "match": "any"
+        },
+        {
+          "event": "appointment.booked",
+          "match": "any",
+          "toleranceDays": 3,
+          "toleranceFraction": 0
+        }
+      ],
+      "priority": 45,
+      "suggestedAction": {
+        "code": "schedule_follow_up",
+        "label": "Agendar control prenatal",
+        "patientContactPurpose": "schedule_follow_up"
+      }
+    },
+    {
+      "key": "glucose_tolerance",
+      "kind": "lab",
+      "code": {
+        "system": "http://loinc.org",
+        "code": "1518-0",
+        "display": "Glucose [Mass/volume] in Serum or Plasma --2 hours post 75 g glucose PO"
+      },
+      "reason": {
+        "code": "protocol_pregnancy_glucose_tolerance",
+        "label": "Prueba de tolerancia a la glucosa pendiente (semanas 24 a 28)"
+      },
+      "schedule": {
+        "type": "gestational_window",
+        "fromWeek": 24,
+        "toWeek": 28
+      },
+      "fulfilledBy": [
+        {
+          "event": "result.received",
+          "filter": {
+            "code.code": ["1504-0", "1518-0", "20436-2"]
+          },
+          "match": "any"
+        }
+      ],
+      "planTerms": [
+        "tolerancia a la glucosa",
+        "tolerancia oral a la glucosa",
+        "curva de tolerancia",
+        "curva de glucosa",
+        "ptog",
+        "ctog",
+        "sobrecarga oral de glucosa",
+        "o sullivan",
+        "o'sullivan",
+        "glucose tolerance",
+        "ogtt"
+      ],
+      "priority": 35,
+      "suggestedAction": {
+        "code": "order_lab",
+        "label": "Indicar prueba de tolerancia oral a la glucosa",
+        "patientContactPurpose": "complete_pending_test"
+      }
+    },
+    {
+      "key": "postpartum_visit",
+      "kind": "follow_up_visit",
+      "reason": {
+        "code": "protocol_pregnancy_postpartum_visit",
+        "label": "Control posparto pendiente (6 semanas)"
+      },
+      "schedule": {
+        "type": "after_outcome",
+        "outcome": "delivery",
+        "withinDays": 42
+      },
+      "fulfilledBy": [
+        {
+          "event": "encounter.finished",
+          "match": "any"
+        },
+        {
+          "event": "appointment.booked",
+          "match": "any"
+        }
+      ],
+      "priority": 40,
+      "suggestedAction": {
+        "code": "schedule_follow_up",
+        "label": "Agendar control posparto",
+        "patientContactPurpose": "schedule_follow_up"
+      }
+    }
+  ],
+  "escalationPolicy": "default_v1"
+}

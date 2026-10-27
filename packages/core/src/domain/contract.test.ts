@@ -10,6 +10,7 @@ import type {
   DOMAIN_EVENT_TYPES,
   DomainEvent,
   DomainEventType,
+  ContactOutcomeRecordedPayload,
   PatientContactRequestedPayload,
 } from './domain-event.ts';
 
@@ -71,7 +72,17 @@ describe('domain contract', () => {
   it('keeps patient contact requests free of clinical content', () => {
     // `language` is the patient's preferred language (BCP-47), not clinical content.
     expectTypeOf<keyof PatientContactRequestedPayload>().toEqualTypeOf<
-      'caseId' | 'patientId' | 'purpose' | 'dueBy' | 'language'
+      | 'caseId'
+      | 'patientId'
+      | 'purpose'
+      | 'dueBy'
+      | 'requestId'
+      | 'channel'
+      | 'attempt'
+      | 'language'
+    >();
+    expectTypeOf<keyof ContactOutcomeRecordedPayload>().toEqualTypeOf<
+      'caseId' | 'patientId' | 'requestId' | 'communicationId' | 'channel' | 'outcome'
     >();
   });
 });

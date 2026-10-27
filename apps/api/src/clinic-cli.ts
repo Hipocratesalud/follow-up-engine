@@ -7,6 +7,7 @@ import {
   type EngineRuntime,
   isApiKeyScope,
   isDemoScope,
+  availableProtocolIds,
 } from '@follow-up-engine/runtime';
 
 export const CLINIC_CLI_USAGE = `Usage: pnpm --filter @follow-up-engine/api clinic:create [options]
@@ -25,6 +26,10 @@ Registers a clinic (or updates one) and issues a scoped API key, printed once.
   --locale <bcp47>           Clinic locale, the language of API labels when the user's
                              Accept-Language names none the engine has (default: en-US);
                              also updates an existing clinic
+  --escalation-policy <id>   Named escalation policy of the clinic, new or existing
+                             (default_v1, default_v2; cases already open keep theirs)
+  --protocols <a,b>          Care protocols the clinic runs, once its clinical team validated
+                             them (docs/protocols.md); replaces the list. Default: diabetes,hypertension
   --help                     This help
 
 Needs DATABASE_URL (the same database the API uses).`;
@@ -75,6 +80,8 @@ export async function runClinicCommand(
         'allow-demo': { type: 'boolean' },
         timezone: { type: 'string' },
         locale: { type: 'string' },
+        'escalation-policy': { type: 'string' },
+        protocols: { type: 'string' },
         help: { type: 'boolean' },
       },
       strict: true,
@@ -128,15 +135,40 @@ export async function runClinicCommand(
       `--locale ${values.locale} is not a BCP-47 language tag (for example en-US, es-VE).`,
     );
   }
+  const protocols = values.protocols
+    ?.split(',')
+    .map((protocol) => protocol.trim())
+    .filter((protocol) => protocol !== '');
+  const unknownProtocols = (protocols ?? []).filter(
+    (protocol) => !availableProtocolIds().includes(protocol),
+  );
+  if (unknownProtocols.length > 0) {
+    return fail(
+      `Unknown protocol(s): ${unknownProtocols.join(', ')}. Known: ${availableProtocolIds().join(', ')}.`,
+    );
+  }
   if (existing === undefined && values.name === undefined) {
     return fail(`Clinic ${id} does not exist: give --name to create it.`);
   }
+  const policyId = values['escalation-policy'];
+  if (
+    policyId !== undefined &&
+    (await runtime.engine.catalog(toClinicId(id))).policy(policyId) === undefined
+  ) {
+    return fail(`Unknown escalation policy ${policyId}.`);
+  }
+  const policy = policyId === undefined ? {} : { escalationPolicyId: policyId };
   let action = 'unchanged';
+  const enabled = protocols === undefined ? {} : { enabledProtocols: protocols };
   const renamed =
     existing !== undefined && values.name !== undefined && values.name !== existing.name;
   const relocalized =
     existing !== undefined && locale !== undefined && locale !== existing.settings.locale;
-  if (existing === undefined || renamed || relocalized) {
+  const repoliced =
+    existing !== undefined &&
+    policyId !== undefined &&
+    policyId !== existing.settings.escalationPolicyId;
+  if (existing === undefined || renamed || repoliced || relocalized || protocols !== undefined) {
     await runtime.storage.registerClinic({
       id: toClinicId(id),
       name: values.name ?? existing?.name ?? id,
@@ -145,20 +177,29 @@ export async function runClinicCommand(
             settings: {
               allowPatientContact: values['allow-patient-contact'] === true,
               ...(values.timezone === undefined ? {} : { timezone: values.timezone }),
+              ...policy,
+              ...enabled,
               ...(locale === undefined ? {} : { locale }),
             },
           }
         : {
-            settings: { ...existing.settings, ...(locale === undefined ? {} : { locale }) },
+            settings: {
+              ...existing.settings,
+              ...policy,
+              ...enabled,
+              ...(locale === undefined ? {} : { locale }),
+            },
             active: existing.active,
           }),
     });
     action =
       existing === undefined
         ? 'created'
-        : [renamed ? 'renamed' : '', relocalized ? `locale ${locale}` : '']
-            .filter((part) => part !== '')
-            .join(', ');
+        : renamed
+          ? 'renamed'
+          : protocols !== undefined && !repoliced
+            ? 'protocols updated'
+            : 'updated';
   }
   const label = values.label ?? 'integration';
   const issued = await runtime.issueApiKey({

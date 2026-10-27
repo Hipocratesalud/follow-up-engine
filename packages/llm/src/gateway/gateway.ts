@@ -235,6 +235,7 @@ export function createLlmGateway(config: LlmGatewayConfig): FollowUpLlmGateway {
                 output: request.output,
                 ...(temperature === undefined ? {} : { temperature }),
                 ...(maxOutputTokens === undefined ? {} : { maxOutputTokens }),
+                ...(request.tools === undefined ? {} : { tools: request.tools }),
                 timeoutMs,
                 signal: controller.signal,
               }),

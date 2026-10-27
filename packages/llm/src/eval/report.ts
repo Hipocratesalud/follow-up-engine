@@ -20,6 +20,16 @@ function fieldTable(aggregate: Aggregate): string[] {
     `| Conditions (ICD-10 category) | ${fmt(aggregate.scores.conditions)} | ${tally(aggregate.counts.conditions)} |`,
     `| Medications (fuzzy drug name) | ${fmt(aggregate.scores.medications)} | ${tally(aggregate.counts.medications)} |`,
     `| Plan items (kind + due ±20%) | ${fmt(aggregate.scores.planItems)} | ${tally(aggregate.counts.planItems)} |`,
+    ...(aggregate.scores.pregnancyOutcome && aggregate.counts.pregnancyOutcome
+      ? [
+          `| Pregnancy outcome (kind) | ${fmt(aggregate.scores.pregnancyOutcome)} | ${tally(aggregate.counts.pregnancyOutcome)} |`,
+        ]
+      : []),
+    ...(aggregate.scores.pregnancyDating && aggregate.counts.pregnancyDating
+      ? [
+          `| Pregnancy dating (weeks, LMP, EDD exact) | ${fmt(aggregate.scores.pregnancyDating)} | ${tally(aggregate.counts.pregnancyDating)} |`,
+        ]
+      : []),
   ];
 }
 
@@ -121,6 +131,7 @@ export function renderReport(run: EvalRun, notes?: string): string {
     '- The hallucinated-quote rate counts model items whose evidence quote is not a substring of the note. They never reach the engine: the post-check drops them.',
     '- The evidence checks drop items whose quote is in the note but does not back them: too short ("Plan"), no term linked to the ICD-10 code, no drug name, no plan wording or timing, a denied condition ("niega HTA"), a conditional return ("volver si fiebre"), an interval that contradicts the quoted one, or a measurement listed as a medication.',
     '- Discharge accuracy: the note discharges the patient ("se da de alta") exactly when the gold note says so.',
+    '- Pregnancy outcome matches on kind (vaginal, caesarean, loss); an outcome read from obstetric history ("G3P2, cesárea previa") or a planned one is a false positive. Pregnancy dating counts gestational weeks, last menstrual period and estimated delivery date as one item each, matched exactly; dating a note that reports no current pregnancy (a routine "FUM" in an annual control) is a false positive.',
     '- Cost uses the pricing table in `packages/llm/src/pricing.ts`; check it against the vendor before quoting.',
     '',
   ];

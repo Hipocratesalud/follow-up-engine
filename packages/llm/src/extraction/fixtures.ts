@@ -5,7 +5,52 @@ import { namedTests } from './lab-tests.ts';
 import { readNoteFromMessages } from './prompt.ts';
 import { REDACTION_PLACEHOLDER, defangTags } from './prepare.ts';
 import { normalizeForMatch } from './quote.ts';
-import type { ModelExtraction } from './schema.ts';
+import { PREGNANCY_OUTCOME_KINDS, type ModelExtraction, type ModelPregnancy } from './schema.ts';
+
+/**
+ * The expected pregnancy reading of a note (gold `expected.pregnancy`):
+ * dates as `YYYY-MM-DD`, the outcome dated by `date` or `daysAgo` when the
+ * note writes it. Absent means the note reports no current pregnancy.
+ */
+export const ExpectedPregnancySchema = z.object({
+  gestationalWeeks: z.number().optional(),
+  gestationalDays: z.number().optional(),
+  lastMenstrualPeriod: z.string().optional(),
+  estimatedDeliveryDate: z.string().optional(),
+  datingEvidenceQuote: z.string().optional(),
+  outcome: z
+    .object({
+      kind: z.enum(PREGNANCY_OUTCOME_KINDS),
+      date: z.string().optional(),
+      daysAgo: z.number().optional(),
+      evidenceQuote: z.string(),
+    })
+    .optional(),
+});
+export type ExpectedPregnancy = z.infer<typeof ExpectedPregnancySchema>;
+
+/** The model reply for an expected pregnancy reading (`null` when there is none). */
+export function modelPregnancyFromExpected(
+  expected: ExpectedPregnancy | undefined,
+): ModelPregnancy | null {
+  if (expected === undefined) return null;
+  return {
+    gestationalWeeks: expected.gestationalWeeks ?? null,
+    gestationalDays: expected.gestationalDays ?? null,
+    lastMenstrualPeriod: expected.lastMenstrualPeriod ?? null,
+    estimatedDeliveryDate: expected.estimatedDeliveryDate ?? null,
+    datingEvidenceQuote: expected.datingEvidenceQuote ?? null,
+    outcome:
+      expected.outcome === undefined
+        ? null
+        : {
+            kind: expected.outcome.kind,
+            date: expected.outcome.date ?? null,
+            daysAgo: expected.outcome.daysAgo ?? null,
+            evidenceQuote: expected.outcome.evidenceQuote,
+          },
+  };
+}
 
 /**
  * The expected reading of a note, in the shared gold-note / scenario
@@ -40,6 +85,8 @@ export const ExpectedExtractionSchema = z.object({
       confidence: z.number().optional(),
     }),
   ),
+  /** Present when the note dates a current pregnancy or reports its outcome. */
+  pregnancy: ExpectedPregnancySchema.optional(),
 });
 export type ExpectedExtraction = z.infer<typeof ExpectedExtractionSchema>;
 
@@ -90,6 +137,7 @@ export function modelOutputFromExpected(expected: ExpectedExtraction): ModelExtr
       evidenceQuote: p.evidenceQuote,
       confidence: p.confidence ?? 0.9,
     })),
+    pregnancy: modelPregnancyFromExpected(expected.pregnancy),
   };
 }
 
@@ -122,6 +170,27 @@ export const ExtractionFixtureSchema = z.object({
       code: z.object({ system: z.string(), code: z.string() }).optional(),
     }),
   ),
+  /**
+   * The pregnancy reading, dates as ISO strings. An outcome date or a
+   * last menstrual period the note does not write is dropped by the
+   * post-checks, like any other unsupported date.
+   */
+  pregnancy: z
+    .object({
+      gestationalWeeks: z.number().optional(),
+      gestationalDays: z.number().optional(),
+      lastMenstrualPeriod: z.string().optional(),
+      estimatedDeliveryDate: z.string().optional(),
+      datingEvidenceQuote: z.string().optional(),
+      outcome: z
+        .object({
+          kind: z.enum(PREGNANCY_OUTCOME_KINDS),
+          date: z.string().optional(),
+          evidenceQuote: z.string(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 export type ExtractionFixture = z.infer<typeof ExtractionFixtureSchema>;
 
@@ -157,6 +226,29 @@ export function modelOutputFromExtraction(fixture: ExtractionFixture): ModelExtr
       evidenceQuote: p.evidenceQuote,
       confidence: p.confidence,
     })),
+    pregnancy:
+      fixture.pregnancy === undefined
+        ? null
+        : modelPregnancyFromExpected({
+            ...fixture.pregnancy,
+            ...(fixture.pregnancy.lastMenstrualPeriod === undefined
+              ? {}
+              : { lastMenstrualPeriod: fixture.pregnancy.lastMenstrualPeriod.slice(0, 10) }),
+            ...(fixture.pregnancy.estimatedDeliveryDate === undefined
+              ? {}
+              : { estimatedDeliveryDate: fixture.pregnancy.estimatedDeliveryDate.slice(0, 10) }),
+            ...(fixture.pregnancy.outcome === undefined
+              ? {}
+              : {
+                  outcome: {
+                    kind: fixture.pregnancy.outcome.kind,
+                    evidenceQuote: fixture.pregnancy.outcome.evidenceQuote,
+                    ...(fixture.pregnancy.outcome.date === undefined
+                      ? {}
+                      : { date: fixture.pregnancy.outcome.date.slice(0, 10) }),
+                  },
+                }),
+          }),
   };
 }
 

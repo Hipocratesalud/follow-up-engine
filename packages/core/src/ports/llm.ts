@@ -22,6 +22,20 @@ export interface LlmUsage {
   readonly outputTokens: number;
 }
 
+/**
+ * A tool an agent may call. A provider with native tool calling sends the
+ * tools to the model and returns the call it chose as the request's output
+ * (an object `{ thought, tool, arguments }`, `arguments` a JSON string); any
+ * other provider ignores them, and the same object comes back as plain
+ * structured output, the prompt describing the tools. Either way the output
+ * schema validates it.
+ */
+export interface LlmToolSpec {
+  readonly name: string;
+  readonly description: string;
+  readonly parameters: z.ZodType;
+}
+
 /** A request to a single provider. Contains no tenant or patient identifiers. */
 export interface LlmCompletionRequest<TOutput> {
   /** Provider-specific model id, for example `meta-models/muse-spark-open-1026`. */
@@ -31,6 +45,8 @@ export interface LlmCompletionRequest<TOutput> {
   readonly temperature?: number;
   readonly maxOutputTokens?: number;
   readonly timeoutMs?: number;
+  /** Tools for an agent step (see {@link LlmToolSpec}). */
+  readonly tools?: readonly LlmToolSpec[];
 }
 
 export interface LlmCompletion<TOutput> {

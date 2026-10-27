@@ -3,10 +3,17 @@ import type {
   CaseEvent,
   CaseFeedback,
   ClinicalEvent,
+  ClinicalFinding,
+  ClinicalReviewRun,
   ClinicId,
+  ContactCommunication,
+  ContactRequest,
+  PatientContactFlag,
+  RuleSuppression,
   DomainEvent,
   Expectation,
   FhirResourceJson,
+  FindingFlag,
   FollowUpCase,
   JobId,
   JsonObject,
@@ -66,6 +73,13 @@ export interface MemoryState {
   readonly outbox: OutboxRecord[];
   readonly llmCalls: LlmCallRecord[];
   readonly backfillRuns: Map<string, BackfillProgress>;
+  readonly contactRequests: Map<string, ContactRequest>;
+  readonly communications: Map<string, ContactCommunication>;
+  readonly contactFlags: Map<string, PatientContactFlag>;
+  readonly suppressions: Map<string, RuleSuppression>;
+  readonly clinicalFindings: Map<string, ClinicalFinding>;
+  readonly reviewRuns: Map<string, ClinicalReviewRun>;
+  readonly findingFlags: Map<string, FindingFlag>;
   sequence: number;
 }
 
@@ -85,6 +99,13 @@ function emptyState(): MemoryState {
     outbox: [],
     llmCalls: [],
     backfillRuns: new Map(),
+    contactRequests: new Map(),
+    communications: new Map(),
+    contactFlags: new Map(),
+    suppressions: new Map(),
+    clinicalFindings: new Map(),
+    reviewRuns: new Map(),
+    findingFlags: new Map(),
     sequence: 0,
   };
 }

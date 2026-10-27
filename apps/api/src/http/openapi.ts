@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import './schemas.ts';
+import './reviewer-schemas.ts';
 
 /*
  * OpenAPI 3.1 document of the API. Component schemas are generated from the
@@ -193,6 +194,61 @@ const OPERATIONS: readonly Operation[] = [
   },
   {
     method: 'get',
+    path: '/fhir/CommunicationRequest',
+    tag: 'FHIR',
+    summary: 'Contact attempts the engine asked for, for a patient (one per attempt)',
+    params: [patientParam, preferHandling],
+    response: 'fhir',
+    errors: [422],
+  },
+  {
+    method: 'get',
+    path: '/fhir/CommunicationRequest/{id}',
+    tag: 'FHIR',
+    summary:
+      'Read one contact attempt (the communicationRequest link of patient_contact.requested)',
+    params: [id('CommunicationRequest id')],
+    response: 'fhir',
+    errors: [404],
+  },
+  {
+    method: 'get',
+    path: '/fhir/Communication',
+    tag: 'FHIR',
+    summary: 'What came of the contact attempts of a patient (host reports and calls)',
+    params: [patientParam, preferHandling],
+    response: 'fhir',
+    errors: [422],
+  },
+  {
+    method: 'get',
+    path: '/fhir/Communication/{id}',
+    tag: 'FHIR',
+    summary: 'Read one contact outcome',
+    params: [id('Communication id')],
+    response: 'fhir',
+    errors: [404],
+  },
+  {
+    method: 'get',
+    path: '/fhir/Flag',
+    tag: 'FHIR',
+    summary: 'Reminders stopped for a patient (category follow-up-suppression)',
+    params: [patientParam, preferHandling],
+    response: 'fhir',
+    errors: [422],
+  },
+  {
+    method: 'get',
+    path: '/fhir/Flag/{id}',
+    tag: 'FHIR',
+    summary: 'Read one suppression Flag',
+    params: [id('Flag id')],
+    response: 'fhir',
+    errors: [404],
+  },
+  {
+    method: 'get',
     path: '/fhir/metadata',
     tag: 'FHIR',
     summary: 'CapabilityStatement (public)',
@@ -253,10 +309,44 @@ const OPERATIONS: readonly Operation[] = [
     path: '/api/inbox/cases/{id}/actions',
     tag: 'Inbox',
     summary: 'Notify, snooze, resolve or dismiss a case',
+    description:
+      'dismiss needs a reason (recorded as the case feedback too); other needs a note; with ' +
+      'not_applicable_to_patient, suppress: true stops the case rules for this patient.',
     params: [id('Case id')],
     body: 'CaseActionRequest',
     response: 'CaseDetail',
     errors: [404, 409, 422],
+  },
+  {
+    method: 'post',
+    path: '/api/inbox/cases/{id}/call-outcome',
+    tag: 'Inbox',
+    summary: 'Record what came of the call the team made ("Llamar al paciente")',
+    description:
+      'Recorded as a FHIR Communication (medium phone, sender the user) on the case call, and ' +
+      'sent to the host as contact.outcome_recorded.',
+    params: [id('Case id')],
+    body: 'CallOutcomeRequest',
+    response: 'CaseDetail',
+    errors: [404, 422],
+  },
+  {
+    method: 'post',
+    path: '/api/inbox/suppressions/{id}/reactivate',
+    tag: 'Inbox',
+    summary: 'Reactivate a reminder stopped for a patient ("Volver a activar")',
+    params: [id('Suppression id')],
+    response: 'SuppressionView',
+    errors: [404, 409],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/calibration',
+    tag: 'Inbox',
+    summary: 'Per rule: useful rate and dismissals by reason (rule calibration)',
+    params: [{ name: 'since', in: 'query', description: 'ISO 8601 date-time' }],
+    response: 'CalibrationReport',
+    errors: [422],
   },
   {
     method: 'post',
@@ -328,6 +418,83 @@ const OPERATIONS: readonly Operation[] = [
   },
   {
     method: 'get',
+    path: '/api/inbox/findings',
+    tag: 'Inbox',
+    summary: 'Clinical reviewer findings for the batch review (shadow by default), newest first',
+    description:
+      'Shadow findings are only for the clinical staff validating the reviewer: never exported ' +
+      'to /fhir nor sent as webhooks. `counts` covers the whole mode.',
+    params: [
+      { name: 'mode', in: 'query', enum: ['shadow', 'live'] },
+      {
+        name: 'status',
+        in: 'query',
+        enum: ['open', 'relevant', 'already_known', 'not_relevant', 'expired', 'reviewed'],
+      },
+      { name: 'category', in: 'query', description: 'Comma-separated categories' },
+      { name: 'severity', in: 'query', description: 'Comma-separated: low, medium, high' },
+      { name: 'patientId', in: 'query' },
+      { name: 'cursor', in: 'query' },
+      { name: 'limit', in: 'query' },
+    ],
+    response: 'FindingPage',
+    errors: [422],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/findings/metrics',
+    tag: 'Inbox',
+    summary:
+      'Reviewer metrics of the last 90 days: runs, findings per 100 patients, cost, precision',
+    response: 'ReviewMetrics',
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/findings/{id}',
+    tag: 'Inbox',
+    summary: "A finding with its citations, trend and the agent's run (tool trace, cost)",
+    params: [id('Finding id')],
+    response: 'FindingDetail',
+    errors: [404],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/findings/{id}/fhir',
+    tag: 'Inbox',
+    summary: 'A finding as a FHIR R4 DetectedIssue (shadow ones included, for the staff)',
+    params: [id('Finding id')],
+    response: 'fhir',
+    errors: [404],
+  },
+  {
+    method: 'post',
+    path: '/api/inbox/findings/{id}/review',
+    tag: 'Inbox',
+    summary: 'Verdict on a finding: relevant, already_known or not_relevant (reason required)',
+    params: [id('Finding id')],
+    body: 'FindingReviewRequest',
+    response: 'Finding',
+    errors: [404, 422],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/finding-flags',
+    tag: 'Inbox',
+    summary: 'Finding categories of the clinic: on/off, shadow/live, sign-off and shadow precision',
+    response: 'FindingFlagList',
+  },
+  {
+    method: 'put',
+    path: '/api/inbox/finding-flags',
+    tag: 'Inbox',
+    summary:
+      'Turn a category on or off, or move it between shadow and live (live needs validatedBy)',
+    body: 'FindingFlagUpdate',
+    response: 'FindingFlag',
+    errors: [422],
+  },
+  {
+    method: 'get',
     path: '/api/demo/clock',
     tag: 'Demo',
     summary: 'Fake clock (404 with a real clock)',
@@ -366,6 +533,15 @@ const OPERATIONS: readonly Operation[] = [
       { name: 'type', in: 'query' },
     ],
     response: 'WebhookList',
+    errors: [404],
+  },
+  {
+    method: 'post',
+    path: '/api/demo/review/{patientId}',
+    tag: 'Demo',
+    summary: 'Review a patient now (no 10-minute debounce): the run and the findings it stored',
+    params: [{ name: 'patientId', in: 'path', required: true }],
+    response: 'DemoReviewResponse',
     errors: [404],
   },
 ];

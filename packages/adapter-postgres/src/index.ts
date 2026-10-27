@@ -54,7 +54,13 @@ export {
   type ClinicRegistration,
 } from './clinic-directory.ts';
 export { PostgresLlmUsageLog } from './llm-usage-log.ts';
+export {
+  PostgresClinicalFindingRepository,
+  PostgresClinicalReviewRunRepository,
+  PostgresFindingFlagRepository,
+} from './clinical-finding-repositories.ts';
 export { PostgresBackfillProgressStore } from './backfill-progress-store.ts';
+export { PostgresContactRepository, PostgresSuppressionRepository } from './contact-repository.ts';
 export {
   DEFAULT_JOB_BACKOFF,
   DEFAULT_MAX_ATTEMPTS,

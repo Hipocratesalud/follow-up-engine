@@ -1,3 +1,4 @@
+import type { NamedEscalationPolicy } from '../config/loader.ts';
 import type { Protocol } from '../config/protocol.ts';
 import type { Rule } from '../config/rule.ts';
 import type { ClinicId } from '../domain/ids.ts';
@@ -15,4 +16,12 @@ export interface RuleSource {
 export interface ProtocolSource {
   listProtocols(clinicId: ClinicId): Promise<readonly Protocol[]>;
   getProtocol(clinicId: ClinicId, protocolId: string): Promise<Protocol | undefined>;
+}
+
+/**
+ * Named, versioned escalation policies (config/rules/escalation): what a
+ * clinic's `escalationPolicyId` and a case's pinned policy resolve against.
+ */
+export interface EscalationPolicySource {
+  listPolicies(clinicId: ClinicId): Promise<readonly NamedEscalationPolicy[]>;
 }

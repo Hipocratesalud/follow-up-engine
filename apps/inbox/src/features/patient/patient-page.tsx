@@ -1,21 +1,37 @@
 import {
   ArrowLeft,
+  BellRing,
   Check,
   FileWarning,
   MessageSquareOff,
   MessageSquareText,
+  ShieldOff,
   Sparkles,
   X,
 } from 'lucide-react';
 import { type MouseEvent, type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import type { ConditionView, PatientDetail, PatientExpectationView } from '../../api/contract.ts';
-import { useConditionReview, useNoteReader, useNow, usePatient } from '../../api/queries.ts';
-import { LayerChip } from '../../components/case-badges.tsx';
+import type {
+  ConditionView,
+  PatientDetail,
+  PatientExpectationView,
+  SuppressionView,
+} from '../../api/contract.ts';
+import {
+  useConditionReview,
+  useNoteReader,
+  useNow,
+  usePatient,
+  useReactivateSuppression,
+} from '../../api/queries.ts';
+import { LayerChip, ReasonProtocol } from '../../components/case-badges.tsx';
 import { InlineQuote } from '../../components/evidence.tsx';
 import { ErrorState, InlineError, NotFoundState } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, Skeleton, type Tone } from '../../components/ui.tsx';
+import { PreVisitQuestions } from '../reviewer/pre-visit-questions.tsx';
 import { cx } from '../../lib/cx.ts';
+import { SUPPRESSIONS_COPY } from '../../lib/copy.ts';
+import { ContactFlagNotice } from '../case/contact-panel.tsx';
 import { formatDate, formatPercent, formatRelative, initials } from '../../lib/format.ts';
 import {
   CONDITION_SOURCE_LABELS,
@@ -174,12 +190,136 @@ function ExpectationItem({
           {EXPECTATION_STATUS_LABELS[expectation.status]}
         </Badge>
       </div>
+      <ReasonProtocol
+        protocol={expectation.protocol}
+        withDraftBadge={expectation.status === 'open' || expectation.status === 'expired'}
+      />
       <p className="text-xs text-muted">Fecha límite: {formatDate(expectation.dueAt)}</p>
       {expectation.closedReason ? (
         <p className="text-xs text-muted">Motivo del cierre: {expectation.closedReason}</p>
       ) : null}
       {expectation.evidence ? <InlineQuote quote={expectation.evidence.quote} /> : null}
     </li>
+  );
+}
+
+function SuppressionItem({
+  suppression,
+  patientId,
+}: {
+  readonly suppression: SuppressionView;
+  readonly patientId: string;
+}): ReactNode {
+  const reactivate = useReactivateSuppression(patientId);
+  const [done, setDone] = useState(false);
+
+  function handleReactivate(): void {
+    if (reactivate.isPending) return;
+    reactivate.mutate(suppression.id, {
+      onSuccess: () => {
+        setDone(true);
+      },
+    });
+  }
+
+  return (
+    <li className="flex flex-col gap-2 border-b border-border py-3 last:border-b-0">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-fg">{suppression.label}</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {suppression.dismissReasonLabel} ·{' '}
+            {suppression.createdBy ? `${suppression.createdBy}, ` : ''}
+            {formatDate(suppression.createdAt)}
+            {suppression.caseId ? (
+              <>
+                {' · '}
+                <Link
+                  to={`/casos/${suppression.caseId}`}
+                  className="font-medium text-primary underline underline-offset-2"
+                >
+                  {SUPPRESSIONS_COPY.caseLink}
+                </Link>
+              </>
+            ) : null}
+          </p>
+          {!suppression.active && suppression.revokedAt ? (
+            <p className="mt-0.5 text-xs text-muted">
+              {SUPPRESSIONS_COPY.reactivatedBy(
+                suppression.revokedBy,
+                formatDate(suppression.revokedAt),
+              )}
+            </p>
+          ) : null}
+        </div>
+        {suppression.active ? (
+          <Button
+            size="sm"
+            loading={reactivate.isPending}
+            onClick={handleReactivate}
+            icon={<BellRing className="size-3.5" aria-hidden="true" />}
+          >
+            {SUPPRESSIONS_COPY.reactivate}
+          </Button>
+        ) : (
+          <Badge tone="neutral">{SUPPRESSIONS_COPY.reactivatedBadge}</Badge>
+        )}
+      </div>
+      {suppression.note ? (
+        <p className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm text-fg">{suppression.note}</p>
+      ) : null}
+      <InlineError error={reactivate.error} />
+      <p aria-live="polite" className={cx('text-xs text-success', !done && 'sr-only')}>
+        {done ? SUPPRESSIONS_COPY.reactivatedDone : ''}
+      </p>
+    </li>
+  );
+}
+
+function SuppressionsSection({
+  suppressions,
+  patientId,
+}: {
+  readonly suppressions: readonly SuppressionView[];
+  readonly patientId: string;
+}): ReactNode {
+  const active = suppressions.filter((suppression) => suppression.active);
+  const history = suppressions.filter((suppression) => !suppression.active);
+  return (
+    <Card className="flex flex-col p-5" aria-labelledby="suppressions-title">
+      <SectionTitle id="suppressions-title" count={active.length}>
+        {SUPPRESSIONS_COPY.title}
+      </SectionTitle>
+      <p className="mt-1 text-xs text-muted">{SUPPRESSIONS_COPY.intro}</p>
+      {active.length === 0 ? (
+        <p className="mt-3 flex items-center gap-1.5 text-sm text-muted">
+          <ShieldOff className="size-4" aria-hidden="true" />
+          {SUPPRESSIONS_COPY.empty}
+        </p>
+      ) : (
+        <ul className="mt-1">
+          {active.map((suppression) => (
+            <SuppressionItem key={suppression.id} suppression={suppression} patientId={patientId} />
+          ))}
+        </ul>
+      )}
+      {history.length > 0 ? (
+        <details className="mt-2 rounded-lg border border-border">
+          <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-muted hover:text-fg">
+            {SUPPRESSIONS_COPY.history(history.length)}
+          </summary>
+          <ul className="px-3">
+            {history.map((suppression) => (
+              <SuppressionItem
+                key={suppression.id}
+                suppression={suppression}
+                patientId={patientId}
+              />
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </Card>
   );
 }
 
@@ -259,6 +399,10 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
         ) : null}
       </Card>
 
+      {contact?.contactFlag ? <ContactFlagNotice flag={contact.contactFlag} now={now} /> : null}
+
+      <PreVisitQuestions patientId={detail.patient.id} />
+
       <section aria-labelledby="conditions-title" className="flex flex-col gap-3">
         <SectionTitle id="conditions-title" count={current.length}>
           Condiciones
@@ -323,6 +467,8 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
           )}
         </Card>
       </div>
+
+      <SuppressionsSection suppressions={detail.suppressions} patientId={patient.id} />
 
       <section aria-labelledby="quality-title" className="flex flex-col gap-3">
         <SectionTitle id="quality-title" count={detail.qualityFindings.length}>

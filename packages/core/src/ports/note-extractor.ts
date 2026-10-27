@@ -39,6 +39,33 @@ export interface ExtractedMedication {
   readonly evidenceQuote: string;
 }
 
+/** How a pregnancy the note reports ended. */
+export type PregnancyOutcomeKind = 'vaginal_delivery' | 'cesarean_delivery' | 'loss';
+
+/**
+ * What a note says about the patient's current (or just ended) pregnancy:
+ * its dating ("embarazo de 20 semanas", "FUM 03/04/2026", "FPP 10/01/2027")
+ * and its outcome ("parto vaginal el 02/03/2026", "cesárea hace 10 días",
+ * "aborto espontáneo"). Never a past pregnancy ("G2P1" is history).
+ */
+export interface ExtractedPregnancy {
+  /** Completed weeks of gestation on the note's date. */
+  readonly gestationalWeeks?: number;
+  /** Days past `gestationalWeeks` (0 to 6), when stated ("20 semanas y 3 días"). */
+  readonly gestationalDays?: number;
+  readonly lastMenstrualPeriod?: Date;
+  readonly estimatedDeliveryDate?: Date;
+  /** Verbatim substring of the note that dates the pregnancy. */
+  readonly datingEvidenceQuote?: string;
+  readonly outcome?: {
+    readonly kind: PregnancyOutcomeKind;
+    /** When it happened, when the note says ("el 02/03", "hace 10 días"); else the note's date. */
+    readonly date?: Date;
+    /** Verbatim substring of the note that states the outcome. */
+    readonly evidenceQuote: string;
+  };
+}
+
 /** Structured reading of one note: the doctor's plan plus conditions and medications. */
 export interface NoteExtraction {
   readonly hasPlan: boolean;
@@ -46,6 +73,8 @@ export interface NoteExtraction {
   readonly medications: readonly ExtractedMedication[];
   /** `dueAt` already resolved against `authoredAt`. */
   readonly planItems: readonly PlanItem[];
+  /** The patient's pregnancy, when the note dates one or reports its outcome. Optional. */
+  readonly pregnancy?: ExtractedPregnancy;
   /**
    * The note ends follow-up in this specialty ("se da de alta"): the visit
    * pattern stops here. Optional; absent means no.

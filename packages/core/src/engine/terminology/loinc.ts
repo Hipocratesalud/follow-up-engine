@@ -66,6 +66,94 @@ const CONCEPTS: readonly LoincConcept[] = [
     canonicalUnit: 'mg/dL',
   },
   { key: 'triglycerides', codes: [{ code: '2571-8', unit: 'mg/dL' }], canonicalUnit: 'mg/dL' },
+  {
+    key: 'creatinine',
+    codes: [
+      { code: '2160-0', unit: 'mg/dL' },
+      { code: '38483-4', unit: 'mg/dL' },
+      { code: '14682-9', unit: 'umol/L' },
+    ],
+    canonicalUnit: 'mg/dL',
+    // 1 mg/dL of creatinine is 88.42 umol/L.
+    conversions: [{ unit: 'umol/L', factor: 1 / 88.42, offset: 0 }],
+  },
+  {
+    // Estimated GFR by any creatinine (or cystatin) equation: MDRD, CKD-EPI 2009 and 2021.
+    key: 'egfr',
+    codes: [
+      { code: '33914-3', unit: 'mL/min/{1.73_m2}' },
+      { code: '48642-3', unit: 'mL/min/{1.73_m2}' },
+      { code: '48643-1', unit: 'mL/min/{1.73_m2}' },
+      { code: '62238-1', unit: 'mL/min/{1.73_m2}' },
+      { code: '77147-7', unit: 'mL/min/{1.73_m2}' },
+      { code: '88293-6', unit: 'mL/min/{1.73_m2}' },
+      { code: '88294-4', unit: 'mL/min/{1.73_m2}' },
+      { code: '98979-8', unit: 'mL/min/{1.73_m2}' },
+    ],
+    canonicalUnit: 'mL/min/{1.73_m2}',
+  },
+  {
+    // Urine albumin/creatinine ratio (KDIGO albuminuria category).
+    key: 'uacr',
+    codes: [
+      { code: '9318-7', unit: 'mg/g' },
+      { code: '14959-1', unit: 'mg/g' },
+      { code: '32294-1', unit: 'mg/g' },
+      { code: '13705-9', unit: 'mg/g' },
+    ],
+    canonicalUnit: 'mg/g',
+    // 1 mg/mmol is 8.84 mg/g.
+    conversions: [{ unit: 'mg/mmol', factor: 8.84, offset: 0 }],
+  },
+  {
+    key: 'tsh',
+    codes: [
+      { code: '3016-3', unit: 'm[IU]/L' },
+      { code: '11580-8', unit: 'm[IU]/L' },
+      { code: '11579-0', unit: 'm[IU]/L' },
+    ],
+    canonicalUnit: 'm[IU]/L',
+    // uIU/mL is numerically mIU/L.
+    conversions: [{ unit: 'u[IU]/mL', factor: 1, offset: 0 }],
+  },
+  {
+    // Gestational age, in weeks (estimated, from the LMP, by ultrasound).
+    key: 'gestational_age',
+    codes: [
+      { code: '11884-4', unit: 'wk' },
+      { code: '11885-1', unit: 'wk' },
+      { code: '18185-9', unit: 'wk' },
+      { code: '49051-6', unit: 'wk' },
+    ],
+    canonicalUnit: 'wk',
+    conversions: [
+      ...['wks', 'week', 'weeks', 'sem', 'semana', 'semanas'].map((unit) => ({
+        unit,
+        factor: 1,
+        offset: 0,
+      })),
+      ...['d', 'day', 'days', 'dia', 'dias', 'día', 'días'].map((unit) => ({
+        unit,
+        factor: 1 / 7,
+        offset: 0,
+      })),
+    ],
+  },
+  {
+    // Estimated date of delivery (a date value): overall, from the LMP, from ovulation.
+    key: 'estimated_delivery_date',
+    codes: [
+      { code: '11778-8', unit: 'date' },
+      { code: '11779-6', unit: 'date' },
+      { code: '11780-4', unit: 'date' },
+    ],
+    canonicalUnit: 'date',
+  },
+  {
+    key: 'last_menstrual_period',
+    codes: [{ code: '8665-2', unit: 'date' }],
+    canonicalUnit: 'date',
+  },
 ];
 
 const PANELS: readonly LoincPanel[] = [
@@ -74,7 +162,19 @@ const PANELS: readonly LoincPanel[] = [
     codes: ['24331-1', '57698-3', '57696-7'],
     components: ['cholesterol_total', 'hdl', 'ldl', 'triglycerides'],
   },
+  {
+    // Glucose challenge and tolerance tests used to screen for gestational
+    // diabetes: 1 h after 50 g, 2 h after 75 g, 2 h after a dose.
+    key: 'glucose_tolerance',
+    codes: ['1504-0', '1518-0', '20436-2'],
+    components: [],
+  },
 ];
+
+/** Key of the measurement or panel a LOINC code reports (`egfr`, `lipid_panel`), if the table knows it. */
+export function loincConceptKey(coding: Pick<Coding, 'system' | 'code'>): string | undefined {
+  return conceptOf(coding)?.key ?? panelOf(coding)?.key;
+}
 
 function isLoinc(coding: Pick<Coding, 'system'>): boolean {
   return coding.system === LOINC_SYSTEM;
@@ -139,7 +239,11 @@ function normalizeUnit(unit: string): string {
     .trim()
     .toLowerCase()
     .replace(/\s+hb$/, '')
-    .replace(/\s+/g, '');
+    .replace(/\s+/g, '')
+    .replace(/[[\]{}_]/g, '')
+    .replace(/,/g, '.')
+    .replace(/^[µμ]/u, 'u')
+    .replace(/ui/g, 'iu');
 }
 
 function toCanonical(concept: LoincConcept, value: number, unit: string): number | undefined {

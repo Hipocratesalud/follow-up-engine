@@ -54,6 +54,7 @@ async function read(text: string, redactTerms?: readonly string[]) {
 const empty: ModelExtraction = {
   hasPlan: true,
   discharge: null,
+  pregnancy: null,
   conditions: [],
   medications: [],
   planItems: [],

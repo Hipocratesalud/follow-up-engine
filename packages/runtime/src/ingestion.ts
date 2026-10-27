@@ -2,20 +2,27 @@ import {
   type ClinicalBatch,
   type ClinicId,
   type Clock,
+  type CommunicationRecordResult,
+  contactRequestId,
+  type FhirResourceJson,
   type FollowUpEngine,
   type IngestReport,
   isOlderResourceVersion,
   type JobId,
   type JsonObject,
+  NotFoundError,
   type PatientId,
   patientId as toPatientId,
   ValidationError,
 } from '@follow-up-engine/core';
 import {
+  type BundleCommunication,
   type BundleMappingResult,
   mapBundleToBatches,
+  type MappingIssue,
   type OperationOutcome,
   type OperationOutcomeIssue,
+  toOperationOutcome,
 } from '@follow-up-engine/fhir';
 import type { Storage } from './storage.ts';
 
@@ -60,6 +67,8 @@ export interface BundleAcceptance {
   readonly jobId?: JobId;
   /** Synchronous mode: what the engine did with each batch. */
   readonly reports?: readonly IngestReport[];
+  /** Synchronous mode: the contact outcomes (`Communication`s) recorded. */
+  readonly contactOutcomes?: readonly CommunicationRecordResult[];
 }
 
 /** What {@link IngestionService.stageHistory} did with a historical Bundle. */
@@ -139,7 +148,10 @@ export class IngestionService {
 
   async accept(clinicId: ClinicId, bundle: unknown, mode: IngestMode): Promise<BundleAcceptance> {
     const receivedAt = this.#deps.clock.now();
-    const mapping = mapBundleToBatches(bundle, { clinicId, receivedAt, checkFutureDates: true });
+    const mapping = await this.#checkCommunications(
+      clinicId,
+      mapBundleToBatches(bundle, { clinicId, receivedAt, checkFutureDates: true }),
+    );
     const outcome = mapping.issues;
     if (rejected(mapping)) {
       return {
@@ -150,12 +162,19 @@ export class IngestionService {
         batches: 0,
       };
     }
+    const contactDataChanged: PatientId[] = [];
     const { stored, jobId } = await this.#deps.storage.unitOfWork.withTransaction(
       clinicId,
       async (stores) => {
-        const saved = await this.#store(stores.clinicalRecords, clinicId, mapping, receivedAt);
+        const saved = await this.#store(
+          stores.clinicalRecords,
+          clinicId,
+          mapping,
+          receivedAt,
+          contactDataChanged,
+        );
         const job =
-          mode === 'async' && mapping.batches.length > 0
+          mode === 'async' && (mapping.batches.length > 0 || mapping.communications.length > 0)
             ? await stores.jobs.enqueue(clinicId, {
                 type: INGEST_BUNDLE_JOB,
                 // The Bundle as mapped: control characters already removed.
@@ -169,6 +188,11 @@ export class IngestionService {
         return { stored: saved, jobId: job };
       },
     );
+    // The host corrected the patient's phone or e-mail: a wrong-number flag
+    // no longer stands, messages may go out again.
+    for (const patientId of contactDataChanged) {
+      await this.#deps.engine.contacts.contactDataUpdated(clinicId, patientId);
+    }
     const base = {
       ok: true,
       ...(outcome === undefined ? {} : { outcome }),
@@ -179,7 +203,141 @@ export class IngestionService {
     if (mode === 'async') {
       return { ...base, ...(jobId === undefined ? {} : { jobId }) };
     }
-    return { ...base, reports: await this.#ingestBatches(await this.#current(clinicId, mapping)) };
+    const reports = await this.#ingestBatches(await this.#current(clinicId, mapping));
+    return {
+      ...base,
+      reports,
+      contactOutcomes: await this.#recordCommunications(clinicId, mapping.communications),
+    };
+  }
+
+  /**
+   * Checks every `Communication` against the clinic's contact attempts: its
+   * `basedOn` must be a `CommunicationRequest` of this clinic (another
+   * clinic's is as unknown as a made-up one) about the same patient. A
+   * failing entry is an error like any mapping error: a transaction is
+   * rejected whole, a batch answers that entry with its `OperationOutcome`
+   * and stores nothing of it.
+   */
+  async #checkCommunications(
+    clinicId: ClinicId,
+    mapping: BundleMappingResult,
+  ): Promise<BundleMappingResult> {
+    if (mapping.communications.length === 0) {
+      return mapping;
+    }
+    const failures = await this.#deps.storage.unitOfWork.withTransaction(
+      clinicId,
+      async (stores) => {
+        const found: { readonly item: BundleCommunication; readonly issue: MappingIssue }[] = [];
+        for (const item of mapping.communications) {
+          const { communication } = item;
+          const request = await stores.contacts.getRequest(
+            clinicId,
+            contactRequestId(communication.requestId),
+          );
+          if (request === undefined) {
+            found.push({
+              item,
+              issue: {
+                severity: 'error',
+                code: 'not-found',
+                message: `CommunicationRequest/${communication.requestId} is not a contact request of this clinic`,
+                expression: `${item.expression}.basedOn`,
+              },
+            });
+          } else if (request.patientId !== communication.patientId) {
+            found.push({
+              item,
+              issue: {
+                severity: 'error',
+                code: 'value',
+                message: `subject must be the patient of CommunicationRequest/${communication.requestId}`,
+                expression: `${item.expression}.subject`,
+              },
+            });
+          }
+        }
+        return found;
+      },
+    );
+    if (failures.length === 0) {
+      return mapping;
+    }
+    const issues = [...(mapping.issues?.issue ?? []), ...toIssues(failures.map((f) => f.issue))];
+    if (mapping.bundleType !== 'batch') {
+      const rejection = toIssues([
+        {
+          severity: 'error',
+          code: 'processing',
+          message: 'transaction rejected: fix the errors above; nothing was processed',
+          expression: 'Bundle',
+        },
+      ]);
+      return {
+        ...mapping,
+        batches: [],
+        communications: [],
+        resources: [],
+        contextResources: [],
+        issues: { resourceType: 'OperationOutcome', issue: [...issues, ...rejection] },
+      };
+    }
+    const failed = new Set(failures.map(({ item }) => item.communication.id));
+    return {
+      ...mapping,
+      communications: mapping.communications.filter(
+        ({ communication }) => !failed.has(communication.id),
+      ),
+      resources: mapping.resources.filter(
+        ({ resource }) => !(resource.resourceType === 'Communication' && failed.has(resource.id)),
+      ),
+      issues: { resourceType: 'OperationOutcome', issue: issues },
+    };
+  }
+
+  /**
+   * Records the contact outcomes of a Bundle on their attempts, after its
+   * clinical events (an Appointment sent with a "booked" outcome is in the
+   * record first). An attempt that is not the clinic's was refused when the
+   * Bundle was accepted; one found missing now (a batch entry re-mapped by
+   * the job) is skipped, not retried.
+   */
+  async #recordCommunications(
+    clinicId: ClinicId,
+    communications: readonly BundleCommunication[],
+  ): Promise<CommunicationRecordResult[]> {
+    const recorded: CommunicationRecordResult[] = [];
+    for (const { communication } of communications) {
+      try {
+        recorded.push(
+          await this.#deps.engine.contacts.recordCommunication(clinicId, {
+            id: communication.id,
+            requestId: contactRequestId(communication.requestId),
+            patientId: toPatientId(communication.patientId),
+            status: communication.status,
+            ...(communication.channel === undefined ? {} : { channel: communication.channel }),
+            ...(communication.outcome === undefined ? {} : { outcome: communication.outcome }),
+            ...(communication.sentAt === undefined ? {} : { sentAt: communication.sentAt }),
+            ...(communication.receivedAt === undefined
+              ? {}
+              : { receivedAt: communication.receivedAt }),
+            ...(communication.versionId === undefined
+              ? {}
+              : { versionId: communication.versionId }),
+            ...(communication.lastUpdated === undefined
+              ? {}
+              : { lastUpdated: communication.lastUpdated }),
+            sender: { type: 'host' },
+          }),
+        );
+      } catch (error) {
+        if (!(error instanceof NotFoundError) && !(error instanceof ValidationError)) {
+          throw error;
+        }
+      }
+    }
+    return recorded;
   }
 
   /**
@@ -227,7 +385,9 @@ export class IngestionService {
       receivedAt: new Date(receivedAt),
       checkFutureDates: true,
     });
-    return this.#ingestBatches(await this.#current(clinicId, mapping));
+    const reports = await this.#ingestBatches(await this.#current(clinicId, mapping));
+    await this.#recordCommunications(clinicId, mapping.communications);
+    return reports;
   }
 
   /**
@@ -270,16 +430,32 @@ export class IngestionService {
     return reports;
   }
 
+  /**
+   * Stores the Bundle's resources. `contactDataChanged` collects the
+   * patients whose contact points (`Patient.telecom`) the host changed.
+   */
   async #store(
     records: Storage['stores']['clinicalRecords'],
     clinicId: ClinicId,
     mapping: BundleMappingResult,
     receivedAt: Date,
+    contactDataChanged: PatientId[] = [],
   ): Promise<StoredEntry[]> {
     const stored: StoredEntry[] = [];
     for (const { patientId, resource } of mapping.resources) {
+      const previous =
+        resource.resourceType === 'Patient'
+          ? await records.getResource(clinicId, resource)
+          : undefined;
       const result = await records.saveResource(clinicId, patientId, resource, receivedAt);
       stored.push({ resourceType: resource.resourceType, id: resource.id, ...result });
+      if (
+        previous !== undefined &&
+        result.changed &&
+        telecomOf(previous.resource) !== telecomOf(resource)
+      ) {
+        contactDataChanged.push(patientId);
+      }
     }
     // Practitioners, organizations and locations sent along the consultation
     // (the inbox names each case's treating practitioner with them).
@@ -290,4 +466,13 @@ export class IngestionService {
     }
     return stored;
   }
+}
+
+/** The patient's contact points (`Patient.telecom`), compared as JSON. */
+function telecomOf(resource: FhirResourceJson): string {
+  return JSON.stringify(resource['telecom'] ?? null);
+}
+
+function toIssues(issues: readonly MappingIssue[]): OperationOutcomeIssue[] {
+  return toOperationOutcome(issues)?.issue ?? [];
 }

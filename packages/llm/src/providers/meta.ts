@@ -39,6 +39,8 @@ export interface MetaProviderOptions {
    * evals.
    */
   readonly allowContributorMode?: boolean;
+  /** How agent steps with tools are sent (default `native`, see `ChatCompletionsProviderOptions`). */
+  readonly toolCalling?: 'native' | 'structured';
   readonly fetch?: FetchLike;
   readonly now?: () => number;
 }
@@ -60,6 +62,7 @@ export function createMetaProvider(options: MetaProviderOptions): StructuredLlmP
     apiKey: options.apiKey,
     outputMode: options.outputMode ?? 'json_schema',
     maxTokensParam: 'max_completion_tokens',
+    ...(options.toolCalling === undefined ? {} : { toolCalling: options.toolCalling }),
     extraBody: {
       reasoning_effort: options.reasoningEffort ?? 'low',
       ...(options.promptCacheKey === undefined ? {} : { prompt_cache_key: options.promptCacheKey }),

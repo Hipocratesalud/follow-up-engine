@@ -34,12 +34,41 @@ export interface ExtractedMedication {
   readonly evidenceQuote: string;
 }
 
+/** How a pregnancy the note reports ended. */
+export type PregnancyOutcomeKind = 'vaginal_delivery' | 'cesarean_delivery' | 'loss';
+
+/**
+ * What a note says about the patient's current (or just ended) pregnancy:
+ * its dating ("embarazo de 20 semanas", "FUM 03/04/2026", "FPP 10/01/2027")
+ * and its outcome ("parto vaginal el 02/03/2026", "cesárea hace 10 días",
+ * "aborto espontáneo"). Never a past pregnancy ("G2P1" is history).
+ */
+export interface ExtractedPregnancy {
+  /** Completed weeks of gestation on the note's date. */
+  readonly gestationalWeeks?: number;
+  /** Days past `gestationalWeeks` (0 to 6), when stated ("20 semanas y 3 días"). */
+  readonly gestationalDays?: number;
+  readonly lastMenstrualPeriod?: Date;
+  readonly estimatedDeliveryDate?: Date;
+  /** Verbatim substring of the note that dates the pregnancy. */
+  readonly datingEvidenceQuote?: string;
+  readonly outcome?: {
+    readonly kind: PregnancyOutcomeKind;
+    /** When it happened, when the note says ("el 02/03", "hace 10 días"); else the note's date. */
+    readonly date?: Date;
+    /** Verbatim substring of the note that states the outcome. */
+    readonly evidenceQuote: string;
+  };
+}
+
 export interface NoteExtraction {
   readonly hasPlan: boolean;
   readonly conditions: readonly ExtractedCondition[];
   readonly medications: readonly ExtractedMedication[];
   /** `dueAt` already resolved against `authoredAt`. */
   readonly planItems: readonly PlanItem[];
+  /** The patient's pregnancy, when the note dates one or reports its outcome. Optional. */
+  readonly pregnancy?: ExtractedPregnancy;
   /** The note ends follow-up in this specialty ("se da de alta"). Absent means no. */
   readonly discharged?: boolean;
   /**
@@ -72,7 +101,9 @@ export type RejectionReason =
   /**
    * Not a current condition of the patient: a risk ("riesgo de diabetes"),
    * gestational diabetes or prediabetes read as diabetes, a past pregnancy
-   * read as a current one.
+   * read as a current one ("diabetes gestacional en embarazo previo",
+   * "cesárea previa", "G2P1"), pregnancy dating in a note that states no
+   * current pregnancy (a routine "FUM" in an annual control).
    */
   | 'not_current'
   /** A conditional or as-needed return ("volver si presenta fiebre"), not scheduled follow-up. */
@@ -84,6 +115,8 @@ export type RejectionReason =
   /**
    * The model's explicit date is not written in the note, nor follows from
    * the interval written where it quotes ("Control en 3 meses" due in 2031).
+   * For a pregnancy: weeks, a date or a "hace N días" the note does not
+   * write (the value is dropped, the rest of the reading is kept).
    */
   | 'timing_unsupported'
   /**
@@ -94,6 +127,12 @@ export type RejectionReason =
   | 'test_not_named'
   /** A measurement reported as a medication ("Hemoglobina 10,8 g/dL"). */
   | 'not_a_medication'
+  /**
+   * A pregnancy value outside what a current pregnancy allows: weeks past 45,
+   * a last menstrual period after the note or more than 45 weeks before it,
+   * an outcome dated after the note or more than 300 days before it.
+   */
+  | 'out_of_range'
   | 'invalid_code'
   | 'no_due_date'
   | 'due_before_note'
@@ -101,7 +140,7 @@ export type RejectionReason =
   | 'duplicate';
 
 export interface RejectedItem {
-  readonly field: 'condition' | 'medication' | 'planItem' | 'discharge';
+  readonly field: 'condition' | 'medication' | 'planItem' | 'discharge' | 'pregnancy';
   readonly reason: RejectionReason;
   readonly evidenceQuote: string;
 }

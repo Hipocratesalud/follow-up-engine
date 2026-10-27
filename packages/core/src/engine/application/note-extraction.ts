@@ -1,13 +1,21 @@
 import type {
   ClinicalEvent,
+  ClinicalEventBase,
   ConditionRecordedEvent,
   NoteReceivedEvent,
   PlanExtractedEvent,
+  ResultReceivedEvent,
 } from '../../domain/clinical-event.ts';
+import { type Coding, ICD10_SYSTEM } from '../../domain/resource.ts';
 import type { QualityFinding } from '../../domain/quality-finding.ts';
-import type { NoteExtraction } from '../../ports/note-extractor.ts';
+import type {
+  ExtractedPregnancy,
+  NoteExtraction,
+  PregnancyOutcomeKind,
+} from '../../ports/note-extractor.ts';
 import type { ExtractedMedicationHint } from '../annotator/conditions.ts';
 import { codeMatchKey } from '../matching/match-key.ts';
+import { LOINC_SYSTEM } from '../terminology/loinc.ts';
 import type { EngineSettings } from '../settings.ts';
 
 /** Job type of a note extraction to retry later (the extractor failed during ingest). */
@@ -110,8 +118,9 @@ export function deriveFromExtraction(
     ...(extraction.hasPlan ? [] : [finding('note_without_plan')]),
     ...(extraction.truncated === true ? [finding('note_truncated')] : []),
   ];
+  const pregnancy = pregnancyEvents(note, extraction.pregnancy, base, confidence);
   return {
-    events: [plan, ...conditions],
+    events: [plan, ...conditions, ...pregnancy],
     extractedConfidence: confidence,
     extractedMedications: extraction.medications.map((medication) => ({
       text: `${medication.text} ${medication.code?.display ?? ''}`.trim(),
@@ -119,6 +128,100 @@ export function deriveFromExtraction(
     })),
     findings,
   };
+}
+
+/** Confidence given to a pregnancy outcome read from a note. */
+const PREGNANCY_OUTCOME_CONFIDENCE = 0.8;
+
+/** ICD-10 code of a pregnancy outcome read from a note. */
+const OUTCOME_CODES: Readonly<Record<PregnancyOutcomeKind, Coding>> = {
+  vaginal_delivery: {
+    system: ICD10_SYSTEM,
+    code: 'O80',
+    display: 'Single spontaneous delivery',
+  },
+  cesarean_delivery: {
+    system: ICD10_SYSTEM,
+    code: 'O82',
+    display: 'Single delivery by caesarean section',
+  },
+  loss: { system: ICD10_SYSTEM, code: 'O03', display: 'Spontaneous abortion' },
+};
+
+const loinc = (code: string, display: string): Coding => ({ system: LOINC_SYSTEM, code, display });
+
+/**
+ * A note's reading of a pregnancy as facts of the record, the same ones a
+ * host sends: Observations of gestational age (LOINC 11884-4), last
+ * menstrual period (8665-2) and estimated delivery date (11778-8), and a
+ * provisional diagnosis of the outcome (O80 vaginal delivery, O82
+ * caesarean, O03 loss) dated when it happened, which ends the pregnancy
+ * protocol's episode.
+ */
+function pregnancyEvents(
+  note: NoteReceivedEvent,
+  pregnancy: ExtractedPregnancy | undefined,
+  base: Omit<ClinicalEventBase, 'idempotencyKey'>,
+  confidence: Map<string, number>,
+): ClinicalEvent[] {
+  if (pregnancy === undefined) {
+    return [];
+  }
+  const result = (
+    suffix: string,
+    code: Coding,
+    value: Pick<ResultReceivedEvent, 'value' | 'valueDate'>,
+  ): ResultReceivedEvent => ({
+    ...base,
+    type: 'result.received',
+    idempotencyKey: derivedKey(note, `pregnancy:${suffix}`),
+    code,
+    interpretation: 'unknown',
+    ...value,
+  });
+  const events: ClinicalEvent[] = [];
+  if (pregnancy.gestationalWeeks !== undefined) {
+    const weeks = pregnancy.gestationalWeeks + (pregnancy.gestationalDays ?? 0) / 7;
+    events.push(
+      result('gestational_age', loinc('11884-4', 'Gestational age Estimated'), {
+        value: { value: Math.round(weeks * 100) / 100, unit: 'wk' },
+      }),
+    );
+  }
+  if (pregnancy.lastMenstrualPeriod !== undefined) {
+    events.push(
+      result('last_menstrual_period', loinc('8665-2', 'Last menstrual period start date'), {
+        valueDate: pregnancy.lastMenstrualPeriod,
+      }),
+    );
+  }
+  if (pregnancy.estimatedDeliveryDate !== undefined) {
+    events.push(
+      result('estimated_delivery_date', loinc('11778-8', 'Delivery date Estimated'), {
+        valueDate: pregnancy.estimatedDeliveryDate,
+      }),
+    );
+  }
+  const outcome = pregnancy.outcome;
+  if (outcome !== undefined) {
+    const code = OUTCOME_CODES[outcome.kind];
+    const idempotencyKey = derivedKey(note, `condition:${codeMatchKey(code)}`);
+    confidence.set(idempotencyKey, PREGNANCY_OUTCOME_CONFIDENCE);
+    events.push({
+      ...base,
+      type: 'condition.recorded',
+      idempotencyKey,
+      // When the delivery or loss happened, not when the note told it.
+      occurredAt:
+        outcome.date !== undefined && outcome.date.getTime() <= note.occurredAt.getTime()
+          ? outcome.date
+          : note.occurredAt,
+      code,
+      verification: 'provisional',
+      evidence: { quote: outcome.evidenceQuote, sourceDocumentId: note.documentId },
+    });
+  }
+  return events;
 }
 
 /** Which notes of a patient were already read. */

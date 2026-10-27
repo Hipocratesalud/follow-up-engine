@@ -1,15 +1,18 @@
 import type { BackfillCounts } from './backfill.ts';
 import type { CaseResolutionKind } from './case.ts';
 import type { Origin, Reason } from './common.ts';
-import type { CaseId, ClinicId, PatientId } from './ids.ts';
+import type { ContactChannel, ContactOutcome, PatientContactPurpose } from './contact.ts';
+import type { CaseId, ClinicId, ContactRequestId, PatientId } from './ids.ts';
 
 export const DOMAIN_EVENT_TYPES = [
   'case.opened',
   'case.escalated',
   'case.resolved',
   'patient_contact.requested',
+  'contact.outcome_recorded',
   'backfill.completed',
   'backfill.paused',
+  'clinical_finding.created',
 ] as const;
 export type DomainEventType = (typeof DOMAIN_EVENT_TYPES)[number];
 
@@ -35,18 +38,6 @@ export interface CaseResolvedPayload {
 }
 
 /**
- * Generic, diagnosis-free purpose of a patient contact. The host turns it
- * into its own message (and its own channel, such as WhatsApp).
- */
-export const PATIENT_CONTACT_PURPOSES = [
-  'schedule_follow_up',
-  'complete_pending_test',
-  'review_results',
-  'medication_review',
-] as const;
-export type PatientContactPurpose = (typeof PATIENT_CONTACT_PURPOSES)[number];
-
-/**
  * Asks the host to contact the patient. By construction it carries no
  * diagnosis, test name or free text: only ids, a generic purpose and a date.
  */
@@ -55,12 +46,33 @@ export interface PatientContactRequestedPayload {
   readonly patientId: PatientId;
   readonly purpose: PatientContactPurpose;
   readonly dueBy?: Date;
+  /** The attempt (FHIR `CommunicationRequest`) the host reports back on with a `Communication`. */
+  readonly requestId?: ContactRequestId;
+  /** Channel hint of the policy step; absent: the host chooses. Never `phone_call` (an inbox task). */
+  readonly channel?: ContactChannel;
+  /** 1-based attempt number within the case. */
+  readonly attempt?: number;
   /**
    * The patient's preferred language (BCP-47, from `Patient.communication`):
    * the host writes its message in it. Absent: the host did not state one
    * (the host falls back to the clinic's language).
    */
   readonly language?: string;
+}
+
+/**
+ * A clinic user recorded what came of a call in the inbox. Sent so the host,
+ * which owns the patient's contact data and its own reminders, can act on
+ * it (fix a wrong number, stop messaging a patient who booked or declined).
+ * Outcomes the host itself reported are not echoed back. Ids and codes only.
+ */
+export interface ContactOutcomeRecordedPayload {
+  readonly caseId: CaseId;
+  readonly patientId: PatientId;
+  readonly requestId: ContactRequestId;
+  readonly communicationId: string;
+  readonly channel?: ContactChannel;
+  readonly outcome: ContactOutcome;
 }
 
 /** The initial backfill finished: every counter of the run. */
@@ -80,6 +92,17 @@ export interface BackfillPausedPayload extends BackfillCounts {
   readonly reason: 'llm_budget_exceeded';
 }
 
+/**
+ * A clinical reviewer finding of a category validated for live use. Shadow
+ * findings never produce it. Ids and severity only: the host reads the
+ * finding as a FHIR `DetectedIssue` with its API key.
+ */
+export interface ClinicalFindingCreatedPayload {
+  readonly findingId: string;
+  readonly patientId: PatientId;
+  readonly severity: 'low' | 'medium' | 'high';
+}
+
 interface DomainEventBase<TType extends DomainEventType, TPayload> {
   /** Unique; the host uses it as idempotency key (delivery is at least once). */
   readonly id: string;
@@ -95,8 +118,10 @@ export type DomainEvent =
   | DomainEventBase<'case.escalated', CaseEscalatedPayload>
   | DomainEventBase<'case.resolved', CaseResolvedPayload>
   | DomainEventBase<'patient_contact.requested', PatientContactRequestedPayload>
+  | DomainEventBase<'contact.outcome_recorded', ContactOutcomeRecordedPayload>
   | DomainEventBase<'backfill.completed', BackfillCompletedPayload>
-  | DomainEventBase<'backfill.paused', BackfillPausedPayload>;
+  | DomainEventBase<'backfill.paused', BackfillPausedPayload>
+  | DomainEventBase<'clinical_finding.created', ClinicalFindingCreatedPayload>;
 
 /** The domain event variant with the given `type`. */
 export type DomainEventOf<TType extends DomainEventType> = Extract<

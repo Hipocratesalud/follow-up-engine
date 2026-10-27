@@ -11,7 +11,7 @@ import { fieldError, InlineError } from '../../components/states.tsx';
 import { Button, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatLimit, INPUT_LIMITS } from '../../lib/limits.ts';
-import { FEEDBACK_REASON_LABELS } from '../../lib/labels.ts';
+import { FEEDBACK_REASON_LABELS, verdictReasonLabel } from '../../lib/labels.ts';
 
 function parseReason(value: string): FeedbackReason | undefined {
   return FEEDBACK_REASONS.find((reason) => reason === value);
@@ -37,9 +37,7 @@ function FeedbackSummary({
         )}
         <span>
           {feedback.useful ? 'Marcaste este caso como útil.' : 'Marcaste este caso como no útil'}
-          {!feedback.useful && feedback.reason
-            ? `: ${FEEDBACK_REASON_LABELS[feedback.reason]}.`
-            : null}
+          {!feedback.useful && feedback.reason ? `: ${verdictReasonLabel(feedback.reason)}.` : null}
           {feedback.comment ? <span className="text-muted"> «{feedback.comment}»</span> : null}
         </span>
       </p>

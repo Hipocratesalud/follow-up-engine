@@ -8,6 +8,9 @@ import {
 } from 'msw';
 import {
   type ApiFieldError,
+  CALL_OUTCOMES,
+  type CallOutcomeRequest,
+  DISMISS_REASONS,
   type CaseAction,
   type CaseActionRequest,
   type CaseListView,
@@ -18,7 +21,9 @@ import {
   type Origin,
 } from '../api/contract.ts';
 import { MOCK_API_KEY } from '../config.ts';
+import { VALIDATION_COPY } from '../lib/copy.ts';
 import { INPUT_LIMITS } from '../lib/limits.ts';
+import { ReviewerMockError } from './reviewer.ts';
 import { MockHttpError, type MockStore } from './store.ts';
 
 export interface HandlerOptions {
@@ -69,11 +74,24 @@ function parseAction(body: Record<string, unknown>): CaseActionRequest {
   const snoozeDays = body['snoozeDays'];
   const note = body['note'];
   checkLength('note', note, INPUT_LIMITS.note, 'La nota');
+  const reason = DISMISS_REASONS.find((candidate) => candidate === body['reason']);
   return {
     action,
     ...(typeof snoozeDays === 'number' ? { snoozeDays } : {}),
     ...(typeof note === 'string' ? { note } : {}),
+    ...(reason ? { reason } : {}),
+    ...(body['suppress'] === true ? { suppress: true } : {}),
   };
+}
+
+function parseCallOutcome(body: Record<string, unknown>): CallOutcomeRequest {
+  const outcome = CALL_OUTCOMES.find((candidate) => candidate === body['outcome']);
+  if (!outcome) {
+    const message = VALIDATION_COPY.callOutcomeRequired;
+    throw new MockHttpError(422, 'invalid_request', message, [{ path: 'outcome', message }]);
+  }
+  const requestId = body['requestId'];
+  return { outcome, ...(typeof requestId === 'string' ? { requestId } : {}) };
 }
 
 function parseFeedback(body: Record<string, unknown>): FeedbackRequest {
@@ -155,7 +173,7 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
       try {
         return HttpResponse.json(await resolver({ request, params }));
       } catch (error) {
-        if (error instanceof MockHttpError) {
+        if (error instanceof MockHttpError || error instanceof ReviewerMockError) {
           return errorResponse(error.status, error.code, error.message, error.fields);
         }
         throw error;
@@ -200,6 +218,20 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
       route(async ({ request, params }) =>
         store.act(param(params, 'id'), parseAction(await readJson(request))),
       ),
+    ),
+    http.post(
+      '*/api/inbox/cases/:id/call-outcome',
+      route(async ({ request, params }) =>
+        store.recordCallOutcome(param(params, 'id'), parseCallOutcome(await readJson(request))),
+      ),
+    ),
+    http.post(
+      '*/api/inbox/suppressions/:id/reactivate',
+      route(({ params }) => store.reactivateSuppression(param(params, 'id'))),
+    ),
+    http.get(
+      '*/api/inbox/calibration',
+      route(() => store.calibration()),
     ),
     http.post(
       '*/api/inbox/cases/:id/feedback',
@@ -248,6 +280,64 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     http.get(
       '*/api/inbox/stats',
       route(() => store.stats()),
+    ),
+    http.get(
+      '*/api/inbox/findings',
+      route(({ request }) => {
+        const url = new URL(request.url);
+        const value = (key: string): string | undefined => url.searchParams.get(key) ?? undefined;
+        const mode = value('mode') === 'live' ? 'live' : 'shadow';
+        const status = value('status');
+        const limit = numberParam(url.searchParams.get('limit'));
+        return store.reviewer.listFindings({
+          mode,
+          ...(status ? { status: status as 'open' } : {}),
+          ...(value('category') ? { category: value('category') ?? '' } : {}),
+          ...(value('severity') ? { severity: value('severity') ?? '' } : {}),
+          ...(value('patientId') ? { patientId: value('patientId') ?? '' } : {}),
+          ...(limit === undefined ? {} : { limit }),
+        });
+      }),
+    ),
+    http.get(
+      '*/api/inbox/findings/metrics',
+      route(() => store.reviewer.metrics()),
+    ),
+    http.get(
+      '*/api/inbox/findings/:id',
+      route(({ params }) => store.reviewer.getFinding(param(params, 'id'))),
+    ),
+    http.post(
+      '*/api/inbox/findings/:id/review',
+      route(async ({ request, params }) => {
+        const body = await readJson(request);
+        const verdict = body['verdict'];
+        const reason = body['reason'];
+        if (verdict !== 'relevant' && verdict !== 'already_known' && verdict !== 'not_relevant') {
+          throw new MockHttpError(422, 'invalid_request', 'Elige una calificación.');
+        }
+        return store.reviewer.review(param(params, 'id'), {
+          verdict,
+          ...(typeof reason === 'string' && reason ? { reason } : {}),
+        });
+      }),
+    ),
+    http.get(
+      '*/api/inbox/finding-flags',
+      route(() => store.reviewer.listFlags()),
+    ),
+    http.put(
+      '*/api/inbox/finding-flags',
+      route(async ({ request }) => {
+        const body = await readJson(request);
+        const validatedBy = body['validatedBy'];
+        return store.reviewer.updateFlag({
+          category: body['category'] as never,
+          enabled: body['enabled'] === true,
+          mode: body['mode'] === 'live' ? 'live' : 'shadow',
+          ...(typeof validatedBy === 'string' && validatedBy ? { validatedBy } : {}),
+        });
+      }),
     ),
     http.get(
       '*/api/demo/clock',

@@ -6,13 +6,14 @@ import {
 } from '@follow-up-engine/runtime';
 import { loadApiConfig } from '../config.ts';
 import { createApiServer } from '../server.ts';
+import { seedReviewerPilot } from './seed-reviewer.ts';
 import { seedSyntheticClinic } from './seed.ts';
 
 /**
  * `pnpm --filter @follow-up-engine/api demo`: the whole product in one
  * process with no infrastructure. Fake clock, embedded worker, in-process
  * signed webhook sink, memory storage unless `DATABASE_URL` is set, and the
- * synthetic clinic loaded at startup through the initial backfill (all 120
+ * synthetic clinic loaded at startup through the initial backfill (all 148
  * patients; `SEED_PATIENTS=N` loads fewer, `SEED=false` skips it). Seeding an
  * already seeded database is a no-op.
  */
@@ -34,6 +35,10 @@ if (process.env['SEED'] !== 'false') {
       : { patients: Number(process.env['SEED_PATIENTS']) }),
   });
   runtime.logger.info(report, 'synthetic clinic seeded');
+  if (process.env['SEED_REVIEWER'] !== 'false') {
+    // The clinical reviewer's shadow pilot: the planted cohort, then one review per patient.
+    runtime.logger.info(await seedReviewerPilot(runtime), 'clinical reviewer shadow pilot seeded');
+  }
 }
 const server = createApiServer(runtime, { ...loadApiConfig(), embeddedWorker: true });
 const port = await server.listen();

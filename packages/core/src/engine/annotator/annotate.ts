@@ -21,11 +21,13 @@ import {
 import { type PatientTimeline, refKey } from '../timeline.ts';
 import { conditionCandidates, mergeCondition } from './conditions.ts';
 import type { AnnotationContext, AnnotationHints, ClosedExpectation } from './context.ts';
+import { endEpisodes, RESCHEDULED_BY_PROTOCOL } from './episodes.ts';
 import { type ExpectationDraft, materializeExpectation, movedIdempotencyKey } from './draft.ts';
 import { cadenceDrafts } from './layers/cadence.ts';
 import { doctorPlanDrafts } from './layers/doctor-plan.ts';
 import { protocolDrafts } from './layers/protocol.ts';
 import { plannedItems, universalDrafts } from './layers/universal.ts';
+import { suppressedRuleIds } from '../suppression/active.ts';
 import { recheckAtFor, recheckFulfilled } from './recheck.ts';
 import { retractByLaterInformation } from './retract.ts';
 import {
@@ -75,6 +77,16 @@ export async function annotate(
     context.asOf,
   );
   const writer = new CaseWriter(context.stores, context.ids, context.clinicId);
+  // Rules a clinic user stopped for this patient ("not applicable") create
+  // nothing in any layer, live or replayed by the backfill.
+  const suppressed = await suppressedRuleIds(context.stores, context.clinicId, context.patientId);
+  const create = (drafts: readonly ExpectationDraft[], lateHistory: boolean) =>
+    createExpectations(
+      context,
+      state.live,
+      drafts.filter((draft) => !suppressed.has(draft.definition.ruleId)),
+      lateHistory,
+    );
   // An event of a resource the record withdrew later (a booking cancelled,
   // an order revoked) triggers and fulfills nothing, even delivered again.
   const ordered = [...events]
@@ -99,10 +111,15 @@ export async function annotate(
     ...planDrafts,
   ];
   const lateHistory = isLateHistory(context, ordered);
-  created.push(...(await createExpectations(context, state.live, firstDrafts, lateHistory)));
+  created.push(...(await create(firstDrafts, lateHistory)));
 
   // An amended note's plan replaces the earlier version's.
   const closed = await supersedeAmendedPlans(context, state, ordered, firstDrafts);
+  // A delivery or a loss ends a pregnancy: nothing prenatal is expected
+  // after it (decided before fulfillment, so the delivery's own encounter
+  // is never read as the prenatal visit).
+  const ended = await endEpisodes(context, state, conditions.all);
+  closed.push(...ended.closed);
   closed.push(...(await applyFulfillment(context, state.timeline, state.live, ordered)));
   // What withdrawn resources triggered goes; what they fulfilled is open again.
   closed.push(...(await cancelWithdrawn(context, state, ordered)));
@@ -129,7 +146,7 @@ export async function annotate(
   const cadence = cadenceDrafts(ordered, state.timeline, context.catalog).filter(
     (draft) => !coveredByPlan(state.live, draft.matchKey),
   );
-  const afterFulfillment = await createExpectations(context, state.live, cadence, lateHistory);
+  const afterFulfillment = await create(cadence, lateHistory);
 
   const protocols = protocolDrafts({
     catalog: context.catalog,
@@ -138,9 +155,21 @@ export async function annotate(
     live: state.live.list(),
     now: context.now,
   });
-  afterFulfillment.push(
-    ...(await createExpectations(context, state.live, protocols.drafts, lateHistory)),
-  );
+  // A protocol schedule moved (gestational age, a dose change): what it
+  // replaces closes; the new dates are drafted like any other protocol item
+  // and respect this patient's suppressions.
+  for (const expectation of protocols.replaced) {
+    state.live.put(
+      await closeExpectation(
+        context.stores,
+        expectation,
+        'superseded',
+        RESCHEDULED_BY_PROTOCOL,
+        context.now,
+      ),
+    );
+  }
+  afterFulfillment.push(...(await create(protocols.drafts, lateHistory)));
   created.push(...afterFulfillment);
   closed.push(
     ...(await fulfillFromRecord(
@@ -174,7 +203,7 @@ export async function annotate(
     expectationsClosed: closed,
     expectationsReopened: reopened,
     casesResolved,
-    conditionsUpserted: [...conditions.upserted, ...unenrolled.resolved],
+    conditionsUpserted: [...conditions.upserted, ...unenrolled.resolved, ...ended.resolved],
     optedOut: state.timeline.optedOut,
   };
 }
@@ -218,6 +247,7 @@ async function upsertConditions(
     existing: state.conditions,
     extractedConfidence: hints.extractedConfidence ?? new Map(),
     extractedMedications: hints.extractedMedications ?? [],
+    history: state.timeline.events,
   });
   for (const candidate of candidates) {
     const key = `${candidate.code.system}|${candidate.code.code}`;

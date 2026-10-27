@@ -6,7 +6,7 @@ import type { Coding } from '../../domain/resource.ts';
 import type { Clock } from '../../ports/clock.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { UnitOfWork } from '../../ports/unit-of-work.ts';
-import { enrollingConditions } from '../annotator/conditions.ts';
+import { protocolConditions } from '../annotator/conditions.ts';
 import { CaseWriter } from '../case-manager/case-writer.ts';
 import { closeExpectation, resolveSatisfiedCases } from '../case-manager/reconcile.ts';
 import type { Catalog } from '../catalog.ts';
@@ -122,7 +122,7 @@ export function createConditionCommands(deps: ConditionCommandDeps): ConditionCo
         );
         const stillEnrolled = new Set(
           catalog.protocols
-            .filter((protocol) => enrollingConditions(protocol, remaining).length > 0)
+            .filter((protocol) => protocolConditions(protocol, remaining).length > 0)
             .map((protocol) => protocol.id),
         );
         const state = await loadPatientState(stores, clinicId, patientId);

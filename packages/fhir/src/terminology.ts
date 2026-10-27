@@ -29,6 +29,8 @@ export const ENGINE_CODE_SYSTEMS = {
   reason: codeSystem('follow-up-reason'),
   /** `DetectedIssue.code` of a documentation-quality finding. */
   qualityFinding: codeSystem('follow-up-quality-finding'),
+  /** `DetectedIssue.code` of a clinical reviewer finding: its category (`lab-trend`, ...). */
+  clinicalFinding: codeSystem('clinical-finding-category'),
   /** `Provenance.activity` of a case event (`CaseEvent.type`). */
   caseEvent: codeSystem('follow-up-case-event'),
   /** Specialty codes a host may send in `Encounter.serviceType` (e.g. `diabetology`). */
@@ -39,6 +41,20 @@ export const ENGINE_CODE_SYSTEMS = {
   uncoded: codeSystem('uncoded'),
   /** Local procedure codes protocols expect when no standard code fits (`fundus-exam`). */
   procedure: codeSystem('procedure'),
+  /**
+   * What came of a contact attempt (`Communication`): `delivered`, `read`,
+   * `replied`, `booked`, `declined`, `treated_elsewhere`, `wrong_number`,
+   * `no_answer`.
+   */
+  contactOutcome: codeSystem('contact-outcome'),
+  /** `CommunicationRequest.medium` / `Communication.medium`: `whatsapp`, `phone_call`, `sms`, `email`. */
+  contactChannel: codeSystem('contact-channel'),
+  /** `CommunicationRequest.category`: the generic purpose of a contact (`schedule_follow_up`, ...). */
+  contactPurpose: codeSystem('contact-purpose'),
+  /** Why a clinic user dismissed a case (`Task.statusReason` of a dismissed case, `Flag` extension). */
+  dismissReason: codeSystem('follow-up-dismiss-reason'),
+  /** `Flag.category` of the engine's flags. */
+  flagCategory: codeSystem('follow-up-flag-category'),
 } as const;
 
 /** `Task.code` of a case Task in {@link ENGINE_CODE_SYSTEMS.taskType}. */
@@ -49,6 +65,8 @@ export const NOTE_WITHOUT_PLAN_CODE = 'note-without-plan';
 export const NOTE_TRUNCATED_CODE = 'note-truncated';
 /** `Consent.category` code (in {@link ENGINE_CODE_SYSTEMS.consent}) for a follow-up opt-out. */
 export const FOLLOW_UP_OPT_OUT_CONSENT_CODE = 'follow-up-opt-out';
+/** `Flag.category` code (in {@link ENGINE_CODE_SYSTEMS.flagCategory}) of a per-patient rule suppression. */
+export const FOLLOW_UP_SUPPRESSION_FLAG_CODE = 'follow-up-suppression';
 
 /** Engine extensions. All are simple (one `value[x]`) unless documented otherwise. */
 export const ENGINE_EXTENSIONS = {
@@ -73,6 +91,8 @@ export const ENGINE_EXTENSIONS = {
   evidence: structureDefinition('follow-up-evidence'),
   /** Task (case), `valueInteger`: index into the escalation policy. */
   escalationStep: structureDefinition('follow-up-escalation-step'),
+  /** Task (case), `valueString`: the named, versioned escalation policy the case follows. */
+  escalationPolicy: structureDefinition('follow-up-escalation-policy'),
   /** Task (case), `valueInteger`: the engine's numeric priority (higher is more urgent). */
   priorityScore: structureDefinition('follow-up-priority-score'),
   /** Task (case), `valueString`: the key that groups expectations into the case. */
@@ -85,7 +105,8 @@ export const ENGINE_EXTENSIONS = {
   snoozedUntil: structureDefinition('follow-up-snoozed-until'),
   /**
    * Task (case), complex: `kind` (`valueCode`), `resolvedAt` (`valueDateTime`),
-   * `resolvedBy` (`valueString`), `note` (`valueString`).
+   * `resolvedBy` (`valueString`), `note` (`valueString`), `dismissReason`
+   * (`valueCode`, dismissed cases).
    */
   resolution: structureDefinition('follow-up-case-resolution'),
   /** Condition, `valueDecimal` 0..1: the engine's confidence. */
@@ -96,8 +117,33 @@ export const ENGINE_EXTENSIONS = {
   confirmedBy: structureDefinition('follow-up-confirmed-by'),
   /** Condition (`refuted`), `valueString`: host user id of the clinician who rejected it. */
   refutedBy: structureDefinition('follow-up-refuted-by'),
+  /** DetectedIssue (clinical finding), `valueCode`: `shadow` | `live`. */
+  findingMode: structureDefinition('clinical-finding-mode'),
+  /** DetectedIssue (clinical finding), `valueBoolean`: an open expectation or case already covers it. */
+  alreadyCovered: structureDefinition('clinical-finding-already-covered'),
+  /** DetectedIssue (clinical finding), `valueCode`: `confirmed` | `added` | `fallback`. */
+  findingOrigin: structureDefinition('clinical-finding-origin'),
+  /** DetectedIssue (clinical finding), `valueString`: `<provider>:<model>` and prompt version. */
+  reviewerModel: structureDefinition('clinical-finding-model'),
   /** Provenance, `valueString`: the case event payload as JSON (ids and codes only). */
   caseEventPayload: structureDefinition('follow-up-case-event-payload'),
+  /**
+   * Communication, `valueCodeableConcept` in {@link ENGINE_CODE_SYSTEMS.contactOutcome}:
+   * what came of the attempt. Also accepted in `Communication.statusReason`.
+   */
+  contactOutcome: structureDefinition('contact-outcome'),
+  /** CommunicationRequest, `valueInteger`: 1-based attempt number within the case. */
+  contactAttempt: structureDefinition('contact-attempt'),
+  /** CommunicationRequest, `valueCode`: `policy` | `user` | `wrong_number`. */
+  contactTrigger: structureDefinition('contact-trigger'),
+  /** Flag (suppression), `valueCode` in {@link ENGINE_CODE_SYSTEMS.dismissReason}. */
+  dismissReason: structureDefinition('follow-up-dismiss-reason'),
+  /** Flag (suppression), `valueReference`: the dismissed case `Task` it came from. */
+  sourceCase: structureDefinition('follow-up-source-case'),
+  /** Flag (suppression), `valueString`: the team's internal note. */
+  note: structureDefinition('follow-up-note'),
+  /** Flag (suppression), `valueString`: host user id of whoever reactivated the rule. */
+  revokedBy: structureDefinition('follow-up-revoked-by'),
 } as const;
 
 /** Engine identifier systems. */
@@ -125,6 +171,7 @@ export const TERMINOLOGY = {
   participationType: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
   provenanceParticipantType: 'http://terminology.hl7.org/CodeSystem/provenance-participant-type',
   consentScope: 'http://terminology.hl7.org/CodeSystem/consentscope',
+  participationMode: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationMode',
   ucum: 'http://unitsofmeasure.org',
 } as const;
 

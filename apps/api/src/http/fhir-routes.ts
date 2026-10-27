@@ -1,9 +1,14 @@
 import {
   type CaseId,
+  type CaseStatus,
+  type ClinicId,
+  contactRequestId,
   type ExpectationId,
   type FollowUpCase,
   type IngestReport,
+  type PatientId,
   patientId as toPatientId,
+  type SuppressionId,
 } from '@follow-up-engine/core';
 import {
   type Bundle,
@@ -11,13 +16,17 @@ import {
   type CapabilityStatement,
   type Coding,
   caseToTask,
+  communicationToFhir,
+  contactRequestToFhir,
   expectationToTask,
   exportableConditions,
   FHIR_VERSION,
   type FhirResource,
   type OperationOutcome,
   patientConditionToFhir,
+  clinicalFindingToDetectedIssue,
   qualityFindingToDetectedIssue,
+  suppressionToFlag,
   type Task,
   toSearchsetBundle,
 } from '@follow-up-engine/fhir';
@@ -50,6 +59,7 @@ const WRITABLE_TYPES = new Set([
   'DocumentReference',
   'Composition',
   'Consent',
+  'Communication',
   'Practitioner',
 ]);
 
@@ -128,13 +138,21 @@ function summarize(reports: readonly IngestReport[]): string {
   ].join(', ');
 }
 
+/** The contact outcomes a synchronous ingestion recorded, for the summary. */
+function outcomesSummary(acceptance: BundleAcceptance): string {
+  const recorded = (acceptance.contactOutcomes ?? []).filter((result) => result.changed).length;
+  return (acceptance.contactOutcomes ?? []).length === 0
+    ? ''
+    : `, ${String(recorded)} contact outcome(s) recorded`;
+}
+
 /** What the engine did, for the `X-FollowUp-Summary` header. */
 function summaryOf(acceptance: BundleAcceptance, mode: IngestMode): string {
   const stale = staleCount(acceptance);
   const summary =
     mode === 'async'
       ? `Accepted: ${String(acceptance.batches)} consultation batch(es) queued for the engine`
-      : `Processed: ${summarize(acceptance.reports ?? [])}`;
+      : `Processed: ${summarize(acceptance.reports ?? [])}${outcomesSummary(acceptance)}`;
   return stale === 0
     ? summary
     : `${summary}; ${String(stale)} stale version(s) not stored (older than the stored one)`;
@@ -416,7 +434,34 @@ function capabilityStatement(c: Context): CapabilityStatement {
           'this CapabilityStatement is public.',
         interaction: [{ code: 'transaction' }, { code: 'batch' }],
         resource: [
-          ...[...WRITABLE_TYPES].filter((type) => type !== 'Condition').map(writable),
+          ...[...WRITABLE_TYPES]
+            .filter((type) => type !== 'Condition' && type !== 'Communication')
+            .map(writable),
+          {
+            type: 'Communication',
+            documentation:
+              'What came of a contact attempt: basedOn the CommunicationRequest, the outcome in ' +
+              'the contact-outcome extension or statusReason.',
+            interaction: [
+              { code: 'create' as const },
+              { code: 'update' as const },
+              { code: 'read' as const },
+              { code: 'search-type' as const },
+            ],
+            searchParam: [patientParam],
+          },
+          {
+            type: 'CommunicationRequest',
+            documentation: 'Contact attempts the engine asked for (one per attempt).',
+            interaction: [{ code: 'read' as const }, { code: 'search-type' as const }],
+            searchParam: [patientParam],
+          },
+          {
+            type: 'Flag',
+            documentation: 'Reminders stopped for one patient (category follow-up-suppression).',
+            interaction: [{ code: 'read' as const }, { code: 'search-type' as const }],
+            searchParam: [patientParam],
+          },
           {
             type: 'Condition',
             interaction: [
@@ -676,20 +721,177 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
       unknownParams(c, PATIENT_SEARCH_PARAMS),
       repeatedParams(c, PATIENT_SEARCH_PARAMS),
     );
+    const patients = requiredPatients(c);
     const findings = (
       await Promise.all(
-        requiredPatients(c).map((patient) =>
+        patients.map((patient) =>
           stores.qualityFindings.listByPatient(c.var.clinicId, toPatientId(patient)),
         ),
       )
     ).flat();
+    // Clinical reviewer findings reach the host only once their category is
+    // live (validated): a shadow finding is never exported.
+    const clinical = (
+      await Promise.all(
+        patients.map(async (patient) => {
+          const page = await runtime.reviewer.listFindings(c.var.clinicId, {
+            mode: 'live',
+            patientId: toPatientId(patient),
+            limit: 100,
+          });
+          return page.items;
+        }),
+      )
+    ).flat();
     return fhirJson(
       c,
-      toSearchsetBundle(findings.map(qualityFindingToDetectedIssue), {
+      toSearchsetBundle(
+        [
+          ...findings.map(qualityFindingToDetectedIssue),
+          ...clinical.map(clinicalFindingToDetectedIssue),
+        ],
+        {
+          baseUrl: fhirBase(c),
+          selfUrl: c.req.url,
+          ...(outcome === undefined ? {} : { outcome }),
+        },
+      ),
+    );
+  });
+
+  /** The case status of each attempt's case, for `CommunicationRequest.status`. */
+  async function caseStatuses(
+    clinicId: ClinicId,
+    caseIds: readonly CaseId[],
+  ): Promise<Map<CaseId, CaseStatus>> {
+    const statuses = new Map<CaseId, CaseStatus>();
+    for (const caseId of new Set(caseIds)) {
+      const found = await stores.cases.get(clinicId, caseId);
+      if (found !== undefined) {
+        statuses.set(caseId, found.status);
+      }
+    }
+    return statuses;
+  }
+
+  async function contactResources(clinicId: ClinicId, patientId: PatientId) {
+    const { requests, communications } = await runtime.engine.contacts.forPatient(
+      clinicId,
+      patientId,
+    );
+    const statuses = await caseStatuses(
+      clinicId,
+      requests.map((request) => request.caseId),
+    );
+    return {
+      requests: requests.map((request) => {
+        const caseStatus = statuses.get(request.caseId);
+        return contactRequestToFhir(request, {
+          communications,
+          ...(caseStatus === undefined ? {} : { caseStatus }),
+        });
+      }),
+      communications: communications.map(communicationToFhir),
+    };
+  }
+
+  function patientSearch(c: Context<AppEnv>) {
+    return {
+      outcome: mergeOutcomes(
+        unknownParams(c, PATIENT_SEARCH_PARAMS),
+        repeatedParams(c, PATIENT_SEARCH_PARAMS),
+      ),
+      patients: requiredPatients(c).map((patient) => toPatientId(patient)),
+    };
+  }
+
+  app.get('/fhir/CommunicationRequest', async (c) => {
+    const { outcome, patients } = patientSearch(c);
+    const resources = [];
+    for (const patientId of patients) {
+      resources.push(...(await contactResources(c.var.clinicId, patientId)).requests);
+    }
+    return fhirJson(
+      c,
+      toSearchsetBundle(resources, {
         baseUrl: fhirBase(c),
         selfUrl: c.req.url,
         ...(outcome === undefined ? {} : { outcome }),
       }),
     );
+  });
+
+  app.get('/fhir/CommunicationRequest/:id', async (c) => {
+    const id = c.req.param('id');
+    const request = await runtime.engine.contacts.getRequest(c.var.clinicId, contactRequestId(id));
+    if (request === undefined) {
+      throw notFound(`CommunicationRequest/${id} not found`);
+    }
+    const { communications } = await runtime.engine.contacts.forPatient(
+      c.var.clinicId,
+      request.patientId,
+    );
+    const caseStatus = (await stores.cases.get(c.var.clinicId, request.caseId))?.status;
+    return fhirJson(
+      c,
+      contactRequestToFhir(request, {
+        communications,
+        ...(caseStatus === undefined ? {} : { caseStatus }),
+      }),
+    );
+  });
+
+  app.get('/fhir/Communication', async (c) => {
+    const { outcome, patients } = patientSearch(c);
+    const resources = [];
+    for (const patientId of patients) {
+      resources.push(...(await contactResources(c.var.clinicId, patientId)).communications);
+    }
+    return fhirJson(
+      c,
+      toSearchsetBundle(resources, {
+        baseUrl: fhirBase(c),
+        selfUrl: c.req.url,
+        ...(outcome === undefined ? {} : { outcome }),
+      }),
+    );
+  });
+
+  app.get('/fhir/Communication/:id', async (c) => {
+    const id = c.req.param('id');
+    const communication = await runtime.engine.contacts.getCommunication(c.var.clinicId, id);
+    if (communication === undefined) {
+      throw notFound(`Communication/${id} not found`);
+    }
+    return fhirJson(c, communicationToFhir(communication));
+  });
+
+  app.get('/fhir/Flag', async (c) => {
+    const { outcome, patients } = patientSearch(c);
+    const flags = [];
+    for (const patientId of patients) {
+      flags.push(
+        ...(await runtime.engine.suppressions.list(c.var.clinicId, patientId)).map(
+          suppressionToFlag,
+        ),
+      );
+    }
+    return fhirJson(
+      c,
+      toSearchsetBundle(flags, {
+        baseUrl: fhirBase(c),
+        selfUrl: c.req.url,
+        ...(outcome === undefined ? {} : { outcome }),
+      }),
+    );
+  });
+
+  app.get('/fhir/Flag/:id', async (c) => {
+    const id = c.req.param('id');
+    const suppression = await stores.suppressions.get(c.var.clinicId, id as SuppressionId);
+    if (suppression === undefined) {
+      throw notFound(`Flag/${id} not found`);
+    }
+    return fhirJson(c, suppressionToFlag(suppression));
   });
 }

@@ -39,6 +39,48 @@ describe('decidePatientContact', () => {
   });
 });
 
+describe('decidePatientContact with channels', () => {
+  const lastContactAt = new Date('2026-02-25T00:00:00.000Z');
+
+  it('a call is exempt from the message window and from flagged contact data', () => {
+    expect(
+      decidePatientContact({
+        ...allowed,
+        channel: 'phone_call',
+        lastContactAt,
+        contactDataInvalid: true,
+      }),
+    ).toEqual({ allowed: true });
+  });
+
+  it('a call still respects the clinic, the opt-out, the backfill and probable-only cases', () => {
+    const call = { ...allowed, channel: 'phone_call' as const };
+    expect(decidePatientContact({ ...call, clinicAllowsContact: false })).toMatchObject({
+      reason: 'clinic_disallows_contact',
+    });
+    expect(decidePatientContact({ ...call, patientOptedOut: true })).toMatchObject({
+      reason: 'patient_opted_out',
+    });
+    expect(decidePatientContact({ ...call, backfill: true })).toMatchObject({
+      reason: 'backfill_case',
+    });
+    expect(decidePatientContact({ ...call, lowConfidence: true })).toMatchObject({
+      reason: 'low_confidence',
+    });
+  });
+
+  it('no message reaches a patient whose contact data is flagged, before the window check', () => {
+    for (const channel of ['whatsapp', 'sms', 'email', undefined] as const) {
+      expect(
+        decidePatientContact({ ...allowed, channel, contactDataInvalid: true, lastContactAt }),
+      ).toEqual({ allowed: false, reason: 'contact_data_invalid' });
+      expect(decidePatientContact({ ...allowed, channel, lastContactAt })).toMatchObject({
+        reason: 'contact_window',
+      });
+    }
+  });
+});
+
 describe('isLowConfidenceCase', () => {
   const catalog = new Catalog(
     [],
@@ -46,6 +88,10 @@ describe('isLowConfidenceCase', () => {
       {
         id: 'diabetes',
         version: '1.0.0',
+        status: 'draft',
+        sources: [
+          { title: 'Guideline', organization: 'Org', year: 2025, url: 'https://example.org/g' },
+        ],
         description: 'd',
         reason: { code: 'protocol_diabetes', label: 'Control de diabetes' },
         enrollment: { conditionCodes: ['E11', 'E14'], minimumStatus: 'probable' },

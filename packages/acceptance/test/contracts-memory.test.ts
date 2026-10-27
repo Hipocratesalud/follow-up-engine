@@ -11,15 +11,20 @@ import {
   describeAuditLogContract,
   describeBackfillProgressStoreContract,
   describeCaseRepositoryContract,
+  describeContactRepositoryContract,
+  describeClinicalFindingRepositoryContract,
   describeClinicalRecordRepositoryContract,
+  describeClinicalReviewRunRepositoryContract,
   describeClinicDirectoryContract,
   describeConditionRepositoryContract,
   describeExpectationRepositoryContract,
   describeFeedbackRepositoryContract,
+  describeFindingFlagRepositoryContract,
   describeJobQueueContract,
   describeLlmUsageLogContract,
   describeOutboxContract,
   describeQualityFindingRepositoryContract,
+  describeSuppressionRepositoryContract,
   describeUnitOfWorkContract,
 } from '@follow-up-engine/testkit';
 
@@ -41,6 +46,14 @@ describeExpectationRepositoryContract(
 describeCaseRepositoryContract(
   NAME,
   store((s) => s.cases),
+);
+describeContactRepositoryContract(
+  NAME,
+  store((s) => s.contacts),
+);
+describeSuppressionRepositoryContract(
+  NAME,
+  store((s) => s.suppressions),
 );
 describeClinicalRecordRepositoryContract(
   NAME,
@@ -69,6 +82,18 @@ describeJobQueueContract(
 describeBackfillProgressStoreContract(
   NAME,
   store((s) => s.backfillProgress),
+);
+describeClinicalFindingRepositoryContract(
+  NAME,
+  store((s) => s.clinicalFindings),
+);
+describeClinicalReviewRunRepositoryContract(
+  NAME,
+  store((s) => s.reviewRuns),
+);
+describeFindingFlagRepositoryContract(
+  NAME,
+  store((s) => s.findingFlags),
 );
 
 describeOutboxContract(NAME, () => {

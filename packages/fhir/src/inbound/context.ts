@@ -2,6 +2,9 @@ import type {
   ClinicalEvent,
   ClinicalEventType,
   Coding,
+  CommunicationStatus,
+  ContactChannel,
+  ContactOutcome,
   PlanExtractedEvent,
   RecordWithdrawalReason,
   ResourceRef,
@@ -22,12 +25,33 @@ export type EventDraft = DistributiveOmit<
   'clinicId' | 'patientId' | 'encounterId'
 >;
 
+/**
+ * What a host's `Communication` reports on one contact attempt, read from
+ * FHIR. The runtime checks that the attempt exists in the clinic (and is
+ * about the same patient) before the engine records it.
+ */
+export interface MappedCommunication {
+  readonly id: string;
+  /** The engine's `CommunicationRequest` id it is `basedOn`. */
+  readonly requestId: string;
+  readonly patientId: string;
+  readonly channel?: ContactChannel;
+  readonly status: CommunicationStatus;
+  readonly outcome?: ContactOutcome;
+  readonly sentAt?: Date;
+  readonly receivedAt?: Date;
+  readonly versionId?: string;
+  readonly lastUpdated?: Date;
+}
+
 /** What one resource contributes to the batches of its patient. */
 export interface MappedResource {
   readonly patientId: string;
   /** The consultation the resource belongs to (its own id for an Encounter). */
   readonly encounterId?: string;
   readonly events: readonly EventDraft[];
+  /** A `Communication`: what came of a contact attempt (no clinical event). */
+  readonly communication?: MappedCommunication;
 }
 
 /** Everything a resource mapper needs; every helper reports problems at a precise path. */

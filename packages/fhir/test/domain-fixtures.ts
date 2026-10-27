@@ -1,9 +1,14 @@
 import {
   caseId,
   clinicId,
+  contactRequestId,
   expectationId,
   patientId,
+  suppressionId,
   type CaseEvent,
+  type ContactCommunication,
+  type ContactRequest,
+  type RuleSuppression,
   type Expectation,
   type FollowUpCase,
   type QualityFinding,
@@ -197,3 +202,107 @@ export const caseEvents: readonly CaseEvent[] = [
     at: new Date('2026-04-14T09:00:00Z'),
   },
 ];
+
+export const dismissedCase: FollowUpCase = {
+  ...escalatedCase,
+  id: caseId('case-0004'),
+  status: 'dismissed',
+  escalationStep: 3,
+  escalationPolicyId: 'default_v2',
+  resolution: {
+    kind: 'not_needed',
+    resolvedAt: new Date('2026-04-15T10:00:00Z'),
+    resolvedBy: 'user-doctor-7',
+    dismissReason: 'not_applicable_to_patient',
+    note: 'Paciente con enucleación bilateral.',
+  },
+};
+
+export const whatsappAttempt: ContactRequest = {
+  id: contactRequestId('cr-0001'),
+  clinicId: CLINIC,
+  patientId: PATIENT,
+  caseId: caseId('case-0001'),
+  channel: 'whatsapp',
+  purpose: 'schedule_follow_up',
+  trigger: 'policy',
+  attempt: 1,
+  policyStep: 2,
+  requestedAt: new Date('2026-04-20T12:00:00Z'),
+  dueBy: new Date('2026-04-27T12:00:00Z'),
+};
+
+export const callAttempt: ContactRequest = {
+  ...whatsappAttempt,
+  id: contactRequestId('cr-0002'),
+  channel: 'phone_call',
+  trigger: 'wrong_number',
+  attempt: 2,
+  requestedBy: 'user-reception-1',
+  requestedAt: new Date('2026-04-21T09:00:00Z'),
+  dueBy: new Date('2026-04-24T09:00:00Z'),
+};
+
+/** A `default_v1` attempt: no channel, the host chooses. */
+export const hostPolicyAttempt: ContactRequest = {
+  id: contactRequestId('cr-0003'),
+  clinicId: CLINIC,
+  patientId: PATIENT,
+  caseId: caseId('case-0001'),
+  purpose: 'complete_pending_test',
+  trigger: 'policy',
+  attempt: 1,
+  policyStep: 2,
+  requestedAt: new Date('2026-04-20T12:00:00Z'),
+  dueBy: new Date('2026-04-27T12:00:00Z'),
+};
+
+export const wrongNumber: ContactCommunication = {
+  id: 'wa-msg-0002',
+  clinicId: CLINIC,
+  patientId: PATIENT,
+  caseId: caseId('case-0001'),
+  requestId: contactRequestId('cr-0001'),
+  channel: 'whatsapp',
+  status: 'not-done',
+  outcome: 'wrong_number',
+  sentAt: new Date('2026-04-20T12:01:00Z'),
+  sender: { type: 'host' },
+  versionId: '1',
+  lastUpdated: new Date('2026-04-20T13:00:00Z'),
+  recordedAt: new Date('2026-04-20T13:00:05Z'),
+};
+
+export const callBooked: ContactCommunication = {
+  id: 'comm-0003',
+  clinicId: CLINIC,
+  patientId: PATIENT,
+  caseId: caseId('case-0001'),
+  requestId: contactRequestId('cr-0002'),
+  channel: 'phone_call',
+  status: 'completed',
+  outcome: 'booked',
+  sentAt: new Date('2026-04-21T10:00:00Z'),
+  sender: { type: 'user', id: 'user-reception-1' },
+  recordedAt: new Date('2026-04-21T10:00:00Z'),
+};
+
+export const activeSuppression: RuleSuppression = {
+  id: suppressionId('sup-0001'),
+  clinicId: CLINIC,
+  patientId: PATIENT,
+  ruleId: 'protocol_diabetes_fundus',
+  reason: { code: 'protocol_diabetes_fundus', label: 'Fondo de ojo anual (diabetes)' },
+  dismissReason: 'not_applicable_to_patient',
+  note: 'Paciente con enucleación bilateral.',
+  caseId: caseId('case-0004'),
+  createdBy: 'user-doctor-7',
+  createdAt: new Date('2026-04-15T10:00:00Z'),
+};
+
+export const revokedSuppression: RuleSuppression = {
+  ...activeSuppression,
+  id: suppressionId('sup-0002'),
+  revokedBy: 'user-doctor-7',
+  revokedAt: new Date('2026-05-02T09:00:00Z'),
+};

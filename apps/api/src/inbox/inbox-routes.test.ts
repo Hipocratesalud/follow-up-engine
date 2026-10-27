@@ -136,11 +136,15 @@ describe('inbox API on a seeded clinic', () => {
       const item = page.body.items[0];
       expect(item).toBeDefined();
       const escalation = item?.escalation;
+      // The demo clinic runs default_v2: WhatsApp, call, coordinator, WhatsApp, lost.
+      expect(escalation?.policyId).toBe('default_v2');
       expect(escalation?.steps.map((step) => step.action)).toEqual([
         'notify_clinic',
         'raise_priority',
         'request_patient_contact',
+        'request_patient_contact',
         'escalate_to_coordinator',
+        'request_patient_contact',
         'mark_lost_to_follow_up',
       ]);
       expect(escalation?.steps.every((step) => step.label.length > 0)).toBe(true);
@@ -175,9 +179,16 @@ describe('inbox API on a seeded clinic', () => {
         ['notify_clinic', 'done'],
         ['raise_priority', 'done'],
         ['request_patient_contact', 'skipped'],
+        ['request_patient_contact', 'skipped'],
         ['escalate_to_coordinator', 'done'],
+        ['request_patient_contact', 'skipped'],
         ['mark_lost_to_follow_up', 'skipped'],
       ]);
+      // Each skipped attempt says why in the timeline: a backfill case never contacts by itself.
+      expect(
+        detail.body.timeline.filter((entry) => entry.type === 'contact_attempt_skipped'),
+      ).toHaveLength(3);
+      expect(detail.body.contactAttempts).toEqual([]);
       expect(detail.body.timeline.some((entry) => entry.type === 'lost_to_follow_up')).toBe(false);
     });
   });
@@ -242,7 +253,7 @@ describe('inbox API on a seeded clinic', () => {
         [snoozeId, { action: 'snooze', snoozeDays: 3 }, 'NOTA-POSPONER'],
         [notifyId, { action: 'notify' }, 'NOTA-CONTACTO'],
         [resolveId, { action: 'resolve' }, 'NOTA-RESOLVER'],
-        [dismissId, { action: 'dismiss' }, 'NOTA-DESCARTE'],
+        [dismissId, { action: 'dismiss', reason: 'already_done' }, 'NOTA-DESCARTE'],
       ];
       for (const [caseId, action, note] of notes) {
         const response = await h.call<CaseDetail | ErrorBody>(
@@ -263,7 +274,10 @@ describe('inbox API on a seeded clinic', () => {
         (await h.call(`/api/inbox/cases/${caseId}/actions`, { action: 'resolve' })).status,
       ).toBe(200);
       for (const action of ['dismiss', 'resolve', 'notify'] as const) {
-        const response = await h.call<ErrorBody>(`/api/inbox/cases/${caseId}/actions`, { action });
+        const response = await h.call<ErrorBody>(`/api/inbox/cases/${caseId}/actions`, {
+          action,
+          ...(action === 'dismiss' ? { reason: 'already_done' } : {}),
+        });
         expect(response.status).toBe(409);
         expect(response.body.error.code).toBe('invalid_transition');
         expect(response.body.error.message).not.toMatch(INTERNAL_TOKENS);

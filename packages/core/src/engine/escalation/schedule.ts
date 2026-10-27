@@ -56,11 +56,30 @@ export async function caseExpectations(
   return loaded;
 }
 
-/** The escalation policy of a case: the one of the rule that opened it. */
-export function policyOf(catalog: Catalog, reasons: readonly Expectation[]): EscalationPolicy {
+/**
+ * The escalation policy of a case: the named policy it was pinned to when it
+ * opened (`escalationPolicyId`), else the one of the rule that opened it.
+ */
+export function policyOf(
+  catalog: Catalog,
+  reasons: readonly Expectation[],
+  followUpCase?: Pick<FollowUpCase, 'escalationPolicyId'>,
+): EscalationPolicy {
+  const pinned = followUpCase?.escalationPolicyId;
+  if (pinned !== undefined) {
+    const policy = catalog.policy(pinned);
+    if (policy !== undefined) {
+      return policy;
+    }
+  }
   const [first] = reasons;
   return (
     (first === undefined ? undefined : catalog.definition(first.ruleId)?.escalationPolicy) ??
     FALLBACK_ESCALATION_POLICY
   );
+}
+
+/** The named policy a case opening on `expectation` is pinned to, if its policy has an id. */
+export function pinnedPolicyId(catalog: Catalog, expectation: Expectation): string | undefined {
+  return catalog.definition(expectation.ruleId)?.escalationPolicy.id;
 }

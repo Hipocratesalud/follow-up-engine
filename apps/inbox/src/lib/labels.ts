@@ -1,6 +1,11 @@
 import type {
+  CallOutcome,
   CaseStatus,
   ConditionStatus,
+  ContactAttemptStatus,
+  ContactChannel,
+  ContactOutcome,
+  DismissReason,
   EscalationView,
   ExpectationStatus,
   FeedbackReason,
@@ -24,6 +29,14 @@ export const LAYER_DESCRIPTIONS: Record<Layer, string> = {
   cadence: 'El paciente lleva más tiempo del habitual sin consulta.',
   protocol: 'Un control que el protocolo de su condición indica y nadie ha pedido.',
 };
+
+/** Badge of a reason from a protocol the clinical team has not validated yet (`status: draft`). */
+export const DRAFT_PROTOCOL_LABEL = 'Protocolo en borrador · pendiente de validación clínica';
+/** Tooltip and screen-reader text of {@link DRAFT_PROTOCOL_LABEL}. */
+export const DRAFT_PROTOCOL_HINT =
+  'Este protocolo aún no fue validado por el equipo clínico de tu consultorio.';
+/** Prefix of the protocol's name under a reason ("Protocolo: Embarazo y puerperio"). */
+export const PROTOCOL_NAME_PREFIX = 'Protocolo:';
 
 export const STATUS_LABELS: Record<CaseStatus, string> = {
   open: 'Abierto',
@@ -196,4 +209,63 @@ export function actorLabel(actor: {
         ? 'Equipo del consultorio'
         : actor.id;
   }
+}
+
+// Patient contact loop (the API sends these labels; the mock and the dialog use the same).
+
+/** "Canal de la clínica" when the host chooses its own messaging channel. */
+export const HOST_CHANNEL_LABEL = 'Canal de la clínica';
+
+export const CHANNEL_LABELS: Record<ContactChannel, string> = {
+  whatsapp: 'WhatsApp',
+  phone_call: 'Llamada',
+  sms: 'SMS',
+  email: 'Correo',
+};
+
+export const CONTACT_OUTCOME_LABELS: Record<ContactOutcome, string> = {
+  delivered: 'Entregado',
+  read: 'Leído',
+  replied: 'Respondió',
+  booked: 'Agendó cita',
+  declined: 'No quiere seguimiento',
+  treated_elsewhere: 'Se atiende en otro lugar',
+  wrong_number: 'Número equivocado',
+  no_answer: 'No contestó',
+};
+
+/** What the team picks after calling ("Llamar al paciente"). */
+export const CALL_OUTCOME_LABELS: Record<CallOutcome, string> = {
+  booked: 'Contestó y agendó',
+  treated_elsewhere: 'Contestó, se atiende en otro lado',
+  no_answer: 'No contestó',
+  wrong_number: 'Número equivocado',
+  declined: 'No quiere seguimiento',
+};
+
+export const ATTEMPT_STATUS_LABELS: Record<ContactAttemptStatus, string> = {
+  waiting: 'Esperando respuesta',
+  answered: 'Respondió',
+  unreached: 'No se pudo contactar',
+  unanswered: 'Sin respuesta',
+  pending_call: 'Llamada pendiente',
+  closed: 'Cerrado sin respuesta',
+};
+
+export const DISMISS_REASON_LABELS: Record<DismissReason, string> = {
+  handled_elsewhere: 'Se atendió en otro lugar',
+  already_done: 'Ya se hizo',
+  not_applicable_to_patient: 'No aplica a este paciente',
+  wrong_diagnosis: 'El diagnóstico no es correcto',
+  wrong_interval: 'El plazo no es el adecuado',
+  other: 'Otro motivo',
+};
+
+export const CONTACT_FLAG_LABEL = 'Número equivocado';
+
+/** Label of a verdict reason: a feedback reason, or the reason a dismissal recorded. */
+export function verdictReasonLabel(reason: FeedbackReason | DismissReason): string {
+  return reason in FEEDBACK_REASON_LABELS
+    ? FEEDBACK_REASON_LABELS[reason as FeedbackReason]
+    : DISMISS_REASON_LABELS[reason as DismissReason];
 }

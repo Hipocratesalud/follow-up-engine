@@ -112,6 +112,12 @@ export interface ResultReceivedEvent extends ClinicalEventBase {
   /** Numeric value (FHIR `Observation.valueQuantity`), when the result has one. */
   readonly value?: { readonly value: number; readonly unit?: string };
   /**
+   * Date value (FHIR `Observation.valueDateTime`), for results that are a
+   * date: the estimated delivery date (LOINC 11778-8), the last menstrual
+   * period (8665-2).
+   */
+  readonly valueDate?: Date;
+  /**
    * The results a report lists (FHIR `DiagnosticReport.result`), kept so a
    * later withdrawal of the report reaches them even when the host re-sends
    * it without that list.

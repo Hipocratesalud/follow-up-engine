@@ -4,6 +4,7 @@ import {
   type Clock,
   type FollowUpEngine,
   type EngineSettings,
+  type EscalationPolicySource,
   type ProtocolSource,
   type RuleSource,
   type TransactionalStores,
@@ -14,14 +15,27 @@ import {
   MemoryClinicDirectory,
   MemoryLlmUsageLog,
 } from './clinic-directory.ts';
-import { FileProtocolSource, FileRuleSource } from './config-sources.ts';
+import {
+  FileEscalationPolicySource,
+  FileProtocolSource,
+  FileRuleSource,
+} from './config-sources.ts';
 import { FakeNoteExtractor } from './fake-note-extractor.ts';
 import { SequentialIdGenerator } from './id-generator.ts';
 import { MemoryJobQueue, MemoryOutbox } from './job-queue.ts';
 import { MemoryDatabase } from './memory-database.ts';
 import { MemoryBackfillProgressStore } from './repositories/backfill-progress-store.ts';
 import { MemoryCaseRepository } from './repositories/case-repository.ts';
+import {
+  MemoryClinicalFindingRepository,
+  MemoryClinicalReviewRunRepository,
+  MemoryFindingFlagRepository,
+} from './repositories/clinical-finding-repositories.ts';
 import { MemoryClinicalRecordRepository } from './repositories/clinical-record-repository.ts';
+import {
+  MemoryContactRepository,
+  MemorySuppressionRepository,
+} from './repositories/contact-repository.ts';
 import { MemoryExpectationRepository } from './repositories/expectation-repository.ts';
 import {
   MemoryAuditLog,
@@ -39,6 +53,11 @@ export interface MemoryStores extends TransactionalStores {
   readonly jobs: MemoryJobQueue;
   readonly outbox: MemoryOutbox;
   readonly backfillProgress: MemoryBackfillProgressStore;
+  readonly contacts: MemoryContactRepository;
+  readonly suppressions: MemorySuppressionRepository;
+  readonly clinicalFindings: MemoryClinicalFindingRepository;
+  readonly reviewRuns: MemoryClinicalReviewRunRepository;
+  readonly findingFlags: MemoryFindingFlagRepository;
 }
 
 /** Builds every memory store over one database. */
@@ -54,6 +73,11 @@ export function createMemoryStores(db: MemoryDatabase, clock: Clock): MemoryStor
     jobs: new MemoryJobQueue(db, clock),
     outbox: new MemoryOutbox(db),
     backfillProgress: new MemoryBackfillProgressStore(db),
+    contacts: new MemoryContactRepository(db),
+    suppressions: new MemorySuppressionRepository(db),
+    clinicalFindings: new MemoryClinicalFindingRepository(db),
+    reviewRuns: new MemoryClinicalReviewRunRepository(db),
+    findingFlags: new MemoryFindingFlagRepository(db),
   };
 }
 
@@ -63,6 +87,7 @@ export interface MemoryEngineOptions {
   readonly clinics?: readonly Clinic[];
   readonly rules?: RuleSource;
   readonly protocols?: ProtocolSource;
+  readonly escalationPolicies?: EscalationPolicySource;
   readonly extractor?: FakeNoteExtractor;
   readonly settings?: Partial<EngineSettings>;
 }
@@ -108,6 +133,7 @@ export function createMemoryEngine(options: MemoryEngineOptions): MemoryEngine {
     noteExtractor: extractor,
     rules: options.rules ?? new FileRuleSource(),
     protocols: options.protocols ?? new FileProtocolSource(),
+    escalationPolicies: options.escalationPolicies ?? new FileEscalationPolicySource(),
     clinics,
     clock: options.clock,
     ids,

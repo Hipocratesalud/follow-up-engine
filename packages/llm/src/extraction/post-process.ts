@@ -2,6 +2,7 @@ import { ICD10_SYSTEM, type PlanItem, type PlanItemKind } from '@follow-up-engin
 import { DEFAULT_CONDITION_TERMS, type ConditionTermTable } from './condition-terms.ts';
 import { daysBetween, durationInDays, parseIsoDate, resolveDueAt } from './due-date.ts';
 import { testGroup, testGroupOfLoinc, testGroupsIn } from './lab-tests.ts';
+import { postProcessPregnancy } from './pregnancy.ts';
 import { prepareNote, type PreparedNote } from './prepare.ts';
 import { createQuoteIndex, normalizeForMatch, type QuoteSpan } from './quote.ts';
 import type { ModelExtraction, ModelPlanItem } from './schema.ts';
@@ -24,13 +25,19 @@ import {
   termsPattern,
   type StatedTiming,
 } from './signals.ts';
-import type { ExtractedCondition, ExtractedMedication, RejectedItem } from './types.ts';
+import type {
+  ExtractedCondition,
+  ExtractedMedication,
+  ExtractedPregnancy,
+  RejectedItem,
+} from './types.ts';
 
 export interface PostProcessed {
   readonly hasPlan: boolean;
   readonly conditions: readonly ExtractedCondition[];
   readonly medications: readonly ExtractedMedication[];
   readonly planItems: readonly PlanItem[];
+  readonly pregnancy?: ExtractedPregnancy;
   readonly discharged: boolean;
   readonly dischargeEvidenceQuote?: string;
   readonly rejected: readonly RejectedItem[];
@@ -265,6 +272,9 @@ export type PostProcessNote =
  * - confidences are the model's, clamped to {@link MAX_ITEM_CONFIDENCE} and
  *   capped by those checks;
  * - a discharge needs a quote that states one ("se da de alta");
+ * - the pregnancy reading (dating, outcome) is checked by
+ *   `postProcessPregnancy`: current pregnancy only, values written in the
+ *   note and in range, an outcome that is not obstetric history;
  * - duplicates are removed.
  *
  * Every dropped item is reported with its reason.
@@ -555,12 +565,20 @@ export function postProcessExtraction(
     });
   }
 
+  const pregnancy = postProcessPregnancy(raw.pregnancy, {
+    index,
+    authoredAt: note.authoredAt,
+    verbatim,
+  });
+  rejected.push(...pregnancy.rejected);
+
   const discharged = dischargeEvidenceQuote !== undefined;
   return {
     hasPlan: raw.hasPlan || planItems.length > 0 || discharged,
     conditions: [...conditionsByCode.values()],
     medications,
     planItems,
+    ...(pregnancy.pregnancy === undefined ? {} : { pregnancy: pregnancy.pregnancy }),
     discharged,
     ...(dischargeEvidenceQuote === undefined ? {} : { dischargeEvidenceQuote }),
     rejected,
@@ -568,6 +586,7 @@ export function postProcessExtraction(
       raw.conditions.length +
       raw.medications.length +
       raw.planItems.length +
-      (raw.discharge ? 1 : 0),
+      (raw.discharge ? 1 : 0) +
+      pregnancy.modelItemCount,
   };
 }

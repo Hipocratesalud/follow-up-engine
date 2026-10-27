@@ -102,6 +102,57 @@ export interface FieldCounts {
   readonly conditions: Counts;
   readonly medications: Counts;
   readonly planItems: Counts;
+  /**
+   * Pregnancy outcome, matched on kind: a predicted outcome where the gold
+   * note has none (obstetric history, a planned caesarean) is a false
+   * positive. Optional in older summaries.
+   */
+  readonly pregnancyOutcome?: Counts;
+  /**
+   * Pregnancy dating: gestational weeks, last menstrual period and estimated
+   * delivery date, each one item, matched exactly (weeks, calendar day). A
+   * dated pregnancy in a note that reports none (a routine "FUM") is a false
+   * positive. Optional in older summaries.
+   */
+  readonly pregnancyDating?: Counts;
+}
+
+type ActualPregnancy = NoteExtraction['pregnancy'];
+
+/** Outcome counts of one note: kind must match. */
+export function pregnancyOutcomeCounts(
+  expected: ExpectedExtraction['pregnancy'],
+  actual: ActualPregnancy,
+): Counts {
+  const e = expected?.outcome?.kind;
+  const p = actual?.outcome?.kind;
+  if (e !== undefined && p !== undefined) {
+    return e === p ? { tp: 1, fp: 0, fn: 0 } : { tp: 0, fp: 1, fn: 1 };
+  }
+  return { tp: 0, fp: p === undefined ? 0 : 1, fn: e === undefined ? 0 : 1 };
+}
+
+/** Dating counts of one note: weeks, LMP and EDD, each an item that must match exactly. */
+export function pregnancyDatingCounts(
+  expected: ExpectedExtraction['pregnancy'],
+  actual: ActualPregnancy,
+): Counts {
+  const day = (date: Date | undefined): string | undefined => date?.toISOString().slice(0, 10);
+  const pairs: [unknown, unknown][] = [
+    [expected?.gestationalWeeks, actual?.gestationalWeeks],
+    [expected?.lastMenstrualPeriod, day(actual?.lastMenstrualPeriod)],
+    [expected?.estimatedDeliveryDate, day(actual?.estimatedDeliveryDate)],
+  ];
+  let counts = ZERO_COUNTS;
+  for (const [e, p] of pairs) {
+    const tp = e !== undefined && e === p ? 1 : 0;
+    counts = addCounts(counts, {
+      tp,
+      fp: p !== undefined && tp === 0 ? 1 : 0,
+      fn: e !== undefined && tp === 0 ? 1 : 0,
+    });
+  }
+  return counts;
 }
 
 /** Scores one extraction against the gold expectation. */
@@ -109,7 +160,7 @@ export function compareExtraction(
   expected: ExpectedExtraction,
   actual: Pick<
     NoteExtraction,
-    'conditions' | 'medications' | 'planItems' | 'hasPlan' | 'discharged'
+    'conditions' | 'medications' | 'planItems' | 'hasPlan' | 'discharged' | 'pregnancy'
   >,
   authoredAt: Date,
 ): FieldCounts & { readonly hasPlanCorrect: boolean; readonly dischargeCorrect: boolean } {
@@ -128,6 +179,8 @@ export function compareExtraction(
     conditions,
     medications,
     planItems,
+    pregnancyOutcome: pregnancyOutcomeCounts(expected.pregnancy, actual.pregnancy),
+    pregnancyDating: pregnancyDatingCounts(expected.pregnancy, actual.pregnancy),
     hasPlanCorrect: expected.hasPlan === actual.hasPlan,
     dischargeCorrect: (expected.discharge !== undefined) === (actual.discharged === true),
   };

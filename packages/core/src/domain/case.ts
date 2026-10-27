@@ -1,4 +1,5 @@
 import type { Origin } from './common.ts';
+import type { DismissReason } from './contact.ts';
 import type { CaseId, ClinicId, ExpectationId, FeedbackId, PatientId } from './ids.ts';
 import type { JsonObject } from '../shared/json.ts';
 
@@ -37,6 +38,8 @@ export interface CaseResolution {
   /** Host user id of whoever resolved it; absent when the engine did. */
   readonly resolvedBy?: string;
   readonly note?: string;
+  /** Why a clinic user dismissed the case (`dismissed` only). */
+  readonly dismissReason?: DismissReason;
 }
 
 /**
@@ -58,6 +61,13 @@ export interface FollowUpCase {
   readonly assignee?: string;
   /** Index into the rule's escalation policy; 0 before any escalation. */
   readonly escalationStep: number;
+  /**
+   * The named, versioned escalation policy the case follows (`default_v2`),
+   * fixed when it opened: a clinic switching policies does not move the
+   * steps of cases already in progress. Absent: the policy of its first
+   * reason's rule (an inline policy, or a case opened before pinning).
+   */
+  readonly escalationPolicyId?: string;
   /** When the worker should next look at the case (escalation, reminder). */
   readonly nextActionAt?: Date;
   readonly snoozedUntil?: Date;
@@ -78,6 +88,8 @@ export type CaseEventType =
   | 'snoozed'
   | 'escalated'
   | 'patient_contact_requested'
+  | 'contact_attempt_skipped'
+  | 'contact_outcome_recorded'
   | 'resolved'
   | 'dismissed'
   | 'reopened'
@@ -104,8 +116,22 @@ export interface CaseEvent {
   readonly at: Date;
 }
 
-export type CaseFeedbackReason =
-  'wrong_rule' | 'wrong_interval' | 'bad_extraction' | 'already_handled' | 'other';
+/**
+ * Why a case was not useful. The last four are also dismissal reasons: a
+ * dismissal records its reason as the case's feedback (`DismissReason`).
+ */
+export const CASE_FEEDBACK_REASONS = [
+  'wrong_rule',
+  'wrong_interval',
+  'bad_extraction',
+  'already_handled',
+  'other',
+  'handled_elsewhere',
+  'already_done',
+  'not_applicable_to_patient',
+  'wrong_diagnosis',
+] as const satisfies readonly string[];
+export type CaseFeedbackReason = (typeof CASE_FEEDBACK_REASONS)[number];
 
 /** A clinician's verdict on a case. Ground truth for evals and rule tuning. */
 export interface CaseFeedback {

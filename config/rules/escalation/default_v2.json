@@ -1,0 +1,29 @@
+{
+  "id": "default_v2",
+  "steps": [
+    { "afterDays": 0, "action": "notify_clinic" },
+    { "afterDays": 14, "action": "raise_priority", "priorityDelta": 20 },
+    {
+      "afterDays": 14,
+      "action": "request_patient_contact",
+      "channel": "whatsapp",
+      "answerWindowDays": 7
+    },
+    {
+      "afterDays": 21,
+      "action": "request_patient_contact",
+      "channel": "phone_call",
+      "answerWindowDays": 3,
+      "skipIfAnswered": true
+    },
+    { "afterDays": 21, "action": "escalate_to_coordinator" },
+    {
+      "afterDays": 28,
+      "action": "request_patient_contact",
+      "channel": "whatsapp",
+      "answerWindowDays": 7,
+      "skipIfAnswered": true
+    },
+    { "afterDays": 35, "action": "mark_lost_to_follow_up" }
+  ]
+}

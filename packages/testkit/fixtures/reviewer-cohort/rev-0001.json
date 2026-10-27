@@ -1,0 +1,1356 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "rev-0001",
+  "name": "Rodolfo Arismendi Paz",
+  "gender": "male",
+  "birthDate": "1957-06-12",
+  "kind": "planted",
+  "story": "Creatinine rising over three results on metformin; no note mentions it",
+  "expected": [
+    {
+      "category": "lab_trend",
+      "rule": "lab_trend:creatinine",
+      "description": "creatinine 1.10 → 1.40 → 1.75 mg/dL, silent"
+    },
+    {
+      "category": "drug_condition_conflict",
+      "rule": "drug_condition:metformin_egfr_45",
+      "description": "metformin with an estimated eGFR under 45 (CKD-EPI 2021 from creatinine)"
+    }
+  ],
+  "entries": [
+    {
+      "at": "2024-06-10T16:00:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "rev-0001-bundle22",
+        "type": "transaction",
+        "timestamp": "2024-06-10T16:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:5afab70c-c6de-5200-8aeb-ec1973c1eb4a",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-lab23-creatinine",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "effectiveDateTime": "2024-06-09T09:00:00.000Z",
+              "issued": "2024-06-10T16:00:00.000Z",
+              "valueQuantity": {
+                "value": 1.05,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-lab23-creatinine" }
+          },
+          {
+            "fullUrl": "urn:uuid:6d8024ff-cb15-569e-95d6-d8d80301b9e5",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-lab23-hba1c",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c" }
+                ]
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "effectiveDateTime": "2024-06-09T09:00:00.000Z",
+              "issued": "2024-06-10T16:00:00.000Z",
+              "valueQuantity": {
+                "value": 7,
+                "unit": "%",
+                "system": "http://unitsofmeasure.org",
+                "code": "%"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-lab23-hba1c" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-06-24T14:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "rev-0001-bundle06",
+        "type": "transaction",
+        "timestamp": "2024-06-24T14:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:a86cfa2f-b3c8-5f73-b145-e978c02acab7",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "rev-0001",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://hipocratesalud.com/fhir/NamingSystem/demo-patient",
+                  "value": "REV-0001"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Rodolfo Arismendi Paz",
+                  "family": "Arismendi Paz",
+                  "given": ["Rodolfo"]
+                }
+              ],
+              "gender": "male",
+              "birthDate": "1957-06-12",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/rev-0001" }
+          },
+          {
+            "fullUrl": "urn:uuid:b0b5993d-6b70-5403-97cc-7bd75337c8f9",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "rev-0001-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
+              "period": { "start": "2024-06-24T14:00:00.000Z", "end": "2024-06-24T14:30:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/rev-0001-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:f85bc333-b2b0-5aef-a79f-dbb35422f7f8",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "rev-0001-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "date": "2024-06-24T14:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGFjaWVudGUgY29uIERNMiBkZSA4IGHDsW9zIGRlIGV2b2x1Y2nDs24uIEJ1ZW4gY29udHJvbC4gRm9uZG8gZGUgb2pvIChvZnRhbG1vbG9nw61hKTogc2luIHJldGlub3BhdMOtYS4gUGllczogc2Vuc2liaWxpZGFkIGNvbnNlcnZhZGEgY29uIG1vbm9maWxhbWVudG8sIHB1bHNvcyBwZWRpb3MgcHJlc2VudGVzLiBBbGVyZ2lhczogbmllZ2EuIFBsYW46IGNvbnRpbnVhciBNZXRmb3JtaW5hIDg1MCBtZyBjLzEyaC4gQ29udHJvbCBlbiA2IG1lc2VzIGNvbiBsYWJvcmF0b3Jpby4=",
+                    "title": "Nota de evolución",
+                    "creation": "2024-06-24T14:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/rev-0001-enc01" }],
+                "period": {
+                  "start": "2024-06-24T14:00:00.000Z",
+                  "end": "2024-06-24T14:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/rev-0001-doc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:df963df7-e892-5e2f-9f10-46eafa76d0e2",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "rev-0001-mr03",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 850 mg"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc01" },
+              "authoredOn": "2024-06-24T14:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/rev-0001-mr03" }
+          },
+          {
+            "fullUrl": "urn:uuid:8e0cfc68-b7a7-5322-83c5-22afa093db4c",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "rev-0001-cond04",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E11.9",
+                    "display": "Type 2 diabetes mellitus without complications"
+                  }
+                ],
+                "text": "DM2"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc01" },
+              "recordedDate": "2024-06-24T14:30:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/rev-0001-cond04" }
+          },
+          {
+            "fullUrl": "urn:uuid:84b3b556-05e1-5929-8042-0280abb0c86d",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-vs05-bp",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc01" },
+              "effectiveDateTime": "2024-06-24T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "85354-9",
+                    "display": "Blood pressure panel"
+                  }
+                ],
+                "text": "Presión arterial"
+              },
+              "component": [
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8480-6",
+                        "display": "Systolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 128,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                },
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8462-4",
+                        "display": "Diastolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 80,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-vs05-bp" }
+          },
+          {
+            "fullUrl": "urn:uuid:1179a198-2163-5cf8-8a66-18e80b279517",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-vs05-wt",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc01" },
+              "effectiveDateTime": "2024-06-24T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "29463-7", "display": "Body weight" }
+                ],
+                "text": "Peso"
+              },
+              "valueQuantity": {
+                "value": 84,
+                "unit": "kg",
+                "system": "http://unitsofmeasure.org",
+                "code": "kg"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-vs05-wt" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-12-22T16:00:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "rev-0001-bundle24",
+        "type": "transaction",
+        "timestamp": "2024-12-22T16:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:2d237ad3-41cd-5182-b733-f41ea714186f",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-lab25-creatinine",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "effectiveDateTime": "2024-12-21T09:00:00.000Z",
+              "issued": "2024-12-22T16:00:00.000Z",
+              "valueQuantity": {
+                "value": 1.1,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-lab25-creatinine" }
+          },
+          {
+            "fullUrl": "urn:uuid:90c0bfd6-7eed-5f46-b193-21a870ff3d04",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-lab25-hba1c",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c" }
+                ]
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "effectiveDateTime": "2024-12-21T09:00:00.000Z",
+              "issued": "2024-12-22T16:00:00.000Z",
+              "valueQuantity": {
+                "value": 7.1,
+                "unit": "%",
+                "system": "http://unitsofmeasure.org",
+                "code": "%"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-lab25-hba1c" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2024-12-31T14:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "rev-0001-bundle11",
+        "type": "transaction",
+        "timestamp": "2024-12-31T14:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:8134f1b2-efea-5d16-9a4b-68a3408ff4ce",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "rev-0001-enc07",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
+              "period": { "start": "2024-12-31T14:00:00.000Z", "end": "2024-12-31T14:30:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/rev-0001-enc07" }
+          },
+          {
+            "fullUrl": "urn:uuid:e10a5464-260f-5b85-891b-4b005f3e59d9",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "rev-0001-doc08",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "date": "2024-12-31T14:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "RE0yIGVzdGFibGUsIHNpbiBoaXBvZ2x1Y2VtaWFzLiBBZGhlcmVudGUgYSBsYSBkaWV0YS4gUGxhbjogbWFudGVuZXIgbWV0Zm9ybWluYSwgY29udHJvbCBlbiA2IG1lc2VzIGNvbiBIYkExYyB5IHF1w61taWNhLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2024-12-31T14:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/rev-0001-enc07" }],
+                "period": {
+                  "start": "2024-12-31T14:00:00.000Z",
+                  "end": "2024-12-31T14:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/rev-0001-doc08" }
+          },
+          {
+            "fullUrl": "urn:uuid:678b43f6-c110-5f58-b584-8ea04f35552d",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "rev-0001-mr09",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 850 mg"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc07" },
+              "authoredOn": "2024-12-31T14:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/rev-0001-mr09" }
+          },
+          {
+            "fullUrl": "urn:uuid:d1deeb2e-126d-51c9-8d10-fd235d083dd9",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-vs10-bp",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc07" },
+              "effectiveDateTime": "2024-12-31T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "85354-9",
+                    "display": "Blood pressure panel"
+                  }
+                ],
+                "text": "Presión arterial"
+              },
+              "component": [
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8480-6",
+                        "display": "Systolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 126,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                },
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8462-4",
+                        "display": "Diastolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 78,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-vs10-bp" }
+          },
+          {
+            "fullUrl": "urn:uuid:40f4aa23-b22a-5989-9d0a-725484e08ac2",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-vs10-wt",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc07" },
+              "effectiveDateTime": "2024-12-31T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "29463-7", "display": "Body weight" }
+                ],
+                "text": "Peso"
+              },
+              "valueQuantity": {
+                "value": 83.5,
+                "unit": "kg",
+                "system": "http://unitsofmeasure.org",
+                "code": "kg"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-vs10-wt" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-06-20T16:00:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "rev-0001-bundle26",
+        "type": "transaction",
+        "timestamp": "2025-06-20T16:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:7c6de8c3-7ec3-54f5-994e-0b7e2ab3d9d3",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-lab27-creatinine",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "effectiveDateTime": "2025-06-19T09:00:00.000Z",
+              "issued": "2025-06-20T16:00:00.000Z",
+              "valueQuantity": {
+                "value": 1.4,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-lab27-creatinine" }
+          },
+          {
+            "fullUrl": "urn:uuid:7f6b29e6-f74f-5a7a-b45e-4db2e87ddfc0",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-lab27-hba1c",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c" }
+                ]
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "effectiveDateTime": "2025-06-19T09:00:00.000Z",
+              "issued": "2025-06-20T16:00:00.000Z",
+              "valueQuantity": {
+                "value": 7,
+                "unit": "%",
+                "system": "http://unitsofmeasure.org",
+                "code": "%"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-lab27-hba1c" }
+          },
+          {
+            "fullUrl": "urn:uuid:fbe84b04-ec85-5f70-ae37-1f7c1560601f",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-lab27-uacr",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "9318-7",
+                    "display": "Albumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "effectiveDateTime": "2025-06-19T09:00:00.000Z",
+              "issued": "2025-06-20T16:00:00.000Z",
+              "valueQuantity": {
+                "value": 18,
+                "unit": "mg/g",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/g"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-lab27-uacr" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-06-29T14:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "rev-0001-bundle16",
+        "type": "transaction",
+        "timestamp": "2025-06-29T14:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:149c92a4-55d5-5cc6-b5a0-2073b3bddbe1",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "rev-0001-enc12",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
+              "period": { "start": "2025-06-29T14:00:00.000Z", "end": "2025-06-29T14:30:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/rev-0001-enc12" }
+          },
+          {
+            "fullUrl": "urn:uuid:900000b6-4d21-5cd4-ba1c-fb6ea884d1df",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "rev-0001-doc13",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "date": "2025-06-29T14:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "Q29udHJvbCBkZSBETTIuIFJlZmllcmUgYnVlbmEgdG9sZXJhbmNpYSBhIGxhIG1ldGZvcm1pbmEuIEZvbmRvIGRlIG9qbyAob2Z0YWxtb2xvZ8OtYSk6IHNpbiByZXRpbm9wYXTDrWEuIFBpZXM6IHNlbnNpYmlsaWRhZCBjb25zZXJ2YWRhIGNvbiBtb25vZmlsYW1lbnRvLCBwdWxzb3MgcGVkaW9zIHByZXNlbnRlcy4gQWxlcmdpYXM6IG5pZWdhLiBQbGFuOiBjb250cm9sIGVuIDYgbWVzZXMgY29uIGxhYm9yYXRvcmlvLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-06-29T14:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/rev-0001-enc12" }],
+                "period": {
+                  "start": "2025-06-29T14:00:00.000Z",
+                  "end": "2025-06-29T14:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/rev-0001-doc13" }
+          },
+          {
+            "fullUrl": "urn:uuid:47c180c2-1e6d-599e-b04f-1acab6876bcb",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "rev-0001-mr14",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 850 mg"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc12" },
+              "authoredOn": "2025-06-29T14:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/rev-0001-mr14" }
+          },
+          {
+            "fullUrl": "urn:uuid:19e0fee6-8c14-5e0d-b9fc-d2e1e785658a",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-vs15-bp",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc12" },
+              "effectiveDateTime": "2025-06-29T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "85354-9",
+                    "display": "Blood pressure panel"
+                  }
+                ],
+                "text": "Presión arterial"
+              },
+              "component": [
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8480-6",
+                        "display": "Systolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 130,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                },
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8462-4",
+                        "display": "Diastolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 80,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-vs15-bp" }
+          },
+          {
+            "fullUrl": "urn:uuid:108b5b71-b179-5b61-9ed3-3cf9d04a5105",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-vs15-wt",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc12" },
+              "effectiveDateTime": "2025-06-29T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "29463-7", "display": "Body weight" }
+                ],
+                "text": "Peso"
+              },
+              "valueQuantity": {
+                "value": 83,
+                "unit": "kg",
+                "system": "http://unitsofmeasure.org",
+                "code": "kg"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-vs15-wt" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-11-22T16:00:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "rev-0001-bundle28",
+        "type": "transaction",
+        "timestamp": "2025-11-22T16:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:03359203-89ba-5869-b554-9d867e7fce20",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-lab29-creatinine",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "effectiveDateTime": "2025-11-21T09:00:00.000Z",
+              "issued": "2025-11-22T16:00:00.000Z",
+              "valueQuantity": {
+                "value": 1.75,
+                "unit": "mg/dL",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/dL"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-lab29-creatinine" }
+          },
+          {
+            "fullUrl": "urn:uuid:c6b36f4a-ea84-511f-8670-c943da98df12",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-lab29-hba1c",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c" }
+                ]
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "effectiveDateTime": "2025-11-21T09:00:00.000Z",
+              "issued": "2025-11-22T16:00:00.000Z",
+              "valueQuantity": {
+                "value": 7.2,
+                "unit": "%",
+                "system": "http://unitsofmeasure.org",
+                "code": "%"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-lab29-hba1c" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-12-01T14:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "rev-0001-bundle21",
+        "type": "transaction",
+        "timestamp": "2025-12-01T14:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:b7f837bd-6fcb-5bb9-8f55-e0f96d18dda7",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "rev-0001-enc17",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
+              "period": { "start": "2025-12-01T14:00:00.000Z", "end": "2025-12-01T14:30:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/rev-0001-enc17" }
+          },
+          {
+            "fullUrl": "urn:uuid:93c4166c-7c47-5bf3-b818-ae6fc897f202",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "rev-0001-doc18",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "date": "2025-12-01T14:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "Q29udHJvbCBkZSBETTIuIEFzaW50b23DoXRpY28uIEdsdWNlbWlhcyBjYXBpbGFyZXMgZW4gbWV0YXMuIFBsYW46IG1hbnRlbmVyIG1ldGZvcm1pbmEgODUwIG1nIGMvMTJoLiBDb250cm9sIGVuIDMgbWVzZXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-12-01T14:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/rev-0001-enc17" }],
+                "period": {
+                  "start": "2025-12-01T14:00:00.000Z",
+                  "end": "2025-12-01T14:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/rev-0001-doc18" }
+          },
+          {
+            "fullUrl": "urn:uuid:be0876a5-e995-531b-a422-3dbe8422efda",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "rev-0001-mr19",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 850 mg"
+              },
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc17" },
+              "authoredOn": "2025-12-01T14:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/rev-0001-mr19" }
+          },
+          {
+            "fullUrl": "urn:uuid:d0a26db1-6954-568c-933d-98652d1cfa66",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-vs20-bp",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc17" },
+              "effectiveDateTime": "2025-12-01T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "85354-9",
+                    "display": "Blood pressure panel"
+                  }
+                ],
+                "text": "Presión arterial"
+              },
+              "component": [
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8480-6",
+                        "display": "Systolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 128,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                },
+                {
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "code": "8462-4",
+                        "display": "Diastolic blood pressure"
+                      }
+                    ]
+                  },
+                  "valueQuantity": {
+                    "value": 79,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mm[Hg]"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-vs20-bp" }
+          },
+          {
+            "fullUrl": "urn:uuid:f03e3d71-5f67-5238-84cc-6bc8a4e81299",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "rev-0001-vs20-wt",
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "vital-signs",
+                      "display": "Vital Signs"
+                    }
+                  ]
+                }
+              ],
+              "subject": { "reference": "Patient/rev-0001" },
+              "encounter": { "reference": "Encounter/rev-0001-enc17" },
+              "effectiveDateTime": "2025-12-01T14:00:00.000Z",
+              "code": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "29463-7", "display": "Body weight" }
+                ],
+                "text": "Peso"
+              },
+              "valueQuantity": {
+                "value": 83,
+                "unit": "kg",
+                "system": "http://unitsofmeasure.org",
+                "code": "kg"
+              }
+            },
+            "request": { "method": "PUT", "url": "Observation/rev-0001-vs20-wt" }
+          }
+        ]
+      }
+    }
+  ]
+}

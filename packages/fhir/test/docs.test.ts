@@ -1,7 +1,20 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { caseToTask, expectationToTask, mapBundleToBatches } from '../src/index.ts';
-import { escalatedCase, expiredPlanExpectation } from './domain-fixtures.ts';
+import {
+  caseToTask,
+  communicationToFhir,
+  contactRequestToFhir,
+  expectationToTask,
+  mapBundleToBatches,
+  suppressionToFlag,
+} from '../src/index.ts';
+import {
+  activeSuppression,
+  escalatedCase,
+  expiredPlanExpectation,
+  whatsappAttempt,
+  wrongNumber,
+} from './domain-fixtures.ts';
 import { loadBundle } from './helpers.ts';
 
 /** Keeps docs/fhir.md honest: every JSON example in it is what the code produces. */
@@ -94,8 +107,8 @@ function namedCodes(
 }
 
 describe('docs/fhir.md', () => {
-  it('has the five examples', () => {
-    expect(examples).toHaveLength(5);
+  it('has the eight examples', () => {
+    expect(examples).toHaveLength(8);
   });
 
   it('shows OperationOutcome issues the mapping really emits', () => {
@@ -154,5 +167,11 @@ describe('docs/fhir.md', () => {
   it('shows the case and expectation Tasks the outbound mapping produces', () => {
     expect(examples[3]).toEqual(asJson(caseToTask(escalatedCase)));
     expect(examples[4]).toEqual(asJson(expectationToTask(expiredPlanExpectation)));
+  });
+
+  it('shows the contact loop resources the outbound mapping produces', () => {
+    expect(examples[5]).toEqual(asJson(contactRequestToFhir(whatsappAttempt)));
+    expect(examples[6]).toEqual(asJson(communicationToFhir(wrongNumber)));
+    expect(examples[7]).toEqual(asJson(suppressionToFlag(activeSuppression)));
   });
 });

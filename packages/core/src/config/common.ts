@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CLINICAL_EVENT_TYPES, PLAN_ITEM_KINDS } from '../domain/clinical-event.ts';
-import { PATIENT_CONTACT_PURPOSES } from '../domain/domain-event.ts';
+import { CONTACT_CHANNELS, PATIENT_CONTACT_PURPOSES } from '../domain/contact.ts';
 
 /** Lowercase dotted / dashed / underscored id, for example `imaging.result-pending`. */
 export const ConfigIdSchema = z.string().regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/, {
@@ -130,21 +130,56 @@ export const ESCALATION_ACTIONS = [
 export type EscalationAction = (typeof ESCALATION_ACTIONS)[number];
 
 /**
+ * One step of an escalation policy.
+ *
+ * A `request_patient_contact` step is a contact attempt. Its optional
+ * `channel` is the hint the host gets (`whatsapp`, `sms`, `email`), or
+ * `phone_call` for a call the clinic team makes from the inbox; its
+ * `answerWindowDays` is how long the patient has to answer before the
+ * attempt counts as unanswered (default `EngineSettings.patientContactDueInDays`);
+ * `skipIfAnswered` skips it when the patient already answered an attempt
+ * since the case opened. Policies written before attempts had channels
+ * (`default_v1`) keep working unchanged.
+ */
+export const EscalationStepSchema = z
+  .strictObject({
+    afterDays: z.number().int().nonnegative(),
+    action: z.enum(ESCALATION_ACTIONS),
+    priorityDelta: z.number().int().optional(),
+    channel: z.enum(CONTACT_CHANNELS).optional(),
+    answerWindowDays: z.number().int().nonnegative().optional(),
+    skipIfAnswered: z.boolean().optional(),
+  })
+  .superRefine((step, context) => {
+    if (step.action === 'request_patient_contact') {
+      return;
+    }
+    for (const field of ['channel', 'answerWindowDays', 'skipIfAnswered'] as const) {
+      if (step[field] !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: `only a request_patient_contact step takes ${field}`,
+        });
+      }
+    }
+  });
+export type EscalationStep = z.infer<typeof EscalationStepSchema>;
+
+/**
  * Steps applied to a case, in order. `afterDays` counts from the moment the
  * case opened; a user action on the case (notify, snooze) restarts the wait
  * for the next step, so "14 days without action" means exactly that.
  */
 export const EscalationPolicySchema = z.strictObject({
-  /** Named policies (for example `default_v1`) can be referenced from rules by id. */
+  /**
+   * Named policies (for example `default_v1`) can be referenced from rules
+   * by id. The id carries the version: a changed policy gets a new id
+   * (`default_v2`), and a case keeps the one it opened with.
+   */
   id: ConfigIdSchema.optional(),
   steps: z
-    .array(
-      z.strictObject({
-        afterDays: z.number().int().nonnegative(),
-        action: z.enum(ESCALATION_ACTIONS),
-        priorityDelta: z.number().int().optional(),
-      }),
-    )
+    .array(EscalationStepSchema)
     .min(1)
     .refine(
       (steps) =>

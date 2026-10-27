@@ -312,6 +312,76 @@ export const ORDERS = {
       'Índice cardiotorácico aumentado. Sin consolidaciones.',
     ],
   },
+  creatinineEgfr: lab(
+    'creatinineEgfr',
+    '2160-0',
+    'Creatinine [Mass/volume] in Serum or Plasma',
+    'Creatinina sérica con TFG estimada (CKD-EPI)',
+    'creatinina con TFG',
+    [
+      {
+        loinc: '2160-0',
+        display: 'Creatinine [Mass/volume] in Serum or Plasma',
+        unit: 'mg/dL',
+        ucum: 'mg/dL',
+        low: 0.5,
+        high: 1.2,
+        decimals: 2,
+      },
+      {
+        loinc: '62238-1',
+        display:
+          'Glomerular filtration rate/1.73 sq M.predicted [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI)',
+        unit: 'mL/min/1.73 m2',
+        ucum: 'mL/min/{1.73_m2}',
+        low: 60,
+        decimals: 0,
+      },
+    ],
+  ),
+  uacr: lab(
+    'uacr',
+    '9318-7',
+    'Albumin/Creatinine [Mass Ratio] in Urine',
+    'Relación albúmina/creatinina en orina',
+    'RAC',
+    [
+      {
+        loinc: '9318-7',
+        display: 'Albumin/Creatinine [Mass Ratio] in Urine',
+        unit: 'mg/g',
+        ucum: 'mg/g',
+        high: 30,
+        decimals: 0,
+      },
+    ],
+  ),
+  ogtt: lab(
+    'ogtt',
+    '1518-0',
+    'Glucose [Mass/volume] in Serum or Plasma --2 hours post 75 g glucose PO',
+    'Prueba de tolerancia oral a la glucosa (75 g)',
+    'PTOG 75 g',
+    [
+      {
+        loinc: '1558-6',
+        display: 'Fasting glucose [Mass/volume] in Serum or Plasma',
+        unit: 'mg/dL',
+        ucum: 'mg/dL',
+        low: 70,
+        high: 92,
+        decimals: 0,
+      },
+      {
+        loinc: '1518-0',
+        display: 'Glucose [Mass/volume] in Serum or Plasma --2 hours post 75 g glucose PO',
+        unit: 'mg/dL',
+        ucum: 'mg/dL',
+        high: 153,
+        decimals: 0,
+      },
+    ],
+  ),
 } as const satisfies Record<string, OrderDefinition>;
 
 export type OrderKey = keyof typeof ORDERS;
@@ -390,6 +460,17 @@ export const MEDICATIONS = {
     'Drospirenona/etinilestradiol',
     '1 tab VO OD por 21 días',
   ),
+  levothyroxine75: med(
+    'H03AA01',
+    'levothyroxine sodium',
+    'Levotiroxina 75 mcg',
+    '1 tab VO en ayunas',
+  ),
+  sertraline100: med('N06AB06', 'sertraline', 'Sertralina 100 mg', '1 tab VO OD AM'),
+  escitalopram10: med('N06AB10', 'escitalopram', 'Escitalopram 10 mg', '1 tab VO OD'),
+  escitalopram20: med('N06AB10', 'escitalopram', 'Escitalopram 20 mg', '1 tab VO OD'),
+  atorvastatin40: med('C10AA05', 'atorvastatin', 'Atorvastatina 40 mg', '1 tab VO HS'),
+  rosuvastatin10: med('C10AA07', 'rosuvastatin', 'Rosuvastatina 10 mg', '1 tab VO HS'),
 } as const satisfies Record<string, MedicationDefinition>;
 
 export type MedicationKey = keyof typeof MEDICATIONS;
@@ -475,6 +556,32 @@ export const CONDITIONS = {
     icd10: 'Z30.0',
     display: 'General counselling and advice on contraception',
     noteName: 'anticoncepción',
+  },
+  ckd4: { icd10: 'N18.4', display: 'Chronic kidney disease, stage 4', noteName: 'ERC estadio 4' },
+  hypercholesterolemia: {
+    icd10: 'E78.0',
+    display: 'Pure hypercholesterolaemia',
+    noteName: 'hipercolesterolemia',
+  },
+  depressionModerate: {
+    icd10: 'F32.1',
+    display: 'Moderate depressive episode',
+    noteName: 'episodio depresivo moderado',
+  },
+  vaginalDelivery: {
+    icd10: 'O80.9',
+    display: 'Single spontaneous delivery, unspecified',
+    noteName: 'parto vaginal',
+  },
+  cesareanDelivery: {
+    icd10: 'O82.9',
+    display: 'Delivery by caesarean section, unspecified',
+    noteName: 'cesárea segmentaria',
+  },
+  miscarriage: {
+    icd10: 'O03.9',
+    display: 'Spontaneous abortion, complete or unspecified, without complication',
+    noteName: 'aborto espontáneo',
   },
 } as const satisfies Record<string, ConditionDefinition>;
 

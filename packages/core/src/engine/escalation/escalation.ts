@@ -1,4 +1,4 @@
-import type { EscalationAction, EscalationPolicy } from '../../config/common.ts';
+import type { EscalationAction, EscalationPolicy, EscalationStep } from '../../config/common.ts';
 import {
   ACTIVE_CASE_STATUSES,
   type CaseEventActor,
@@ -14,19 +14,22 @@ import { CaseWriter, withoutKey } from '../case-manager/case-writer.ts';
 import { isActiveCaseStatus } from '../case-manager/state-machine.ts';
 import type { Catalog } from '../catalog.ts';
 import {
+  callAlreadyRequested,
+  contactPurpose,
+  openContactAttempt,
+} from '../patient-contact/attempts.ts';
+import {
+  hasInvalidContactData,
   hasOptedOut,
   lastPatientContactAt,
-  patientContactRequestTimes,
-  patientLanguage,
+  patientAttempts,
 } from '../patient-contact/history.ts';
 import {
+  type ContactSkipReason,
   decidePatientContact,
   isLowConfidenceCase,
-  type PatientContactDecision,
-  type PatientContactDenial,
 } from '../patient-contact/policy.ts';
 import type { EngineSettings } from '../settings.ts';
-import { addDays } from '../support/time.ts';
 import { caseExpectations, nextActionAfter, policyOf, withNextActionAt } from './schedule.ts';
 
 export interface EscalationDeps {
@@ -51,7 +54,7 @@ export interface EscalationReport {
   readonly contactsRequested: readonly CaseId[];
   readonly contactsSkipped: readonly {
     readonly caseId: CaseId;
-    readonly reason: PatientContactDenial;
+    readonly reason: ContactSkipReason;
   }[];
   /**
    * Cases that reached `mark_lost_to_follow_up` without anyone having asked
@@ -64,7 +67,7 @@ interface MutableReport {
   readonly woken: CaseId[];
   readonly steps: EscalationStepRecord[];
   readonly contactsRequested: CaseId[];
-  readonly contactsSkipped: { caseId: CaseId; reason: PatientContactDenial }[];
+  readonly contactsSkipped: { caseId: CaseId; reason: ContactSkipReason }[];
   readonly lostToFollowUpSkipped: CaseId[];
 }
 
@@ -150,7 +153,7 @@ class CaseEscalator {
   async advance(initial: FollowUpCase): Promise<void> {
     const { stores, clinicId, catalog, now } = this.#input;
     const reasons = await caseExpectations(stores, clinicId, initial);
-    const policy = policyOf(catalog, reasons);
+    const policy = policyOf(catalog, reasons, initial);
     let current = initial;
     if (current.status === 'snoozed') {
       if (current.snoozedUntil === undefined || current.snoozedUntil.getTime() > now.getTime()) {
@@ -232,13 +235,12 @@ class CaseEscalator {
     step: EscalationPolicy['steps'][number],
   ): Promise<StepOutcome> {
     if (step.action === 'request_patient_contact') {
-      const decision = await this.#requestPatientContact(current, this.#actor(policy), {
-        step: index,
-        action: step.action,
-      });
+      const skipped = await this.#requestPatientContact(current, policy, index, step);
       return {
         followUpCase: current,
-        continueNow: !decision.allowed && decision.reason === 'patient_opted_out',
+        // A message that cannot reach the patient (opted out, wrong number)
+        // does not make the team wait for its answer.
+        continueNow: skipped === 'patient_opted_out' || skipped === 'contact_data_invalid',
       };
     }
     if (step.action === 'mark_lost_to_follow_up') {
@@ -306,39 +308,57 @@ class CaseEscalator {
     const { stores, clinicId, catalog, now } = this.#input;
     const reasons = await caseExpectations(stores, clinicId, current);
     const conditions = await stores.conditions.listByPatient(clinicId, current.patientId);
-    return priorityOfCase({ catalog, reasons, conditions, escalationStep: index + 1, now });
+    return priorityOfCase({
+      catalog,
+      reasons,
+      conditions,
+      escalationStep: index + 1,
+      escalationPolicyId: current.escalationPolicyId,
+      now,
+    });
   }
 
   /**
-   * Lost to follow-up means the patient was asked to come back and did not:
-   * only when a contact request went out for the patient since the case
-   * opened (automatic or by a user, from any of their cases) and its answer
-   * window (`patientContactDueInDays`, the request's `dueBy`) is over. While
-   * the only requests are still within that window, the step waits for the
-   * earliest one to end. With no request at all nobody tried (the clinic
-   * does not contact patients, the patient opted out, the case rests on a
-   * probable condition or comes from the backfill) and the case stays with
-   * the team until someone resolves or dismisses it. A patient who opted out
-   * after being contacted declined.
+   * Lost to follow-up means the patient was asked to come back, every
+   * attempt is over and nobody answered. Counted over the attempts made for
+   * the patient since the case opened (automatic or by a user, from any of
+   * their cases; a call counts once the team recorded what came of it):
+   *
+   * - none made: nobody tried (the clinic does not contact patients, the
+   *   patient opted out first, the case rests on a probable condition or
+   *   comes from the backfill), so the case stays with the team;
+   * - the patient answered one: they are reachable, the team follows up;
+   * - an answer window still open (a message's `dueBy`, a call the team has
+   *   not made yet): the step waits for the next one to end and runs again;
+   * - else lost, `patient_declined` when the patient opted out after being
+   *   contacted, `patient_unreachable` otherwise.
    */
   async #markLost(
     current: FollowUpCase,
     actor: CaseEventActor,
     payload: { readonly step: number; readonly action: EscalationAction },
   ): Promise<StepOutcome> {
-    const { stores, clinicId, now, report, deps } = this.#input;
-    const requests = (await patientContactRequestTimes(stores, clinicId, current.patientId)).filter(
-      (at) => at.getTime() >= current.createdAt.getTime(),
+    const { stores, clinicId, now, report } = this.#input;
+    const since = (await patientAttempts(stores, clinicId, current.patientId)).filter(
+      (attempt) => attempt.request.requestedAt.getTime() >= current.createdAt.getTime(),
     );
-    if (requests.length === 0) {
+    const made = since.filter((attempt) => attempt.made);
+    if (made.length === 0 || since.some((attempt) => attempt.answered)) {
       report.lostToFollowUpSkipped.push(current.id);
       return { followUpCase: current, continueNow: false };
     }
-    const answerDeadlines = requests.map((at) =>
-      addDays(at, deps.settings.patientContactDueInDays),
+    const pendingCalls = since.filter(
+      (attempt) => !attempt.made && attempt.request.caseId === current.id,
     );
-    if (answerDeadlines.every((dueBy) => dueBy.getTime() > now.getTime())) {
-      return { followUpCase: current, continueNow: false, retryAt: answerDeadlines[0] };
+    const open = [
+      ...made.map((attempt) => attempt.windowEndsAt),
+      ...pendingCalls.map((attempt) => attempt.request.dueBy),
+    ]
+      .filter((end) => end.getTime() > now.getTime())
+      .sort((left, right) => left.getTime() - right.getTime());
+    const [nextEnd] = open;
+    if (nextEnd !== undefined) {
+      return { followUpCase: current, continueNow: false, retryAt: nextEnd };
     }
     const kind = (await hasOptedOut(stores, clinicId, current.patientId))
       ? 'patient_declined'
@@ -348,7 +368,7 @@ class CaseEscalator {
       type: 'lost_to_follow_up',
       actor,
       at: now,
-      payload,
+      payload: { ...payload, attempts: made.length },
       patch: { resolution: { kind, resolvedAt: now } },
     });
     await this.#writer.emit('case.resolved', now, {
@@ -368,50 +388,80 @@ class CaseEscalator {
     });
   }
 
+  /**
+   * A contact attempt of the policy: skipped when the patient already
+   * answered (`skipIfAnswered`), when it is a call the team already has to
+   * make, or when the contact rules forbid it; otherwise opened. Returns the
+   * reason it was skipped, if it was.
+   */
   async #requestPatientContact(
     current: FollowUpCase,
-    actor: CaseEventActor,
-    payload: { readonly step: number; readonly action: EscalationAction },
-  ): Promise<PatientContactDecision> {
+    policy: EscalationPolicy,
+    index: number,
+    step: EscalationStep,
+  ): Promise<ContactSkipReason | undefined> {
     const { stores, clinicId, catalog, now, deps, report } = this.#input;
+    const actor = this.#actor(policy);
+    const audit = { step: index, action: step.action };
     // One statement at a time: a transaction's connection is not concurrent.
     const reasons = await caseExpectations(stores, clinicId, current);
-    const conditions = await stores.conditions.listByPatient(clinicId, current.patientId);
-    const optedOut = await hasOptedOut(stores, clinicId, current.patientId);
-    const lastContactAt = await lastPatientContactAt(stores, clinicId, current.patientId);
-    const decision = decidePatientContact({
-      clinicAllowsContact: this.#input.clinicAllowsContact,
-      patientOptedOut: optedOut,
-      backfill: current.origin === 'backfill',
-      lowConfidence: isLowConfidenceCase(reasons, conditions, catalog),
-      ...(lastContactAt === undefined ? {} : { lastContactAt }),
-      now,
-      windowDays: deps.settings.patientContactWindowDays,
-    });
-    if (!decision.allowed) {
-      report.contactsSkipped.push({ caseId: current.id, reason: decision.reason });
-      return decision;
+    const attempts = (await patientAttempts(stores, clinicId, current.patientId)).filter(
+      (attempt) => attempt.request.requestedAt.getTime() >= current.createdAt.getTime(),
+    );
+    let skipped: ContactSkipReason | undefined;
+    if (step.skipIfAnswered === true && attempts.some((attempt) => attempt.answered)) {
+      skipped = 'patient_answered';
+    } else if (
+      step.channel === 'phone_call' &&
+      callAlreadyRequested(
+        attempts
+          .map((attempt) => attempt.request)
+          .filter((request) => request.caseId === current.id),
+      )
+    ) {
+      skipped = 'already_requested';
+    } else {
+      const conditions = await stores.conditions.listByPatient(clinicId, current.patientId);
+      const optedOut = await hasOptedOut(stores, clinicId, current.patientId);
+      const contactDataInvalid = await hasInvalidContactData(stores, clinicId, current.patientId);
+      const lastContactAt = await lastPatientContactAt(stores, clinicId, current.patientId);
+      const decision = decidePatientContact({
+        clinicAllowsContact: this.#input.clinicAllowsContact,
+        patientOptedOut: optedOut,
+        backfill: current.origin === 'backfill',
+        lowConfidence: isLowConfidenceCase(reasons, conditions, catalog),
+        channel: step.channel,
+        contactDataInvalid,
+        ...(lastContactAt === undefined ? {} : { lastContactAt }),
+        now,
+        windowDays: deps.settings.patientContactWindowDays,
+      });
+      skipped = decision.allowed ? undefined : decision.reason;
     }
-    const [first] = reasons;
-    const purpose =
-      (first === undefined
-        ? undefined
-        : catalog.definition(first.ruleId)?.suggestedAction.patientContactPurpose) ??
-      'schedule_follow_up';
-    const dueBy = addDays(now, deps.settings.patientContactDueInDays);
-    const language = await patientLanguage(stores, clinicId, current.patientId);
-    await this.#writer.audit(current, 'patient_contact_requested', actor, now, {
-      ...payload,
-      purpose,
-    });
-    await this.#writer.emit('patient_contact.requested', now, {
-      caseId: current.id,
-      patientId: current.patientId,
-      purpose,
-      dueBy,
-      ...(language === undefined ? {} : { language }),
-    });
+    if (skipped !== undefined) {
+      report.contactsSkipped.push({ caseId: current.id, reason: skipped });
+      await this.#writer.audit(current, 'contact_attempt_skipped', actor, now, {
+        ...audit,
+        reason: skipped,
+        ...(step.channel === undefined ? {} : { channel: step.channel }),
+      });
+      return skipped;
+    }
+    await openContactAttempt(
+      { stores, writer: this.#writer, ids: deps.ids },
+      {
+        followUpCase: current,
+        purpose: contactPurpose(catalog, reasons),
+        channel: step.channel,
+        trigger: 'policy',
+        policyStep: index,
+        answerWindowDays: step.answerWindowDays ?? deps.settings.patientContactDueInDays,
+        actor,
+        now,
+        audit,
+      },
+    );
     report.contactsRequested.push(current.id);
-    return decision;
+    return undefined;
   }
 }

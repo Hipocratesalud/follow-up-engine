@@ -619,6 +619,79 @@ const GESTATIONAL_AFTER = /^\s*(?:gestacional|del embarazo|en el embarazo)(?![a-
 const PAST_PREGNANCY =
   /(?<![a-z])(?:embarazos? (?:previos?|anteriores?|pasados?)|(?:ultimo|primer|anterior|previo) embarazo|gestacion(?:es)? (?:previas?|anteriores?)|embarazo de su (?:primer|ultimo|anterior)|en (?:su|el) (?:embarazo|parto) (?:anterior|previo))(?![a-z])/;
 
+const YEARS_AGO = String.raw`(?:hace (?:\d+|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|varios|unos|unas|muchos) anos?|\d+ anos? atras)`;
+/**
+ * "Previa" or "anterior" right after an obstetric mention ("cesarea previa",
+ * "cesarea segmentaria previa", "parto anterior") or right before it
+ * ("anterior cesarea"): history. Only next to the mention, so "placenta
+ * previa" and "cesarea el 02/03 por cesarea anterior" (a caesarean now,
+ * because of an earlier one) keep the current mention.
+ */
+const PAST_AFTER = /^(?: [a-z]+)? (?:previ[oa]s?|anterior(?:es)?)(?![a-z])/;
+const PAST_BEFORE = /(?<![a-z])(?:previ[oa]s?|anterior(?:es)?) (?:[a-z]+ )?$/;
+/** History words that only count before the mention ("antecedente de cesarea", not "parto sin antecedentes"). */
+const OBSTETRIC_HISTORY_BEFORE =
+  /(?<![a-z])(?:(?<!sin )antecedentes? (?:de|por)|historia de|ultim[oa])(?![a-z])/;
+/** An obstetric-history header ("AGO:", "Antecedentes obstetricos:", "Formula obstetrica:"). */
+const OBSTETRIC_SECTION =
+  /(?<![a-z])(?:a\.? ?g\.? ?o\.?|antecedentes? (?:gineco ?-?obstetricos?|obstetricos?)|historia obstetrica|formula obstetrica|gestas previas)(?![a-z])/;
+/** An obstetric formula: "G2P1", "G3 P2 C1", "G2P1A0", "P1" (tallies of past pregnancies). */
+export const OBSTETRIC_FORMULA =
+  /(?<![a-z0-9])g ?\d{1,2},? ?p ?\d{1,2}(?:,? ?[ac] ?\d{1,2})*(?![a-z0-9])|(?<![a-z0-9])p\d{1,2}(?![a-z0-9])/;
+/** A count right before the mention ("2 cesareas", "1 parto"): a tally of past pregnancies. */
+const COUNT_BEFORE = /(?<![0-9a-z/.,])\d{1,2}\s?$/;
+const YEAR_WRITTEN = /(?<![0-9/])(?:19|20)\d{2}(?![0-9])/g;
+const YEARS_AGO_PATTERN = new RegExp(String.raw`(?<![a-z])${YEARS_AGO}(?![a-z])`);
+
+/**
+ * Whether a pregnancy mention at `[start, end)` ("embarazo", a gestational
+ * age) is a past pregnancy: in its list item, "embarazo previo", "ultimo
+ * embarazo" or "hace 3 anos"; or under an obstetric-history header ("AGO:").
+ * Narrow on purpose: "embarazo de 16 semanas con cesarea previa" is a
+ * current pregnancy with a past caesarean.
+ */
+export function isPastPregnancyMention(text: string, start: number, end: number): boolean {
+  const segment = segmentAround(text, start, end);
+  if (PAST_PREGNANCY.test(segment) || YEARS_AGO_PATTERN.test(segment)) return true;
+  const [clauseStart] = clauseBoundsAround(text, start, end);
+  return OBSTETRIC_SECTION.test(text.slice(clauseStart, start));
+}
+
+/**
+ * Whether a delivery or loss mention at `[start, end)` is the patient's
+ * history rather than the pregnancy this note is about: "cesarea previa",
+ * "parto anterior", "anterior cesarea"; in its list item "cesarea hace 3
+ * anos" or "embarazo previo", or before it "antecedente de", "ultimo", a
+ * count ("2 partos");
+ * under an "AGO:" header; or dated in a year more than one before the note
+ * (`noteYear`, when given: "parto vaginal en 2019").
+ */
+export function isObstetricHistoryMention(
+  text: string,
+  start: number,
+  end: number,
+  options: { readonly noteYear?: number } = {},
+): boolean {
+  const [segmentStart, segmentEnd] = boundsAround(text, start, end, SEGMENT_BREAK);
+  const segment = text.slice(segmentStart, segmentEnd);
+  const segmentBefore = text.slice(segmentStart, start);
+  if (PAST_AFTER.test(text.slice(end, segmentEnd)) || PAST_BEFORE.test(segmentBefore)) return true;
+  if (YEARS_AGO_PATTERN.test(segment) || PAST_PREGNANCY.test(segment)) return true;
+  if (OBSTETRIC_HISTORY_BEFORE.test(segmentBefore)) return true;
+  const [clauseStart] = clauseBoundsAround(text, start, end);
+  const before = text.slice(clauseStart, start);
+  if (OBSTETRIC_SECTION.test(before) || COUNT_BEFORE.test(before)) return true;
+  if (options.noteYear !== undefined) {
+    for (const match of segment.matchAll(YEAR_WRITTEN)) {
+      if (Number(match[0]) < options.noteYear - 1) return true;
+    }
+  }
+  return false;
+}
+
+/** ICD-10 categories that are a delivery or a pregnancy loss (O00-O08, O80-O84). */
+const OUTCOME_CATEGORY = /^O(?:0[0-8]|8[0-4])$/;
+
 /** ICD-10 categories that are diabetes proper (not gestational, not prediabetes). */
 const DIABETES_CATEGORIES = new Set(['E10', 'E11', 'E13', 'E14']);
 
@@ -626,9 +699,10 @@ const DIABETES_CATEGORIES = new Set(['E10', 'E11', 'E13', 'E14']);
  * Why the mention at `[start, end)` is not a current condition of this
  * patient, if it is not: a relative's disease (`family_history`), a risk or
  * screening statement ("riesgo de desarrollar diabetes"), "pre-diabetes"
- * read as diabetes, gestational diabetes read as diabetes, or a past
+ * read as diabetes, gestational diabetes read as diabetes, a past
  * pregnancy read as a current one ("diabetes gestacional en embarazo
- * previo") (`not_current`).
+ * previo"), or a past delivery or loss read as a current one ("cesarea
+ * previa", "antecedente de aborto") (`not_current`).
  */
 export function conditionContext(
   text: string,
@@ -651,6 +725,10 @@ export function conditionContext(
     /^(?:O\d|Z3[2-9])/.test(category) &&
     PAST_PREGNANCY.test(text.slice(clauseStart, clauseEnd))
   ) {
+    return 'not_current';
+  }
+  // A past delivery or loss ("cesarea previa", "antecedente de aborto") is not a current condition.
+  if (OUTCOME_CATEGORY.test(category) && isObstetricHistoryMention(text, start, end)) {
     return 'not_current';
   }
   return undefined;

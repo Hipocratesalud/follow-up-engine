@@ -1,4 +1,14 @@
-import type { CaseStatus, FeedbackReason, Layer, Sex } from '../api/contract.ts';
+import type {
+  CaseStatus,
+  ContactChannel,
+  ContactOutcome,
+  DismissReason,
+  FeedbackReason,
+  Layer,
+  ProtocolRef,
+  ProtocolStatus,
+  Sex,
+} from '../api/contract.ts';
 
 /**
  * Synthetic clinic used by the mock API. Every name, note and result here is
@@ -29,8 +39,30 @@ export interface SeedCondition {
   readonly quote?: string;
 }
 
+/** One attempt to reach the patient, in days before the mock start. */
+export interface SeedAttempt {
+  /** Absent: the clinic's own messaging channel. */
+  readonly channel?: ContactChannel;
+  readonly daysAgo: number;
+  readonly windowDays: number;
+  readonly trigger?: 'policy' | 'user' | 'wrong_number';
+  readonly outcomes?: readonly {
+    readonly outcome: ContactOutcome;
+    readonly daysAgo: number;
+    readonly sender?: 'host' | 'user';
+  }[];
+}
+
 export interface SeedCase {
   readonly status: CaseStatus;
+  /** Attempts to reach the patient about the case, oldest first. */
+  readonly contact?: readonly SeedAttempt[];
+  /** A dismissed case: why, and whether its rules were stopped for the patient. */
+  readonly dismissal?: {
+    readonly reason: DismissReason;
+    readonly note?: string;
+    readonly suppress?: boolean;
+  };
   readonly escalationStep: number;
   readonly origin: 'live' | 'backfill';
   /** Backfill cases not yet visible in the inbox: days until release. */
@@ -45,7 +77,12 @@ export interface SeedPatient {
   readonly sex: Sex;
   readonly specialty: Specialty;
   readonly assignee: string;
-  readonly contact?: { readonly optedOut?: boolean; readonly lastContactDaysAgo?: number };
+  readonly contact?: {
+    readonly optedOut?: boolean;
+    readonly lastContactDaysAgo?: number;
+    /** A message reached the wrong person this many days ago (the contact data is flagged). */
+    readonly wrongNumberDaysAgo?: number;
+  };
   readonly note?: { readonly daysAgo: number; readonly text: string };
   readonly reasons: readonly SeedReason[];
   readonly conditions?: readonly SeedCondition[];
@@ -62,6 +99,36 @@ export interface SeedPatient {
 }
 
 export const CLINIC_NAME = 'Centro Médico Los Álamos';
+
+/**
+ * The mock clinic's care protocols, by id. Like the real ones in
+ * config/protocols, diabetes, hypertension and pregnancy are drafts (their
+ * reasons carry the draft badge); the two mock-only ones are validated, so
+ * the inbox also shows protocol reasons without it.
+ */
+const MOCK_PROTOCOLS: Readonly<
+  Record<
+    string,
+    { readonly name: string; readonly version: string; readonly status: ProtocolStatus }
+  >
+> = {
+  diabetes: { name: 'Control de diabetes', version: '1.2.1', status: 'draft' },
+  hypertension: { name: 'Control de hipertensión', version: '1.1.1', status: 'draft' },
+  pregnancy: { name: 'Embarazo y puerperio', version: '0.1.0', status: 'draft' },
+  womens_screening: {
+    name: 'Tamizaje preventivo de la mujer',
+    version: '1.0.0',
+    status: 'validated',
+  },
+  fibroid: { name: 'Seguimiento de miomatosis uterina', version: '1.0.0', status: 'validated' },
+};
+
+/** The protocol behind a `protocol_<id>_<item>` rule id, as the API names it. */
+export function mockProtocolRef(ruleId: string): ProtocolRef | undefined {
+  const id = Object.keys(MOCK_PROTOCOLS).find((key) => ruleId.startsWith(`protocol_${key}_`));
+  const protocol = id === undefined ? undefined : MOCK_PROTOCOLS[id];
+  return id === undefined || protocol === undefined ? undefined : { id, ...protocol };
+}
 
 export const ASSIGNEES = {
   paredes: 'Dra. Lucía Paredes',
@@ -222,7 +289,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
         source: { resourceType: 'Encounter', display: 'Última consulta de ginecología' },
       },
       {
-        ruleId: 'protocol_cervical_screening',
+        ruleId: 'protocol_womens_screening_cervical_cytology',
         layer: 'protocol',
         label: 'Citología cervical vencida según protocolo',
         overdueDays: 35,
@@ -244,9 +311,9 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     },
     reasons: [
       {
-        ruleId: 'protocol_hba1c_quarterly',
+        ruleId: 'protocol_diabetes_hba1c',
         layer: 'protocol',
-        label: 'HbA1c trimestral vencida (protocolo DM2)',
+        label: 'Sin HbA1c reciente (cada 3 meses)',
         overdueDays: 41,
         source: { resourceType: 'PlanDefinition', display: 'Protocolo de diabetes tipo 2' },
       },
@@ -366,15 +433,29 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
         source: { resourceType: 'Encounter', display: 'Última consulta de diabetología' },
       },
       {
-        ruleId: 'protocol_diabetic_foot_annual',
+        ruleId: 'protocol_diabetes_fundus',
         layer: 'protocol',
-        label: 'Examen de pie diabético anual vencido',
+        label: 'Fondo de ojo anual pendiente',
         overdueDays: 15,
         source: { resourceType: 'PlanDefinition', display: 'Protocolo de diabetes tipo 2' },
       },
     ],
     conditions: [DM2],
-    case: { status: 'open', escalationStep: 1, origin: 'live' },
+    contact: { lastContactDaysAgo: 4, wrongNumberDaysAgo: 3 },
+    case: {
+      status: 'open',
+      escalationStep: 1,
+      origin: 'live',
+      contact: [
+        {
+          channel: 'whatsapp',
+          daysAgo: 4,
+          windowDays: 7,
+          outcomes: [{ outcome: 'wrong_number', daysAgo: 3 }],
+        },
+        { channel: 'phone_call', daysAgo: 3, windowDays: 3, trigger: 'wrong_number' },
+      ],
+    },
   },
   {
     name: 'Rosa Inés Montilla',
@@ -382,7 +463,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     sex: 'female',
     specialty: 'internal_medicine',
     assignee: ASSIGNEES.rivas,
-    contact: { lastContactDaysAgo: 21 },
+    contact: { lastContactDaysAgo: 9 },
     note: {
       daysAgo: 80,
       text: 'Paciente de 68 años con HTA de larga data y disnea de medianos esfuerzos. Soplo sistólico II/VI en foco aórtico. Se solicita ecocardiograma transtorácico. Continúa enalapril 10 mg c/12h. Control en 1 mes con ecocardiograma.',
@@ -405,7 +486,23 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       },
     ],
     conditions: [HTA],
-    case: { status: 'escalated', escalationStep: 2, origin: 'live' },
+    case: {
+      status: 'escalated',
+      escalationStep: 2,
+      origin: 'live',
+      contact: [
+        {
+          channel: 'whatsapp',
+          daysAgo: 9,
+          windowDays: 7,
+          outcomes: [
+            { outcome: 'delivered', daysAgo: 9 },
+            { outcome: 'read', daysAgo: 8 },
+          ],
+        },
+        { channel: 'phone_call', daysAgo: 2, windowDays: 3 },
+      ],
+    },
   },
   {
     name: 'Daniela Castillo',
@@ -422,8 +519,20 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
         overdueDays: 21,
         source: { resourceType: LAB, display: 'Citología cervicovaginal' },
       },
+      {
+        ruleId: 'protocol_pregnancy_glucose_tolerance',
+        layer: 'protocol',
+        label: 'Prueba de tolerancia a la glucosa pendiente (semanas 24 a 28)',
+        overdueDays: 6,
+        source: { resourceType: 'PlanDefinition', display: 'Protocolo de embarazo y puerperio' },
+      },
     ],
-    case: { status: 'notified', escalationStep: 0, origin: 'live' },
+    case: {
+      status: 'notified',
+      escalationStep: 0,
+      origin: 'live',
+      contact: [{ daysAgo: 2, windowDays: 7, trigger: 'user' }],
+    },
   },
   {
     name: 'Miguel Ángel Suárez',
@@ -455,9 +564,9 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     assignee: ASSIGNEES.reception,
     reasons: [
       {
-        ruleId: 'protocol_hba1c_quarterly',
+        ruleId: 'protocol_diabetes_hba1c',
         layer: 'protocol',
-        label: 'HbA1c trimestral vencida (protocolo DM2)',
+        label: 'Sin HbA1c reciente (cada 3 meses)',
         overdueDays: 300,
         source: { resourceType: 'PlanDefinition', display: 'Protocolo de diabetes tipo 2' },
       },
@@ -480,9 +589,9 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     assignee: ASSIGNEES.rivas,
     reasons: [
       {
-        ruleId: 'protocol_lipid_panel_annual',
+        ruleId: 'protocol_hypertension_labs',
         layer: 'protocol',
-        label: 'Perfil lipídico anual vencido (protocolo HTA)',
+        label: 'Laboratorio anual pendiente (creatinina, potasio)',
         overdueDays: 20,
         source: { resourceType: 'PlanDefinition', display: 'Protocolo de hipertensión arterial' },
       },
@@ -600,7 +709,11 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
       status: 'dismissed',
       escalationStep: 0,
       origin: 'live',
-      feedback: { useful: false, reason: 'already_handled' },
+      dismissal: {
+        reason: 'not_applicable_to_patient',
+        note: 'Se controla con su endocrinólogo en otra ciudad.',
+        suppress: true,
+      },
     },
   },
   {
@@ -628,7 +741,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     assignee: ASSIGNEES.ibarra,
     reasons: [
       {
-        ruleId: 'protocol_mammography_biennial',
+        ruleId: 'protocol_womens_screening_mammography',
         layer: 'protocol',
         label: 'Mamografía bienal vencida según protocolo',
         overdueDays: 38,
@@ -671,9 +784,9 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
         source: { resourceType: 'Encounter', display: 'Última consulta de diabetología' },
       },
       {
-        ruleId: 'protocol_hba1c_quarterly',
+        ruleId: 'protocol_diabetes_hba1c',
         layer: 'protocol',
-        label: 'HbA1c trimestral vencida (protocolo DM2)',
+        label: 'Sin HbA1c reciente (cada 3 meses)',
         overdueDays: 380,
         source: { resourceType: 'PlanDefinition', display: 'Protocolo de diabetes tipo 2' },
       },
@@ -707,7 +820,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     assignee: ASSIGNEES.ibarra,
     reasons: [
       {
-        ruleId: 'protocol_cervical_screening',
+        ruleId: 'protocol_womens_screening_cervical_cytology',
         layer: 'protocol',
         label: 'Citología cervical vencida según protocolo',
         overdueDays: 500,
@@ -759,9 +872,9 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     assignee: ASSIGNEES.rivas,
     reasons: [
       {
-        ruleId: 'protocol_lipid_panel_annual',
+        ruleId: 'protocol_hypertension_labs',
         layer: 'protocol',
-        label: 'Perfil lipídico anual vencido (protocolo HTA)',
+        label: 'Laboratorio anual pendiente (creatinina, potasio)',
         overdueDays: 450,
         source: { resourceType: 'PlanDefinition', display: 'Protocolo de hipertensión arterial' },
       },
@@ -867,13 +980,15 @@ export const SUGGESTED_ACTIONS: Record<string, string> = {
   cadence_diabetology_visit:
     'Agenda una consulta de control de diabetes; si toca, ordena la HbA1c antes de la cita.',
   cadence_psychology_session: 'Contacta al consultante para retomar las sesiones.',
-  protocol_hba1c_quarterly:
+  protocol_diabetes_hba1c:
     'Ordena la HbA1c trimestral que indica el protocolo y agenda la revisión del resultado.',
-  protocol_cervical_screening:
+  protocol_womens_screening_cervical_cytology:
     'Ofrécele la citología de tamizaje que corresponde según el protocolo.',
-  protocol_lipid_panel_annual: 'Ordena el perfil lipídico anual que indica el protocolo.',
-  protocol_diabetic_foot_annual: 'Agenda el examen anual de pie diabético.',
-  protocol_mammography_biennial: 'Ofrécele la mamografía de tamizaje que corresponde.',
+  protocol_hypertension_labs: 'Ordena el laboratorio anual que indica el protocolo.',
+  protocol_diabetes_fundus: 'Ayuda al paciente a agendar su fondo de ojo anual.',
+  protocol_womens_screening_mammography: 'Ofrécele la mamografía de tamizaje que corresponde.',
+  protocol_pregnancy_glucose_tolerance:
+    'Ordena la prueba de tolerancia a la glucosa que indica el protocolo y agenda la revisión.',
 };
 
 export const DEFAULT_SUGGESTED_ACTION =

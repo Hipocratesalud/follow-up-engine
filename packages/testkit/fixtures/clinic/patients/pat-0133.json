@@ -1,0 +1,4553 @@
+{
+  "clinicId": "clinic-demo",
+  "patientId": "pat-0133",
+  "name": "Orlando Gutiérrez Valencia",
+  "gender": "male",
+  "birthDate": "1996-11-20",
+  "specialty": "psychology",
+  "pattern": "ssri_dose_change",
+  "entries": [
+    {
+      "at": "2025-02-21T18:35:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle01",
+        "type": "transaction",
+        "timestamp": "2025-02-21T18:35:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:ad44add6-5acc-5ead-a76a-d8c9588c620c",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "pat-0133",
+              "identifier": [
+                {
+                  "use": "usual",
+                  "system": "https://hipocratesalud.com/fhir/NamingSystem/demo-patient",
+                  "value": "HC-14921"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "text": "Orlando Gutiérrez Valencia",
+                  "family": "Gutiérrez Valencia",
+                  "given": ["Orlando"]
+                }
+              ],
+              "gender": "male",
+              "birthDate": "1996-11-20",
+              "managingOrganization": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Patient/pat-0133" }
+          },
+          {
+            "fullUrl": "urn:uuid:46ed4219-e855-51d5-b697-65a736bb224a",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc01",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Primera sesión" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "period": { "start": "2025-02-21T17:45:00.000Z", "end": "2025-02-21T18:35:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:5dc92047-7661-5474-b7d3-cf04be94f810",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc01",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-02-21T18:35:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UHJpbWVyYSBzZXNpw7NuLiBQYWNpZW50ZSBtYXNjdWxpbm8gZGUgMjggYcOxb3MsIGNvbnN1bHRhIHBvciBtYWxlc3RhciBlbW9jaW9uYWwuClNlIHJlYWxpemEgZW50cmV2aXN0YSBpbmljaWFsIHkgZW5jdWFkcmUgdGVyYXDDqXV0aWNvLiBBZmVjdG8gZXV0w61taWNvLCBkaXNjdXJzbyBjb2hlcmVudGUsIG9yaWVudGFkby4KSW1wcmVzacOzbiBkeDogZXBpc29kaW8gZGVwcmVzaXZvIG1vZGVyYWRvLgpQbGFuOiBpbmljaWFyIHByb2Nlc28gY29uIGVuZm9xdWUgY29nbml0aXZvLWNvbmR1Y3R1YWwu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-02-21T18:35:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc01" }],
+                "period": {
+                  "start": "2025-02-21T17:45:00.000Z",
+                  "end": "2025-02-21T18:35:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc01" }
+          },
+          {
+            "fullUrl": "urn:uuid:d31e4d72-1cef-53ed-97bc-6c00d1f9e21b",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0133-cond01",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "F32.1",
+                    "display": "Moderate depressive episode"
+                  }
+                ],
+                "text": "episodio depresivo moderado"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "encounter": { "reference": "Encounter/pat-0133-enc01" },
+              "recordedDate": "2025-02-21T18:35:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-psy-02" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0133-cond01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-02-21T18:45:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle02",
+        "type": "transaction",
+        "timestamp": "2025-02-21T18:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:df1e1a59-08ed-5023-b8bc-d9880d474775",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt01",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-03-10T13:00:00.000Z",
+              "end": "2025-03-10T13:50:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-02-21T18:45:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt01" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-03T17:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle45",
+        "type": "transaction",
+        "timestamp": "2025-03-03T17:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:9207c382-a3fe-5307-9d93-3658625d616d",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc23",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Primera consulta" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "period": { "start": "2025-03-03T17:00:00.000Z", "end": "2025-03-03T17:30:00.000Z" },
+              "reasonCode": [{ "text": "Seguimiento de tratamiento" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc23" }
+          },
+          {
+            "fullUrl": "urn:uuid:7e8cb3df-a43b-5d25-9f84-e09a4286759f",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc23",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-03-03T17:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "TWFzYyAyOCBhw7FvcywgcmVmZXJpZG8gcG9yIHBzaWNvbG9naWEsIGVuIHBzaWNvdGVyYXBpYSBjb2duaXRpdm8tY29uZHVjdHVhbCBwb3IgZXBpc29kaW8gZGVwcmVzaXZvIG1vZGVyYWRvLiBSZWZpZXJlIGFuaW1vIGJham8sIGFuaGVkb25pYSwgaW5zb21uaW8gZGUgY29uY2lsaWFjaW9uIHkgZmF0aWdhIGRlIDYgbWVzZXMgZGUgZXZvbHVjaW9uLiBQSFEtOTogMTcuClNpbiBhbnRlY2VkZW50ZXMgbWVkaWNvcyBkZSBpbXBvcnRhbmNpYS4gRUY6IFRBIDEzMC83MyBtbUhnLCBGQyA2NSBscG0uIFNpbiBoYWxsYXpnb3MuCkR4OiBlcGlzb2RpbyBkZXByZXNpdm8gbW9kZXJhZG8uClBsYW46IFNlIGluaWNpYSBzZXJ0cmFsaW5hIDUwIG1nLCAxIHRhYiBWTyBPRCBBTS4gU2UgZXhwbGljYW4gZWZlY3RvcyBhZHZlcnNvcyBlc3BlcmFibGVzIGxhcyBwcmltZXJhcyBzZW1hbmFzLiBDb250aW51YXIgcHNpY290ZXJhcGlhLiBWb2x2ZXIgYSBjb25zdWx0YSBlbiA0IHNlbWFuYXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-03-03T17:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc23" }],
+                "period": {
+                  "start": "2025-03-03T17:00:00.000Z",
+                  "end": "2025-03-03T17:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc23" }
+          },
+          {
+            "fullUrl": "urn:uuid:b203c94a-6572-562c-a79c-33e909a1e63a",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0133-mr01",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "N06AB06",
+                    "display": "sertraline"
+                  }
+                ],
+                "text": "Sertralina 50 mg"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "encounter": { "reference": "Encounter/pat-0133-enc23" },
+              "authoredOn": "2025-03-03T17:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD AM" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0133-mr01" }
+          },
+          {
+            "fullUrl": "urn:uuid:fc51fa05-1ea8-5639-98e7-06196f02ce75",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0133-cond02",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "F32.1",
+                    "display": "Moderate depressive episode"
+                  }
+                ],
+                "text": "episodio depresivo moderado"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "encounter": { "reference": "Encounter/pat-0133-enc23" },
+              "recordedDate": "2025-03-03T17:30:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-im-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0133-cond02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-03T17:40:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle46",
+        "type": "transaction",
+        "timestamp": "2025-03-03T17:40:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:4ff04349-5a89-5bf1-a633-b390b7d9f56b",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt23",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control de medicina interna",
+              "start": "2025-03-28T17:15:00.000Z",
+              "end": "2025-03-28T17:45:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-03-03T17:40:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-01" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt23" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-10T13:50:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle03",
+        "type": "transaction",
+        "timestamp": "2025-03-10T13:50:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:fff4d21c-163e-5a4d-8940-864fa62c7e15",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc02",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt01" }],
+              "period": { "start": "2025-03-10T13:00:00.000Z", "end": "2025-03-10T13:50:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc02" }
+          },
+          {
+            "fullUrl": "urn:uuid:b0cdd9e9-b18e-56da-b904-0bdc5714379f",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc02",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-03-10T13:50:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzacOzbiAyLiBQY3RlIHJlZmllcmUgYXZhbmNlcyBjb24gbGFzIHRhcmVhcyBhc2lnbmFkYXMuClNlIHRyYWJhamEgcmVnaXN0cm8gZGUgcGVuc2FtaWVudG9zLiBCdWVuYSBkaXNwb3NpY2nDs24uClRhcmVhOiBwc2ljb2VkdWNhY2nDs24gc29icmUgYW5zaWVkYWQuIFByw7N4LiBzZXNpw7NuIGVuIDE1IGTDrWFzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-03-10T13:50:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc02" }],
+                "period": {
+                  "start": "2025-03-10T13:00:00.000Z",
+                  "end": "2025-03-10T13:50:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-10T14:00:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle04",
+        "type": "transaction",
+        "timestamp": "2025-03-10T14:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:3230ecde-71a4-5427-84af-2be5c42eed3f",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt02",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-03-24T12:00:00.000Z",
+              "end": "2025-03-24T12:50:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-03-10T14:00:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-24T12:50:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle05",
+        "type": "transaction",
+        "timestamp": "2025-03-24T12:50:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:48788c8f-7db3-5f25-96bd-75d523b6183e",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc03",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt02" }],
+              "period": { "start": "2025-03-24T12:00:00.000Z", "end": "2025-03-24T12:50:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc03" }
+          },
+          {
+            "fullUrl": "urn:uuid:39f22fc5-07aa-5d7f-ab5c-9446fd7ed877",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc03",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-03-24T12:50:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzacOzbiAzLiBQY3RlIHJlZmllcmUgY29uZmxpY3RvcyBmYW1pbGlhcmVzIHB1bnR1YWxlcywgbG9zIG1hbmVqYSBjb24gbWF5b3IgY2FsbWEuClNlIHRyYWJhamEgcmVlc3RydWN0dXJhY2nDs24gY29nbml0aXZhIGRlIHBlbnNhbWllbnRvcyBhdXRvbcOhdGljb3MuIFBhcnRpY2lwYSBhY3RpdmFtZW50ZS4KVGFyZWE6IHJlZ2lzdHJvIGRlIHBlbnNhbWllbnRvcy4gU2UgYWN1ZXJkYSBwcsOzeGltYSBzZXNpw7NuIGVuIDE1IGTDrWFzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-03-24T12:50:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc03" }],
+                "period": {
+                  "start": "2025-03-24T12:00:00.000Z",
+                  "end": "2025-03-24T12:50:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc03" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-24T13:00:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle06",
+        "type": "transaction",
+        "timestamp": "2025-03-24T13:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:86a7a8b0-3811-51eb-ab01-ad3a26c40219",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt03",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-04-09T16:15:00.000Z",
+              "end": "2025-04-09T17:05:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-03-24T13:00:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt03" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-28T17:45:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle47",
+        "type": "transaction",
+        "timestamp": "2025-03-28T17:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:f084b838-7925-5605-94ed-e376998c066a",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc24",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt23" }],
+              "period": { "start": "2025-03-28T17:15:00.000Z", "end": "2025-03-28T17:45:00.000Z" },
+              "reasonCode": [{ "text": "Seguimiento de tratamiento" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc24" }
+          },
+          {
+            "fullUrl": "urn:uuid:4cbc6ea1-5dc6-5099-89aa-35dd3b4a53cd",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc24",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-03-28T17:45:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGFjaWVudGUgbWFzY3VsaW5vIGRlIDI4IGHDsW9zLCBjb250cm9sIGEgbGFzIDQgc2VtYW5hcyBkZSBzZXJ0cmFsaW5hIDUwIG1nLiBSZXNwdWVzdGEgcGFyY2lhbDogcGVyc2lzdGUgw6FuaW1vIGJham8gZW4gbGFzIHRhcmRlcyB5IHN1ZcOxbyBmcmFnbWVudGFkby4gQnVlbmEgdG9sZXJhbmNpYS4gUEhRLTk6IDEyLgpFRjogVEEgMTE2Lzc4IG1tSGcsIEZDIDY4IGxwbS4KRHg6IGVwaXNvZGlvIGRlcHJlc2l2byBtb2RlcmFkbywgcmVzcHVlc3RhIHBhcmNpYWwuClBsYW46IFNlIGF1bWVudGEgc2VydHJhbGluYSBhIDEwMCBtZy9kw61hLCAxIHRhYiBWTyBPRCBBTS4gQ29udGludWFyIHBzaWNvdGVyYXBpYS4gQ2l0YSBjb250cm9sIGVuIDMgc2VtLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-03-28T17:45:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc24" }],
+                "period": {
+                  "start": "2025-03-28T17:15:00.000Z",
+                  "end": "2025-03-28T17:45:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc24" }
+          },
+          {
+            "fullUrl": "urn:uuid:3a66e49c-d832-5b14-ade1-59164632ca39",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0133-mr02",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "N06AB06",
+                    "display": "sertraline"
+                  }
+                ],
+                "text": "Sertralina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "encounter": { "reference": "Encounter/pat-0133-enc24" },
+              "authoredOn": "2025-03-28T17:45:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD AM" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0133-mr02" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-03-28T17:55:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle48",
+        "type": "transaction",
+        "timestamp": "2025-03-28T17:55:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:37eef26c-b2c6-5d61-9180-716d99096d87",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt24",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control de medicina interna",
+              "start": "2025-04-22T12:00:00.000Z",
+              "end": "2025-04-22T12:30:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-03-28T17:55:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-01" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt24" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-09T17:05:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle07",
+        "type": "transaction",
+        "timestamp": "2025-04-09T17:05:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:43145831-39a4-5330-93b2-fe2ce247ea0c",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc04",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt03" }],
+              "period": { "start": "2025-04-09T16:15:00.000Z", "end": "2025-04-09T17:05:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc04" }
+          },
+          {
+            "fullUrl": "urn:uuid:dc101377-b527-591d-ad00-a2f4fec75a40",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc04",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-04-09T17:05:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzacOzbiA0LiBQY3RlIHJlZmllcmUgZGlmaWN1bHRhZCBwYXJhIGNvbmNpbGlhciBlbCBzdWXDsW8gMi0zIG5vY2hlcyBwb3Igc2VtYW5hLgpTZSB0cmFiYWphIG1hbmVqbyBkZWwgdGllbXBvIHkgb3JnYW5pemFjacOzbiBkZSBydXRpbmFzLiBCdWVuYSBkaXNwb3NpY2nDs24uClRhcmVhOiBwc2ljb2VkdWNhY2nDs24gc29icmUgYW5zaWVkYWQuIFByw7N4aW1hIHNlc2nDs24gZW4gMTUgZMOtYXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-04-09T17:05:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc04" }],
+                "period": {
+                  "start": "2025-04-09T16:15:00.000Z",
+                  "end": "2025-04-09T17:05:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc04" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-09T17:15:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle08",
+        "type": "transaction",
+        "timestamp": "2025-04-09T17:15:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:6e3787ce-2cb1-5f8d-bba4-9a95e30e090f",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt04",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-04-23T18:15:00.000Z",
+              "end": "2025-04-23T19:05:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-04-09T17:15:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt04" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-22T12:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle49",
+        "type": "transaction",
+        "timestamp": "2025-04-22T12:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:948b0fa0-b8d2-57ab-a5fc-54044009d529",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc25",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt24" }],
+              "period": { "start": "2025-04-22T12:00:00.000Z", "end": "2025-04-22T12:30:00.000Z" },
+              "reasonCode": [{ "text": "Seguimiento de tratamiento" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc25" }
+          },
+          {
+            "fullUrl": "urn:uuid:0e672773-bf9c-5fc7-8ca2-ecd99e6f0684",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc25",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-04-22T12:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGFjaWVudGUgbWFzY3VsaW5vIGRlIDI4IGHDsW9zLCBjb250cm9sLiBFbiB0dG8gY29uIHNlcnRyYWxpbmEgMTAwIG1nIGRlc2RlIGhhY2UgNCBzZW1hbmFzLiBNZWpvcsOtYSBwcm9ncmVzaXZhLCByZXRvbcOzIGFjdGl2aWRhZGVzLiBOw6F1c2VhcyBsZXZlcyBsb3MgcHJpbWVyb3MgZMOtYXMsIHlhIHJlc3VlbHRhcy4gUEhRLTk6IDUuCkVGOiBUQSAxMjQvODMgbW1IZywgRkMgODAgbHBtLgpEeDogZXBpc29kaW8gZGVwcmVzaXZvIG1vZGVyYWRvIGVuIG1lam9yw61hLgpQbGFuOiBDb250aW51YXIgc2VydHJhbGluYSAxMDAgbWcgVk8gT0QgQU0uIENvbnRpbnVhciBwc2ljb3RlcmFwaWEuIEN0cmwgZW4gMSBtZXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-04-22T12:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc25" }],
+                "period": {
+                  "start": "2025-04-22T12:00:00.000Z",
+                  "end": "2025-04-22T12:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc25" }
+          },
+          {
+            "fullUrl": "urn:uuid:6237ffee-9c79-555f-aead-aaeac999b023",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0133-mr03",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "N06AB06",
+                    "display": "sertraline"
+                  }
+                ],
+                "text": "Sertralina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "encounter": { "reference": "Encounter/pat-0133-enc25" },
+              "authoredOn": "2025-04-22T12:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD AM" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0133-mr03" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-22T12:40:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle50",
+        "type": "transaction",
+        "timestamp": "2025-04-22T12:40:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:50c6e66b-4c4a-5d4b-b3f9-6156348901d9",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt25",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control de medicina interna",
+              "start": "2025-05-27T12:15:00.000Z",
+              "end": "2025-05-27T12:45:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-04-22T12:40:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-01" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt25" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-23T19:05:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle09",
+        "type": "transaction",
+        "timestamp": "2025-04-23T19:05:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:66281fa0-71cc-5ca9-8665-2dabcf9a28f5",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc05",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt04" }],
+              "period": { "start": "2025-04-23T18:15:00.000Z", "end": "2025-04-23T19:05:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc05" }
+          },
+          {
+            "fullUrl": "urn:uuid:abc68fb4-66ed-5fc0-920d-930a317fb627",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc05",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-04-23T19:05:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzaW9uIDUuIFBjdGUgcmVmaWVyZSBxdWUgcmV0b21vIGFjdGl2aWRhZCBmaXNpY2EuClNlIHRyYWJhamEgcmVsYWphY2lvbiBtdXNjdWxhciBwcm9ncmVzaXZhLiBCdWVuYSBkaXNwb3NpY2lvbi4KVGFyZWE6IHRlY25pY2FzIGRlIHJlc3BpcmFjaW9uIGRpYWZyYWdtYXRpY2EuIFByb3guIHNlc2lvbiBlbiAxNSBkaWFzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-04-23T19:05:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc05" }],
+                "period": {
+                  "start": "2025-04-23T18:15:00.000Z",
+                  "end": "2025-04-23T19:05:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc05" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-23T19:15:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle10",
+        "type": "transaction",
+        "timestamp": "2025-04-23T19:15:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:2ffa38d2-6c3c-53b7-a916-87b27d503b17",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt05",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-05-07T19:00:00.000Z",
+              "end": "2025-05-07T19:50:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-04-23T19:15:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt05" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-05-07T19:50:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle11",
+        "type": "transaction",
+        "timestamp": "2025-05-07T19:50:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:073cde72-e4a5-5b50-b718-0836b90ae649",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc06",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt05" }],
+              "period": { "start": "2025-05-07T19:00:00.000Z", "end": "2025-05-07T19:50:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc06" }
+          },
+          {
+            "fullUrl": "urn:uuid:454dc600-75ad-5abe-82ba-9b08f9bcc04d",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc06",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-05-07T19:50:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzaW9uIDYuIFBjdGUgcmVmaWVyZSBkaWZpY3VsdGFkIHBhcmEgY29uY2lsaWFyIGVsIHN1ZcOxbyAyLTMgbm9jaGVzIHBvciBzZW1hbmEuClNlIHRyYWJhamEgcmVlc3RydWN0dXJhY2lvbiBjb2duaXRpdmEgZGUgcGVuc2FtaWVudG9zIGF1dG9tYXRpY29zLiBBZmVjdG8gZXV0aW1pY28sIGRpc2N1cnNvIGNvaGVyZW50ZS4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-05-07T19:50:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc06" }],
+                "period": {
+                  "start": "2025-05-07T19:00:00.000Z",
+                  "end": "2025-05-07T19:50:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc06" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-05-07T20:00:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle12",
+        "type": "transaction",
+        "timestamp": "2025-05-07T20:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:1fae7158-2ff4-570e-bc90-c33c1890009d",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt06",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-05-21T20:45:00.000Z",
+              "end": "2025-05-21T21:35:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-05-07T20:00:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt06" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-05-21T21:35:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle13",
+        "type": "transaction",
+        "timestamp": "2025-05-21T21:35:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:c7eaea23-0076-5c9b-9ce1-28b84c2c662a",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc07",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt06" }],
+              "period": { "start": "2025-05-21T20:45:00.000Z", "end": "2025-05-21T21:35:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc07" }
+          },
+          {
+            "fullUrl": "urn:uuid:7139bdfe-de21-5143-9f83-c96c51604a10",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc07",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-05-21T21:35:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzaW9uIDcuIFBjdGUgY29tZW50YSBxdWUgbG9ncm8gc29zdGVuZXIgc3VzIHJ1dGluYXMgZGUgbGEgc2VtYW5hLgpTZSB0cmFiYWphIGlkZW50aWZpY2FjaW9uIGRlIGRpc3BhcmFkb3JlcyBkZSBlc3RyZXMgbGFib3JhbC4gQnVlbmEgZGlzcG9zaWNpb24uClRhcmVhOiBoYWJpbGlkYWRlcyBkZSBjb211bmljYWNpb24gYXNlcnRpdmEuIFByb3guIHNlc2lvbiBlbiAxNSBkaWFzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-05-21T21:35:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc07" }],
+                "period": {
+                  "start": "2025-05-21T20:45:00.000Z",
+                  "end": "2025-05-21T21:35:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc07" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-05-21T21:45:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle14",
+        "type": "transaction",
+        "timestamp": "2025-05-21T21:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:5bafe250-308b-5f12-af62-aedf503ae725",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt07",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-06-05T19:30:00.000Z",
+              "end": "2025-06-05T20:20:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-05-21T21:45:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt07" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-05-27T12:45:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle51",
+        "type": "transaction",
+        "timestamp": "2025-05-27T12:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:07cfb52f-9fcd-5cda-8212-0806e596736b",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc26",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt25" }],
+              "period": { "start": "2025-05-27T12:15:00.000Z", "end": "2025-05-27T12:45:00.000Z" },
+              "reasonCode": [{ "text": "Seguimiento de tratamiento" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc26" }
+          },
+          {
+            "fullUrl": "urn:uuid:38fae542-40af-5ed6-aba6-aedb5c65d031",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc26",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-05-27T12:45:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "TWFzYyAyOCBhw7FvcywgY29udHJvbC4gRW4gdHRvIGNvbiBzZXJ0cmFsaW5hIDEwMCBtZyBkZXNkZSBoYWNlIDkgc2VtYW5hcy4gUmVmaWVyZSBtZWpvcmlhIGRlbCBhbmltbyB5IGRlbCBzdWXDsW8uIE5hdXNlYXMgbGV2ZXMgbG9zIHByaW1lcm9zIGRpYXMsIHlhIHJlc3VlbHRhcy4gUEhRLTk6IDUuCkVGOiBUQSAxMTYvNzkgbW1IZywgRkMgODYgbHBtLgpEeDogZXBpc29kaW8gZGVwcmVzaXZvIG1vZGVyYWRvIGVuIG1lam9yaWEuClBsYW46IENvbnRpbnVhciBzZXJ0cmFsaW5hIDEwMCBtZyBWTyBPRCBBTS4gQ29udGludWFyIHBzaWNvdGVyYXBpYS4gQ29udHJvbCBlbiAxIG1lcy4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-05-27T12:45:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc26" }],
+                "period": {
+                  "start": "2025-05-27T12:15:00.000Z",
+                  "end": "2025-05-27T12:45:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc26" }
+          },
+          {
+            "fullUrl": "urn:uuid:ac0e2956-c7ad-5993-b3cf-db30f4604c41",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0133-mr04",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "N06AB06",
+                    "display": "sertraline"
+                  }
+                ],
+                "text": "Sertralina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "encounter": { "reference": "Encounter/pat-0133-enc26" },
+              "authoredOn": "2025-05-27T12:45:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD AM" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0133-mr04" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-05-27T12:55:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle52",
+        "type": "transaction",
+        "timestamp": "2025-05-27T12:55:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:d542a84d-6522-59d0-bd08-f3dac3caa68d",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt26",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control de medicina interna",
+              "start": "2025-06-24T18:15:00.000Z",
+              "end": "2025-06-24T18:45:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-05-27T12:55:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-01" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt26" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-06-05T20:20:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle15",
+        "type": "transaction",
+        "timestamp": "2025-06-05T20:20:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:df389e40-d742-57cd-8600-3ebd4e1bc93d",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc08",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt07" }],
+              "period": { "start": "2025-06-05T19:30:00.000Z", "end": "2025-06-05T20:20:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc08" }
+          },
+          {
+            "fullUrl": "urn:uuid:375f130d-d3b7-5afa-ac63-eb4751ad9741",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc08",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-06-05T20:20:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "c2VzacOzbiA4LiBQY3RlIHJlZmllcmUgcXVlIHJldG9tw7MgYWN0aXZpZGFkIGbDrXNpY2EuClNlIHRyYWJhamEgdMOpY25pY2FzIGRlIHJlc3BpcmFjacOzbiBkaWFmcmFnbcOhdGljYS4gQnVlbmEgZGlzcG9zaWNpw7NuLgpUYXJlYTogcHNpY29lZHVjYWNpw7NuIHNvYnJlIGFuc2llZGFkLiBQcsOzeC4gc2VzacOzbiBlbiAxNSBkw61hcy4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-06-05T20:20:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc08" }],
+                "period": {
+                  "start": "2025-06-05T19:30:00.000Z",
+                  "end": "2025-06-05T20:20:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc08" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-06-05T20:30:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle16",
+        "type": "transaction",
+        "timestamp": "2025-06-05T20:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:66e97dd1-60f5-5243-a622-940c2bc5983a",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt08",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-06-18T18:15:00.000Z",
+              "end": "2025-06-18T19:05:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-06-05T20:30:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt08" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-06-18T19:05:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle17",
+        "type": "transaction",
+        "timestamp": "2025-06-18T19:05:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:fac03b2b-1df1-5549-80c1-b4a44b3d92b6",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc09",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt08" }],
+              "period": { "start": "2025-06-18T18:15:00.000Z", "end": "2025-06-18T19:05:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc09" }
+          },
+          {
+            "fullUrl": "urn:uuid:a1b976d0-a3f0-5779-a837-b2052d2df6a7",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc09",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-06-18T19:05:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzacOzbiA5LiBQY3RlIHJlZmllcmUgc2VtYW5hIGNvbiBtYXlvciBjYXJnYSBsYWJvcmFsLCBhcGxpY8OzIHTDqWNuaWNhcyBkZSByZXNwaXJhY2nDs24uIFNlIHRyYWJhamEgbWFuZWpvIGRlbCB0aWVtcG8geSBvcmdhbml6YWNpw7NuIGRlIHJ1dGluYXMuIFBhcnRpY2lwYSBhY3RpdmFtZW50ZS4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-06-18T19:05:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc09" }],
+                "period": {
+                  "start": "2025-06-18T18:15:00.000Z",
+                  "end": "2025-06-18T19:05:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc09" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-06-18T19:15:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle18",
+        "type": "transaction",
+        "timestamp": "2025-06-18T19:15:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:15c0dcf3-8538-5bb4-94c5-57c9efabd77a",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt09",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-07-04T15:45:00.000Z",
+              "end": "2025-07-04T16:35:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-06-18T19:15:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt09" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-06-24T18:45:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle53",
+        "type": "transaction",
+        "timestamp": "2025-06-24T18:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:931c2c02-d78d-55a9-b8e5-c121a436ef86",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc27",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt26" }],
+              "period": { "start": "2025-06-24T18:15:00.000Z", "end": "2025-06-24T18:45:00.000Z" },
+              "reasonCode": [{ "text": "Seguimiento de tratamiento" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc27" }
+          },
+          {
+            "fullUrl": "urn:uuid:faa47a77-b05c-5872-ace3-003137dc3a91",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc27",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-06-24T18:45:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBkZSAyOCBhw7FvcywgY29udHJvbC4gRW4gdHRvIGNvbiBzZXJ0cmFsaW5hIDEwMCBtZyBkZXNkZSBoYWNlIDEzIHNlbWFuYXMuIFJlZmllcmUgbWVub3MgcHJlb2N1cGFjacOzbiB5IG1lam9yIGRlc2NhbnNvLiBOw6F1c2VhcyBsZXZlcyBsb3MgcHJpbWVyb3MgZMOtYXMsIHlhIHJlc3VlbHRhcy4gUEhRLTk6IDQuCkVGOiBUQSAxMjcvODQgbW1IZywgRkMgNjkgbHBtLgpEeDogZXBpc29kaW8gZGVwcmVzaXZvIG1vZGVyYWRvIGVuIG1lam9yw61hLgpQbGFuOiBDb250aW51YXIgc2VydHJhbGluYSAxMDAgbWcgVk8gT0QgQU0uIENvbnRpbnVhciBwc2ljb3RlcmFwaWEuIENpdGEgY29udHJvbCBlbiAzIG1lc2VzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-06-24T18:45:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc27" }],
+                "period": {
+                  "start": "2025-06-24T18:15:00.000Z",
+                  "end": "2025-06-24T18:45:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc27" }
+          },
+          {
+            "fullUrl": "urn:uuid:12f88bef-8146-5f86-96f0-31fe680b9eed",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0133-mr05",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "N06AB06",
+                    "display": "sertraline"
+                  }
+                ],
+                "text": "Sertralina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "encounter": { "reference": "Encounter/pat-0133-enc27" },
+              "authoredOn": "2025-06-24T18:45:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD AM" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0133-mr05" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-06-24T18:55:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle54",
+        "type": "transaction",
+        "timestamp": "2025-06-24T18:55:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:12b57a3c-d9a1-5160-a0f0-8d001c09695a",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt27",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control de medicina interna",
+              "start": "2025-09-25T19:00:00.000Z",
+              "end": "2025-09-25T19:30:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-06-24T18:55:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-01" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt27" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-04T16:35:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle19",
+        "type": "transaction",
+        "timestamp": "2025-07-04T16:35:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:510a3b3e-6491-5df4-97b2-62a7384d6a99",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc10",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt09" }],
+              "period": { "start": "2025-07-04T15:45:00.000Z", "end": "2025-07-04T16:35:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc10" }
+          },
+          {
+            "fullUrl": "urn:uuid:4bf4e7ee-3cc3-5cf4-9e49-016e4b1cb038",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc10",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-07-04T16:35:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzaW9uIDEwLiBQY3RlIGNvbWVudGEgcXVlIGxvZ3JvIHNvc3RlbmVyIHN1cyBydXRpbmFzIGRlIGxhIHNlbWFuYS4KU2UgdHJhYmFqYSBoYWJpbGlkYWRlcyBkZSBjb211bmljYWNpb24gYXNlcnRpdmEuIEJ1ZW5hIGRpc3Bvc2ljaW9uLgpUYXJlYTogcmVsYWphY2lvbiBtdXNjdWxhciBwcm9ncmVzaXZhLiBwcm94LiBzZXNpb24gZW4gMTUgZGlhcy4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-07-04T16:35:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc10" }],
+                "period": {
+                  "start": "2025-07-04T15:45:00.000Z",
+                  "end": "2025-07-04T16:35:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc10" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-04T16:45:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle20",
+        "type": "transaction",
+        "timestamp": "2025-07-04T16:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:058d9e97-3c84-5282-94da-fba9b1a46912",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt10",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-07-17T16:30:00.000Z",
+              "end": "2025-07-17T17:20:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-07-04T16:45:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt10" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-17T17:20:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle21",
+        "type": "transaction",
+        "timestamp": "2025-07-17T17:20:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:2c769d3a-d273-528c-9338-a3bc2e4f1407",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc11",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt10" }],
+              "period": { "start": "2025-07-17T16:30:00.000Z", "end": "2025-07-17T17:20:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc11" }
+          },
+          {
+            "fullUrl": "urn:uuid:1fdc7e4f-614b-56cf-ae4e-16f50d5dcd27",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc11",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-07-17T17:20:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "c2VzacOzbiAxMS4gUGN0ZSByZWZpZXJlIHF1ZSByZXRvbcOzIGFjdGl2aWRhZCBmw61zaWNhLgpTZSB0cmFiYWphIGlkZW50aWZpY2FjacOzbiBkZSBkaXNwYXJhZG9yZXMgZGUgZXN0csOpcyBsYWJvcmFsLiBBZmVjdG8gZXV0w61taWNvLCBkaXNjdXJzbyBjb2hlcmVudGUuClRhcmVhOiBoYWJpbGlkYWRlcyBkZSBjb211bmljYWNpw7NuIGFzZXJ0aXZhLiBTZSBhY3VlcmRhIHByw7N4aW1hIHNlc2nDs24gZW4gMTUgZMOtYXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-07-17T17:20:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc11" }],
+                "period": {
+                  "start": "2025-07-17T16:30:00.000Z",
+                  "end": "2025-07-17T17:20:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc11" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-17T17:30:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle22",
+        "type": "transaction",
+        "timestamp": "2025-07-17T17:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:0cd3085d-c74d-5922-a556-510c70772e49",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt11",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-07-31T20:15:00.000Z",
+              "end": "2025-07-31T21:05:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-07-17T17:30:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt11" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-31T21:05:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle23",
+        "type": "transaction",
+        "timestamp": "2025-07-31T21:05:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:b309e063-898a-511f-8f9f-9df2951d119b",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc12",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt11" }],
+              "period": { "start": "2025-07-31T20:15:00.000Z", "end": "2025-07-31T21:05:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc12" }
+          },
+          {
+            "fullUrl": "urn:uuid:7e7c1ee7-961b-5ed7-8f3f-241e423cc3e1",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc12",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-07-31T21:05:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzacOzbiAxMi4gUGN0ZSByZWZpZXJlIG1lam9yw61hIGVuIGVsIG1hbmVqbyBkZSBsYSBhbnNpZWRhZCBlbiBlbCB0cmFiYWpvLgpTZSB0cmFiYWphIGhhYmlsaWRhZGVzIGRlIGNvbXVuaWNhY2nDs24gYXNlcnRpdmEuIEJ1ZW5hIGRpc3Bvc2ljacOzbi4=",
+                    "title": "Nota de evolución",
+                    "creation": "2025-07-31T21:05:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc12" }],
+                "period": {
+                  "start": "2025-07-31T20:15:00.000Z",
+                  "end": "2025-07-31T21:05:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc12" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-07-31T21:15:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle24",
+        "type": "transaction",
+        "timestamp": "2025-07-31T21:15:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:6d9aaece-588b-5e9e-b97f-6807b28288a1",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt12",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-08-15T14:00:00.000Z",
+              "end": "2025-08-15T14:50:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-07-31T21:15:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt12" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-08-15T14:50:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle25",
+        "type": "transaction",
+        "timestamp": "2025-08-15T14:50:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:4972c8d5-1a5a-5b46-9cfa-422910f1b183",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc13",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt12" }],
+              "period": { "start": "2025-08-15T14:00:00.000Z", "end": "2025-08-15T14:50:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc13" }
+          },
+          {
+            "fullUrl": "urn:uuid:a660fa58-412d-5475-8dae-666a6db266c6",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc13",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-08-15T14:50:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzaW9uIDEzLiBQY3RlIGNvbWVudGEgcXVlIGxvZ3JvIHNvc3RlbmVyIHN1cyBydXRpbmFzIGRlIGxhIHNlbWFuYS4KU2UgdHJhYmFqYSBoYWJpbGlkYWRlcyBkZSBjb211bmljYWNpb24gYXNlcnRpdmEuIEJ1ZW5hIGRpc3Bvc2ljaW9uLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-08-15T14:50:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc13" }],
+                "period": {
+                  "start": "2025-08-15T14:00:00.000Z",
+                  "end": "2025-08-15T14:50:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc13" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-08-15T15:00:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle26",
+        "type": "transaction",
+        "timestamp": "2025-08-15T15:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:dffe8a20-9bc4-5ee9-8302-6a2e334cdeee",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt13",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-09-01T13:30:00.000Z",
+              "end": "2025-09-01T14:20:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-08-15T15:00:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt13" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-01T14:20:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle27",
+        "type": "transaction",
+        "timestamp": "2025-09-01T14:20:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:ec418391-484b-57a6-b07d-ddf4ac23da28",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc14",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt13" }],
+              "period": { "start": "2025-09-01T13:30:00.000Z", "end": "2025-09-01T14:20:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc14" }
+          },
+          {
+            "fullUrl": "urn:uuid:d1e8a408-043f-5856-8411-30a52b2f5c30",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc14",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-09-01T14:20:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzacOzbiAxNC4gUGN0ZSByZWZpZXJlIGF2YW5jZXMgY29uIGxhcyB0YXJlYXMgYXNpZ25hZGFzLiBTZSB0cmFiYWphIGhhYmlsaWRhZGVzIGRlIGNvbXVuaWNhY2nDs24gYXNlcnRpdmEuIEJ1ZW5hIGRpc3Bvc2ljacOzbi4gVGFyZWE6IGFjdGl2YWNpw7NuIGNvbmR1Y3R1YWwuIFByw7N4aW1hIHNlc2nDs24gZW4gMTUgZMOtYXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-09-01T14:20:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc14" }],
+                "period": {
+                  "start": "2025-09-01T13:30:00.000Z",
+                  "end": "2025-09-01T14:20:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc14" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-01T14:30:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle28",
+        "type": "transaction",
+        "timestamp": "2025-09-01T14:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:4e6a141c-c1cc-5673-b091-e2a12ea14384",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt14",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-09-17T15:45:00.000Z",
+              "end": "2025-09-17T16:35:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-09-01T14:30:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt14" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-17T16:35:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle29",
+        "type": "transaction",
+        "timestamp": "2025-09-17T16:35:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:ac9cd3e4-348e-5adf-b961-42aeb3c1150c",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc15",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt14" }],
+              "period": { "start": "2025-09-17T15:45:00.000Z", "end": "2025-09-17T16:35:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc15" }
+          },
+          {
+            "fullUrl": "urn:uuid:7fb9fa17-67e9-5653-ac3d-391068619ab6",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc15",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-09-17T16:35:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzacOzbiAxNS4gUGN0ZSBjb21lbnRhIHF1ZSBsb2dyw7Mgc29zdGVuZXIgc3VzIHJ1dGluYXMgZGUgbGEgc2VtYW5hLgpTZSB0cmFiYWphIGlkZW50aWZpY2FjacOzbiBkZSBkaXNwYXJhZG9yZXMgZGUgZXN0csOpcyBsYWJvcmFsLiBQYXJ0aWNpcGEgYWN0aXZhbWVudGUuClRhcmVhOiBhY3RpdmFjacOzbiBjb25kdWN0dWFsLiBTZSBhY3VlcmRhIHByw7N4aW1hIHNlc2nDs24gZW4gMTUgZMOtYXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-09-17T16:35:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc15" }],
+                "period": {
+                  "start": "2025-09-17T15:45:00.000Z",
+                  "end": "2025-09-17T16:35:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc15" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-17T16:45:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle30",
+        "type": "transaction",
+        "timestamp": "2025-09-17T16:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:cfb8f192-ab73-5a6d-bc1c-529df126afdb",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt15",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-10-03T15:15:00.000Z",
+              "end": "2025-10-03T16:05:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-09-17T16:45:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt15" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-25T19:30:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle55",
+        "type": "transaction",
+        "timestamp": "2025-09-25T19:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:32cf479e-40ab-5b7d-9692-463b44bbe814",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc28",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt27" }],
+              "period": { "start": "2025-09-25T19:00:00.000Z", "end": "2025-09-25T19:30:00.000Z" },
+              "reasonCode": [{ "text": "Seguimiento de tratamiento" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc28" }
+          },
+          {
+            "fullUrl": "urn:uuid:b26fe1f8-a625-5101-af05-3d4efdd465ee",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc28",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-09-25T19:30:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "cGN0ZSBtYXNjIDI4YSwgY29udHJvbCBkZSBzZWd1aW1pZW50by4gRXN0YWJsZSBjb24gc2VydHJhbGluYSAxMDAgbWcsIGJ1ZW4gZnVuY2lvbmFtaWVudG8gbGFib3JhbC4gUEhRLTk6IDcuCkVGOiBUQSAxMzMvODAgbW1IZywgRkMgNjUgbHBtLgpEeDogZXBpc29kaW8gZGVwcmVzaXZvIG1vZGVyYWRvIGVuIHJlbWlzacOzbiBwYXJjaWFsLgpQbGFuOiBDb250aW51YXIgc2VydHJhbGluYSAxMDAgbWcgVk8gT0QgQU0u",
+                    "title": "Nota de evolución",
+                    "creation": "2025-09-25T19:30:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc28" }],
+                "period": {
+                  "start": "2025-09-25T19:00:00.000Z",
+                  "end": "2025-09-25T19:30:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc28" }
+          },
+          {
+            "fullUrl": "urn:uuid:9bbd6e97-31fa-5bd9-9c15-34a1468607af",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0133-mr06",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "N06AB06",
+                    "display": "sertraline"
+                  }
+                ],
+                "text": "Sertralina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "encounter": { "reference": "Encounter/pat-0133-enc28" },
+              "authoredOn": "2025-09-25T19:30:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD AM" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0133-mr06" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-09-25T19:40:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle56",
+        "type": "transaction",
+        "timestamp": "2025-09-25T19:40:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:46df54ea-513e-54ed-a0fd-a10e065157dc",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt28",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control de medicina interna",
+              "start": "2025-12-26T14:45:00.000Z",
+              "end": "2025-12-26T15:15:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-09-25T19:40:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-01" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt28" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-03T16:05:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle31",
+        "type": "transaction",
+        "timestamp": "2025-10-03T16:05:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:c66913d9-99e6-5083-b53e-54cb20187dbc",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc16",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt15" }],
+              "period": { "start": "2025-10-03T15:15:00.000Z", "end": "2025-10-03T16:05:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc16" }
+          },
+          {
+            "fullUrl": "urn:uuid:900d25d0-03c9-554e-bbcb-b3af2f28d1d2",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc16",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-10-03T16:05:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzaW9uIDE2LiBQY3RlIHJlZmllcmUgY29uZmxpY3RvcyBmYW1pbGlhcmVzIHB1bnR1YWxlcywgbG9zIG1hbmVqYSBjb24gbWF5b3IgY2FsbWEuClNlIHRyYWJhamEgcmVnaXN0cm8gZGUgcGVuc2FtaWVudG9zLiBQYXJ0aWNpcGEgYWN0aXZhbWVudGUuClRhcmVhOiBwc2ljb2VkdWNhY2lvbiBzb2JyZSBhbnNpZWRhZC4gU2UgYWN1ZXJkYSBwcm94aW1hIHNlc2lvbiBlbiAxNSBkaWFzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-10-03T16:05:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc16" }],
+                "period": {
+                  "start": "2025-10-03T15:15:00.000Z",
+                  "end": "2025-10-03T16:05:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc16" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-03T16:15:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle32",
+        "type": "transaction",
+        "timestamp": "2025-10-03T16:15:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:641caf1a-81c8-5e9c-a1a5-3bc993e72d09",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt16",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-10-16T12:45:00.000Z",
+              "end": "2025-10-16T13:35:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-10-03T16:15:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt16" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-16T13:35:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle33",
+        "type": "transaction",
+        "timestamp": "2025-10-16T13:35:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:6ea231a6-8c00-5645-a4ec-517318f6639d",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc17",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt16" }],
+              "period": { "start": "2025-10-16T12:45:00.000Z", "end": "2025-10-16T13:35:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc17" }
+          },
+          {
+            "fullUrl": "urn:uuid:47fd5327-6ae9-5566-92c3-02ab6c759cc3",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc17",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-10-16T13:35:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzacOzbiAxNy4gUGN0ZSByZWZpZXJlIGRpc21pbnVjacOzbiBkZSBsYSBwcmVvY3VwYWNpw7NuIGV4Y2VzaXZhLiBTZSB0cmFiYWphIGhpZ2llbmUgZGVsIHN1ZcOxby4gQnVlbmEgZGlzcG9zaWNpw7NuLiBTZSBjb250aW7DumEgcHJvY2VzbyB0ZXJhcMOpdXRpY28u",
+                    "title": "Nota de evolución",
+                    "creation": "2025-10-16T13:35:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc17" }],
+                "period": {
+                  "start": "2025-10-16T12:45:00.000Z",
+                  "end": "2025-10-16T13:35:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc17" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-16T13:45:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle34",
+        "type": "transaction",
+        "timestamp": "2025-10-16T13:45:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:a3a7c80d-c28f-5ce5-8213-a8e1e54c0de1",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt17",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-10-29T17:15:00.000Z",
+              "end": "2025-10-29T18:05:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-10-16T13:45:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt17" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-29T18:05:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle35",
+        "type": "transaction",
+        "timestamp": "2025-10-29T18:05:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:fb7c4fb1-ff87-5910-8bf8-9dd20947dbf0",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc18",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt17" }],
+              "period": { "start": "2025-10-29T17:15:00.000Z", "end": "2025-10-29T18:05:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc18" }
+          },
+          {
+            "fullUrl": "urn:uuid:364aa14b-565e-5dda-80c1-f815ed8c497f",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc18",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-10-29T18:05:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzaW9uIDE4LiBQY3RlIHJlZmllcmUgc2VtYW5hIGNvbiBtYXlvciBjYXJnYSBsYWJvcmFsLCBhcGxpY28gdGVjbmljYXMgZGUgcmVzcGlyYWNpb24uIFNlIHRyYWJhamEgcHNpY29lZHVjYWNpb24gc29icmUgYW5zaWVkYWQuIEJ1ZW5hIGRpc3Bvc2ljaW9uLiBUYXJlYTogaGFiaWxpZGFkZXMgZGUgY29tdW5pY2FjaW9uIGFzZXJ0aXZhLiBQcm94aW1hIHNlc2lvbiBlbiAxNSBkaWFzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-10-29T18:05:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc18" }],
+                "period": {
+                  "start": "2025-10-29T17:15:00.000Z",
+                  "end": "2025-10-29T18:05:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc18" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-29T18:15:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle36",
+        "type": "transaction",
+        "timestamp": "2025-10-29T18:15:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:d3470e23-433d-5135-ae83-8a76376e8097",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt18",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-11-13T20:30:00.000Z",
+              "end": "2025-11-13T21:20:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-10-29T18:15:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt18" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-11-13T21:20:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle37",
+        "type": "transaction",
+        "timestamp": "2025-11-13T21:20:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:291d1202-dd00-508b-9548-2b26f11bc7f1",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc19",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt18" }],
+              "period": { "start": "2025-11-13T20:30:00.000Z", "end": "2025-11-13T21:20:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc19" }
+          },
+          {
+            "fullUrl": "urn:uuid:ded9ac16-db75-5ce6-adf6-741f3a4c935f",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc19",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-11-13T21:20:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "c2VzacOzbiAxOS4gUGN0ZSByZWZpZXJlIGRpZmljdWx0YWQgcGFyYSBjb25jaWxpYXIgZWwgc3Vlw7FvIDItMyBub2NoZXMgcG9yIHNlbWFuYS4KU2UgdHJhYmFqYSBtYW5lam8gZGVsIHRpZW1wbyB5IG9yZ2FuaXphY2nDs24gZGUgcnV0aW5hcy4gUGFydGljaXBhIGFjdGl2YW1lbnRlLgpTZSBjb250aW7DumEgcHJvY2VzbyB0ZXJhcMOpdXRpY28u",
+                    "title": "Nota de evolución",
+                    "creation": "2025-11-13T21:20:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc19" }],
+                "period": {
+                  "start": "2025-11-13T20:30:00.000Z",
+                  "end": "2025-11-13T21:20:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc19" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-11-13T21:30:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle38",
+        "type": "transaction",
+        "timestamp": "2025-11-13T21:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:c7577740-a311-5e22-806f-293509c66b97",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt19",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-12-01T20:00:00.000Z",
+              "end": "2025-12-01T20:50:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-11-13T21:30:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt19" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-12-01T20:50:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle39",
+        "type": "transaction",
+        "timestamp": "2025-12-01T20:50:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:91168a08-703a-5cd1-a13a-cb791914ba05",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc20",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt19" }],
+              "period": { "start": "2025-12-01T20:00:00.000Z", "end": "2025-12-01T20:50:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc20" }
+          },
+          {
+            "fullUrl": "urn:uuid:107e900a-0d1d-5945-a00c-0307374455c3",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc20",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-12-01T20:50:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzacOzbiAyMC4gUGN0ZSByZWZpZXJlIGNvbmZsaWN0b3MgZmFtaWxpYXJlcyBwdW50dWFsZXMsIGxvcyBtYW5lamEgY29uIG1heW9yIGNhbG1hLgpTZSB0cmFiYWphIHJlZXN0cnVjdHVyYWNpw7NuIGNvZ25pdGl2YSBkZSBwZW5zYW1pZW50b3MgYXV0b23DoXRpY29zLiBQYXJ0aWNpcGEgYWN0aXZhbWVudGUuClRhcmVhOiB0w6ljbmljYXMgZGUgcmVzcGlyYWNpw7NuIGRpYWZyYWdtw6F0aWNhLiBTZSBhY3VlcmRhIHByw7N4aW1hIHNlc2nDs24gZW4gMTUgZMOtYXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-12-01T20:50:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc20" }],
+                "period": {
+                  "start": "2025-12-01T20:00:00.000Z",
+                  "end": "2025-12-01T20:50:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc20" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-12-01T21:00:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle40",
+        "type": "transaction",
+        "timestamp": "2025-12-01T21:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:dbf62c7c-5831-5931-a107-b9b16a459570",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt20",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-12-17T19:00:00.000Z",
+              "end": "2025-12-17T19:50:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-12-01T21:00:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt20" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-12-17T19:50:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle41",
+        "type": "transaction",
+        "timestamp": "2025-12-17T19:50:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:b843032c-53b1-56ab-b22b-319d51d69d8e",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc21",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt20" }],
+              "period": { "start": "2025-12-17T19:00:00.000Z", "end": "2025-12-17T19:50:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc21" }
+          },
+          {
+            "fullUrl": "urn:uuid:6dba7c44-5f89-50ed-9927-3575518f4e1f",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc21",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-12-17T19:50:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "U2VzacOzbiAyMS4gUGN0ZSByZWZpZXJlIGRpZmljdWx0YWQgcGFyYSBjb25jaWxpYXIgZWwgc3Vlw7FvIDItMyBub2NoZXMgcG9yIHNlbWFuYS4KU2UgdHJhYmFqYSBwc2ljb2VkdWNhY2nDs24gc29icmUgYW5zaWVkYWQuIEFmZWN0byBldXTDrW1pY28sIGRpc2N1cnNvIGNvaGVyZW50ZS4KVGFyZWE6IHJlbGFqYWNpw7NuIG11c2N1bGFyIHByb2dyZXNpdmEuIFByw7N4aW1hIHNlc2nDs24gZW4gMTUgZMOtYXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-12-17T19:50:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc21" }],
+                "period": {
+                  "start": "2025-12-17T19:00:00.000Z",
+                  "end": "2025-12-17T19:50:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc21" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-12-17T20:00:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle42",
+        "type": "transaction",
+        "timestamp": "2025-12-17T20:00:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:0b8f5c6e-95f9-52df-86a3-db5527f8b1bd",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt21",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2025-12-30T20:30:00.000Z",
+              "end": "2025-12-30T21:20:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-12-17T20:00:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt21" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-12-26T15:15:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle57",
+        "type": "transaction",
+        "timestamp": "2025-12-26T15:15:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:8f696cb1-efab-51a4-a6e4-3d093d2667d2",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc29",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "internal_medicine",
+                    "display": "Medicina interna"
+                  }
+                ],
+                "text": "Medicina interna"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-im-01" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt28" }],
+              "period": { "start": "2025-12-26T14:45:00.000Z", "end": "2025-12-26T15:15:00.000Z" },
+              "reasonCode": [{ "text": "Seguimiento de tratamiento" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc29" }
+          },
+          {
+            "fullUrl": "urn:uuid:f9ca2ecd-b54b-5337-afd8-911d297eca77",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc29",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-12-26T15:15:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-im-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGFjaWVudGUgbWFzY3VsaW5vIGRlIDI5IGHDsW9zLCBjb250cm9sIGRlIHNlZ3VpbWllbnRvLiBFc3RhYmxlIGNvbiBzZXJ0cmFsaW5hIDEwMCBtZywgYnVlbiBmdW5jaW9uYW1pZW50byBsYWJvcmFsLiBQSFEtOTogNS4gRUY6IFRBIDExOS83OSBtbUhnLCBGQyA4MSBscG0uIER4OiBlcGlzb2RpbyBkZXByZXNpdm8gbW9kZXJhZG8gZW4gcmVtaXNpb24gcGFyY2lhbC4gUGxhbjogQ29udGludWFyIHNlcnRyYWxpbmEgMTAwIG1nIFZPIE9EIEFNLiBDdHJsIGVuIDMgbWVzZXMu",
+                    "title": "Nota de evolución",
+                    "creation": "2025-12-26T15:15:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc29" }],
+                "period": {
+                  "start": "2025-12-26T14:45:00.000Z",
+                  "end": "2025-12-26T15:15:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc29" }
+          },
+          {
+            "fullUrl": "urn:uuid:b59f5889-c1b1-569c-8b3e-f87b02df14e6",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0133-mr07",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "N06AB06",
+                    "display": "sertraline"
+                  }
+                ],
+                "text": "Sertralina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "encounter": { "reference": "Encounter/pat-0133-enc29" },
+              "authoredOn": "2025-12-26T15:15:00.000Z",
+              "requester": { "reference": "Practitioner/prac-im-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD AM" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0133-mr07" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-12-26T15:25:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle58",
+        "type": "transaction",
+        "timestamp": "2025-12-26T15:25:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:b02d6b49-9bbc-5818-8479-d7b26375b467",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt29",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "internal_medicine",
+                      "display": "Medicina interna"
+                    }
+                  ],
+                  "text": "Medicina interna"
+                }
+              ],
+              "description": "Control de medicina interna",
+              "start": "2026-03-25T12:45:00.000Z",
+              "end": "2026-03-25T13:15:00.000Z",
+              "minutesDuration": 30,
+              "created": "2025-12-26T15:25:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-im-01" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt29" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-12-30T21:20:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle43",
+        "type": "transaction",
+        "timestamp": "2025-12-30T21:20:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:4e6d4a75-e37c-5cf3-980a-2932f61c5190",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0133-enc22",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Sesión de psicoterapia" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "psychology",
+                    "display": "Psicología"
+                  }
+                ],
+                "text": "Psicología"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-psy-02" } }],
+              "appointment": [{ "reference": "Appointment/pat-0133-appt21" }],
+              "period": { "start": "2025-12-30T20:30:00.000Z", "end": "2025-12-30T21:20:00.000Z" },
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0133-enc22" }
+          },
+          {
+            "fullUrl": "urn:uuid:c96dfa08-9716-5ae1-849d-65374a80caef",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0133-doc22",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0133" },
+              "date": "2025-12-30T21:20:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-psy-02" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "c2VzacOzbiAyMi4gUGN0ZSByZWZpZXJlIGF2YW5jZXMgY29uIGxhcyB0YXJlYXMgYXNpZ25hZGFzLgpTZSB0cmFiYWphIHBzaWNvZWR1Y2FjacOzbiBzb2JyZSBhbnNpZWRhZC4gUGFydGljaXBhIGFjdGl2YW1lbnRlLgpUYXJlYTogbWFuZWpvIGRlbCB0aWVtcG8geSBvcmdhbml6YWNpw7NuIGRlIHJ1dGluYXMuIFByw7N4LiBzZXNpw7NuIGVuIDE1IGTDrWFzLg==",
+                    "title": "Nota de evolución",
+                    "creation": "2025-12-30T21:20:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0133-enc22" }],
+                "period": {
+                  "start": "2025-12-30T20:30:00.000Z",
+                  "end": "2025-12-30T21:20:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0133-doc22" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-12-30T21:30:00.000Z",
+      "kind": "appointment_booked",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0133-bundle44",
+        "type": "transaction",
+        "timestamp": "2025-12-30T21:30:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:589f85d3-1506-529e-bed8-b47ba3d11014",
+            "resource": {
+              "resourceType": "Appointment",
+              "id": "pat-0133-appt22",
+              "status": "booked",
+              "serviceType": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "psychology",
+                      "display": "Psicología"
+                    }
+                  ],
+                  "text": "Psicología"
+                }
+              ],
+              "description": "Sesión de psicoterapia",
+              "start": "2026-01-13T19:45:00.000Z",
+              "end": "2026-01-13T20:35:00.000Z",
+              "minutesDuration": 50,
+              "created": "2025-12-30T21:30:00.000Z",
+              "participant": [
+                {
+                  "actor": { "reference": "Patient/pat-0133" },
+                  "required": "required",
+                  "status": "accepted"
+                },
+                {
+                  "actor": { "reference": "Practitioner/prac-psy-02" },
+                  "required": "required",
+                  "status": "accepted"
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Appointment/pat-0133-appt22" }
+          }
+        ]
+      }
+    }
+  ]
+}

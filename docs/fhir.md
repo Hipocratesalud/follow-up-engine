@@ -12,7 +12,7 @@ The engine speaks HL7 FHIR R4 (4.0.1) in and out ([ADR 0001](adr/0001-fhir-r4-da
 
 ### What the host sends
 
-One `transaction` (or `batch`) Bundle per saved consultation: the `Encounter`, the note (`DocumentReference` or `Composition`), orders (`ServiceRequest`), prescriptions (`MedicationRequest`), diagnoses (`Condition`) and, for a new patient, the `Patient`. Other host events arrive the same way: a result (`DiagnosticReport` and/or `Observation`), an appointment booked or cancelled (`Appointment`), a patient opt-out (`Patient` extension or `Consent`). An opt-out stops patient contact only: the clinic keeps following the patient, and escalation goes to the coordinator instead of the patient.
+One `transaction` (or `batch`) Bundle per saved consultation: the `Encounter`, the note (`DocumentReference` or `Composition`), orders (`ServiceRequest`), prescriptions (`MedicationRequest`), diagnoses (`Condition`) and, for a new patient, the `Patient`. Other host events arrive the same way: a result (`DiagnosticReport` and/or `Observation`), an appointment booked or cancelled (`Appointment`), a patient opt-out (`Patient` extension or `Consent`), and what came of a contact attempt the engine asked for (`Communication`, see [Closing the contact loop](#closing-the-contact-loop)). An opt-out stops patient contact only: the clinic keeps following the patient, and escalation goes to the coordinator instead of the patient.
 
 | Bundle `type` | Semantics                                                                                                                                                |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -30,21 +30,22 @@ References resolve against the Bundle first (`urn:uuid:` and absolute `fullUrl`s
 
 Validation is tolerant (unknown elements are accepted and kept in the stored resource) and strict on what the mapping needs (an invalid status, a missing `subject` or `code`, a malformed `dateTime` is an error at its exact path). Resources whose status does not produce an event are reported as `information`.
 
-| FHIR resource                                                                                                                          | Condition                                                                                                                                                                                                                                                                                                                                     | Clinical event            | Fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `occurredAt`                                                         |
-| -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| `Encounter`                                                                                                                            | `status = finished` (any status still groups the consultation)                                                                                                                                                                                                                                                                                | `encounter.finished`      | `practitionerId` from `participant.individual` (PPRF, then ATND, SPRF, PART, then any `Practitioner`); `specialty` from `serviceType`, else `type`                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `period.end`, `period.start`                                         |
-| `Appointment`                                                                                                                          | `status = booked`                                                                                                                                                                                                                                                                                                                             | `appointment.booked`      | `scheduledFor` = `start` (required); patient and practitioner from `participant.actor`; `specialty` from `specialty`, `serviceType`, `appointmentType`; `recordedAt` = `meta.lastUpdated`, which orders the versions of the Appointment (the latest wins: a reschedule replaces the earlier date, a booking made again after a cancellation stands)                                                                                                                                                                                                                                                                      | `created`, `meta.lastUpdated`                                        |
-| `Appointment`                                                                                                                          | `status` in `cancelled`, `noshow`, `entered-in-error`                                                                                                                                                                                                                                                                                         | `appointment.cancelled`   | `scheduledFor` = `start`; `reason` = `no_show` or `entered_in_error` (absent for a cancellation). Reopens what the booking fulfilled                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `meta.lastUpdated`                                                   |
-| `ServiceRequest`                                                                                                                       | `status = active` and `intent` in the order family (`order`, `original-order`, `reflex-order`, `filler-order`, `instance-order`)                                                                                                                                                                                                              | `service_request.created` | `orderId` = resource id; `code`: LOINC coding first, then any coded value, then an uncoded placeholder (warning); `category`: SNOMED CT `108252007` laboratory, `363679005` imaging, else keywords in the category text, else `other`                                                                                                                                                                                                                                                                                                                                                                                    | `authoredOn`                                                         |
-| `DiagnosticReport`                                                                                                                     | `status` in `final`, `amended`, `corrected`, `appended`                                                                                                                                                                                                                                                                                       | `result.received`         | `code` as above; `basedOnOrderId` from `basedOn` (ServiceRequest); `interpretation` combines the in-Bundle `Observation`s it lists (any abnormal wins, all normal gives normal); `value` is the `valueQuantity` of its single listed `Observation` of the same code, when there is one                                                                                                                                                                                                                                                                                                                                   | `issued`, `effectiveDateTime`, `effectivePeriod`                     |
-| `Observation`                                                                                                                          | `status` in `final`, `amended`, `corrected`                                                                                                                                                                                                                                                                                                   | `result.received`         | `interpretation` from v3 ObservationInterpretation: `A`, `AA`, `H`, `HH`, `HU`, `L`, `LL`, `LU` abnormal; `N` normal; else unknown. `severity` of an abnormal result: `critical` for `AA`, `HH`, `LL` or an interpretation labelled critical / panic (also abnormal), else `mild`; a `DiagnosticReport` takes the worst of its listed `Observation`s. `value` from `valueQuantity` (`value`, `unit` else UCUM `code`). Without its own `basedOn`, inherits the order of the in-Bundle `DiagnosticReport` that lists it                                                                                                   | `issued`, `effectiveDateTime`, `effectiveInstant`, `effectivePeriod` |
-| `MedicationRequest`                                                                                                                    | `status` in `active`, `completed`; `intent` in the order family or `plan`                                                                                                                                                                                                                                                                     | `medication.prescribed`   | `medication.text` from the concept text, display or code (or the `medicationReference` display / in-Bundle `Medication`); `medication.code` = first coded value, optional; `durationDays` from `dispenseRequest.expectedSupplyDuration`, else `timing.repeat.boundsDuration`, else the span of `boundsPeriod`; `refills` = `dispenseRequest.numberOfRepeatsAllowed`; `asNeeded` when a dosage has `asNeededBoolean: true` or `asNeededCodeableConcept`; `dosageText` = the `dosageInstruction.text` values; `startAt` = `boundsPeriod.start`, `validityPeriod.start`, `authoredOn`                                       | `authoredOn`                                                         |
-| `Condition`                                                                                                                            | not `refuted`/`entered-in-error` (see `record.withdrawn`), not `inactive`/`resolved`/`remission`, has an ICD-10 or ICD-10-CM coding                                                                                                                                                                                                           | `condition.recorded`      | `code` under `http://hl7.org/fhir/sid/icd-10`; `verification`: `provisional`, `differential`, `unconfirmed` give provisional, anything else (including absent) confirmed                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `recordedDate`, `onsetDateTime`                                      |
-| `DocumentReference`                                                                                                                    | `status = current`, `docStatus` not `preliminary`                                                                                                                                                                                                                                                                                             | `note.received`           | text from inline `attachment.data` (base64, in the `charset` of `contentType`, UTF-8 by default; HTML reduced to text), else the narrative, else `description`; URLs are never fetched; `specialty` from `context.practiceSetting`, else the consultation's Encounter                                                                                                                                                                                                                                                                                                                                                    | `date`, `context.period`                                             |
-| `Composition`                                                                                                                          | `status` in `final`, `amended`                                                                                                                                                                                                                                                                                                                | `note.received`           | `title` and every `section` (recursive) as plain text                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `date`                                                               |
-| `Patient`                                                                                                                              | engine opt-out extension with `valueBoolean: true`                                                                                                                                                                                                                                                                                            | `patient.opted_out`       |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `meta.lastUpdated`                                                   |
-| `Consent`                                                                                                                              | `status = active`, `provision.type = deny`, `category` has `https://hipocratesalud.com/fhir/CodeSystem/follow-up-consent#follow-up-opt-out`                                                                                                                                                                                                   | `patient.opted_out`       |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `dateTime`                                                           |
-| `ServiceRequest`, `MedicationRequest`, `Condition`, `DocumentReference`, `Composition`, `DiagnosticReport`, `Observation`, `Encounter` | a later version that withdraws the resource: order `revoked`/`entered-in-error`; prescription `stopped`/`cancelled`/`entered-in-error`; diagnosis verification `refuted`/`entered-in-error`; note `entered-in-error` (status or `docStatus`) or `superseded`; result `cancelled`/`entered-in-error`; encounter `entered-in-error`/`cancelled` | `record.withdrawn`        | `reason`: `revoked`, `stopped`, `cancelled`, `refuted`, `superseded`, `entered_in_error`. The engine cancels the expectations the resource triggered (`closedReason: source_withdrawn`, their cases resolve as `not_needed`), reopens what it fulfilled, decides the condition it recorded again from the records of the diagnosis that remain (none left: `rejected` when refuted, `entered_in_error` otherwise), and ignores its earlier events. A withdrawn `DiagnosticReport` also withdraws the `Observation`s it lists (one event each), or, re-sent without its `result` list, the ones it listed when it arrived | `meta.lastUpdated`                                                   |
+| FHIR resource                                                                                                                          | Condition                                                                                                                                                                                                                                                                                                                                     | Clinical event                                                                                   | Fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `occurredAt`                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `Encounter`                                                                                                                            | `status = finished` (any status still groups the consultation)                                                                                                                                                                                                                                                                                | `encounter.finished`                                                                             | `practitionerId` from `participant.individual` (PPRF, then ATND, SPRF, PART, then any `Practitioner`); `specialty` from `serviceType`, else `type`                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `period.end`, `period.start`                                         |
+| `Appointment`                                                                                                                          | `status = booked`                                                                                                                                                                                                                                                                                                                             | `appointment.booked`                                                                             | `scheduledFor` = `start` (required); patient and practitioner from `participant.actor`; `specialty` from `specialty`, `serviceType`, `appointmentType`; `recordedAt` = `meta.lastUpdated`, which orders the versions of the Appointment (the latest wins: a reschedule replaces the earlier date, a booking made again after a cancellation stands)                                                                                                                                                                                                                                                                      | `created`, `meta.lastUpdated`                                        |
+| `Appointment`                                                                                                                          | `status` in `cancelled`, `noshow`, `entered-in-error`                                                                                                                                                                                                                                                                                         | `appointment.cancelled`                                                                          | `scheduledFor` = `start`; `reason` = `no_show` or `entered_in_error` (absent for a cancellation). Reopens what the booking fulfilled                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `meta.lastUpdated`                                                   |
+| `ServiceRequest`                                                                                                                       | `status = active` and `intent` in the order family (`order`, `original-order`, `reflex-order`, `filler-order`, `instance-order`)                                                                                                                                                                                                              | `service_request.created`                                                                        | `orderId` = resource id; `code`: LOINC coding first, then any coded value, then an uncoded placeholder (warning); `category`: SNOMED CT `108252007` laboratory, `363679005` imaging, else keywords in the category text, else `other`                                                                                                                                                                                                                                                                                                                                                                                    | `authoredOn`                                                         |
+| `DiagnosticReport`                                                                                                                     | `status` in `final`, `amended`, `corrected`, `appended`                                                                                                                                                                                                                                                                                       | `result.received`                                                                                | `code` as above; `basedOnOrderId` from `basedOn` (ServiceRequest); `interpretation` combines the in-Bundle `Observation`s it lists (any abnormal wins, all normal gives normal); `value` is the `valueQuantity` of its single listed `Observation` of the same code, when there is one                                                                                                                                                                                                                                                                                                                                   | `issued`, `effectiveDateTime`, `effectivePeriod`                     |
+| `Observation`                                                                                                                          | `status` in `final`, `amended`, `corrected`                                                                                                                                                                                                                                                                                                   | `result.received`                                                                                | `interpretation` from v3 ObservationInterpretation: `A`, `AA`, `H`, `HH`, `HU`, `L`, `LL`, `LU` abnormal; `N` normal; else unknown. `severity` of an abnormal result: `critical` for `AA`, `HH`, `LL` or an interpretation labelled critical / panic (also abnormal), else `mild`; a `DiagnosticReport` takes the worst of its listed `Observation`s. `value` from `valueQuantity` (`value`, `unit` else UCUM `code`). Without its own `basedOn`, inherits the order of the in-Bundle `DiagnosticReport` that lists it                                                                                                   | `issued`, `effectiveDateTime`, `effectiveInstant`, `effectivePeriod` |
+| `MedicationRequest`                                                                                                                    | `status` in `active`, `completed`; `intent` in the order family or `plan`                                                                                                                                                                                                                                                                     | `medication.prescribed`                                                                          | `medication.text` from the concept text, display or code (or the `medicationReference` display / in-Bundle `Medication`); `medication.code` = first coded value, optional; `durationDays` from `dispenseRequest.expectedSupplyDuration`, else `timing.repeat.boundsDuration`, else the span of `boundsPeriod`; `refills` = `dispenseRequest.numberOfRepeatsAllowed`; `asNeeded` when a dosage has `asNeededBoolean: true` or `asNeededCodeableConcept`; `dosageText` = the `dosageInstruction.text` values; `startAt` = `boundsPeriod.start`, `validityPeriod.start`, `authoredOn`                                       | `authoredOn`                                                         |
+| `Condition`                                                                                                                            | not `refuted`/`entered-in-error` (see `record.withdrawn`), not `inactive`/`resolved`/`remission`, has an ICD-10 or ICD-10-CM coding                                                                                                                                                                                                           | `condition.recorded`                                                                             | `code` under `http://hl7.org/fhir/sid/icd-10`; `verification`: `provisional`, `differential`, `unconfirmed` give provisional, anything else (including absent) confirmed                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `recordedDate`, `onsetDateTime`                                      |
+| `DocumentReference`                                                                                                                    | `status = current`, `docStatus` not `preliminary`                                                                                                                                                                                                                                                                                             | `note.received`                                                                                  | text from inline `attachment.data` (base64, in the `charset` of `contentType`, UTF-8 by default; HTML reduced to text), else the narrative, else `description`; URLs are never fetched; `specialty` from `context.practiceSetting`, else the consultation's Encounter                                                                                                                                                                                                                                                                                                                                                    | `date`, `context.period`                                             |
+| `Composition`                                                                                                                          | `status` in `final`, `amended`                                                                                                                                                                                                                                                                                                                | `note.received`                                                                                  | `title` and every `section` (recursive) as plain text                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `date`                                                               |
+| `Patient`                                                                                                                              | engine opt-out extension with `valueBoolean: true`                                                                                                                                                                                                                                                                                            | `patient.opted_out`                                                                              |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `meta.lastUpdated`                                                   |
+| `Consent`                                                                                                                              | `status = active`, `provision.type = deny`, `category` has `https://hipocratesalud.com/fhir/CodeSystem/follow-up-consent#follow-up-opt-out`                                                                                                                                                                                                   | `patient.opted_out`                                                                              |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `dateTime`                                                           |
+| `Communication`                                                                                                                        | `basedOn` a `CommunicationRequest` of the clinic about the same patient (else an error, `not-found` / `value`)                                                                                                                                                                                                                                | a contact outcome (no clinical event): see [Closing the contact loop](#closing-the-contact-loop) |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |                                                                      |
+| `ServiceRequest`, `MedicationRequest`, `Condition`, `DocumentReference`, `Composition`, `DiagnosticReport`, `Observation`, `Encounter` | a later version that withdraws the resource: order `revoked`/`entered-in-error`; prescription `stopped`/`cancelled`/`entered-in-error`; diagnosis verification `refuted`/`entered-in-error`; note `entered-in-error` (status or `docStatus`) or `superseded`; result `cancelled`/`entered-in-error`; encounter `entered-in-error`/`cancelled` | `record.withdrawn`                                                                               | `reason`: `revoked`, `stopped`, `cancelled`, `refuted`, `superseded`, `entered_in_error`. The engine cancels the expectations the resource triggered (`closedReason: source_withdrawn`, their cases resolve as `not_needed`), reopens what it fulfilled, decides the condition it recorded again from the records of the diagnosis that remain (none left: `rejected` when refuted, `entered_in_error` otherwise), and ignores its earlier events. A withdrawn `DiagnosticReport` also withdraws the `Observation`s it lists (one event each), or, re-sent without its `result` list, the ones it listed when it arrived | `meta.lastUpdated`                                                   |
 
 Missing clinical times fall back to the `receivedAt` the caller passes. `Medication`, `Practitioner`, `PractitionerRole`, `Organization`, `Location`, `Device`, `Specimen`, `RelatedPerson` and `HealthcareService` are context: resolved by reference, never reported, and returned as `contextResources` (references resolved) so the API can keep the host's directory of practitioners and organizations. Other resource types are ignored with an `information` issue.
 
@@ -133,19 +134,19 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 
 ### Case → `Task`
 
-| Element           | Value                                                                                                                                                                |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`              | case id                                                                                                                                                              |
-| `intent`          | `proposal` (the engine suggests; the clinic decides)                                                                                                                 |
-| `code`            | `https://hipocratesalud.com/fhir/CodeSystem/follow-up-task-type#follow-up-case`                                                                                      |
-| `status`          | `open`/`notified` → `ready`, `snoozed` → `on-hold`, `escalated` → `in-progress`, `resolved` → `completed`, `dismissed` → `cancelled`, `lost_to_follow_up` → `failed` |
-| `businessStatus`  | `https://hipocratesalud.com/fhir/CodeSystem/follow-up-case-status#<exact engine status>`                                                                             |
-| `priority`        | numeric priority ≥ 90 `stat`, ≥ 75 `asap`, ≥ 60 `urgent`, else `routine` (`CASE_PRIORITY_THRESHOLDS`); the number itself in the priority-score extension             |
-| `owner`           | the assignee as a logical reference (`https://hipocratesalud.com/fhir/NamingSystem/host-user`)                                                                       |
-| `input[]`         | one per reason: `type` = `https://hipocratesalud.com/fhir/CodeSystem/follow-up-reason#<reasonCode>`, `valueReference` = `Task/<expectationId>`                       |
-| `statusReason`    | `https://hipocratesalud.com/fhir/CodeSystem/follow-up-case-resolution#<resolution kind>`                                                                             |
-| `executionPeriod` | `createdAt` to `resolution.resolvedAt`                                                                                                                               |
-| extensions        | escalation step, priority score, dedup key, origin, release at, next action at, snoozed until, resolution (kind, resolvedAt, resolvedBy, note)                       |
+| Element           | Value                                                                                                                                                                            |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`              | case id                                                                                                                                                                          |
+| `intent`          | `proposal` (the engine suggests; the clinic decides)                                                                                                                             |
+| `code`            | `https://hipocratesalud.com/fhir/CodeSystem/follow-up-task-type#follow-up-case`                                                                                                  |
+| `status`          | `open`/`notified` → `ready`, `snoozed` → `on-hold`, `escalated` → `in-progress`, `resolved` → `completed`, `dismissed` → `cancelled`, `lost_to_follow_up` → `failed`             |
+| `businessStatus`  | `https://hipocratesalud.com/fhir/CodeSystem/follow-up-case-status#<exact engine status>`                                                                                         |
+| `priority`        | numeric priority ≥ 90 `stat`, ≥ 75 `asap`, ≥ 60 `urgent`, else `routine` (`CASE_PRIORITY_THRESHOLDS`); the number itself in the priority-score extension                         |
+| `owner`           | the assignee as a logical reference (`https://hipocratesalud.com/fhir/NamingSystem/host-user`)                                                                                   |
+| `input[]`         | one per reason: `type` = `https://hipocratesalud.com/fhir/CodeSystem/follow-up-reason#<reasonCode>`, `valueReference` = `Task/<expectationId>`                                   |
+| `statusReason`    | `https://hipocratesalud.com/fhir/CodeSystem/follow-up-case-resolution#<resolution kind>`; a dismissed case: `.../follow-up-dismiss-reason#<reason>`                              |
+| `executionPeriod` | `createdAt` to `resolution.resolvedAt`                                                                                                                                           |
+| extensions        | escalation step, escalation policy, priority score, dedup key, origin, release at, next action at, snoozed until, resolution (kind, resolvedAt, resolvedBy, note, dismissReason) |
 
 `taskToExpectation`, `taskToCase` and `fhirToPatientCondition` read these resources back; round-trip tests prove the representation is lossless.
 
@@ -167,9 +168,58 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 
 `status = preliminary`, `severity = low`, `code` = `https://hipocratesalud.com/fhir/CodeSystem/follow-up-quality-finding#note-without-plan` (the note has no follow-up plan) or `#note-truncated` (the note was longer than the extractor reads: its head and its tail were read, its middle was not, so the plan may be incomplete), `patient`, `identifiedDateTime` = `detectedAt`, `implicated` = the document. A suggestion to the clinician, never to the patient.
 
+### Clinical finding → `DetectedIssue`
+
+Only **live** findings (a category the clinical team validated) are in `GET /fhir/DetectedIssue?patient=`; shadow findings are never exported to the host. The staff's batch review reads any finding with `GET /api/inbox/findings/{id}/fhir`. See [reviewer.md](reviewer.md).
+
+- `code`: `https://hipocratesalud.com/fhir/CodeSystem/clinical-finding-category#<category>` (`lab-trend`, `drug-interaction`, ...), with `text` the one-line summary.
+- `severity`: `high`, `moderate` or `low`.
+- `status`: `preliminary` until reviewed, `final` when marked relevant or already known, `cancelled` when not relevant or expired.
+- `patient`, `identifiedDateTime`, and `author`: a `Device`, the clinical reviewer.
+- `implicated`: the cited resources (`Observation/...`, `DocumentReference/...`, `MedicationRequest/...`, `Condition/...`).
+- `evidence[0].detail[]`: one reference per citation, its `display` the verbatim quote (checked against the document before the finding was stored).
+- `detail`: the rationale.
+- `mitigation[0].action.text`: the suggestion; with `date` and `author` once a clinician reviewed it.
+- Extensions: `clinical-finding-mode` (`valueCode` `shadow` or `live`), `clinical-finding-already-covered` (`valueBoolean`: an open expectation or case already covers it), `clinical-finding-origin` (`valueCode` `confirmed`, `added` or `fallback`), `clinical-finding-model` (`valueString`: model and prompt version).
+
+A suggestion to the clinician, never to the patient.
+
 ### Case event → `Provenance`
 
 `target` = the case `Task`; `recorded` and `occurredDateTime` = `at`; `activity` = `https://hipocratesalud.com/fhir/CodeSystem/follow-up-case-event#<type>`; one `agent` (type `performer`): a user is a logical reference in `https://hipocratesalud.com/fhir/NamingSystem/host-user`, a patient is `Patient/<id>`, a rule is a `Device` identified in `https://hipocratesalud.com/fhir/NamingSystem/follow-up-rule`, the engine is a `Device` in `https://hipocratesalud.com/fhir/NamingSystem/follow-up-engine`. The structured payload (ids and codes only) is JSON in the case-event-payload extension. Case events have no id of their own, so the id is derived from case, type, time and a hash of actor and payload.
+
+### Closing the contact loop
+
+Each attempt to reach a patient is a `CommunicationRequest`; what came of it is a `Communication`. The engine writes the first, the host (or the clinic team, for a call recorded in the inbox) the second. Examples in [Example: closing the contact loop](#example-closing-the-contact-loop); the host side, message by message, in [integration.md](integration.md#4-closing-the-loop).
+
+**Contact attempt → `CommunicationRequest`** (`contactRequestToFhir`):
+
+| Element              | Value                                                                                                                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `basedOn`            | the case `Task`                                                                                                                                                                        |
+| `status`             | `active` while waiting; `completed` once an outcome concluded it (answered, or no answer / wrong number); `revoked` when its case closed before that                                   |
+| `category`           | `https://hipocratesalud.com/fhir/CodeSystem/contact-purpose#<purpose>` (`schedule_follow_up`, `complete_pending_test`, `review_results`, `medication_review`)                          |
+| `medium`             | the channel hint: `.../CodeSystem/contact-channel#<whatsapp\|phone_call\|sms\|email>` plus the HL7 v3 ParticipationMode (`ONLINEWRIT`, `PHONE`, `EMAILWRIT`); absent: the host chooses |
+| `payload`            | one generic sentence of the purpose (`CONTACT_PURPOSE_TEXT`): never a diagnosis, a test or a note                                                                                      |
+| `occurrenceDateTime` | the answer deadline (`dueBy`): no answer by then counts as unanswered                                                                                                                  |
+| `authoredOn`         | when the engine (or a user) asked                                                                                                                                                      |
+| `requester`          | the engine (`Device`, `NamingSystem/follow-up-engine`) for a policy step, else the user (`NamingSystem/host-user`)                                                                     |
+| extensions           | `contact-attempt` (1-based number in the case), `contact-trigger` (`policy`, `user`, `wrong_number`), `follow-up-escalation-step` (the policy step)                                    |
+
+**Contact outcome ← `Communication`** (inbound, then `communicationToFhir` outbound):
+
+| Element                                                  | Read as                                                                                                                                                                                                                      |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `basedOn`                                                | required: `CommunicationRequest/<id>` of the clinic. Unknown or another clinic's: `not-found` at `basedOn` (a transaction is rejected, a batch entry answered `400`); another patient's: `value` at `subject`                |
+| `extension:contact-outcome`                              | `valueCodeableConcept` in `https://hipocratesalud.com/fhir/CodeSystem/contact-outcome`: `delivered`, `read`, `replied`, `booked`, `declined`, `treated_elsewhere`, `wrong_number`, `no_answer` (an unknown code is an error) |
+| `statusReason`                                           | the same codes, accepted when the extension is absent                                                                                                                                                                        |
+| `status`                                                 | any R4 event status; `not-done` without an outcome = `no_answer`; `entered-in-error` withdraws what that Communication said; a status-only update (`in-progress`) records nothing new                                        |
+| `medium`                                                 | the channel (engine code or ParticipationMode `PHONE` / `EMAILWRIT`); else the attempt's                                                                                                                                     |
+| `sent`, `received`, `meta.versionId`, `meta.lastUpdated` | kept; versions follow the same order as every resource: an older version is ignored, the same one again changes nothing                                                                                                      |
+
+The strongest outcome of an attempt decides it (`delivered` < `read` < `no_answer` < `wrong_number` < `replied` < `booked` = `declined` = `treated_elsewhere`), so the host may send one `Communication` per update or new versions of one. Outbound, a `Communication` also has `about` = the case `Task`, the outcome in `statusReason` when it did not reach the patient, and `sender` = the clinic user for a call recorded in the inbox.
+
+**Rule suppressed for a patient → `Flag`** (`suppressionToFlag`): `category` = `https://hipocratesalud.com/fhir/CodeSystem/follow-up-flag-category#follow-up-suppression`; `code` = the rule in `CodeSystem/follow-up-expectation` (with its label); `status` `active`, `inactive` once reactivated ("Volver a activar"), with `period.start` / `period.end`; `author` = the user; extensions `follow-up-dismiss-reason`, `follow-up-source-case` (the dismissed case `Task`), `follow-up-note`, `follow-up-revoked-by`. `GET /fhir/Flag?patient=` lists them.
 
 ### Searchset
 
@@ -179,44 +229,62 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 
 Base: `https://hipocratesalud.com/fhir`. Every engine-defined CodeSystem, NamingSystem and extension lives under it, including the codes used by `config/` (protocols) and the synthetic fixtures of `@follow-up-engine/testkit` (`ENGINE_FHIR_BASE` in both packages, checked by a test).
 
-| CodeSystem                                | Codes                                                                                                                                                                                            |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CodeSystem/follow-up-expectation`        | rule ids (`lab_order_result_pending`, `doctor_plan_followup`, `protocol_diabetes_hba1c`, ...)                                                                                                    |
-| `CodeSystem/follow-up-task-type`          | `follow-up-case`                                                                                                                                                                                 |
-| `CodeSystem/follow-up-expectation-status` | `open`, `fulfilled`, `superseded`, `expired`, `cancelled`                                                                                                                                        |
-| `CodeSystem/follow-up-case-status`        | `open`, `notified`, `snoozed`, `escalated`, `resolved`, `dismissed`, `lost_to_follow_up`                                                                                                         |
-| `CodeSystem/follow-up-closed-reason`      | the engine's `closedReason` codes                                                                                                                                                                |
-| `CodeSystem/follow-up-case-resolution`    | `fulfilled`, `handled_outside`, `not_needed`, `patient_declined`, `patient_unreachable`                                                                                                          |
-| `CodeSystem/follow-up-reason`             | reason codes from rules and protocols                                                                                                                                                            |
-| `CodeSystem/follow-up-quality-finding`    | `note-without-plan`, `note-truncated`                                                                                                                                                            |
-| `CodeSystem/follow-up-case-event`         | `opened`, `reason_added`, `released`, `notified`, `assigned`, `snoozed`, `escalated`, `patient_contact_requested`, `resolved`, `dismissed`, `reopened`, `lost_to_follow_up`, `feedback_recorded` |
-| `CodeSystem/specialty`                    | specialty codes a host may send (`diabetology`, `cardiology`, `psychology`, `gynecology`, ...)                                                                                                   |
-| `CodeSystem/follow-up-consent`            | `follow-up-opt-out`                                                                                                                                                                              |
-| `CodeSystem/uncoded`                      | slug of the text of an order or result that arrived without a code                                                                                                                               |
-| `CodeSystem/procedure`                    | local procedure codes protocols expect when no standard code fits (`fundus-exam`)                                                                                                                |
+| CodeSystem                                | Codes                                                                                                                                                                                                                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CodeSystem/follow-up-expectation`        | rule ids (`lab_order_result_pending`, `doctor_plan_followup`, `protocol_diabetes_hba1c`, ...)                                                                                                                                                           |
+| `CodeSystem/follow-up-task-type`          | `follow-up-case`                                                                                                                                                                                                                                        |
+| `CodeSystem/follow-up-expectation-status` | `open`, `fulfilled`, `superseded`, `expired`, `cancelled`                                                                                                                                                                                               |
+| `CodeSystem/follow-up-case-status`        | `open`, `notified`, `snoozed`, `escalated`, `resolved`, `dismissed`, `lost_to_follow_up`                                                                                                                                                                |
+| `CodeSystem/follow-up-closed-reason`      | the engine's `closedReason` codes                                                                                                                                                                                                                       |
+| `CodeSystem/follow-up-case-resolution`    | `fulfilled`, `handled_outside`, `not_needed`, `patient_declined`, `patient_unreachable`                                                                                                                                                                 |
+| `CodeSystem/follow-up-reason`             | reason codes from rules and protocols                                                                                                                                                                                                                   |
+| `CodeSystem/follow-up-quality-finding`    | `note-without-plan`, `note-truncated`                                                                                                                                                                                                                   |
+| `CodeSystem/clinical-finding-category`    | `pre-visit-question`, `lab-trend`, `vital-trend`, `abnormal-result-no-followup`, `drug-interaction`, `drug-condition-conflict`, `unaddressed-symptom`, `missing-screening`, `record-quality`, `utilization-change`, `similar-patients`                  |
+| `CodeSystem/follow-up-case-event`         | `opened`, `reason_added`, `released`, `notified`, `assigned`, `snoozed`, `escalated`, `patient_contact_requested`, `contact_attempt_skipped`, `contact_outcome_recorded`, `resolved`, `dismissed`, `reopened`, `lost_to_follow_up`, `feedback_recorded` |
+| `CodeSystem/specialty`                    | specialty codes a host may send (`diabetology`, `cardiology`, `psychology`, `gynecology`, ...)                                                                                                                                                          |
+| `CodeSystem/follow-up-consent`            | `follow-up-opt-out`                                                                                                                                                                                                                                     |
+| `CodeSystem/uncoded`                      | slug of the text of an order or result that arrived without a code                                                                                                                                                                                      |
+| `CodeSystem/procedure`                    | local procedure codes protocols expect when no standard code fits (`fundus-exam`)                                                                                                                                                                       |
+| `CodeSystem/contact-outcome`              | `delivered`, `read`, `replied`, `booked`, `declined`, `treated_elsewhere`, `wrong_number`, `no_answer`                                                                                                                                                  |
+| `CodeSystem/contact-channel`              | `whatsapp`, `phone_call`, `sms`, `email`                                                                                                                                                                                                                |
+| `CodeSystem/contact-purpose`              | `schedule_follow_up`, `complete_pending_test`, `review_results`, `medication_review`                                                                                                                                                                    |
+| `CodeSystem/follow-up-dismiss-reason`     | `handled_elsewhere`, `already_done`, `not_applicable_to_patient`, `wrong_diagnosis`, `wrong_interval`, `other`                                                                                                                                          |
+| `CodeSystem/follow-up-flag-category`      | `follow-up-suppression`                                                                                                                                                                                                                                 |
 
-| Extension (`StructureDefinition/...`) | On                            | Value                                                                                                               |
-| ------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `follow-up-opt-out`                   | Patient (inbound)             | `valueBoolean`                                                                                                      |
-| `follow-up-layer`                     | Task (expectation)            | `valueCode`: `universal`, `doctor_plan`, `cadence`, `protocol`                                                      |
-| `follow-up-rule-version`              | Task (expectation)            | `valueString`                                                                                                       |
-| `follow-up-protocol-id`               | Task (expectation)            | `valueString`                                                                                                       |
-| `follow-up-protocol-version`          | Task (expectation)            | `valueString`                                                                                                       |
-| `follow-up-match-key`                 | Task (expectation)            | `valueString`                                                                                                       |
-| `follow-up-origin`                    | Task                          | `valueCode`: `live`, `backfill`                                                                                     |
-| `follow-up-evidence`                  | Task (expectation), Condition | complex: `quote` (`valueString`), `source` (`valueReference` DocumentReference)                                     |
-| `follow-up-escalation-step`           | Task (case)                   | `valueInteger`                                                                                                      |
-| `follow-up-priority-score`            | Task (case)                   | `valueInteger`                                                                                                      |
-| `follow-up-dedup-key`                 | Task (case)                   | `valueString`                                                                                                       |
-| `follow-up-release-at`                | Task (case)                   | `valueDateTime`                                                                                                     |
-| `follow-up-next-action-at`            | Task (case)                   | `valueDateTime`                                                                                                     |
-| `follow-up-snoozed-until`             | Task (case)                   | `valueDateTime`                                                                                                     |
-| `follow-up-case-resolution`           | Task (case)                   | complex: `kind` (`valueCode`), `resolvedAt` (`valueDateTime`), `resolvedBy` (`valueString`), `note` (`valueString`) |
-| `follow-up-confidence`                | Condition                     | `valueDecimal` 0..1                                                                                                 |
-| `follow-up-condition-source`          | Condition                     | `valueCode`: `recorded`, `inferred_from_medication`, `inferred_from_result`, `extracted_from_note`                  |
-| `follow-up-confirmed-by`              | Condition                     | `valueString` (host user id)                                                                                        |
-| `follow-up-refuted-by`                | Condition (`refuted`)         | `valueString` (host user id of the clinician who rejected it)                                                       |
-| `follow-up-case-event-payload`        | Provenance                    | `valueString` (JSON)                                                                                                |
+| Extension (`StructureDefinition/...`) | On                            | Value                                                                                                                                              |
+| ------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `follow-up-opt-out`                   | Patient (inbound)             | `valueBoolean`                                                                                                                                     |
+| `follow-up-layer`                     | Task (expectation)            | `valueCode`: `universal`, `doctor_plan`, `cadence`, `protocol`                                                                                     |
+| `follow-up-rule-version`              | Task (expectation)            | `valueString`                                                                                                                                      |
+| `follow-up-protocol-id`               | Task (expectation)            | `valueString`                                                                                                                                      |
+| `follow-up-protocol-version`          | Task (expectation)            | `valueString`                                                                                                                                      |
+| `follow-up-match-key`                 | Task (expectation)            | `valueString`                                                                                                                                      |
+| `follow-up-origin`                    | Task                          | `valueCode`: `live`, `backfill`                                                                                                                    |
+| `follow-up-evidence`                  | Task (expectation), Condition | complex: `quote` (`valueString`), `source` (`valueReference` DocumentReference)                                                                    |
+| `follow-up-escalation-step`           | Task (case)                   | `valueInteger`                                                                                                                                     |
+| `follow-up-priority-score`            | Task (case)                   | `valueInteger`                                                                                                                                     |
+| `follow-up-dedup-key`                 | Task (case)                   | `valueString`                                                                                                                                      |
+| `follow-up-release-at`                | Task (case)                   | `valueDateTime`                                                                                                                                    |
+| `follow-up-next-action-at`            | Task (case)                   | `valueDateTime`                                                                                                                                    |
+| `follow-up-snoozed-until`             | Task (case)                   | `valueDateTime`                                                                                                                                    |
+| `follow-up-escalation-policy`         | Task (case)                   | `valueString`: the named, versioned policy the case follows (`default_v2`)                                                                         |
+| `follow-up-case-resolution`           | Task (case)                   | complex: `kind` (`valueCode`), `resolvedAt` (`valueDateTime`), `resolvedBy` (`valueString`), `note` (`valueString`), `dismissReason` (`valueCode`) |
+| `contact-outcome`                     | Communication                 | `valueCodeableConcept` in `CodeSystem/contact-outcome`                                                                                             |
+| `contact-attempt`                     | CommunicationRequest          | `valueInteger`: attempt number within the case                                                                                                     |
+| `contact-trigger`                     | CommunicationRequest          | `valueCode`: `policy`, `user`, `wrong_number`                                                                                                      |
+| `follow-up-dismiss-reason`            | Flag                          | `valueCode` in `CodeSystem/follow-up-dismiss-reason`                                                                                               |
+| `follow-up-source-case`               | Flag                          | `valueReference`: the dismissed case `Task`                                                                                                        |
+| `follow-up-note`                      | Flag                          | `valueString`: the team's internal note                                                                                                            |
+| `follow-up-revoked-by`                | Flag                          | `valueString` (host user id who reactivated the rule)                                                                                              |
+| `follow-up-confidence`                | Condition                     | `valueDecimal` 0..1                                                                                                                                |
+| `follow-up-condition-source`          | Condition                     | `valueCode`: `recorded`, `inferred_from_medication`, `inferred_from_result`, `extracted_from_note`                                                 |
+| `follow-up-confirmed-by`              | Condition                     | `valueString` (host user id)                                                                                                                       |
+| `follow-up-refuted-by`                | Condition (`refuted`)         | `valueString` (host user id of the clinician who rejected it)                                                                                      |
+| `follow-up-case-event-payload`        | Provenance                    | `valueString` (JSON)                                                                                                                               |
+| `clinical-finding-mode`               | DetectedIssue (clinical)      | `valueCode`: `shadow` or `live`                                                                                                                    |
+| `clinical-finding-already-covered`    | DetectedIssue (clinical)      | `valueBoolean`: an open expectation or case already covers it                                                                                      |
+| `clinical-finding-origin`             | DetectedIssue (clinical)      | `valueCode`: `confirmed`, `added` or `fallback`                                                                                                    |
+| `clinical-finding-model`              | DetectedIssue (clinical)      | `valueString`: model and prompt version                                                                                                            |
 
 All URLs are exported as constants (`ENGINE_CODE_SYSTEMS`, `ENGINE_EXTENSIONS`, `ENGINE_IDENTIFIER_SYSTEMS`); never hard-code them.
 
@@ -918,6 +986,216 @@ And one of its expectations, from the doctor's plan:
 }
 ```
 
+## Example: closing the contact loop
+
+The `default_v2` WhatsApp attempt of a case (`contactRequestToFhir`, `packages/fhir/test/domain-fixtures.ts`):
+
+```json
+{
+  "resourceType": "CommunicationRequest",
+  "id": "cr-0001",
+  "extension": [
+    {
+      "url": "https://hipocratesalud.com/fhir/StructureDefinition/contact-attempt",
+      "valueInteger": 1
+    },
+    {
+      "url": "https://hipocratesalud.com/fhir/StructureDefinition/contact-trigger",
+      "valueCode": "policy"
+    },
+    {
+      "url": "https://hipocratesalud.com/fhir/StructureDefinition/follow-up-escalation-step",
+      "valueInteger": 2
+    }
+  ],
+  "basedOn": [
+    {
+      "reference": "Task/case-0001",
+      "type": "Task"
+    }
+  ],
+  "status": "active",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "https://hipocratesalud.com/fhir/CodeSystem/contact-purpose",
+          "code": "schedule_follow_up"
+        }
+      ]
+    }
+  ],
+  "priority": "routine",
+  "medium": [
+    {
+      "coding": [
+        {
+          "system": "https://hipocratesalud.com/fhir/CodeSystem/contact-channel",
+          "code": "whatsapp"
+        },
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationMode",
+          "code": "ONLINEWRIT"
+        }
+      ]
+    }
+  ],
+  "subject": {
+    "reference": "Patient/pat-dm-0001",
+    "type": "Patient"
+  },
+  "recipient": [
+    {
+      "reference": "Patient/pat-dm-0001",
+      "type": "Patient"
+    }
+  ],
+  "payload": [
+    {
+      "contentString": "Ask the patient to schedule their follow-up visit."
+    }
+  ],
+  "occurrenceDateTime": "2026-04-27T12:00:00.000Z",
+  "authoredOn": "2026-04-20T12:00:00.000Z",
+  "requester": {
+    "type": "Device",
+    "identifier": {
+      "system": "https://hipocratesalud.com/fhir/NamingSystem/follow-up-engine",
+      "value": "follow-up-engine"
+    },
+    "display": "Follow-up Engine"
+  }
+}
+```
+
+The host reports that the message reached a wrong number (a `not-done` `Communication`, as `communicationToFhir` returns it): the engine flags the patient's contact data and moves the front-desk call forward.
+
+```json
+{
+  "resourceType": "Communication",
+  "id": "wa-msg-0002",
+  "meta": {
+    "versionId": "1",
+    "lastUpdated": "2026-04-20T13:00:00.000Z"
+  },
+  "extension": [
+    {
+      "url": "https://hipocratesalud.com/fhir/StructureDefinition/contact-outcome",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://hipocratesalud.com/fhir/CodeSystem/contact-outcome",
+            "code": "wrong_number"
+          }
+        ]
+      }
+    }
+  ],
+  "basedOn": [
+    {
+      "reference": "CommunicationRequest/cr-0001",
+      "type": "CommunicationRequest"
+    }
+  ],
+  "status": "not-done",
+  "statusReason": {
+    "coding": [
+      {
+        "system": "https://hipocratesalud.com/fhir/CodeSystem/contact-outcome",
+        "code": "wrong_number"
+      }
+    ]
+  },
+  "medium": [
+    {
+      "coding": [
+        {
+          "system": "https://hipocratesalud.com/fhir/CodeSystem/contact-channel",
+          "code": "whatsapp"
+        },
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationMode",
+          "code": "ONLINEWRIT"
+        }
+      ]
+    }
+  ],
+  "subject": {
+    "reference": "Patient/pat-dm-0001",
+    "type": "Patient"
+  },
+  "about": [
+    {
+      "reference": "Task/case-0001",
+      "type": "Task"
+    }
+  ],
+  "sent": "2026-04-20T12:01:00.000Z"
+}
+```
+
+The team dismissed a case as not applicable to the patient and stopped the reminder for them (`suppressionToFlag`):
+
+```json
+{
+  "resourceType": "Flag",
+  "id": "sup-0001",
+  "extension": [
+    {
+      "url": "https://hipocratesalud.com/fhir/StructureDefinition/follow-up-dismiss-reason",
+      "valueCode": "not_applicable_to_patient"
+    },
+    {
+      "url": "https://hipocratesalud.com/fhir/StructureDefinition/follow-up-source-case",
+      "valueReference": {
+        "reference": "Task/case-0004",
+        "type": "Task"
+      }
+    },
+    {
+      "url": "https://hipocratesalud.com/fhir/StructureDefinition/follow-up-note",
+      "valueString": "Paciente con enucleación bilateral."
+    }
+  ],
+  "status": "active",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "https://hipocratesalud.com/fhir/CodeSystem/follow-up-flag-category",
+          "code": "follow-up-suppression"
+        }
+      ],
+      "text": "Follow-up reminder suppressed for this patient"
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "https://hipocratesalud.com/fhir/CodeSystem/follow-up-expectation",
+        "code": "protocol_diabetes_fundus",
+        "display": "Fondo de ojo anual (diabetes)"
+      }
+    ],
+    "text": "Fondo de ojo anual (diabetes)"
+  },
+  "subject": {
+    "reference": "Patient/pat-dm-0001",
+    "type": "Patient"
+  },
+  "period": {
+    "start": "2026-04-15T10:00:00.000Z"
+  },
+  "author": {
+    "type": "Practitioner",
+    "identifier": {
+      "system": "https://hipocratesalud.com/fhir/NamingSystem/host-user",
+      "value": "user-doctor-7"
+    }
+  }
+}
+```
+
 ## Package API
 
 ```ts
@@ -926,6 +1204,7 @@ mapBundleToBatches(bundle: unknown, options: { clinicId: ClinicId | string; rece
   batches: readonly ClinicalBatch[];
   resources: readonly { patientId: PatientId; resource: FhirResourceJson }[]; // for ClinicalRecordRepository.saveResource
   contextResources: readonly FhirResourceJson[]; // Practitioner, Organization, ...: not patient-scoped
+  communications: readonly BundleCommunication[]; // contact outcomes, checked and recorded by the runtime
   issues: OperationOutcome | undefined;
 };
 validateBundle(bundle: unknown): { ok: boolean; outcome: OperationOutcome | undefined };
@@ -936,7 +1215,11 @@ expectationToTask(expectation: Expectation): Task;
 caseToTask(followUpCase: FollowUpCase): Task;
 patientConditionToFhir(condition: PatientCondition & { id?: string; evidence?: Evidence }): Condition;
 qualityFindingToDetectedIssue(finding: QualityFinding): DetectedIssue;
+clinicalFindingToDetectedIssue(finding: ClinicalFinding): DetectedIssue;
 caseEventToProvenance(event: CaseEvent): Provenance;
+contactRequestToFhir(request: ContactRequest, context?: { communications?; caseStatus? }): CommunicationRequest;
+communicationToFhir(communication: ContactCommunication): Communication;
+suppressionToFlag(suppression: RuleSuppression): Flag;
 toSearchsetBundle(resources: readonly FhirResource[], options?: SearchsetOptions): Bundle;
 toOperationOutcome(issues: readonly MappingIssue[]): OperationOutcome | undefined;
 

@@ -1,6 +1,18 @@
 import type { PlanItemKind } from '@follow-up-engine/core';
 import type { FakeResponder } from '../providers/fake.ts';
 import { namedTests } from './lab-tests.ts';
+import {
+  agoDays,
+  estimatedDeliveryDates,
+  gestationalAges,
+  isDatingDate,
+  lastMenstrualPeriods,
+  outcomeMentions,
+  resolveWrittenDay,
+  statesCurrentPregnancy,
+  writtenDays,
+  type OutcomeMention,
+} from './pregnancy-signals.ts';
 import { readNoteDateFromMessages, readNoteFromMessages } from './prompt.ts';
 import { createQuoteIndex } from './quote.ts';
 import type {
@@ -8,11 +20,14 @@ import type {
   ModelExtraction,
   ModelMedication,
   ModelPlanItem,
+  ModelPregnancy,
+  ModelPregnancyOutcome,
   TimeUnit,
 } from './schema.ts';
 import {
   NUMBER_WORDS,
   UNIT_WORDS,
+  clauseBoundsAround,
   conditionContext,
   findDischarge,
   isConditional,
@@ -39,7 +54,12 @@ import {
  * proxima consulta" due with the next control). Each plan item keeps its
  * own interval ("TSH en 6 semanas, control en 3 meses"), frequency words are
  * intervals ("control anual") and cancelled follow-ups are skipped ("se
- * suspende el control en 1 mes").
+ * suspende el control en 1 mes"). It dates a current pregnancy ("embarazo de
+ * 20 semanas y 3 dias", "G2P1, 20 sem", "EG: 20+3", "FUM 03/04/2026", "FPP
+ * 10/01/2027") and reads its outcome ("parto vaginal el 02/03/2026",
+ * "cesarea segmentaria hace 10 dias", "puerpera de 10 dias, parto
+ * eutocico", "aborto espontaneo"), never obstetric history ("G3P2,
+ * cesarea previa") nor a routine "FUM" in an annual control.
  */
 
 interface ConditionPattern {
@@ -116,7 +136,18 @@ const CONDITION_PATTERNS: readonly ConditionPattern[] = [
   { pattern: /\b(migrana)\b/, icd10: 'G43', display: 'migraine' },
   { pattern: /\b(erge|reflujo gastroesofagico)\b/, icd10: 'K21', display: 'GERD' },
   { pattern: /\b(osteoporosis)\b/, icd10: 'M81', display: 'osteoporosis' },
-  { pattern: /\b(embarazo|gestacion)\b/, icd10: 'Z34', display: 'pregnancy supervision' },
+  {
+    pattern: /\b(embarazo|gestacion)\b(?! (?:ectopico|molar|anembrionado))/,
+    icd10: 'Z34',
+    display: 'pregnancy supervision',
+  },
+  { pattern: /\b(puerperio|puerpera)\b/, icd10: 'Z39', display: 'postpartum care' },
+  {
+    pattern:
+      /(?<!amenaza de )\b(aborto espontaneo|aborto incompleto|aborto completo|aborto|perdida gestacional)\b/,
+    icd10: 'O03',
+    display: 'spontaneous abortion',
+  },
 ];
 
 const AMOUNT = String.raw`(\d+(?:[.,]\d+)?|${Object.keys(NUMBER_WORDS).join('|')})`;
@@ -266,6 +297,7 @@ export function heuristicExtraction(note: string, noteDay?: string): ModelExtrac
     planItems.push(...sentencePlanItems(sentence, noteDay, quoteOf));
   }
 
+  const pregnancy = noteDay === undefined ? null : readPregnancy(normalized, noteDay, quoteOf);
   const discharge = findDischarge(normalized);
   const hasPlan =
     planItems.length > 0 ||
@@ -277,6 +309,92 @@ export function heuristicExtraction(note: string, noteDay?: string): ModelExtrac
     conditions,
     medications,
     planItems,
+    pregnancy,
+  };
+}
+
+const OUTCOME_PRIORITY: readonly ModelPregnancyOutcome['kind'][] = [
+  'cesarean_delivery',
+  'loss',
+  'vaginal_delivery',
+];
+
+/**
+ * The outcome of the pregnancy, from the first clause that names a delivery
+ * or a loss that is not history, planned or denied ("cesarea segmentaria
+ * hace 10 dias", "Puerpera de 10 dias, parto eutocico"): its kind (a
+ * caesarean over a loss over a vaginal delivery), the quote from the first
+ * to the last such words of the clause, its date when the clause writes one
+ * and how long ago when it says so ("hace 10 dias", "puerpera de 10 dias").
+ * A puerperium word alone says there was a delivery, not which: no outcome.
+ */
+function readOutcome(
+  normalized: string,
+  noteDay: string,
+  quoteOf: (start: number, end: number) => string,
+): ModelPregnancyOutcome | null {
+  const accepted = outcomeMentions(normalized, Number(noteDay.slice(0, 4))).filter(
+    (m) => m.excluded === undefined,
+  );
+  const byClause = new Map<number, { end: number; mentions: OutcomeMention[] }>();
+  for (const mention of accepted) {
+    const [start, end] = clauseBoundsAround(normalized, mention.start, mention.end);
+    const clause = byClause.get(start) ?? { end, mentions: [] };
+    clause.mentions.push(mention);
+    byClause.set(start, clause);
+  }
+  for (const [clauseStart, { end: clauseEnd, mentions }] of byClause) {
+    const kind = OUTCOME_PRIORITY.find((k) => mentions.some((m) => m.kind === k));
+    if (kind === undefined) continue;
+    const clause = normalized.slice(clauseStart, clauseEnd);
+    const from = Math.min(...mentions.map((m) => m.start));
+    const to = Math.max(...mentions.map((m) => m.end));
+    const written = writtenDays(clause)[0];
+    const date = written === undefined ? undefined : resolveWrittenDay(written, noteDay, 'past');
+    const days = date === undefined ? agoDays(clause) : undefined;
+    return {
+      kind,
+      date: date ?? null,
+      daysAgo: days ?? null,
+      evidenceQuote: quoteOf(from, to),
+    };
+  }
+  return null;
+}
+
+/**
+ * The pregnancy as the note writes it: its outcome (see `readOutcome`), or,
+ * when the note states a current pregnancy, its first gestational age, last
+ * menstrual period and estimated delivery date, quoted from the first of
+ * them.
+ */
+function readPregnancy(
+  normalized: string,
+  noteDay: string,
+  quoteOf: (start: number, end: number) => string,
+): ModelPregnancy | null {
+  const outcome = readOutcome(normalized, noteDay, quoteOf);
+  const none = {
+    gestationalWeeks: null,
+    gestationalDays: null,
+    lastMenstrualPeriod: null,
+    estimatedDeliveryDate: null,
+    datingEvidenceQuote: null,
+  };
+  if (outcome !== null) return { ...none, outcome };
+  if (!statesCurrentPregnancy(normalized)) return null;
+  const age = gestationalAges(normalized)[0];
+  const lmp = lastMenstrualPeriods(normalized, noteDay)[0];
+  const edd = estimatedDeliveryDates(normalized, noteDay)[0];
+  const first = age ?? lmp ?? edd;
+  if (first === undefined) return null;
+  return {
+    gestationalWeeks: age?.weeks ?? null,
+    gestationalDays: age?.days ?? null,
+    lastMenstrualPeriod: lmp?.date ?? null,
+    estimatedDeliveryDate: edd?.date ?? null,
+    datingEvidenceQuote: quoteOf(first.start, first.end),
+    outcome: null,
   };
 }
 
@@ -308,6 +426,8 @@ function timingPhrases(text: string, noteDay: string | undefined): TimingPhrase[
     push(match, { amount: 1, unit, date: null });
   }
   for (const match of text.matchAll(ABSOLUTE_DATE)) {
+    // "FUM 03/04/2026", "FPP 10/01/2027": the pregnancy's dates, not a follow-up's.
+    if (isDatingDate(text, match.index)) continue;
     const [, d = '', m = '', y = ''] = match;
     push(match, {
       amount: null,

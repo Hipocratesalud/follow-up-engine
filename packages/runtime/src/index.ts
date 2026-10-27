@@ -26,6 +26,8 @@ export {
   createRuntime,
   DEMO_CLINIC,
   DEMO_DAILY_CASE_CAP_PER_OWNER,
+  DEMO_ESCALATION_POLICY,
+  availableProtocolIds,
   DEMO_INBOX_KEY_LABEL,
   registerDemoClinic,
   type CreateRuntimeOptions,
@@ -58,6 +60,8 @@ export {
   type StoredEntry,
 } from './ingestion.ts';
 export type { ExtractorInfo } from './llm.ts';
+/** Gateway task names, for per-task LLM usage (notes read vs clinical reviews). */
+export { CLINICAL_REVIEW_TASK, NOTE_EXTRACTION_TASK } from '@follow-up-engine/llm';
 export { createLogger, type Logger } from './logger.ts';
 export { patientRedactTerms, withPatientRedaction } from './redaction.ts';
 export type { JobView, PatientRecord, ReadModel } from './read-model.ts';

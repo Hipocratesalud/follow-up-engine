@@ -18,6 +18,7 @@ const note = {
 const empty: ModelExtraction = {
   hasPlan: false,
   discharge: null,
+  pregnancy: null,
   conditions: [],
   medications: [],
   planItems: [],
@@ -59,6 +60,7 @@ describe('postProcessExtraction', () => {
       {
         hasPlan: true,
         discharge: null,
+        pregnancy: null,
         conditions: [
           { icd10: 'e11.9', display: 'Type 2 diabetes', confidence: 0.95, evidenceQuote: 'dm2' },
         ],
@@ -105,6 +107,7 @@ describe('postProcessExtraction', () => {
       {
         hasPlan: true,
         discharge: null,
+        pregnancy: null,
         conditions: [{ icd10: 'E78', display: '', confidence: 0.8, evidenceQuote: 'dislipidemia' }],
         medications: [
           { text: 'atorvastatina 20 mg', duration: null, evidenceQuote: 'atorvastatina 20 mg' },
@@ -149,6 +152,7 @@ describe('postProcessExtraction', () => {
       {
         hasPlan: true,
         discharge: null,
+        pregnancy: null,
         conditions: [
           { icd10: 'E11', display: '', confidence: 0.6, evidenceQuote: 'DM2' },
           { icd10: 'E11', display: 'T2DM', confidence: 0.9, evidenceQuote: 'DM2' },
@@ -174,6 +178,7 @@ describe('postProcessExtraction', () => {
       {
         hasPlan: true,
         discharge: null,
+        pregnancy: null,
         conditions: [],
         medications: [],
         planItems: [
@@ -204,6 +209,7 @@ describe('postProcessExtraction', () => {
         ...empty,
         hasPlan: true,
         discharge: null,
+        pregnancy: null,
         planItems: [plan({ kind: 'lab', timing: null, evidenceQuote: 'HbA1c' })],
       },
       note,

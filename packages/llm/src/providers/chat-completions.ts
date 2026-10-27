@@ -43,6 +43,15 @@ export interface ChatCompletionsProviderOptions {
   readonly strict?: boolean;
   /** `max_completion_tokens` (current OpenAI and Meta) or the older `max_tokens`. */
   readonly maxTokensParam?: 'max_completion_tokens' | 'max_tokens';
+  /**
+   * How an agent step with `request.tools` is sent. `native` (default): the
+   * tools go as OpenAI `tools` with `tool_choice: 'required'` and the call
+   * the model makes is returned as `{ thought, tool, arguments }`.
+   * `structured`: the tools are ignored here (the agent's prompt lists
+   * them) and the same object comes back through `outputMode`. Use
+   * `structured` for an endpoint without tool calling.
+   */
+  readonly toolCalling?: 'native' | 'structured';
   /** Extra body fields merged into every request, for example `{ reasoning_effort: 'low' }`. */
   readonly extraBody?: Readonly<Record<string, unknown>>;
   readonly headers?: Readonly<Record<string, string>>;
@@ -72,17 +81,43 @@ export function createChatCompletionsProvider(
   const url = `${options.baseUrl.replace(/\/+$/, '')}/chat/completions`;
   const strict = options.strict ?? true;
   const maxTokensParam = options.maxTokensParam ?? 'max_completion_tokens';
+  const toolCalling = options.toolCalling ?? 'native';
   const { name } = options;
 
   async function complete<TOutput>(
     request: ProviderRequest<TOutput>,
   ): Promise<ProviderCompletion<TOutput>> {
     const schema = toJsonSchema(request.output.schema);
+    const nativeTools =
+      toolCalling === 'native' && request.tools !== undefined && request.tools.length > 0
+        ? request.tools
+        : undefined;
     const body: Record<string, unknown> = {
       ...options.extraBody,
       model: request.model,
-      messages: buildMessages(request.messages, options.outputMode, request.output.name, schema),
-      ...formatFields(options.outputMode, request.output.name, schema, strict),
+      ...(nativeTools === undefined
+        ? {
+            messages: buildMessages(
+              request.messages,
+              options.outputMode,
+              request.output.name,
+              schema,
+            ),
+            ...formatFields(options.outputMode, request.output.name, schema, strict),
+          }
+        : {
+            messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
+            tools: nativeTools.map((tool) => ({
+              type: 'function',
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: toJsonSchema(tool.parameters),
+              },
+            })),
+            tool_choice: 'required',
+            parallel_tool_calls: false,
+          }),
     };
     if (request.temperature !== undefined) body['temperature'] = request.temperature;
     if (request.maxOutputTokens !== undefined) body[maxTokensParam] = request.maxOutputTokens;
@@ -123,7 +158,10 @@ export function createChatCompletionsProvider(
     }
     const latencyMs = Math.round(now() - started);
     const usage = readUsage(payload);
-    const raw = readReply(name, request.model, payload, options.outputMode, usage);
+    const raw =
+      nativeTools === undefined
+        ? readReply(name, request.model, payload, options.outputMode, usage)
+        : readToolCall(name, request.model, payload, usage);
     const output = parseStructuredOutput(name, request.model, raw, request.output.schema, usage);
     return { output, usage, latencyMs, provider: name, model: request.model, rawOutput: raw };
   }
@@ -286,6 +324,60 @@ function readReply(
     throw unusable('reply was truncated (finish_reason=length); raise maxOutputTokens', raw);
   }
   return raw;
+}
+
+/**
+ * The tool call of a native tool-calling reply, as the agent's action
+ * object: `{ thought, tool, arguments }` (`arguments` kept as the JSON
+ * string the model wrote; the agent validates it per tool). Only the first
+ * call counts: one tool per step.
+ */
+function readToolCall(
+  provider: string,
+  model: string,
+  payload: unknown,
+  usage: DetailedUsage,
+): string {
+  const choices = isRecord(payload) ? payload['choices'] : undefined;
+  const choice: unknown = Array.isArray(choices) ? choices[0] : undefined;
+  const message = isRecord(choice) ? choice['message'] : undefined;
+  const finishReason = isRecord(choice) ? choice['finish_reason'] : undefined;
+  const unusable = (issues: string): LlmSchemaError =>
+    new LlmSchemaError(provider, {
+      model,
+      rawOutput: '',
+      issues,
+      summary: issues,
+      usage,
+      repairable: false,
+    });
+  if (!isRecord(message)) throw unusable('response has no choices[0].message');
+  if (typeof message['refusal'] === 'string' && message['refusal'].length > 0) {
+    throw unusable('model refused');
+  }
+  if (finishReason === 'content_filter') throw unusable('reply stopped by the content filter');
+  const calls = message['tool_calls'];
+  const call: unknown = Array.isArray(calls) ? calls[0] : undefined;
+  const fn = isRecord(call) ? call['function'] : undefined;
+  if (!isRecord(fn) || typeof fn['name'] !== 'string') {
+    // No tool call: the model answered in text. Repairable: it is asked again.
+    const text = contentText(message['content']) ?? '';
+    throw new LlmSchemaError(provider, {
+      model,
+      rawOutput: text,
+      issues: 'reply has no tool call; call exactly one of the tools',
+      summary: 'no tool call',
+      usage,
+      repairable: true,
+    });
+  }
+  const args =
+    typeof fn['arguments'] === 'string' ? fn['arguments'] : JSON.stringify(fn['arguments'] ?? {});
+  return JSON.stringify({
+    thought: (contentText(message['content']) ?? '').slice(0, 400),
+    tool: fn['name'],
+    arguments: args,
+  });
 }
 
 /** Parses `Retry-After` (seconds or an HTTP date) into milliseconds. */

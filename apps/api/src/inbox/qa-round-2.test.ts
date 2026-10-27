@@ -191,7 +191,12 @@ describe('QA round 2 on the seeded demo clinic', () => {
       expect(due.length).toBeGreaterThan(0);
       await h.call('/api/demo/clock/advance', { days: 1 });
       const after = await h.call<Page>('/api/inbox/recovery?limit=200');
-      expect(after.total).toBe(before.total - due.length);
+      // The day can also hold new cases (an expectation that expired that
+      // day), and the release plan can move a held case up into a freed
+      // slot; the due ones always leave.
+      const stillHeld = after.items.filter((item) => before.items.some((b) => b.id === item.id));
+      expect(stillHeld.length).toBeLessThanOrEqual(before.total - due.length);
+      expect(stillHeld.some((item) => due.some((d) => d.id === item.id))).toBe(false);
       const inbox = await h.call<Page>('/api/inbox/cases?limit=200');
       const ids = new Set(inbox.items.map((item) => item.id));
       expect(due.every((item) => ids.has(item.id))).toBe(true);

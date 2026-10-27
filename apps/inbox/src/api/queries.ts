@@ -14,6 +14,7 @@ import { createContext, useContext } from 'react';
 import { noteReader, type NoteReader } from '../lib/labels.ts';
 import { type ApiClient, isApiError } from './client.ts';
 import type {
+  CallOutcomeRequest,
   CaseActionRequest,
   CaseDetail,
   CaseListQuery,
@@ -30,8 +31,19 @@ import type {
   PatientDetail,
   PatientSummary,
   RecoveryPage,
+  SuppressionView,
   WebhookDelivery,
 } from './contract.ts';
+import type {
+  FindingDetail,
+  FindingFlagUpdate,
+  FindingFlagView,
+  FindingListQuery,
+  FindingPage,
+  FindingReviewRequest,
+  FindingView,
+  ReviewMetrics,
+} from './reviewer-contract.ts';
 
 export const ApiContext = createContext<ApiClient | null>(null);
 
@@ -54,6 +66,11 @@ export const queryKeys = {
   stats: ['stats'] as const,
   clock: ['clock'] as const,
   webhooks: ['webhooks'] as const,
+  findings: (query: FindingListQuery) => ['findings', query] as const,
+  allFindings: ['findings'] as const,
+  finding: (id: string) => ['finding', id] as const,
+  reviewMetrics: ['review-metrics'] as const,
+  findingFlags: ['finding-flags'] as const,
 };
 
 /** The clinic the API key belongs to (its name titles the inbox). */
@@ -263,6 +280,120 @@ export function useDemoConsultation(): UseMutationResult<
     onSuccess: () => {
       invalidateAfterCaseChange(queryClient);
       void queryClient.invalidateQueries({ queryKey: queryKeys.patients });
+    },
+  });
+}
+
+/** "Llamar al paciente": records what came of the call; the case comes back updated. */
+export function useCallOutcome(
+  caseId: string,
+): UseMutationResult<CaseDetail, Error, CallOutcomeRequest> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: CallOutcomeRequest) => api.recordCallOutcome(caseId, request),
+    onSuccess: (detail: CaseDetail) => {
+      queryClient.setQueryData(queryKeys.case(caseId), detail);
+      invalidateAfterCaseChange(queryClient);
+    },
+  });
+}
+
+// ------------------------------------------------------------ clinical reviewer
+
+export function useFindings(query: FindingListQuery): UseQueryResult<FindingPage> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.findings(query),
+    queryFn: () => api.listFindings(query),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Every page of a finding list, loaded one after the other. */
+export function useFindingPages(
+  query: Omit<FindingListQuery, 'cursor'>,
+): UseInfiniteQueryResult<InfiniteData<FindingPage, string | undefined>> {
+  const api = useApi();
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.allFindings, 'pages', query],
+    queryFn: ({ pageParam }) =>
+      api.listFindings({ ...query, ...(pageParam === undefined ? {} : { cursor: pageParam }) }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Open shadow findings: the count next to "Revisión clínica" in the nav. */
+export function useOpenShadowFindings(): UseQueryResult<FindingPage> {
+  return useFindings({ mode: 'shadow', status: 'open', limit: 1 });
+}
+
+export function useFinding(id: string): UseQueryResult<FindingDetail> {
+  const api = useApi();
+  return useQuery({ queryKey: queryKeys.finding(id), queryFn: () => api.getFinding(id) });
+}
+
+export function useReviewMetrics(): UseQueryResult<ReviewMetrics> {
+  const api = useApi();
+  return useQuery({ queryKey: queryKeys.reviewMetrics, queryFn: () => api.getReviewMetrics() });
+}
+
+export function useFindingFlags(): UseQueryResult<{ items: FindingFlagView[] }> {
+  const api = useApi();
+  return useQuery({ queryKey: queryKeys.findingFlags, queryFn: () => api.listFindingFlags() });
+}
+
+function invalidateAfterFindingChange(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.allFindings });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.reviewMetrics });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.findingFlags });
+}
+
+export function useFindingReview(
+  findingId: string,
+): UseMutationResult<FindingView, Error, FindingReviewRequest> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: FindingReviewRequest) => api.reviewFinding(findingId, request),
+    onSuccess: (view: FindingView) => {
+      queryClient.setQueryData<FindingDetail>(queryKeys.finding(findingId), (previous) =>
+        previous ? { ...previous, ...view } : previous,
+      );
+      invalidateAfterFindingChange(queryClient);
+    },
+  });
+}
+
+/** "Volver a activar" a reminder stopped for one patient. */
+export function useReactivateSuppression(
+  patientId: string,
+): UseMutationResult<SuppressionView, Error, string> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (suppressionId: string) => api.reactivateSuppression(suppressionId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.patient(patientId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.allCases });
+      void queryClient.invalidateQueries({ queryKey: ['case'] });
+    },
+  });
+}
+
+export function useFindingFlagUpdate(): UseMutationResult<
+  FindingFlagView,
+  Error,
+  FindingFlagUpdate
+> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: FindingFlagUpdate) => api.updateFindingFlag(request),
+    onSuccess: () => {
+      invalidateAfterFindingChange(queryClient);
     },
   });
 }
