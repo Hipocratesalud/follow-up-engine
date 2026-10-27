@@ -101,11 +101,11 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 }
 ```
 
-| Severity      | Meaning                                                                                                                                                                    |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `error`       | The entry cannot be mapped (rejects a `transaction`).                                                                                                                      |
-| `warning`     | Mapped with a stated assumption (uncoded order, Condition without ICD-10, unreadable attachment, control characters removed, order category inferred, date in the future). |
-| `information` | No event by design (status, unsupported type, entry without resource).                                                                                                     |
+| Severity      | Meaning                                                                                                                                                                                                                            |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `error`       | The entry cannot be mapped (rejects a `transaction`).                                                                                                                                                                              |
+| `warning`     | Mapped with a stated assumption (uncoded order, Condition without ICD-10, unreadable attachment, control characters removed, order category inferred, date in the future, follow-up event dated more than 90 days before receipt). |
+| `information` | No event by design (status, unsupported type, entry without resource).                                                                                                                                                             |
 
 ## Outbound
 
