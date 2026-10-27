@@ -13,7 +13,7 @@ import { sanitizeFhirJson } from '@follow-up-engine/fhir';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
-import { invalidTransitionMessage } from '../inbox/labels.ts';
+import { CONTACT_LOOP_MESSAGES, invalidTransitionMessage } from '../inbox/labels.ts';
 import { type FieldError, fieldErrors, SPANISH_ERRORS, validationSummary } from './validation.ts';
 
 /**
@@ -68,7 +68,7 @@ const DOMAIN_VALIDATION_MESSAGES: Readonly<Record<string, string>> = {
   status: 'El caso ya no está activo: no admite esta acción.',
   reason: 'Indica el motivo cuando el caso no fue útil.',
   note: 'Escribe una nota que explique el motivo.',
-  suppressRuleIds: 'Solo puedes dejar de recordar un caso que no aplica a este paciente.',
+  suppressRuleIds: CONTACT_LOOP_MESSAGES.suppressNeedsNotApplicable,
   ruleId: 'Ese recordatorio no existe en el consultorio.',
   subject: 'La respuesta corresponde a otro paciente.',
   userId: 'Falta identificar a la persona del equipo que hace la revisión.',

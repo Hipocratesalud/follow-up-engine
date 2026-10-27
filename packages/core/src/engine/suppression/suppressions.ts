@@ -1,5 +1,9 @@
 import type { CaseEventActor } from '../../domain/case.ts';
-import type { DismissReason, RuleSuppression } from '../../domain/contact.ts';
+import {
+  type DismissReason,
+  type RuleSuppression,
+  SUPPRESSIBLE_LAYERS,
+} from '../../domain/contact.ts';
 import type { Reason } from '../../domain/common.ts';
 import { NotFoundError, ValidationError } from '../../domain/errors.ts';
 import type { Expectation } from '../../domain/expectation.ts';
@@ -110,8 +114,9 @@ export interface SuppressionCommandDeps {
 /** Per-patient suppressions of rules ("Recordatorios desactivados" on the patient page). */
 export interface SuppressionCommands {
   /**
-   * Stops a rule or protocol item for one patient. `ValidationError` for a
-   * rule the clinic does not have; reuses an active suppression.
+   * Stops a protocol item or the visit-pattern rule for one patient
+   * (`SUPPRESSIBLE_LAYERS`). `ValidationError` for a rule the clinic does
+   * not have or that cannot be stopped; reuses an active suppression.
    */
   suppress(
     clinicId: ClinicId,
@@ -148,6 +153,12 @@ export function createSuppressionCommands(deps: SuppressionCommandDeps): Suppres
       const definition = catalog.definition(input.ruleId);
       if (definition === undefined) {
         throw new ValidationError('ruleId', `Unknown rule ${input.ruleId}`);
+      }
+      if (!SUPPRESSIBLE_LAYERS.has(definition.layer)) {
+        throw new ValidationError(
+          'ruleId',
+          `Rule ${input.ruleId} (${definition.layer}) cannot be stopped for one patient`,
+        );
       }
       return deps.unitOfWork.withTransaction(clinicId, (stores) =>
         suppressRule(

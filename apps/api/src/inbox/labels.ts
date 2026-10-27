@@ -132,6 +132,18 @@ export const DISMISS_REASON_LABELS: Record<DismissReason, string> = {
 
 export const CONTACT_FLAG_LABEL = 'Número equivocado';
 
+/** Messages of the contact-loop and dismissal endpoints (422, 404, 409). */
+export const CONTACT_LOOP_MESSAGES = {
+  dismissReasonRequired: 'Elige por qué descartas el caso.',
+  dismissNoteRequired: 'Escribe una nota que explique el motivo.',
+  suppressNeedsNotApplicable:
+    'Solo puedes dejar de recordar un caso que no aplica a este paciente.',
+  nothingToSuppress:
+    'Este caso no tiene recordatorios que se puedan desactivar para el paciente: descártalo sin esa opción.',
+  suppressionNotFound: 'No encontramos ese recordatorio desactivado.',
+  suppressionAlreadyActive: 'Este recordatorio ya está activo de nuevo.',
+} as const;
+
 /** Why an escalation step did not contact the patient, for the case timeline. */
 const CONTACT_SKIP_LABELS: Record<ContactSkipReason, string> = {
   clinic_disallows_contact: 'el consultorio no tiene activado el contacto con pacientes',

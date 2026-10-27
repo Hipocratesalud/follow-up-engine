@@ -5,12 +5,14 @@ import type {
   CaseResolutionKind,
   FollowUpCase,
 } from '../../domain/case.ts';
-import type {
-  ContactOutcome,
-  ContactRequest,
-  DismissReason,
-  RuleSuppression,
+import {
+  type ContactOutcome,
+  type ContactRequest,
+  type DismissReason,
+  type RuleSuppression,
+  SUPPRESSIBLE_LAYERS,
 } from '../../domain/contact.ts';
+import type { Expectation } from '../../domain/expectation.ts';
 import { NotFoundError, ValidationError } from '../../domain/errors.ts';
 import { type CaseId, type ClinicId, type ContactRequestId, feedbackId } from '../../domain/ids.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
@@ -53,7 +55,8 @@ export type CaseAction =
       readonly note?: string;
       /**
        * With `not_applicable_to_patient`: stop these rules of the case for
-       * the patient ("Dejar de recordarlo para este paciente").
+       * the patient ("Dejar de recordarlo para este paciente"). Only rules
+       * of `SUPPRESSIBLE_LAYERS` (protocol items, the visit pattern).
        */
       readonly suppressRuleIds?: readonly string[];
     }
@@ -195,8 +198,8 @@ async function requireCase(
   return found;
 }
 
-/** Checks a dismissal's input against the case. @throws {ValidationError} */
-function validateDismissal(input: DismissInput, ruleIds: ReadonlySet<string>): void {
+/** Checks a dismissal's input against the case's reasons. @throws {ValidationError} */
+function validateDismissal(input: DismissInput, reasons: readonly Expectation[]): void {
   if ((input.reason as string | undefined) === undefined) {
     throw new ValidationError('reason', 'A reason is required to dismiss a case');
   }
@@ -211,8 +214,15 @@ function validateDismissal(input: DismissInput, ruleIds: ReadonlySet<string>): v
     );
   }
   for (const ruleId of suppress) {
-    if (!ruleIds.has(ruleId)) {
+    const reason = reasons.find((expectation) => expectation.ruleId === ruleId);
+    if (reason === undefined) {
       throw new ValidationError('suppressRuleIds', `Rule ${ruleId} is not a reason of the case`);
+    }
+    if (!SUPPRESSIBLE_LAYERS.has(reason.layer)) {
+      throw new ValidationError(
+        'suppressRuleIds',
+        `Rule ${ruleId} (${reason.layer}) cannot be stopped for one patient`,
+      );
     }
   }
 }
@@ -314,7 +324,7 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
     now: Date,
   ): Promise<DismissResult> {
     const reasons = await caseExpectations(stores, current.clinicId, current);
-    validateDismissal(input, new Set(reasons.map((expectation) => expectation.ruleId)));
+    validateDismissal(input, reasons);
     const note = input.note?.trim() === '' ? undefined : input.note;
     const dismissed = await writer.transition(withoutKey(current, 'nextActionAt'), {
       to: 'dismissed',

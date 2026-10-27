@@ -11,6 +11,7 @@ import {
   PLAN_ITEM_KINDS,
 } from '@follow-up-engine/core';
 import { z } from 'zod';
+import { CONTACT_LOOP_MESSAGES } from '../inbox/labels.ts';
 
 /**
  * The inbox JSON contract (`/api`), as zod schemas: requests are validated
@@ -101,6 +102,10 @@ export const CaseReasonViewSchema = z
     label: z.string().meta({ description: 'Spanish; never includes a day count' }),
     dueAt: isoDate,
     overdueDays: z.number().int(),
+    suppressible: z.boolean().meta({
+      description:
+        'A protocol item or the visit pattern: "Dejar de recordarlo para este paciente" can stop it (dismiss with suppress)',
+    }),
     source: z.object({ resourceType: z.string(), id: z.string(), display: z.string() }),
     evidence: z
       .object({
@@ -337,10 +342,7 @@ export const CaseActionRequestSchema = z
       body.action !== 'dismiss' ||
       body.suppress !== true ||
       body.reason === 'not_applicable_to_patient',
-    {
-      message: 'Solo puedes dejar de recordar un caso que no aplica a este paciente.',
-      path: ['suppress'],
-    },
+    { message: CONTACT_LOOP_MESSAGES.suppressNeedsNotApplicable, path: ['suppress'] },
   )
   .meta({ id: 'CaseActionRequest' });
 

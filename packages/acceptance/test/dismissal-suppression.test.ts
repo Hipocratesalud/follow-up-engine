@@ -137,8 +137,24 @@ function dismissalAndSuppression(makeHarness: (options: HarnessOptions) => Promi
     await expect(
       dismiss({ reason: 'not_applicable_to_patient', suppressRuleIds: ['cadence_break'] }),
     ).rejects.toBeInstanceOf(ValidationError);
+    // What a clinician asks for (an order, the plan, an abnormal result) is
+    // never switched off for one patient: only protocol items and the visit pattern.
+    for (const ruleId of ['lab_order_result_pending', 'doctor_plan_followup']) {
+      await expect(
+        harness.engine.suppressions.suppress(harness.clinicId, {
+          patientId: patientId('p-validation'),
+          ruleId,
+          actor: USER,
+        }),
+      ).rejects.toBeInstanceOf(ValidationError);
+    }
     // Nothing happened on the failed attempts.
     expect((await activeCases(harness, 'p-validation')).map((c) => c.id)).toEqual([id]);
+    expect(
+      await harness.read((stores) =>
+        stores.suppressions.listForPatient(harness.clinicId, patientId('p-validation')),
+      ),
+    ).toEqual([]);
     expect(
       await harness.read((stores) => stores.feedback.listForCase(harness.clinicId, id)),
     ).toEqual([]);

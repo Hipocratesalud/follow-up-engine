@@ -281,8 +281,50 @@ describe.each(STORAGES)('patient-contact loop through the API (%s)', (storage) =
     expect(fixed.body.patient.contact.contactDataInvalid).toBe(false);
   });
 
-  it('dismisses with a reason (feedback once), stops the rule for the patient, reactivates it', async () => {
-    const { caseId } = await caseWithWhatsApp('pat-ds');
+  it('dismisses with a reason (feedback once), stops a protocol item for the patient, reactivates it', async () => {
+    // A diabetic patient: the HbA1c of the diabetes protocol is due 90 days on.
+    const diabetes = {
+      resourceType: 'Condition',
+      id: 'cond-ds',
+      clinicalStatus: {
+        coding: [
+          { system: 'http://terminology.hl7.org/CodeSystem/condition-clinical', code: 'active' },
+        ],
+      },
+      verificationStatus: {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/condition-ver-status',
+            code: 'confirmed',
+          },
+        ],
+      },
+      code: { coding: [{ system: 'http://hl7.org/fhir/sid/icd-10', code: 'E11.9' }] },
+      subject: { reference: 'Patient/pat-ds' },
+      recordedDate: h.runtime.clock.now().toISOString(),
+    };
+    await h.call('/fhir?sync=true', {
+      fhir: true,
+      body: bundle('transaction', patient('pat-ds'), diabetes),
+    });
+    await advance(76);
+    // A lab order whose case opens the same day as the protocol's.
+    await h.call('/fhir?sync=true', {
+      fhir: true,
+      body: bundle(
+        'transaction',
+        patient('pat-lab'),
+        labOrder('pat-lab', 'sr-lab', h.runtime.clock.now()),
+      ),
+    });
+    await advance(15);
+    const cases = await h.call<CasePage>('/api/inbox/cases?view=active&patient=pat-ds');
+    const protocolCase = cases.body.items.find((item) =>
+      item.reasons.some((reason) => reason.ruleId === 'protocol_diabetes_hba1c'),
+    );
+    expect(protocolCase?.reasons.every((reason) => reason.suppressible)).toBe(true);
+    const caseId = protocolCase?.id ?? '';
+
     const missing = await h.call<{ error: { fields: { path: string }[] } }>(
       `/api/inbox/cases/${caseId}/actions`,
       { body: { action: 'dismiss' } },
@@ -293,12 +335,22 @@ describe.each(STORAGES)('patient-contact loop through the API (%s)', (storage) =
       body: { action: 'dismiss', reason: 'other' },
     });
     expect(noNote.status).toBe(422);
+    // What a clinician ordered is never switched off for the patient.
+    const labCase = (await h.call<CasePage>('/api/inbox/cases?view=active&patient=pat-lab')).body
+      .items[0];
+    expect(labCase?.reasons.map((reason) => reason.suppressible)).toEqual([false]);
+    const orderSuppressed = await h.call<{ error: { fields: { path: string }[] } }>(
+      `/api/inbox/cases/${labCase?.id ?? ''}/actions`,
+      { body: { action: 'dismiss', reason: 'not_applicable_to_patient', suppress: true } },
+    );
+    expect(orderSuppressed.status).toBe(422);
+    expect(orderSuppressed.body.error.fields.map((field) => field.path)).toEqual(['suppress']);
 
     const dismissed = await h.call<CaseDetail>(`/api/inbox/cases/${caseId}/actions`, {
       body: {
         action: 'dismiss',
         reason: 'not_applicable_to_patient',
-        note: 'Se hace los controles en su seguro',
+        note: 'Se controla en su seguro con el endocrinólogo',
         suppress: true,
       },
     });
@@ -306,51 +358,36 @@ describe.each(STORAGES)('patient-contact loop through the API (%s)', (storage) =
     expect(dismissed.body.dismissal).toMatchObject({
       reason: 'not_applicable_to_patient',
       reasonLabel: 'No aplica a este paciente',
-      suppressions: [{ ruleId: 'lab_order_result_pending', active: true }],
     });
+    expect(dismissed.body.dismissal?.suppressions.map((item) => item.ruleId)).toContain(
+      'protocol_diabetes_hba1c',
+    );
     expect(dismissed.body.feedback).toEqual({
       useful: false,
       reason: 'not_applicable_to_patient',
-      comment: 'Se hace los controles en su seguro',
+      comment: 'Se controla en su seguro con el endocrinólogo',
     });
     const task = await h.call<Record<string, unknown>>(`/fhir/Task/${caseId}`);
     expect(task.body).toMatchObject({
       status: 'cancelled',
       statusReason: { coding: [{ code: 'not_applicable_to_patient' }] },
     });
+    const withdrawn = await h.call<Bundle>(
+      '/fhir/Task?patient=pat-ds&code=protocol_diabetes_hba1c&status=cancelled',
+    );
+    expect(withdrawn.body.total).toBe(1);
 
     const page = await h.call<PatientDetail>('/api/inbox/patients/pat-ds');
-    const [suppression] = page.body.suppressions;
+    const suppression = page.body.suppressions.find(
+      (item) => item.ruleId === 'protocol_diabetes_hba1c',
+    );
     expect(suppression).toMatchObject({
       active: true,
       dismissReasonLabel: 'No aplica a este paciente',
     });
     const flags = await h.call<Bundle>('/fhir/Flag?patient=pat-ds');
-    expect(flags.body.total).toBe(1);
+    expect(flags.body.total).toBe(page.body.suppressions.length);
     expect(validateFhirR4(flags.body).issues).toEqual([]);
-
-    // A new order of the same test for this patient creates nothing; for another patient it does.
-    await h.call('/fhir?sync=true', {
-      fhir: true,
-      body: bundle(
-        'transaction',
-        labOrder('pat-ds', 'sr-ds-2', h.runtime.clock.now()),
-        patient('pat-other'),
-        labOrder('pat-other', 'sr-other', h.runtime.clock.now()),
-      ),
-    });
-    const expectations = await h.call<Bundle>(
-      '/fhir/Task?patient=pat-ds&code=lab_order_result_pending',
-    );
-    const other = await h.call<Bundle>(
-      '/fhir/Task?patient=pat-other&code=lab_order_result_pending',
-    );
-    expect(other.body.total).toBe(1);
-    expect(
-      (expectations.body.entry ?? []).filter(
-        (entry) => (entry.resource as { status?: string }).status === 'requested',
-      ),
-    ).toEqual([]);
 
     const reactivated = await h.call<SuppressionView>(
       `/api/inbox/suppressions/${suppression?.id ?? ''}/reactivate`,
@@ -358,6 +395,10 @@ describe.each(STORAGES)('patient-contact loop through the API (%s)', (storage) =
     );
     expect(reactivated.status).toBe(200);
     expect(reactivated.body).toMatchObject({ active: false });
+    const reopened = await h.call<Bundle>(
+      '/fhir/Task?patient=pat-ds&code=protocol_diabetes_hba1c&status=open',
+    );
+    expect(reopened.body.total).toBe(1);
     expect(
       (await h.call(`/api/inbox/suppressions/${suppression?.id ?? ''}/reactivate`, { body: {} }))
         .status,
@@ -374,7 +415,7 @@ describe.each(STORAGES)('patient-contact loop through the API (%s)', (storage) =
     const calibration = await h.call<CalibrationReportView>('/api/inbox/calibration');
     expect(calibration.body.rules).toContainEqual(
       expect.objectContaining({
-        ruleId: 'lab_order_result_pending',
+        ruleId: 'protocol_diabetes_hba1c',
         notUseful: 1,
         dismissals: expect.objectContaining({ not_applicable_to_patient: 1 }) as unknown,
       }),

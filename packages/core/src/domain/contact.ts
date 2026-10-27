@@ -1,4 +1,5 @@
 import type { Reason } from './common.ts';
+import type { ExpectationLayer } from './expectation.ts';
 import type { CaseId, ClinicId, ContactRequestId, PatientId, SuppressionId } from './ids.ts';
 
 /**
@@ -211,6 +212,15 @@ export interface RuleSuppression {
   readonly revokedBy?: string;
   readonly revokedAt?: Date;
 }
+
+/**
+ * Layers whose reminders a clinic user may stop for one patient: the ones
+ * the engine inferred (a care protocol, the patient's visit pattern). What
+ * a clinician asked for (an order, the plan in a note) or a result that came
+ * back abnormal is never switched off per patient: those cases are dismissed
+ * one by one.
+ */
+export const SUPPRESSIBLE_LAYERS: ReadonlySet<ExpectationLayer> = new Set(['protocol', 'cadence']);
 
 export function isActiveSuppression(suppression: RuleSuppression): boolean {
   return suppression.revokedAt === undefined;

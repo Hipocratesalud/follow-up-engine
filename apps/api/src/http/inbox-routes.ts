@@ -13,6 +13,7 @@ import {
   isActiveCaseStatus,
   parseConditionId,
   patientId as toPatientId,
+  SUPPRESSIBLE_LAYERS,
   type SuppressionId,
 } from '@follow-up-engine/core';
 import type { EngineRuntime } from '@follow-up-engine/runtime';
@@ -20,7 +21,7 @@ import type { Context } from 'hono';
 import { z } from 'zod';
 import { conditionView, InboxPresenter } from '../inbox/presenter.ts';
 import { humanName, patientSummary } from '../inbox/fhir-display.ts';
-import { invalidTransitionMessage } from '../inbox/labels.ts';
+import { CONTACT_LOOP_MESSAGES, invalidTransitionMessage } from '../inbox/labels.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
 import { followUpUser } from './security.ts';
@@ -89,21 +90,32 @@ async function requestContact(
     : requested;
 }
 
-/** The rule ids of a case's reasons ("Dejar de recordarlo" stops them for the patient). */
-async function caseRuleIds(
+/**
+ * The rules of a case's reasons that "Dejar de recordarlo" stops for the
+ * patient: protocol items and the visit pattern (`SUPPRESSIBLE_LAYERS`).
+ * A 422 when the case has none: what a clinician asked for is dismissed
+ * case by case, never switched off for the patient.
+ */
+async function suppressibleRuleIds(
   runtime: EngineRuntime,
   clinicId: ClinicId,
   followUpCase: FollowUpCase,
 ): Promise<string[]> {
-  const ruleIds: string[] = [];
+  const ruleIds = new Set<string>();
   for (const reason of followUpCase.reasons) {
     const expectation = await runtime.storage.stores.expectations.get(
       clinicId,
       reason.expectationId,
     );
-    ruleIds.push(expectation?.ruleId ?? '');
+    if (expectation !== undefined && SUPPRESSIBLE_LAYERS.has(expectation.layer)) {
+      ruleIds.add(expectation.ruleId);
+    }
   }
-  return ruleIds;
+  if (ruleIds.size === 0) {
+    const message = CONTACT_LOOP_MESSAGES.nothingToSuppress;
+    throw new HttpError(422, 'invalid_request', message, [{ path: 'suppress', message }]);
+  }
+  return [...ruleIds];
 }
 
 type ListQuery = Omit<
@@ -332,15 +344,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
         reason,
         ...withNote,
         ...(body.suppress === true
-          ? {
-              suppressRuleIds: [
-                ...new Set(
-                  (await caseRuleIds(runtime, c.var.clinicId, current)).filter(
-                    (ruleId) => ruleId !== '',
-                  ),
-                ),
-              ],
-            }
+          ? { suppressRuleIds: await suppressibleRuleIds(runtime, c.var.clinicId, current) }
           : {}),
       });
       updated = result.followUpCase;
@@ -394,10 +398,10 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     const id = c.req.param('id') as SuppressionId;
     const existing = await stores.suppressions.get(c.var.clinicId, id);
     if (existing === undefined) {
-      throw notFound('No encontramos ese recordatorio desactivado.');
+      throw notFound(CONTACT_LOOP_MESSAGES.suppressionNotFound);
     }
     if (existing.revokedAt !== undefined) {
-      throw new HttpError(409, 'conflict', 'Este recordatorio ya está activo de nuevo.');
+      throw new HttpError(409, 'conflict', CONTACT_LOOP_MESSAGES.suppressionAlreadyActive);
     }
     const revoked = await engine.suppressions.reactivate(c.var.clinicId, id, actor(c));
     c.var.log.info({ suppressionId: id, ruleId: revoked.ruleId }, 'suppression reactivated');

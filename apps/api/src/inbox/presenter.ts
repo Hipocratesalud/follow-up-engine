@@ -9,6 +9,7 @@ import {
   type PatientContactFlag,
   type RuleSuppression,
   summarizeAttempt,
+  SUPPRESSIBLE_LAYERS,
   UNREACHED_OUTCOMES,
   type EscalationPolicy,
   type Expectation,
@@ -748,6 +749,7 @@ export class InboxPresenter {
       label: this.reasonLabel(expectation.ruleId, expectation),
       dueAt: expectation.dueAt.toISOString(),
       overdueDays: Math.max(0, calendarDaysBetween(expectation.dueAt, this.now, this.#timeZone)),
+      suppressible: SUPPRESSIBLE_LAYERS.has(expectation.layer),
       source: {
         resourceType: expectation.source.resourceType,
         id: expectation.source.id,
