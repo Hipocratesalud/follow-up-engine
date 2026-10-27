@@ -49,6 +49,12 @@ export interface Expectation {
   /** Machine code explaining a terminal status (for example `fulfilled_by_result`). */
   readonly closedReason?: string;
   readonly closedAt?: Date;
+  /**
+   * The resource whose event closed it (the result, the encounter, the
+   * appointment, the newer order). A cancelled appointment reopens what it
+   * fulfilled.
+   */
+  readonly closedBy?: ResourceRef;
   readonly origin: Origin;
   readonly protocolId?: string;
   readonly protocolVersion?: string;

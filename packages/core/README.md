@@ -71,6 +71,7 @@ Each rule declares `fulfilledBy`, `supersededBy` and `notFulfilledBy` correlatio
 - A finished encounter or a booked appointment fulfills visit expectations, never lab or imaging ones.
 - A new order of the **same** test supersedes the old expectation (its case closes as `not_needed`, audit reason `superseded_by_new_order`) and starts a new clock; different tests coexist.
 - An expired expectation can still be fulfilled late while its case is active; the case resolves when all its reasons are closed.
+- **A cancelled appointment fulfills nothing.** Every closed expectation records what closed it (`closedBy`). An `appointment.cancelled` reopens what that Appointment's booking fulfilled, unless something else in the record (a visit, another booking) still fulfills it; a reopened expectation already past due expires into a case at the next watcher run (a new case if the booking had resolved the old one). Bookings withdrawn by a later cancellation are ignored everywhere else too (protocol anchors, fulfillment).
 
 Idempotency: an expectation's key is `<source type>/<source id>#<rule id>[#<item>]`; events are stored once per `idempotencyKey`; a note whose plan was already extracted is never read again.
 
@@ -87,6 +88,7 @@ stateDiagram-v2
   expired --> fulfilled: late, while the case is active
   expired --> superseded
   expired --> cancelled
+  fulfilled --> open: its appointment was cancelled
 ```
 
 ```mermaid

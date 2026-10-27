@@ -82,6 +82,7 @@ export function describeExpectationRepositoryContract(
         caseId: caseId('case-x'),
         closedReason: 'superseded_by_new_order',
         closedAt: at(3),
+        closedBy: { resourceType: 'ServiceRequest', id: 'sr-2' },
         origin: 'backfill',
         protocolId: 'diabetes',
         protocolVersion: '1.0.0',

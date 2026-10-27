@@ -62,6 +62,8 @@ export interface IngestReport {
   readonly derivedEvents: readonly ClinicalEvent[];
   readonly expectationsCreated: readonly Expectation[];
   readonly expectationsClosed: readonly ClosedExpectation[];
+  /** Fulfilled by an appointment that was then cancelled, open again. */
+  readonly expectationsReopened: readonly Expectation[];
   readonly casesResolved: readonly CaseId[];
   readonly conditionsUpserted: readonly PatientCondition[];
   readonly qualityFindings: readonly QualityFinding[];

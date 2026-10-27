@@ -30,3 +30,11 @@ CREATE UNIQUE INDEX backfill_progress_one_unfinished ON backfill_progress (clini
 
 -- `ExpectationRepository.listByPatient`: every expectation of a patient, any status.
 CREATE INDEX expectations_patient_idx ON expectations (clinic_id, patient_id, due_at, id);
+
+-- `Expectation.closedBy`: the resource whose event closed it, so a cancelled
+-- appointment can reopen what its booking fulfilled.
+ALTER TABLE expectations
+  ADD COLUMN closed_by_type text,
+  ADD COLUMN closed_by_id text,
+  ADD CONSTRAINT expectations_closed_by_complete
+    CHECK ((closed_by_type IS NULL) = (closed_by_id IS NULL));

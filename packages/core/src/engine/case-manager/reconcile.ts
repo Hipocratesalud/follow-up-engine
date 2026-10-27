@@ -1,25 +1,28 @@
 import type { CaseEventActor, CaseResolutionKind, FollowUpCase } from '../../domain/case.ts';
 import type { Expectation, ExpectationStatus } from '../../domain/expectation.ts';
 import type { CaseId, ClinicId } from '../../domain/ids.ts';
+import type { ResourceRef } from '../../domain/resource.ts';
 import type { TransactionalStores } from '../../ports/unit-of-work.ts';
 import { withoutKey, type CaseWriter } from './case-writer.ts';
 import { isActiveCaseStatus } from './state-machine.ts';
 
 export type ClosingStatus = Extract<ExpectationStatus, 'fulfilled' | 'superseded' | 'cancelled'>;
 
-/** Closes an open or expired expectation with a machine-readable reason. */
+/** Closes an open or expired expectation with a machine-readable reason (and what closed it). */
 export async function closeExpectation(
   stores: TransactionalStores,
   expectation: Expectation,
   status: ClosingStatus,
   closedReason: string,
   now: Date,
+  closedBy?: ResourceRef,
 ): Promise<Expectation> {
   const closed: Expectation = {
     ...expectation,
     status,
     closedReason,
     closedAt: now,
+    ...(closedBy === undefined ? {} : { closedBy }),
     updatedAt: now,
   };
   await stores.expectations.update(expectation.clinicId, closed);

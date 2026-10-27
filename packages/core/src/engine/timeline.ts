@@ -25,6 +25,24 @@ export function encounterOf(event: ClinicalEvent): string | undefined {
 }
 
 /**
+ * Drops each `appointment.booked` that a later `appointment.cancelled` of the
+ * same Appointment withdrew: a cancelled booking fulfills nothing and anchors
+ * nothing. A booking made again after the cancellation stays.
+ */
+export function withoutCancelledBookings(events: readonly ClinicalEvent[]): ClinicalEvent[] {
+  return events.filter(
+    (event) =>
+      event.type !== 'appointment.booked' ||
+      !events.some(
+        (other) =>
+          other.type === 'appointment.cancelled' &&
+          refKey(other.source) === refKey(event.source) &&
+          other.occurredAt.getTime() >= event.occurredAt.getTime(),
+      ),
+  );
+}
+
+/**
  * A patient's clinical history, chronological, with the lookups the engine
  * needs (the event behind a resource, encounters by specialty, opt-out).
  */
@@ -34,9 +52,10 @@ export class PatientTimeline {
   readonly #encounters = new Map<string, EncounterFinishedEvent>();
 
   constructor(events: readonly ClinicalEvent[]) {
-    this.events = [...events].sort(
+    const sorted = [...events].sort(
       (left, right) => left.occurredAt.getTime() - right.occurredAt.getTime(),
     );
+    this.events = withoutCancelledBookings(sorted);
     for (const event of this.events) {
       const key = refKey(event.source);
       if (!this.#bySource.has(key)) {

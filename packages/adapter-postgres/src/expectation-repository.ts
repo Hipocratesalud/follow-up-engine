@@ -32,6 +32,8 @@ interface ExpectationRow {
   readonly case_id: string | null;
   readonly closed_reason: string | null;
   readonly closed_at: Date | null;
+  readonly closed_by_type: string | null;
+  readonly closed_by_id: string | null;
   readonly origin: Origin;
   readonly protocol_id: string | null;
   readonly protocol_version: string | null;
@@ -43,8 +45,9 @@ interface ExpectationRow {
 }
 
 const COLUMNS = `clinic_id, id, patient_id, idempotency_key, rule_id, rule_version, layer, source_type,
-  source_id, match_key, due_at, status, case_id, closed_reason, closed_at, origin, protocol_id,
-  protocol_version, reason_code, reason_label, evidence, created_at, updated_at`;
+  source_id, match_key, due_at, status, case_id, closed_reason, closed_at, closed_by_type,
+  closed_by_id, origin, protocol_id, protocol_version, reason_code, reason_label, evidence,
+  created_at, updated_at`;
 
 function toExpectation(row: ExpectationRow): Expectation {
   return {
@@ -62,6 +65,9 @@ function toExpectation(row: ExpectationRow): Expectation {
     ...optional('caseId', row.case_id as CaseId | null),
     ...optional('closedReason', row.closed_reason),
     ...optional('closedAt', row.closed_at),
+    ...(row.closed_by_type === null || row.closed_by_id === null
+      ? {}
+      : { closedBy: { resourceType: row.closed_by_type, id: row.closed_by_id } }),
     origin: row.origin,
     ...optional('protocolId', row.protocol_id),
     ...optional('protocolVersion', row.protocol_version),
@@ -90,6 +96,8 @@ function toParams(expectation: Expectation): unknown[] {
     expectation.caseId ?? null,
     expectation.closedReason ?? null,
     expectation.closedAt ?? null,
+    expectation.closedBy?.resourceType ?? null,
+    expectation.closedBy?.id ?? null,
     expectation.origin,
     expectation.protocolId ?? null,
     expectation.protocolVersion ?? null,
@@ -101,7 +109,7 @@ function toParams(expectation: Expectation): unknown[] {
   ];
 }
 
-const PLACEHOLDERS = Array.from({ length: 23 }, (_, index) => `$${String(index + 1)}`).join(', ');
+const PLACEHOLDERS = Array.from({ length: 25 }, (_, index) => `$${String(index + 1)}`).join(', ');
 
 export class PostgresExpectationRepository implements ExpectationRepository {
   readonly #ctx: RepositoryContext;

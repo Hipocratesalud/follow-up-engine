@@ -1,5 +1,6 @@
 import type { ClinicalEvent } from '../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
+import type { Origin } from '../../domain/common.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import { type CaseId, type ClinicId, expectationId, type PatientId } from '../../domain/ids.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
@@ -15,7 +16,7 @@ import {
 } from '../matching/correlation.ts';
 import { loadPatientState, type LiveExpectations, type PatientState } from '../patient-state.ts';
 import type { EngineSettings } from '../settings.ts';
-import type { PatientTimeline } from '../timeline.ts';
+import { type PatientTimeline, refKey } from '../timeline.ts';
 import { conditionCandidates, type ExtractedMedicationHint, mergeCondition } from './conditions.ts';
 import { type ExpectationDraft, materializeExpectation } from './draft.ts';
 import { cadenceDrafts } from './layers/cadence.ts';
@@ -32,6 +33,8 @@ export interface AnnotationContext {
   readonly ids: IdGenerator;
   readonly settings: EngineSettings;
   readonly now: Date;
+  /** Origin of what the run creates: `live` traffic (default) or the initial `backfill`. */
+  readonly origin?: Origin;
 }
 
 /** Side inputs that only exist when the batch came with a freshly read note. */
@@ -50,6 +53,8 @@ export interface ClosedExpectation {
 export interface AnnotationResult {
   readonly expectationsCreated: readonly Expectation[];
   readonly expectationsClosed: readonly ClosedExpectation[];
+  /** Fulfilled by an appointment that was then cancelled: open again (or expired, for the watcher). */
+  readonly expectationsReopened: readonly Expectation[];
   readonly casesResolved: readonly CaseId[];
   readonly conditionsUpserted: readonly PatientCondition[];
   /**
@@ -87,6 +92,7 @@ export async function annotate(
   created.push(...(await createExpectations(context, state.live, firstDrafts)));
 
   const closed = await applyFulfillment(context, state.timeline, state.live, ordered);
+  const reopened = await reopenCancelled(context, state, ordered);
 
   // The doctor's explicit plan beats the inferred visit pattern for what it
   // covers; checked after fulfillment, so a visit that fulfills the plan
@@ -125,6 +131,7 @@ export async function annotate(
   return {
     expectationsCreated: created,
     expectationsClosed: closed,
+    expectationsReopened: reopened,
     casesResolved,
     conditionsUpserted: conditions.upserted,
     optedOut: state.timeline.optedOut,
@@ -189,7 +196,7 @@ async function createExpectations(
       clinicId: context.clinicId,
       patientId: context.patientId,
       now: context.now,
-      origin: 'live',
+      origin: context.origin ?? 'live',
     });
     const result = await context.stores.expectations.upsertByIdempotencyKey(
       context.clinicId,
@@ -230,6 +237,7 @@ async function applyFulfillment(
           'superseded',
           'superseded_by_new_order',
           context.now,
+          event.source,
         );
       } else if (findFulfillment(event, target, timeline) !== undefined) {
         next = await closeExpectation(
@@ -238,6 +246,7 @@ async function applyFulfillment(
           'fulfilled',
           fulfillmentReason(event),
           context.now,
+          event.source,
         );
       }
       if (next !== undefined) {
@@ -247,4 +256,61 @@ async function applyFulfillment(
     }
   }
   return closed;
+}
+
+/**
+ * A cancelled appointment fulfills nothing: what its booking fulfilled is
+ * open again, unless something else in the record (a visit, a new booking)
+ * still fulfills it. A reopened expectation that is already due expires into
+ * a case at the next watcher run, like any other.
+ */
+async function reopenCancelled(
+  context: AnnotationContext,
+  state: PatientState,
+  events: readonly ClinicalEvent[],
+): Promise<Expectation[]> {
+  const cancelled = new Set(
+    events.flatMap((event) =>
+      event.type === 'appointment.cancelled' ? [refKey(event.source)] : [],
+    ),
+  );
+  if (cancelled.size === 0) {
+    return [];
+  }
+  const fulfilled = await context.stores.expectations.listByPatient(
+    context.clinicId,
+    context.patientId,
+    ['fulfilled'],
+  );
+  const reopened: Expectation[] = [];
+  for (const expectation of fulfilled) {
+    const definition = context.catalog.definition(expectation.ruleId);
+    if (
+      expectation.closedBy === undefined ||
+      !cancelled.has(refKey(expectation.closedBy)) ||
+      definition === undefined
+    ) {
+      continue;
+    }
+    const target = toCorrelationTarget(expectation, definition, state.timeline);
+    const stillFulfilled = state.timeline.events.some(
+      (event) => findFulfillment(event, target, state.timeline) !== undefined,
+    );
+    if (stillFulfilled) {
+      continue;
+    }
+    const open: { -readonly [K in keyof Expectation]: Expectation[K] } = {
+      ...expectation,
+      status: 'open',
+      updatedAt: context.now,
+    };
+    delete open.closedAt;
+    delete open.closedReason;
+    delete open.closedBy;
+    delete open.caseId;
+    await context.stores.expectations.update(context.clinicId, open);
+    state.live.put(open);
+    reopened.push(open);
+  }
+  return reopened;
 }
