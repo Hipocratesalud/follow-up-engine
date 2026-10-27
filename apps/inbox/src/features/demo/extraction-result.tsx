@@ -337,7 +337,13 @@ export function ExtractionResult({
         <summary className="cursor-pointer px-3 py-2 font-medium text-muted hover:text-fg">
           Ver el Bundle FHIR que recibió el motor
         </summary>
-        <pre className="max-h-72 overflow-auto border-t border-border bg-surface-2 p-3 font-mono text-xs text-fg">
+        {/* Focusable and named so a keyboard user can scroll it (axe scrollable-region-focusable). */}
+        <pre
+          role="region"
+          aria-label="Bundle FHIR en JSON"
+          tabIndex={0}
+          className="max-h-72 overflow-auto border-t border-border bg-surface-2 p-3 font-mono text-xs text-fg"
+        >
           {JSON.stringify(result.bundle, null, 2)}
         </pre>
       </details>

@@ -217,7 +217,13 @@ function WebhookItem({
       </div>
       <details className="text-xs">
         <summary className="cursor-pointer text-muted hover:text-fg">Ver contenido</summary>
-        <pre className="mt-2 max-h-56 overflow-auto rounded-lg bg-surface-2 p-2.5 font-mono text-[11px] text-fg">
+        {/* Focusable and named so a keyboard user can scroll it (axe scrollable-region-focusable). */}
+        <pre
+          role="region"
+          aria-label={`Contenido del webhook ${item.type}`}
+          tabIndex={0}
+          className="mt-2 max-h-56 overflow-auto rounded-lg bg-surface-2 p-2.5 font-mono text-[11px] text-fg"
+        >
           {JSON.stringify(item.payload, null, 2)}
         </pre>
       </details>
@@ -373,7 +379,8 @@ export function DemoPage(): ReactNode {
         </p>
       </header>
       <ClockPanel now={clock.data.now} onAdvanced={handleAdvanced} />
-      <div className="grid items-start gap-5 xl:grid-cols-2">
+      {/* minmax(0, 1fr) columns and min-w-0 items: a wide JSON block scrolls in its box, never the page. */}
+      <div className="grid grid-cols-1 items-start gap-5 *:min-w-0 xl:grid-cols-2">
         <ConsultationForm onResult={handleResult} />
         {result && !consulting ? (
           <ExtractionResult result={result.response} noteText={result.noteText} />
