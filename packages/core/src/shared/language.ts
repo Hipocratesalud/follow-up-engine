@@ -1,6 +1,6 @@
 /**
  * BCP-47 language tags (`en-US`, `es`, `pt-BR`). Four sources carry one
- * (docs/adr/0006): the clinic's locale, the inbox user's `Accept-Language`,
+ * (docs/adr/0007): the clinic's locale, the inbox user's `Accept-Language`,
  * the patient's preferred language (FHIR `Patient.communication`) and the
  * language a note is written in (FHIR `DocumentReference.language`, else
  * detected). They are independent: an English-speaking team can follow up

@@ -14,7 +14,7 @@ export interface ClinicSettings {
    * BCP-47 locale of the clinic (default `en-US`): the language of the labels
    * the API returns when the inbox user's `Accept-Language` names none the
    * engine has, and of the clinical reviewer's findings. Independent of the
-   * language of its notes and of each patient's language (docs/adr/0006).
+   * language of its notes and of each patient's language (docs/adr/0007).
    */
   readonly locale: string;
   /**

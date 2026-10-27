@@ -232,7 +232,7 @@ function setLocale(c: Context<AppEnv>, locale: ApiLocale): void {
 }
 
 /**
- * The language of the response (docs/adr/0006): from `Accept-Language`
+ * The language of the response (docs/adr/0007): from `Accept-Language`
  * until the API key names the clinic, whose locale is then the fallback.
  * The response says which one it used (`Content-Language`) and that it
  * depends on the header (`Vary`).

@@ -369,7 +369,7 @@ export async function registerDemoClinic(
       allowPatientContact: true,
       timezone: 'America/Caracas',
       // English UI and labels for an international audience; the synthetic
-      // notes stay in Spanish and are read as Spanish (docs/adr/0006).
+      // notes stay in Spanish and are read as Spanish (docs/adr/0007).
       locale: 'en-US',
       dailyCaseCapPerOwner: DEMO_DAILY_CASE_CAP_PER_OWNER,
       escalationPolicyId: DEMO_ESCALATION_POLICY,

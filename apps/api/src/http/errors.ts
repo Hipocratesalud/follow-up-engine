@@ -21,7 +21,7 @@ import { type FieldError, fieldErrors, parseErrors, validationSummary } from './
  * An error with an HTTP status and a stable code, rendered as
  * `{ error: { code, message, fields? } }`: `fields` lists, for a validation
  * error, each field and what is wrong with it. Messages are in the
- * request's language (`c.var.t`, docs/adr/0006).
+ * request's language (`c.var.t`, docs/adr/0007).
  */
 export class HttpError extends Error {
   override readonly name = 'HttpError';

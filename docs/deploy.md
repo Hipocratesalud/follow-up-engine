@@ -11,26 +11,26 @@ It needs no extensions and no superuser: `gen_random_uuid()` is built in since P
 
 All tables live in their own schema, `follow_up`, so the engine can share a database with a host application (for example a Supabase project that already has its own `public` tables) without name clashes.
 
-| Table                       | Holds                                                                                                                                               |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `clinics`                   | Tenants: name, `active`, `settings` (jsonb, partial `ClinicSettings`), `api_key_hash` (sha256 hex of the original integration key; never the key)   |
-| `api_keys`                  | Scoped API keys of each clinic: sha256 hex, `label`, `scopes` (`fhir:write`, `inbox:read`, `inbox:act`, `demo:clock`, `demo:ingest`), `revoked_at`  |
-| `clinical_resources`        | Latest version of every FHIR resource pushed by the host (jsonb), unique per clinic + type + id. `version` increments only when the content changes |
-| `clinical_events`           | Append-only log of normalized clinical events, unique per clinic + `idempotency_key`                                                                |
-| `patient_conditions`        | Conditions per patient, unique per clinic + patient + code                                                                                          |
-| `expectations`              | "This should happen by this date", unique per clinic + `idempotency_key`; partial index on `due_at` where `status = 'open'`                         |
-| `follow_up_cases`           | Cases; a partial unique index allows one active case (`open`, `notified`, `snoozed`, `escalated`) per clinic + `dedup_key`                          |
-| `case_events`               | Append-only audit trail of cases                                                                                                                    |
-| `case_feedback`             | Clinician feedback on cases (a dismissal records its reason here too)                                                                               |
-| `contact_requests`          | Contact attempts (FHIR `CommunicationRequest`): case, channel, purpose, trigger, attempt number, answer deadline                                    |
-| `contact_communications`    | What came of each attempt (FHIR `Communication`), latest version per clinic + id: status, outcome, sender                                           |
-| `patient_contact_flags`     | Contact data flagged per patient (a wrong number), one per clinic + patient + issue, cleared when the patient is reached again                      |
-| `patient_rule_suppressions` | Rules stopped for one patient (who, when, why, source case); a partial unique index allows one active suppression per clinic + patient + rule       |
-| `quality_findings`          | Documentation-quality findings                                                                                                                      |
-| `llm_calls`                 | Tokens, cost (`numeric`, no float drift) and latency of every LLM call, per clinic                                                                  |
-| `outbox`                    | Domain events waiting for delivery to the host                                                                                                      |
-| `jobs`                      | Background jobs, claimed with `FOR UPDATE SKIP LOCKED`; a `dedup_key` is unique among unfinished (`pending`, `running`) jobs                        |
-| `backfill_progress`         | Resumable cursor and counters of the initial backfill; one unfinished (running or budget-paused) backfill per clinic                                |
+| Table                       | Holds                                                                                                                                                                |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clinics`                   | Tenants: name, `active`, `settings` (jsonb, partial `ClinicSettings`, `locale` included), `api_key_hash` (sha256 hex of the original integration key; never the key) |
+| `api_keys`                  | Scoped API keys of each clinic: sha256 hex, `label`, `scopes` (`fhir:write`, `inbox:read`, `inbox:act`, `demo:clock`, `demo:ingest`), `revoked_at`                   |
+| `clinical_resources`        | Latest version of every FHIR resource pushed by the host (jsonb), unique per clinic + type + id. `version` increments only when the content changes                  |
+| `clinical_events`           | Append-only log of normalized clinical events, unique per clinic + `idempotency_key`                                                                                 |
+| `patient_conditions`        | Conditions per patient, unique per clinic + patient + code                                                                                                           |
+| `expectations`              | "This should happen by this date", unique per clinic + `idempotency_key`; partial index on `due_at` where `status = 'open'`                                          |
+| `follow_up_cases`           | Cases; a partial unique index allows one active case (`open`, `notified`, `snoozed`, `escalated`) per clinic + `dedup_key`                                           |
+| `case_events`               | Append-only audit trail of cases                                                                                                                                     |
+| `case_feedback`             | Clinician feedback on cases (a dismissal records its reason here too)                                                                                                |
+| `contact_requests`          | Contact attempts (FHIR `CommunicationRequest`): case, channel, purpose, trigger, attempt number, answer deadline, the patient's `language` (0012)                    |
+| `contact_communications`    | What came of each attempt (FHIR `Communication`), latest version per clinic + id: status, outcome, sender                                                            |
+| `patient_contact_flags`     | Contact data flagged per patient (a wrong number), one per clinic + patient + issue, cleared when the patient is reached again                                       |
+| `patient_rule_suppressions` | Rules stopped for one patient (who, when, why, source case); a partial unique index allows one active suppression per clinic + patient + rule                        |
+| `quality_findings`          | Documentation-quality findings                                                                                                                                       |
+| `llm_calls`                 | Tokens, cost (`numeric`, no float drift) and latency of every LLM call, per clinic                                                                                   |
+| `outbox`                    | Domain events waiting for delivery to the host                                                                                                                       |
+| `jobs`                      | Background jobs, claimed with `FOR UPDATE SKIP LOCKED`; a `dedup_key` is unique among unfinished (`pending`, `running`) jobs                                         |
+| `backfill_progress`         | Resumable cursor and counters of the initial backfill; one unfinished (running or budget-paused) backfill per clinic                                                 |
 
 Design rules, all enforced by tests:
 
@@ -160,9 +160,10 @@ pnpm --filter @follow-up-engine/api clinic:create --name "Clínica Ejemplo" --sc
 #   clinic clinica-ejemplo (created); key "integration" [fhir:write]: fue_Xr3...  (shown once)
 pnpm --filter @follow-up-engine/api clinic:create --id clinica-ejemplo --label inbox --scopes inbox:read,inbox:act
 pnpm --filter @follow-up-engine/api clinic:create --id clinica-ejemplo --revoke inbox   # revoke that key
+pnpm --filter @follow-up-engine/api clinic:create --id clinica-ejemplo --locale es-VE   # Spanish labels and findings
 ```
 
-Scopes: `fhir:write` (the host integration: `/fhir`, `/jobs`), `inbox:read`, `inbox:act` (the inbox API), `demo:clock` and `demo:ingest` (the demo controls, fake clock only; refused for any clinic but `clinic-demo` unless `--allow-demo`). Key values are unique across clinics: issuing or registering a value another clinic holds (even revoked) fails and changes nothing. Give the host server one `fhir:write` key and the inbox its own key without `fhir:write`; rotate a key by issuing a new one under another label, switching, then `--revoke` the old label. New clinics start with patient contact disabled (`--allow-patient-contact` turns it on once the clinical team has validated it).
+Scopes: `fhir:write` (the host integration: `/fhir`, `/jobs`), `inbox:read`, `inbox:act` (the inbox API), `demo:clock` and `demo:ingest` (the demo controls, fake clock only; refused for any clinic but `clinic-demo` unless `--allow-demo`). Key values are unique across clinics: issuing or registering a value another clinic holds (even revoked) fails and changes nothing. Give the host server one `fhir:write` key and the inbox its own key without `fhir:write`; rotate a key by issuing a new one under another label, switching, then `--revoke` the old label. New clinics start with patient contact disabled (`--allow-patient-contact` turns it on once the clinical team has validated it) and with the `en-US` locale: `--locale <bcp47>` (new or existing clinic) sets the language of the inbox labels when the user's `Accept-Language` names none the engine has (`en`, `es`), and of the clinical reviewer's findings. Patients and notes carry their own languages ([ADR 0007](adr/0007-language-model.md)).
 
 ## Security checklist (production)
 

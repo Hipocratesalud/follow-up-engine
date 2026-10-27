@@ -1,4 +1,4 @@
--- Language model (HIP-138, docs/adr/0006).
+-- Language model (HIP-138, docs/adr/0007).
 --
 --   * `contact_requests.language`: the patient's preferred language (BCP-47,
 --     from FHIR `Patient.communication`) when the attempt was asked. Sent on

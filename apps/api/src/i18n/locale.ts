@@ -39,7 +39,7 @@ export function acceptedLanguages(header: string | undefined): string[] {
 }
 
 /**
- * The locale of a request's labels (docs/adr/0006): the first language of
+ * The locale of a request's labels (docs/adr/0007): the first language of
  * the user's `Accept-Language` the API has a catalog for, else the clinic's
  * locale (`ClinicSettings.locale`) when it has one, else English.
  */

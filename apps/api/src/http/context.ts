@@ -14,7 +14,7 @@ export interface AppEnv {
     scopes: readonly ApiKeyScope[];
     /**
      * The language of the labels and messages of this response: the user's
-     * `Accept-Language`, else the clinic's locale, else English (ADR 0006).
+     * `Accept-Language`, else the clinic's locale, else English (ADR 0007).
      */
     locale: ApiLocale;
     /** The message catalog of {@link locale}. */

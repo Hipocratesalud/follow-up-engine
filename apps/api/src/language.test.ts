@@ -3,7 +3,7 @@ import type { CaseView, PatientDetail } from './http/schemas.ts';
 import { createHarness, type Harness, KEY_B, STORAGES } from './test/harness.ts';
 
 /**
- * HIP-138, the language model through the API (docs/adr/0006): labels in the
+ * HIP-138, the language model through the API (docs/adr/0007): labels in the
  * user's `Accept-Language`, else the clinic's locale, else English; the
  * patient's preferred language read from `Patient.communication`; clinical
  * text never translated.
