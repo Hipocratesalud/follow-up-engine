@@ -28,21 +28,27 @@ import { useDocumentsDrawer } from './documents-drawer.tsx';
  * opens in the patient's documents drawer.
  */
 
+/** Heading level of the panel's sections: one below the reason's own title. */
+type Level = 3 | 4;
+
 function Section({
   icon,
   title,
+  level,
   children,
 }: {
   readonly icon: ReactNode;
   readonly title: string;
+  readonly level: Level;
   readonly children: ReactNode;
 }): ReactNode {
+  const Heading = level === 3 ? 'h3' : 'h4';
   return (
     <section className="flex flex-col gap-1.5">
-      <h4 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted uppercase">
+      <Heading className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted uppercase">
         {icon}
         {title}
-      </h4>
+      </Heading>
       {children}
     </section>
   );
@@ -62,9 +68,9 @@ export function CitedDocument({
     drawer?.open({ key: documentKey(doc), ...(quote === undefined ? {} : { quote }) });
   }
   return (
-    <li className="flex items-start gap-2.5 rounded-lg border border-border bg-surface px-3 py-2">
+    <li className="flex flex-wrap items-start gap-x-2.5 gap-y-1 rounded-lg border border-border bg-surface px-3 py-2">
       <KindIcon kind={doc.kind} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-48">
         <p className="text-xs text-muted">
           <span className="font-medium text-fg">{doc.kindLabel}</span>
           {t.common.separator}
@@ -76,7 +82,7 @@ export function CitedDocument({
         <button
           type="button"
           onClick={handleShow}
-          className="shrink-0 rounded-md px-1.5 py-1 text-xs font-medium text-primary hover:bg-primary-soft"
+          className="shrink-0 rounded-md px-1.5 py-1 text-xs font-medium text-primary hover:bg-primary-soft max-sm:ml-8"
         >
           {t.why.showInDocuments}
         </button>
@@ -85,7 +91,13 @@ export function CitedDocument({
   );
 }
 
-function PlanSection({ plan }: { readonly plan: NonNullable<ReasonWhyView['plan']> }): ReactNode {
+function PlanSection({
+  plan,
+  level,
+}: {
+  readonly plan: NonNullable<ReasonWhyView['plan']>;
+  readonly level: Level;
+}): ReactNode {
   const t = useT();
   const excerpt = plan.noteExcerpt;
   const match = excerpt === undefined ? undefined : findQuote(excerpt, plan.quote);
@@ -98,6 +110,7 @@ function PlanSection({ plan }: { readonly plan: NonNullable<ReasonWhyView['plan'
   ].filter((part): part is string => part !== undefined);
   return (
     <Section
+      level={level}
       icon={<Quote className="size-3.5 text-layer-plan" aria-hidden="true" />}
       title={t.why.doctorsPlan}
     >
@@ -127,13 +140,16 @@ function PlanSection({ plan }: { readonly plan: NonNullable<ReasonWhyView['plan'
 
 function ProtocolSection({
   protocol,
+  level,
 }: {
   readonly protocol: NonNullable<ReasonWhyView['protocol']>;
+  readonly level: Level;
 }): ReactNode {
   const t = useT();
   const { enrollment } = protocol;
   return (
     <Section
+      level={level}
       icon={<Route className="size-3.5 text-layer-protocol" aria-hidden="true" />}
       title={t.why.protocol}
     >
@@ -174,12 +190,15 @@ function ProtocolSection({
 
 function CadenceSection({
   cadence,
+  level,
 }: {
   readonly cadence: NonNullable<ReasonWhyView['cadence']>;
+  readonly level: Level;
 }): ReactNode {
   const t = useT();
   return (
     <Section
+      level={level}
       icon={<Stethoscope className="size-3.5 text-layer-cadence" aria-hidden="true" />}
       title={t.why.pattern}
     >
@@ -212,7 +231,13 @@ function CadenceSection({
   );
 }
 
-function WhyPanel({ why }: { readonly why: ReasonWhyView }): ReactNode {
+function WhyPanel({
+  why,
+  level,
+}: {
+  readonly why: ReasonWhyView;
+  readonly level: Level;
+}): ReactNode {
   const t = useT();
   const records = [why.due.anchor, why.due.tooEarly].filter(
     (doc): doc is DocumentRefView =>
@@ -223,6 +248,7 @@ function WhyPanel({ why }: { readonly why: ReasonWhyView }): ReactNode {
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface-2 p-3 sm:p-4">
       <Section
+        level={level}
         icon={<CalendarClock className="size-3.5" aria-hidden="true" />}
         title={t.why.dueDate}
       >
@@ -244,10 +270,13 @@ function WhyPanel({ why }: { readonly why: ReasonWhyView }): ReactNode {
           </ul>
         )}
       </Section>
-      {why.plan === undefined ? null : <PlanSection plan={why.plan} />}
-      {why.protocol === undefined ? null : <ProtocolSection protocol={why.protocol} />}
-      {why.cadence === undefined ? null : <CadenceSection cadence={why.cadence} />}
+      {why.plan === undefined ? null : <PlanSection plan={why.plan} level={level} />}
+      {why.protocol === undefined ? null : (
+        <ProtocolSection protocol={why.protocol} level={level} />
+      )}
+      {why.cadence === undefined ? null : <CadenceSection cadence={why.cadence} level={level} />}
       <Section
+        level={level}
         icon={<ClipboardCheck className="size-3.5" aria-hidden="true" />}
         title={t.why.fulfilledBy}
       >
@@ -260,6 +289,7 @@ function WhyPanel({ why }: { readonly why: ReasonWhyView }): ReactNode {
       </Section>
       {why.closedBy === undefined ? null : (
         <Section
+          level={level}
           icon={<CircleCheck className="size-3.5 text-success" aria-hidden="true" />}
           title={t.why.closedBy}
         >
@@ -276,10 +306,13 @@ function WhyPanel({ why }: { readonly why: ReasonWhyView }): ReactNode {
 export function WhyThis({
   why,
   label,
+  headingLevel = 4,
 }: {
   readonly why: ReasonWhyView | undefined;
   /** The reason's label, to name the region for screen readers. */
   readonly label: string;
+  /** Level of the panel's section headings: one below the reason's own heading (default 4). */
+  readonly headingLevel?: Level;
 }): ReactNode {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -306,7 +339,7 @@ export function WhyThis({
       </button>
       {open ? (
         <div id={panelId} role="region" aria-label={t.why.regionLabel(label)}>
-          <WhyPanel why={why} />
+          <WhyPanel why={why} level={headingLevel} />
         </div>
       ) : null}
     </div>

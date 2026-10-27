@@ -267,7 +267,12 @@ export class WhyPresenter {
     }
     const latest = new Map<string, ClinicalEvent>();
     for (const event of events) {
-      if (DOCUMENT_EVENTS.has(event.type)) {
+      // A diagnosis read from a note is the AI's reading of that note, not a record of its own.
+      const readFromNote =
+        event.type === 'condition.recorded' &&
+        (event.source.resourceType === 'DocumentReference' ||
+          event.source.resourceType === 'Composition');
+      if (DOCUMENT_EVENTS.has(event.type) && !readFromNote) {
         // A later version (a cancelled booking, a corrected result) replaces the earlier one.
         latest.set(
           `${refKey(event.source)}#${event.type === 'appointment.cancelled' ? 'appointment.booked' : event.type}`,
@@ -305,10 +310,19 @@ export class WhyPresenter {
     if (anchor === undefined || due.anchorAt === undefined || due.days === undefined) {
       return t.why.dueOnly(this.date(due.dueAt));
     }
-    const what = anchor.value === undefined ? anchor.title : `${anchor.title} ${anchor.value}`;
+    // A trigger is named by what it is ("Order: HbA1c"), anything else by its role.
+    const role =
+      due.anchorRole === 'trigger' ? anchor.kindLabel : t.why.anchorRoles[due.anchorRole];
+    // A note or a visit is named by its role alone ("note", "latest visit").
+    const what =
+      anchor.kind === 'note' || anchor.kind === 'visit'
+        ? undefined
+        : anchor.value === undefined
+          ? anchor.title
+          : `${anchor.title} ${anchor.value}`;
     return t.why.dueMath(
       this.date(due.dueAt),
-      `${t.why.anchorRoles[due.anchorRole]}: ${what}`,
+      what === undefined ? role : `${role}: ${what}`,
       this.date(due.anchorAt),
       due.days,
     );

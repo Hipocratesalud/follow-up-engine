@@ -350,8 +350,8 @@ export const ES = {
     },
     anchorRoles: {
       trigger: 'origen',
-      note: 'nota',
-      last_visit: 'última consulta',
+      note: 'la nota',
+      last_visit: 'la última consulta',
       last_done: 'última vez que se hizo',
       enrollment: 'ingreso al protocolo',
       treatment_change: 'inicio o cambio de tratamiento',

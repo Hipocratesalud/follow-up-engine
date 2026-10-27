@@ -1123,6 +1123,23 @@ const why: Messages['why'] = {
   code: (code) => `Código ${code}`,
   status: (status) => `Estado: ${status}`,
   by: (author) => `por ${author}`,
+  statuses: {
+    final: 'final',
+    amended: 'enmendado',
+    corrected: 'corregido',
+    preliminary: 'preliminar',
+    finished: 'finalizada',
+    active: 'activa',
+    completed: 'completada',
+    current: 'vigente',
+    booked: 'agendada',
+    cancelled: 'cancelada',
+    stopped: 'suspendida',
+    'on-hold': 'en pausa',
+    'entered-in-error': 'registrado por error',
+    noshow: 'no asistió',
+    fulfilled: 'cumplida',
+  },
   conditionQuote: 'Cita de la nota',
 };
 

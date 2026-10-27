@@ -143,7 +143,7 @@ function FilterButton({
       )}
     >
       {t.why.filters[filter]}
-      <span className="tabular-nums text-xs opacity-80">{count}</span>
+      <span className="text-xs tabular-nums">{count}</span>
     </button>
   );
 }
@@ -285,7 +285,12 @@ function DrawerBody({
               />
             ))}
           </div>
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div
+            className="flex-1 overflow-y-auto px-5 py-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            tabIndex={0}
+            role="region"
+            aria-label={t.why.documentsTitle(patientName)}
+          >
             <p className="mb-3 text-xs text-muted" aria-live="polite">
               {t.why.documentsCount(shown.length)}
             </p>

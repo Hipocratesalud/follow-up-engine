@@ -203,7 +203,7 @@ function ExpectationItem({
           dueAt={expectation.dueAt}
         />
       ) : null}
-      <WhyThis why={expectation.why} label={expectation.label} />
+      <WhyThis why={expectation.why} label={expectation.label} headingLevel={3} />
     </li>
   );
 }

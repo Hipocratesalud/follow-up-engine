@@ -1134,6 +1134,23 @@ const why = {
   code: (code: string): string => `Code ${code}`,
   status: (status: string): string => `Status: ${status}`,
   by: (author: string): string => `by ${author}`,
+  statuses: {
+    final: 'final',
+    amended: 'amended',
+    corrected: 'corrected',
+    preliminary: 'preliminary',
+    finished: 'finished',
+    active: 'active',
+    completed: 'completed',
+    current: 'current',
+    booked: 'booked',
+    cancelled: 'cancelled',
+    stopped: 'stopped',
+    'on-hold': 'on hold',
+    'entered-in-error': 'entered in error',
+    noshow: 'no-show',
+    fulfilled: 'fulfilled',
+  },
   conditionQuote: 'Quote from the note',
 };
 

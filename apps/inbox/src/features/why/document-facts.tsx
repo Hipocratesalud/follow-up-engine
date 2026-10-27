@@ -54,15 +54,24 @@ export function DocumentFacts({ doc }: { readonly doc: DocumentRefView }): React
     doc.specialty === undefined
       ? undefined
       : ((t.labels.specialties as Record<string, string>)[doc.specialty] ?? doc.specialty);
+  // A visit or an appointment is named by its specialty.
+  const titledBySpecialty =
+    specialty !== undefined && (doc.kind === 'visit' || doc.kind === 'appointment');
+  const status =
+    doc.status === undefined
+      ? undefined
+      : ((t.why.statuses as Record<string, string>)[doc.status] ?? doc.status);
   const meta = [
     doc.code === undefined ? undefined : t.why.code(doc.code),
-    doc.status === undefined ? undefined : t.why.status(doc.status),
-    specialty,
+    status === undefined ? undefined : t.why.status(status),
+    titledBySpecialty ? undefined : specialty,
     doc.author === undefined ? undefined : t.why.by(doc.author),
   ].filter((part): part is string => part !== undefined);
   return (
     <div className="mt-0.5 min-w-0">
-      <p className="text-sm font-medium break-words text-fg">{doc.title}</p>
+      <p className="text-sm font-medium break-words text-fg">
+        {titledBySpecialty ? specialty : doc.title}
+      </p>
       {doc.detail === undefined ? null : (
         <p className={cx('text-sm', INTERPRETATION_TONES[doc.interpretation ?? 'unknown'])}>
           {doc.detail}

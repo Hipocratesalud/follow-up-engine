@@ -347,8 +347,8 @@ export const EN = {
     },
     anchorRoles: {
       trigger: 'trigger',
-      note: 'note',
-      last_visit: 'latest visit',
+      note: 'the note',
+      last_visit: 'the latest visit',
       last_done: 'last time done',
       enrollment: 'enrollment',
       treatment_change: 'treatment start or change',
