@@ -387,7 +387,12 @@ class Sweep {
       reasons: [{ expectationId: expectation.id, reasonCode: expectation.reason.code }],
       status: 'open',
       priority: this.#priority([expectation], patient, 0),
-      assignee: caseOwner(expectation, patient.timeline, this.#deps.settings.frontDeskOwner),
+      assignee: caseOwner(
+        expectation,
+        patient.timeline,
+        this.#deps.settings.frontDeskOwner,
+        this.#catalog.definition(expectation.ruleId),
+      ),
       escalationStep: 0,
       ...optionalPolicyId(pinnedPolicyId(this.#catalog, expectation)),
       // A held backfill case neither escalates nor shows until its release day.
