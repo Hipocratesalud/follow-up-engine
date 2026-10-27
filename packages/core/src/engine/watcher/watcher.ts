@@ -12,6 +12,7 @@ import type { Catalog } from '../catalog.ts';
 import type { EngineSettings } from '../settings.ts';
 import { PatientTimeline } from '../timeline.ts';
 import { firstActionAt, releaseCase, releaseDueBackfillCases } from '../backfill/release.ts';
+import { caseExpectations } from '../escalation/schedule.ts';
 import { caseOwner } from './owner.ts';
 
 export interface WatcherDeps {
@@ -220,13 +221,8 @@ class Sweep {
     if (active.reasons.some((reason) => reason.expectationId === expectation.id)) {
       return active;
     }
-    const grouped = await Promise.all(
-      active.reasons.map((reason) =>
-        this.#stores.expectations.get(this.#clinicId, reason.expectationId),
-      ),
-    );
     const reasons = [
-      ...grouped.filter((item): item is Expectation => item !== undefined),
+      ...(await caseExpectations(this.#stores, this.#clinicId, active)),
       expectation,
     ];
     const updated = await this.#writer.update(
@@ -273,10 +269,11 @@ class Sweep {
     if (cached !== undefined) {
       return cached;
     }
-    const [events, conditions] = await Promise.all([
-      this.#stores.clinicalRecords.listEventsForPatient(this.#clinicId, patientId),
-      this.#stores.conditions.listByPatient(this.#clinicId, patientId),
-    ]);
+    const events = await this.#stores.clinicalRecords.listEventsForPatient(
+      this.#clinicId,
+      patientId,
+    );
+    const conditions = await this.#stores.conditions.listByPatient(this.#clinicId, patientId);
     const context: PatientContext = {
       timeline: new PatientTimeline(events),
       chronic: this.#catalog.protocols.some(

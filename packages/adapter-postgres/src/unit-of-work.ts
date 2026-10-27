@@ -1,12 +1,34 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { TenantMismatchError, type ClinicId, type UnitOfWork } from '@follow-up-engine/core';
-import type { Pool, PoolClient } from 'pg';
+import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import type { Queryable } from './sql.ts';
 import type { PostgresStores } from './stores.ts';
+
+/**
+ * Puts a client behind a promise queue. A connection runs one statement at
+ * a time; node-postgres used to queue concurrent `query` calls itself, but
+ * that is deprecated (gone in pg 9). Code inside a unit of work may still
+ * fire queries concurrently (`Promise.all`): they run in call order.
+ */
+export function serialize(client: Queryable): Queryable {
+  let tail: Promise<unknown> = Promise.resolve();
+  return {
+    query<TRow extends QueryResultRow>(
+      text: string,
+      values?: readonly unknown[],
+    ): Promise<QueryResult<TRow>> {
+      const run = tail.then(() => client.query<TRow>(text, values));
+      tail = run.catch(() => undefined);
+      return run;
+    },
+  };
+}
 
 /** The transaction a unit of work runs in, shared by nested calls. */
 interface TransactionScope {
   readonly client: PoolClient;
+  /** The client behind a queue: statements run one at a time, in call order. */
+  readonly queryable: Queryable;
   readonly clinicId: ClinicId;
   readonly stores: PostgresStores;
   savepoints: number;
@@ -56,7 +78,7 @@ export class TransactionContext {
    */
   readonly executor = (): Queryable => {
     const scope = this.#storage.getStore();
-    return scope?.open === true ? scope.client : this.#pool;
+    return scope?.open === true ? scope.queryable : this.#pool;
   };
 
   current(): TransactionScope | undefined {
@@ -112,8 +134,10 @@ export class PostgresUnitOfWork implements UnitOfWork {
     }
     const client = await this.#pool.connect();
     let discardClient = false;
+    const queryable = serialize(client);
     const scope: TransactionScope = {
       client,
+      queryable,
       clinicId,
       savepoints: 0,
       open: true,
@@ -121,14 +145,14 @@ export class PostgresUnitOfWork implements UnitOfWork {
         if (!scope.open) {
           throw new TransactionClosedError();
         }
-        return client;
+        return queryable;
       }),
     };
     try {
-      await client.query('BEGIN');
-      await client.query(`SELECT set_config('app.clinic_id', $1, true)`, [clinicId]);
+      await queryable.query('BEGIN');
+      await queryable.query(`SELECT set_config('app.clinic_id', $1, true)`, [clinicId]);
       const result = await this.#context.run(scope, () => work(scope.stores));
-      const commit = await client.query('COMMIT');
+      const commit = await queryable.query('COMMIT');
       // A statement failed inside `work` and the error was swallowed: Postgres
       // answers COMMIT on an aborted transaction with a silent ROLLBACK.
       if (commit.command === 'ROLLBACK') {
@@ -136,7 +160,7 @@ export class PostgresUnitOfWork implements UnitOfWork {
       }
       return result;
     } catch (error) {
-      await client.query('ROLLBACK').catch(() => {
+      await queryable.query('ROLLBACK').catch(() => {
         discardClient = true;
       });
       throw error;
@@ -152,13 +176,13 @@ export class PostgresUnitOfWork implements UnitOfWork {
   ): Promise<TResult> {
     scope.savepoints += 1;
     const savepoint = `unit_of_work_${String(scope.savepoints)}`;
-    await scope.client.query(`SAVEPOINT ${savepoint}`);
+    await scope.queryable.query(`SAVEPOINT ${savepoint}`);
     try {
       const result = await work(scope.stores);
-      await scope.client.query(`RELEASE SAVEPOINT ${savepoint}`);
+      await scope.queryable.query(`RELEASE SAVEPOINT ${savepoint}`);
       return result;
     } catch (error) {
-      await scope.client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+      await scope.queryable.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
       throw error;
     }
   }

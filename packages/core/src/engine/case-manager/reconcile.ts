@@ -56,13 +56,13 @@ export async function resolveSatisfiedCases(input: {
     if (followUpCase === undefined || !isActiveCaseStatus(followUpCase.status)) {
       continue;
     }
-    const reasons = (
-      await Promise.all(
-        followUpCase.reasons.map((reason) =>
-          input.stores.expectations.get(input.clinicId, reason.expectationId),
-        ),
-      )
-    ).filter((expectation): expectation is Expectation => expectation !== undefined);
+    const reasons: Expectation[] = [];
+    for (const reason of followUpCase.reasons) {
+      const expectation = await input.stores.expectations.get(input.clinicId, reason.expectationId);
+      if (expectation !== undefined) {
+        reasons.push(expectation);
+      }
+    }
     if (
       reasons.some(
         (expectation) => expectation.status === 'open' || expectation.status === 'expired',

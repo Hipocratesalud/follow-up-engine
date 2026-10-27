@@ -299,12 +299,11 @@ class CaseEscalator {
     payload: { readonly step: number; readonly action: EscalationAction },
   ): Promise<PatientContactDecision> {
     const { stores, clinicId, catalog, now, deps, report } = this.#input;
-    const [reasons, conditions, optedOut, lastContactAt] = await Promise.all([
-      caseExpectations(stores, clinicId, current),
-      stores.conditions.listByPatient(clinicId, current.patientId),
-      hasOptedOut(stores, clinicId, current.patientId),
-      lastPatientContactAt(stores, clinicId, current.patientId),
-    ]);
+    // One statement at a time: a transaction's connection is not concurrent.
+    const reasons = await caseExpectations(stores, clinicId, current);
+    const conditions = await stores.conditions.listByPatient(clinicId, current.patientId);
+    const optedOut = await hasOptedOut(stores, clinicId, current.patientId);
+    const lastContactAt = await lastPatientContactAt(stores, clinicId, current.patientId);
     const decision = decidePatientContact({
       clinicAllowsContact: this.#input.clinicAllowsContact,
       patientOptedOut: optedOut,

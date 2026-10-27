@@ -1,4 +1,9 @@
-import { FakeClock, TenantMismatchError, type DomainEvent } from '@follow-up-engine/core';
+import {
+  expectationId,
+  FakeClock,
+  TenantMismatchError,
+  type DomainEvent,
+} from '@follow-up-engine/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { PostgresAdapters } from './adapters.ts';
 import { at, BASE, makeCase, makeExpectation, newClinic } from './test-fixtures.ts';
@@ -48,6 +53,36 @@ describe.skipIf(testDatabaseUrl() === undefined)(databaseSuiteTitle('PostgresUni
     );
     return rows[0]?.n ?? 0;
   }
+
+  it('runs concurrent store calls inside a transaction one at a time, without pg warnings', async () => {
+    const clinicId = newClinic();
+    const expectations = Array.from({ length: 12 }, (_, index) =>
+      makeExpectation(clinicId, { id: expectationId(`exp-concurrent-${String(index)}`) }),
+    );
+    const warnings: string[] = [];
+    const onWarning = (warning: Error): void => {
+      warnings.push(warning.message);
+    };
+    process.on('warning', onWarning);
+    try {
+      const read = await pg.unitOfWork.withTransaction(clinicId, async (stores) => {
+        await Promise.all(
+          expectations.map((expectation) =>
+            stores.expectations.upsertByIdempotencyKey(clinicId, expectation),
+          ),
+        );
+        return Promise.all(
+          expectations.map((expectation) => stores.expectations.get(clinicId, expectation.id)),
+        );
+      });
+      expect(read.map((expectation) => expectation?.id)).toEqual(
+        expectations.map((expectation) => expectation.id),
+      );
+    } finally {
+      process.off('warning', onWarning);
+    }
+    expect(warnings.filter((message) => message.includes('already executing a query'))).toEqual([]);
+  });
 
   it('commits every store write together', async () => {
     const clinic = newClinic();
