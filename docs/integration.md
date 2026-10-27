@@ -644,9 +644,9 @@ The initial scan of the clinic's history finished. Counters only: how much histo
     "patientsScanned": 120,
     "eventsProcessed": 5074,
     "documentsProcessed": 671,
-    "expectationsCreated": 1765,
-    "expectationsFulfilled": 1225,
-    "casesOpened": 78,
+    "expectationsCreated": 1870,
+    "expectationsFulfilled": 1312,
+    "casesOpened": 85,
     "llmCostUsd": 0,
     "casesScheduled": 85,
     "casesNotNotified": 0
