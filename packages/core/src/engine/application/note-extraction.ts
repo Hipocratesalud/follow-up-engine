@@ -32,7 +32,7 @@ export interface DerivedFromNote {
   readonly events: readonly ClinicalEvent[];
   readonly extractedConfidence: ReadonlyMap<string, number>;
   readonly extractedMedications: readonly ExtractedMedicationHint[];
-  readonly finding?: QualityFinding;
+  readonly findings: readonly QualityFinding[];
 }
 
 /** Idempotency key of an event derived from a note: `<note key>::<suffix>`. */
@@ -54,7 +54,8 @@ export function noteKeyOfPlan(plan: PlanExtractedEvent): string {
  * `plan.extracted` event (also when the plan is empty, so the note is never
  * read twice), provisional `condition.recorded` events for confident
  * conditions, medication hints for protocol enrollment, and a
- * `note_without_plan` quality finding when the doctor wrote no plan.
+ * `note_without_plan` quality finding when the doctor wrote no plan and a
+ * `note_truncated` one when the extractor read only part of the note.
  */
 export function deriveFromExtraction(
   note: NoteReceivedEvent,
@@ -96,16 +97,18 @@ export function deriveFromExtraction(
         evidence: { quote: condition.evidenceQuote, sourceDocumentId: note.documentId },
       };
     });
-  const finding: QualityFinding | undefined = extraction.hasPlan
-    ? undefined
-    : {
-        id: `note_without_plan:${note.documentId}`,
-        clinicId: note.clinicId,
-        patientId: note.patientId,
-        kind: 'note_without_plan',
-        source: note.source,
-        detectedAt: now,
-      };
+  const finding = (kind: QualityFinding['kind']): QualityFinding => ({
+    id: `${kind}:${note.documentId}`,
+    clinicId: note.clinicId,
+    patientId: note.patientId,
+    kind,
+    source: note.source,
+    detectedAt: now,
+  });
+  const findings: QualityFinding[] = [
+    ...(extraction.hasPlan ? [] : [finding('note_without_plan')]),
+    ...(extraction.truncated === true ? [finding('note_truncated')] : []),
+  ];
   return {
     events: [plan, ...conditions],
     extractedConfidence: confidence,
@@ -113,7 +116,7 @@ export function deriveFromExtraction(
       text: `${medication.text} ${medication.code?.display ?? ''}`.trim(),
       source: note.source,
     })),
-    ...(finding === undefined ? {} : { finding }),
+    findings,
   };
 }
 

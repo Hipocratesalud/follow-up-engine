@@ -249,9 +249,7 @@ export async function applyInTransaction(
     await withdrawFromOtherPatients(deps, stores, input, now);
   }
   const { inserted } = await stores.clinicalRecords.appendEvents(input.clinicId, all);
-  const findings = input.derived.flatMap((derived) =>
-    derived.finding === undefined ? [] : [derived.finding],
-  );
+  const findings = input.derived.flatMap((derived) => derived.findings);
   for (const finding of findings) {
     await stores.qualityFindings.save(input.clinicId, finding);
   }

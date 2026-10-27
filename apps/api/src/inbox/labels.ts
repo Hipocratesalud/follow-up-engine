@@ -6,6 +6,7 @@ import type {
   ExpectationLayer,
   JsonValue,
   PlanItemKind,
+  QualityFindingKind,
 } from '@follow-up-engine/core';
 
 /*
@@ -18,7 +19,10 @@ export const FRONT_DESK_LABEL = 'Recepción';
 export const COORDINATOR_LABEL = 'Coordinación';
 export const UNKNOWN_PATIENT_LABEL = 'Paciente sin nombre registrado';
 export const DEFAULT_SUGGESTED_ACTION = 'Revisar el caso y contactar al paciente';
-export const QUALITY_FINDING_LABEL = 'Nota sin plan de seguimiento';
+export const QUALITY_FINDING_LABELS: Record<QualityFindingKind, string> = {
+  note_without_plan: 'Nota sin plan de seguimiento',
+  note_truncated: 'Nota leída en parte',
+};
 
 export const LAYER_FALLBACK_LABELS: Record<ExpectationLayer, string> = {
   universal: 'Orden sin resultado registrado',

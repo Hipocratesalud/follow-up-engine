@@ -89,6 +89,7 @@ export function createNoteExtractor(options: NoteExtractorOptions): DetailedNote
       medications: processed.medications,
       planItems: processed.planItems,
       ...(processed.discharged ? { discharged: true } : {}),
+      ...(prepared.truncated ? { truncated: true } : {}),
       ...(processed.dischargeEvidenceQuote === undefined
         ? {}
         : { dischargeEvidenceQuote: processed.dischargeEvidenceQuote }),

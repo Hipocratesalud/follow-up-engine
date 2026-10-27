@@ -181,8 +181,9 @@ the real gateway, validation and post-checks.
   the first 40% and the last 60% of the budget (about 8,000 + 12,000 characters, cut at whitespace),
   with an elision marker between them, since the plan is usually at the end. The result carries the
   `note_truncated` warning in `DetailedNoteExtraction.warnings` (also `names_masked`,
-  `tags_neutralized`): the engine and the API should show it next to the extraction, because the
-  middle of the note was not read. Quote matching is linear in the note length and works on UTF-16
+  `tags_neutralized`) and `truncated: true` on the engine's `NoteExtraction`: the engine records a
+  `note_truncated` quality finding (inbox "Nota leída en parte", FHIR `DetectedIssue`
+  `note-truncated`), because the middle of the note was not read. Quote matching is linear in the note length and works on UTF-16
   offsets that emoji and other astral characters cannot shift.
 - **Log-safe errors.** Error messages never contain model output (a reply can quote the note): an
   invalid reply is reported as "reply is not valid JSON" or as schema paths and issue codes

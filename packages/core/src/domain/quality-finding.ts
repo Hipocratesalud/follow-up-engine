@@ -1,7 +1,12 @@
 import type { ClinicId, PatientId } from './ids.ts';
 import type { ResourceRef } from './resource.ts';
 
-export type QualityFindingKind = 'note_without_plan';
+/**
+ * `note_without_plan`: the doctor wrote no follow-up plan.
+ * `note_truncated`: the note was longer than the extractor reads, so its
+ * middle was not read and the plan taken from it may be incomplete.
+ */
+export type QualityFindingKind = 'note_without_plan' | 'note_truncated';
 
 /**
  * A documentation-quality issue for the clinician, for example a note that

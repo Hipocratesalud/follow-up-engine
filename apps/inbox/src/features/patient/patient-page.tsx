@@ -29,6 +29,7 @@ const CONDITION_TONES: Record<ConditionView['status'], Tone> = {
   probable: 'warning',
   resolved: 'neutral',
   rejected: 'neutral',
+  entered_in_error: 'neutral',
 };
 
 /** Who ruled the condition out: the clinic's own system (its FHIR record) or the team here. */
@@ -192,10 +193,15 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
     (item) => item.status !== 'open' && item.status !== 'expired',
   );
   const contact = patient.contact;
-  const probable = detail.conditions.filter((condition) => condition.status === 'probable').length;
+  // A record entered in error (or moved to another patient) was never this
+  // patient's: never shown, even if an API sends it.
+  const conditions = detail.conditions.filter(
+    (condition) => condition.status !== 'entered_in_error',
+  );
+  const probable = conditions.filter((condition) => condition.status === 'probable').length;
   // Rejected readings stay on record but out of the way: a collapsed group.
-  const current = detail.conditions.filter((condition) => condition.status !== 'rejected');
-  const rejected = detail.conditions.filter((condition) => condition.status === 'rejected');
+  const current = conditions.filter((condition) => condition.status !== 'rejected');
+  const rejected = conditions.filter((condition) => condition.status === 'rejected');
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
@@ -337,8 +343,19 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
                 <div>
                   <p className="text-sm font-semibold text-fg">{finding.label}</p>
                   <p className="mt-0.5 text-sm text-muted">
-                    La nota del {formatDate(finding.at)} no indica cuándo debe volver el paciente.
-                    Sin plan, el seguimiento depende de la frecuencia habitual de la especialidad.
+                    {finding.code === 'note_truncated' ? (
+                      <>
+                        La nota del {formatDate(finding.at)} es más larga de lo que se lee: se
+                        leyeron su inicio y su final, no la parte del medio. Revisa la nota por si
+                        el plan pide algo más.
+                      </>
+                    ) : (
+                      <>
+                        La nota del {formatDate(finding.at)} no indica cuándo debe volver el
+                        paciente. Sin plan, el seguimiento depende de la frecuencia habitual de la
+                        especialidad.
+                      </>
+                    )}
                   </p>
                 </div>
               </li>

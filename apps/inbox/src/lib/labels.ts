@@ -83,6 +83,7 @@ export const CONDITION_STATUS_LABELS: Record<ConditionStatus, string> = {
   probable: 'Probable',
   resolved: 'Resuelta',
   rejected: 'Descartada',
+  entered_in_error: 'Registrada por error',
 };
 
 export const CONDITION_SOURCE_LABELS: Record<string, string> = {

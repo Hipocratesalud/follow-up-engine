@@ -264,7 +264,7 @@ export const PatientExpectationViewSchema = z.object({
 
 export const QualityFindingViewSchema = z.object({
   id: z.string(),
-  code: z.literal('note_without_plan'),
+  code: z.enum(['note_without_plan', 'note_truncated']),
   documentId: z.string(),
   at: isoDate,
   label: z.string(),

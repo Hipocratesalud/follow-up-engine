@@ -239,3 +239,60 @@ describe('conditions rejected by the clinic system', () => {
     ).toBeGreaterThan(0);
   });
 });
+
+describe('QA round 2 merge: patient view', () => {
+  it('never shows a condition the clinic system entered in error', async () => {
+    renderApp(`/pacientes/${PCOS_PATIENT}`, {
+      handlers: (store) => [
+        http.get('*/api/inbox/patients/:id', ({ params }) => {
+          const detail = store.getPatient(String(params['id']));
+          const [first, ...rest] = detail.conditions;
+          return HttpResponse.json({
+            ...detail,
+            conditions: [
+              ...rest,
+              ...(first === undefined
+                ? []
+                : [
+                    {
+                      ...first,
+                      id: 'in-error',
+                      display: 'Diagnóstico registrado por error',
+                      status: 'entered_in_error',
+                    },
+                  ]),
+            ],
+          });
+        }),
+      ],
+    });
+    expect(await screen.findByRole('heading', { name: /Condiciones/ })).toBeInTheDocument();
+    expect(screen.queryByText('Diagnóstico registrado por error')).not.toBeInTheDocument();
+    expect(screen.queryByText('Registrada por error')).not.toBeInTheDocument();
+  });
+
+  it('says when a note was too long to be read whole', async () => {
+    renderApp(`/pacientes/${PCOS_PATIENT}`, {
+      handlers: (store) => [
+        http.get('*/api/inbox/patients/:id', ({ params }) => {
+          const detail = store.getPatient(String(params['id']));
+          return HttpResponse.json({
+            ...detail,
+            qualityFindings: [
+              {
+                id: 'note_truncated:doc-1',
+                code: 'note_truncated',
+                documentId: 'doc-1',
+                at: '2026-01-05T15:00:00.000Z',
+                label: 'Nota leída en parte',
+              },
+            ],
+          });
+        }),
+      ],
+    });
+    expect(await screen.findByText('Nota leída en parte')).toBeInTheDocument();
+    expect(screen.getByText(/no la parte del medio/)).toBeInTheDocument();
+    expect(screen.queryByText(/no indica cuándo debe volver/)).not.toBeInTheDocument();
+  });
+});

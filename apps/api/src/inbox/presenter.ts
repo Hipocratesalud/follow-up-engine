@@ -39,7 +39,7 @@ import {
   FRONT_DESK_LABEL,
   LAYER_FALLBACK_LABELS,
   planItemLabel,
-  QUALITY_FINDING_LABEL,
+  QUALITY_FINDING_LABELS,
   timelineLabel,
 } from './labels.ts';
 import { icd10Label, loincLabel } from './terminology.ts';
@@ -626,7 +626,7 @@ export class InboxPresenter {
         code: finding.kind,
         documentId: finding.source.id,
         at: finding.detectedAt.toISOString(),
-        label: QUALITY_FINDING_LABEL,
+        label: QUALITY_FINDING_LABELS[finding.kind],
       })),
     };
   }

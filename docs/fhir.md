@@ -165,7 +165,7 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 
 ### Quality finding → `DetectedIssue`
 
-`status = preliminary`, `severity = low`, `code` = `https://hipocratesalud.com/fhir/CodeSystem/follow-up-quality-finding#note-without-plan`, `patient`, `identifiedDateTime` = `detectedAt`, `implicated` = the document. A suggestion to the clinician, never to the patient.
+`status = preliminary`, `severity = low`, `code` = `https://hipocratesalud.com/fhir/CodeSystem/follow-up-quality-finding#note-without-plan` (the note has no follow-up plan) or `#note-truncated` (the note was longer than the extractor reads: its head and its tail were read, its middle was not, so the plan may be incomplete), `patient`, `identifiedDateTime` = `detectedAt`, `implicated` = the document. A suggestion to the clinician, never to the patient.
 
 ### Case event → `Provenance`
 
@@ -188,7 +188,7 @@ Base: `https://hipocratesalud.com/fhir`. Every engine-defined CodeSystem, Naming
 | `CodeSystem/follow-up-closed-reason`      | the engine's `closedReason` codes                                                                                                                                                                |
 | `CodeSystem/follow-up-case-resolution`    | `fulfilled`, `handled_outside`, `not_needed`, `patient_declined`, `patient_unreachable`                                                                                                          |
 | `CodeSystem/follow-up-reason`             | reason codes from rules and protocols                                                                                                                                                            |
-| `CodeSystem/follow-up-quality-finding`    | `note-without-plan`                                                                                                                                                                              |
+| `CodeSystem/follow-up-quality-finding`    | `note-without-plan`, `note-truncated`                                                                                                                                                            |
 | `CodeSystem/follow-up-case-event`         | `opened`, `reason_added`, `released`, `notified`, `assigned`, `snoozed`, `escalated`, `patient_contact_requested`, `resolved`, `dismissed`, `reopened`, `lost_to_follow_up`, `feedback_recorded` |
 | `CodeSystem/specialty`                    | specialty codes a host may send (`diabetology`, `cardiology`, `psychology`, `gynecology`, ...)                                                                                                   |
 | `CodeSystem/follow-up-consent`            | `follow-up-opt-out`                                                                                                                                                                              |

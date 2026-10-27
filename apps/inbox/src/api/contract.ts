@@ -208,7 +208,13 @@ export interface FeedbackRequest {
   comment?: string;
 }
 
-export type ConditionStatus = 'confirmed' | 'probable' | 'resolved' | 'rejected';
+/**
+ * `entered_in_error`: the clinic system's record was entered in error or
+ * moved to another patient, so it was never this patient's. The API leaves
+ * it out of the patient view and the inbox never shows it.
+ */
+export type ConditionStatus =
+  'confirmed' | 'probable' | 'resolved' | 'rejected' | 'entered_in_error';
 
 export interface ConditionView {
   id: string;
@@ -238,7 +244,7 @@ export interface PatientExpectationView {
 
 export interface QualityFindingView {
   id: string;
-  code: 'note_without_plan';
+  code: 'note_without_plan' | 'note_truncated';
   documentId: string;
   at: string;
   label: string;

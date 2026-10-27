@@ -42,6 +42,12 @@ export interface NoteExtraction {
   readonly planItems: readonly PlanItem[];
   /** The note ends follow-up in this specialty ("se da de alta"). Absent means no. */
   readonly discharged?: boolean;
+  /**
+   * Longer than the extractor reads: its head and its tail were read, the
+   * middle was not (the engine records a `note_truncated` quality finding).
+   * Absent means the whole note was read.
+   */
+  readonly truncated?: boolean;
   readonly model: string;
   readonly promptVersion: string;
   readonly costUsd: number;

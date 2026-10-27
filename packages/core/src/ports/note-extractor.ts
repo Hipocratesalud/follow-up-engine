@@ -46,6 +46,13 @@ export interface NoteExtraction {
    * pattern stops here. Optional; absent means no.
    */
   readonly discharged?: boolean;
+  /**
+   * The note was longer than the extractor reads: its head and its tail were
+   * read, the middle was not, so the plan may be incomplete. The engine
+   * records a `note_truncated` quality finding for the clinician. Optional;
+   * absent means the whole note was read.
+   */
+  readonly truncated?: boolean;
   readonly model: string;
   readonly promptVersion: string;
   readonly costUsd: number;

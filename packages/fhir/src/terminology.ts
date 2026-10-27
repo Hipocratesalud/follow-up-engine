@@ -45,6 +45,8 @@ export const ENGINE_CODE_SYSTEMS = {
 export const CASE_TASK_CODE = 'follow-up-case';
 /** `DetectedIssue.code` for a note without a follow-up plan. */
 export const NOTE_WITHOUT_PLAN_CODE = 'note-without-plan';
+/** `DetectedIssue.code` for a note too long to be read whole (its middle was not read). */
+export const NOTE_TRUNCATED_CODE = 'note-truncated';
 /** `Consent.category` code (in {@link ENGINE_CODE_SYSTEMS.consent}) for a follow-up opt-out. */
 export const FOLLOW_UP_OPT_OUT_CONSENT_CODE = 'follow-up-opt-out';
 

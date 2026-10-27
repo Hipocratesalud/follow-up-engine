@@ -62,7 +62,7 @@ Precedence:
 2. **The doctor's plan also beats a generic universal control** (`coveredByPlan`): a short-treatment or abnormal-result control is not added when a plan visit is already due by then ("control en 10 días" after a 7-day antibiotic is one reason, not two).
 3. **Cadence needs a pattern**: at least 2 previous visits of the specialty, i.e. one interval (intervals under 7 days ignored); a single visit never makes one. **Closed episodes are not a pattern**: everything up to a discharge ("se da de alta"), a pregnancy once its postpartum visit came (`episodes`: diagnoses `O`, `Z33`-`Z36`, closed by `Z39`), an acute episode and its control (a visit that started a short course and the next visit within the course + 14 days), and the control a single visit's plan asked for when that control plans nothing further (`plannedControl`: a sprain and its control, "control en 14 días" and the control; three or more visits chained by their plans are a routine pattern and stay). A discharge read later (separate note, retried extraction) withdraws the cadence expectation it anchored (`patient_discharged`).
 4. **One case per patient and reason group.** Expectations whose rules share a `caseGroup` (`follow_up`, `pending_results`) merge into one case with all their reasons.
-5. **A note without a plan is a quality finding** (`note_without_plan`), never a case.
+5. **A note without a plan is a quality finding** (`note_without_plan`), never a case. So is a note too long to be read whole (`note_truncated`, the extractor's `truncated`): the plan read from its head and tail may be incomplete.
 
 Clinical criteria of the universal rules (config, see `config/rules/README.md`):
 

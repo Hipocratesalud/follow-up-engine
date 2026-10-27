@@ -313,6 +313,8 @@ describe('a long note keeps its end, where the plan is (security #1)', () => {
     expect(note.length).toBeGreaterThan(MAX_NOTE_CHARS);
     const { result, sent } = await read(note);
     expect(result.warnings).toContain('note_truncated');
+    // The engine port's flag: the engine records a `note_truncated` quality finding.
+    expect(result.truncated).toBe(true);
     expect(sent).toContain('Plan: Control en 1 mes.');
     expect(sent).toContain('Paciente de 60 anos.');
     expect(result.planItems.map((p) => [p.evidenceQuote, day(p.dueAt)])).toEqual([
