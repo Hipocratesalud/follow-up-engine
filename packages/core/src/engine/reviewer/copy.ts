@@ -57,7 +57,19 @@ export interface ReviewerCopy {
     readonly count: number;
     readonly from: string;
     readonly to: string;
+    /** Red flags of an unintentional weight loss, already in this locale. */
+    readonly redFlags?: readonly string[];
   }) => FindingText;
+  /** Blood pressure above target at consecutive visits with the same treatment. */
+  readonly uncontrolledBp: (args: {
+    readonly readings: string;
+    readonly count: number;
+    readonly from: string;
+    readonly to: string;
+    readonly treatment: string;
+  }) => FindingText;
+  /** Name of each red flag (`nocturnal_awakening`, `poor_appetite`). */
+  readonly redFlags: Readonly<Record<string, string>>;
   readonly abnormalResult: (args: {
     readonly label: string;
     readonly value: string;
@@ -80,6 +92,8 @@ export interface ReviewerCopy {
     readonly count: number;
     readonly specialties: readonly string[];
     readonly workup: string;
+    /** Red flags found in the notes, already in this locale. */
+    readonly redFlags?: readonly string[];
   }) => FindingText;
   readonly screenings: Readonly<
     Record<string, { readonly label: string; readonly suggestion: string }>
@@ -133,12 +147,28 @@ const EN: ReviewerCopy = {
       a.kind === 'weight'
         ? `Steady weight ${a.delta > 0 ? 'gain' : 'loss'} (${a.values} kg, ${signed(a.changePct)} %)`
         : `Systolic blood pressure rising over ${String(a.count)} visits (${a.values} mmHg)`,
-    rationale: `${String(a.count)} measurements in a row moved the same way between ${a.from} and ${a.to}.`,
+    rationale: `${String(a.count)} measurements in a row moved the same way between ${a.from} and ${a.to}.${(a.redFlags ?? []).length > 0 ? ` Red flags of an unintentional weight loss: ${(a.redFlags ?? []).join(', ')}.` : ''}`,
     suggestion:
-      a.kind === 'weight'
-        ? 'Consider exploring the cause of the weight change (diet, medication, intercurrent illness).'
-        : 'Consider confirming the readings (ambulatory or home monitoring) and reviewing the antihypertensive treatment.',
+      a.kind !== 'weight'
+        ? 'Consider confirming the readings (ambulatory or home monitoring) and reviewing the antihypertensive treatment.'
+        : (a.redFlags ?? []).length > 0
+          ? 'Consider a work-up for unintentional weight loss: history and exam, blood count, ESR/CRP, glucose, TSH, liver and renal function, and age-appropriate cancer screening.'
+          : 'Consider exploring the cause of the weight change (diet, medication, intercurrent illness).',
   }),
+  uncontrolledBp: (a) => ({
+    summary: `Blood pressure above target at ${String(a.count)} visits in a row (${a.readings} mmHg) with no treatment change`,
+    rationale: `Readings of ${a.from} and ${a.to} at or above 140/90 mmHg while the antihypertensive treatment stayed the same (${a.treatment}).`,
+    suggestion:
+      'Consider confirming the readings (ambulatory or home monitoring) and intensifying the antihypertensive treatment, with an earlier control.',
+  }),
+  redFlags: {
+    nocturnal_awakening: 'it wakes the patient at night',
+    worst_headache: 'sudden or worst-ever headache',
+    neurological_deficit: 'a neurological deficit',
+    older_age: 'age 65 or older',
+    poor_appetite: 'poor appetite',
+    severe_loss: 'a loss of 10 % or more',
+  },
   abnormalResult: (a) => ({
     summary: `${a.label} of ${a.value} ${a.unit} with no visit or comment afterwards`,
     rationale: `Result of ${a.date} ${a.high ? 'well above' : 'well below'} range (${a.high ? `target < ${a.threshold}` : `> ${a.threshold}`} ${a.unit}); ${String(a.days)} days ago, with no visit, upcoming appointment or note about it.`,
@@ -252,8 +282,11 @@ const EN: ReviewerCopy = {
   },
   symptomFinding: (a) => ({
     summary: `${capitalize(a.label)} mentioned in ${String(a.count)} visits without a workup`,
-    rationale: `It appears in ${String(a.count)} notes of the last year${a.specialties.length > 1 ? ` (${a.specialties.join(', ')})` : ''} and none records a test or a referral for it.`,
-    suggestion: `Consider ${a.workup}.`,
+    rationale: `It appears in ${String(a.count)} notes of the last year${a.specialties.length > 1 ? ` (${a.specialties.join(', ')})` : ''} and none records a test or a referral for it.${(a.redFlags ?? []).length > 0 ? ` Red flags: ${(a.redFlags ?? []).join(', ')}.` : ''}`,
+    suggestion:
+      (a.redFlags ?? []).length > 0
+        ? `Consider a prompt assessment: ${a.workup}, given the red flags.`
+        : `Consider ${a.workup}.`,
   }),
   screenings: {
     diabetic_fundus: {
@@ -345,12 +378,28 @@ const ES: ReviewerCopy = {
       a.kind === 'weight'
         ? `Peso ${a.delta > 0 ? 'en aumento' : 'en descenso'} sostenido (${a.values} kg, ${signed(a.changePct)} %)`
         : `Presión arterial sistólica en ascenso en ${String(a.count)} controles (${a.values} mmHg)`,
-    rationale: `${String(a.count)} mediciones seguidas en la misma dirección entre el ${a.from} y el ${a.to}.`,
+    rationale: `${String(a.count)} mediciones seguidas en la misma dirección entre el ${a.from} y el ${a.to}.${(a.redFlags ?? []).length > 0 ? ` Signos de alarma de una pérdida de peso no buscada: ${(a.redFlags ?? []).join(', ')}.` : ''}`,
     suggestion:
-      a.kind === 'weight'
-        ? 'Considera explorar la causa del cambio de peso (dieta, medicación, enfermedad intercurrente).'
-        : 'Considera confirmar las cifras (MAPA o automedida) y revisar el tratamiento antihipertensivo.',
+      a.kind !== 'weight'
+        ? 'Considera confirmar las cifras (MAPA o automedida) y revisar el tratamiento antihipertensivo.'
+        : (a.redFlags ?? []).length > 0
+          ? 'Considera estudiar la pérdida de peso no buscada: anamnesis y examen, hemograma, VSG/PCR, glucemia, TSH, función hepática y renal, y tamizaje oncológico según la edad.'
+          : 'Considera explorar la causa del cambio de peso (dieta, medicación, enfermedad intercurrente).',
   }),
+  uncontrolledBp: (a) => ({
+    summary: `Presión arterial fuera de meta en ${String(a.count)} controles seguidos (${a.readings} mmHg) sin cambio de tratamiento`,
+    rationale: `Cifras del ${a.from} y del ${a.to} en 140/90 mmHg o más, con el mismo tratamiento antihipertensivo (${a.treatment}).`,
+    suggestion:
+      'Considera confirmar las cifras (MAPA o automedida) e intensificar el tratamiento antihipertensivo, con un control más cercano.',
+  }),
+  redFlags: {
+    nocturnal_awakening: 'la despierta o lo despierta en la noche',
+    worst_headache: 'inicio súbito o la peor cefalea de su vida',
+    neurological_deficit: 'un déficit neurológico',
+    older_age: '65 años o más',
+    poor_appetite: 'menos apetito',
+    severe_loss: 'una pérdida del 10 % o más',
+  },
   abnormalResult: (a) => ({
     summary: `${a.label} de ${a.value} ${a.unit} sin consulta ni comentario posterior`,
     rationale: `Resultado del ${a.date} ${a.high ? 'muy por encima' : 'muy por debajo'} del rango (${a.high ? `objetivo < ${a.threshold}` : `> ${a.threshold}`} ${a.unit}); hace ${String(a.days)} días y no hay visita, cita próxima ni nota que lo comente.`,
@@ -468,8 +517,11 @@ const ES: ReviewerCopy = {
   },
   symptomFinding: (a) => ({
     summary: `${capitalize(a.label)} mencionado en ${String(a.count)} consultas sin estudio`,
-    rationale: `Aparece en ${String(a.count)} notas del último año${a.specialties.length > 1 ? ` (${a.specialties.join(', ')})` : ''} y ninguna registra un estudio o una derivación por ese síntoma.`,
-    suggestion: `Considera ${a.workup}.`,
+    rationale: `Aparece en ${String(a.count)} notas del último año${a.specialties.length > 1 ? ` (${a.specialties.join(', ')})` : ''} y ninguna registra un estudio o una derivación por ese síntoma.${(a.redFlags ?? []).length > 0 ? ` Signos de alarma: ${(a.redFlags ?? []).join(', ')}.` : ''}`,
+    suggestion:
+      (a.redFlags ?? []).length > 0
+        ? `Considera una evaluación pronta: ${a.workup}, por los signos de alarma.`
+        : `Considera ${a.workup}.`,
   }),
   screenings: {
     diabetic_fundus: {

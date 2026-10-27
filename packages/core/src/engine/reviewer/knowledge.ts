@@ -32,9 +32,19 @@ export interface MeasurementDefinition {
   readonly worseWhen: 'up' | 'down' | 'either';
   /** Smallest relative change (%) over the trend that counts as a trend. */
   readonly minChangePct: number;
-  /** Words a note uses when the doctor comments on it (a commented trend is not silent). */
+  /**
+   * Words a note uses when the doctor comments on it (a commented trend is not
+   * silent), whole words, abbreviations included: "RAC 222 mg/g", "Cr 1.4",
+   * "K+ 5.2", "TFGe 48", "Hb glicosilada 8 %".
+   */
   readonly mentions: readonly string[];
   readonly decimals: number;
+  /**
+   * A trend that never leaves the reference range is at most `low`. With a
+   * margin, it is not reported at all unless its latest value comes within
+   * the margin of the limit (potassium 3.9 → 4.8 is noise, 4.1 → 5.0 is not).
+   */
+  readonly inRangeMargin?: number;
 }
 
 export const MEASUREMENTS: readonly MeasurementDefinition[] = [
@@ -49,7 +59,20 @@ export const MEASUREMENTS: readonly MeasurementDefinition[] = [
     high: 1.2,
     worseWhen: 'up',
     minChangePct: 15,
-    mentions: ['creatinina', 'funcion renal', 'tfg', 'filtrado', 'nefropatia', 'erc', 'renal'],
+    mentions: [
+      'creatinina',
+      'creatininemia',
+      'creat',
+      'cr',
+      'funcion renal',
+      'tfg',
+      'tfge',
+      'egfr',
+      'filtrado',
+      'nefropatia',
+      'erc',
+      'renal',
+    ],
     decimals: 2,
   },
   {
@@ -61,7 +84,20 @@ export const MEASUREMENTS: readonly MeasurementDefinition[] = [
     low: 60,
     worseWhen: 'down',
     minChangePct: 15,
-    mentions: ['filtrado', 'tfg', 'funcion renal', 'erc', 'renal', 'creatinina'],
+    mentions: [
+      'filtrado',
+      'tfg',
+      'tfge',
+      'egfr',
+      'gfr',
+      'fge',
+      'ckd-epi',
+      'funcion renal',
+      'erc',
+      'renal',
+      'creatinina',
+      'cr',
+    ],
     decimals: 0,
   },
   {
@@ -76,8 +112,13 @@ export const MEASUREMENTS: readonly MeasurementDefinition[] = [
     minChangePct: 10,
     mentions: [
       'hba1c',
+      'hgba1c',
       'hemoglobina glicosilada',
       'hemoglobina glucosilada',
+      'hemoglobina glicada',
+      'hb glicosilada',
+      'hb glucosilada',
+      'glicohemoglobina',
       'a1c',
       'control glucemico',
     ],
@@ -118,8 +159,9 @@ export const MEASUREMENTS: readonly MeasurementDefinition[] = [
     high: 5.1,
     worseWhen: 'up',
     minChangePct: 10,
-    mentions: ['potasio', 'kalemia', 'hiperkalemia', 'hiperpotasemia'],
+    mentions: ['potasio', 'kalemia', 'kaliemia', 'hiperkalemia', 'hiperpotasemia', 'k+', 'k'],
     decimals: 1,
+    inRangeMargin: 0.2,
   },
   {
     key: 'hemoglobin',
@@ -131,19 +173,31 @@ export const MEASUREMENTS: readonly MeasurementDefinition[] = [
     high: 17.5,
     worseWhen: 'down',
     minChangePct: 10,
-    mentions: ['hemoglobina', 'anemia', 'hb '],
+    mentions: ['hemoglobina', 'anemia', 'hb ', 'hgb'],
     decimals: 1,
   },
   {
     key: 'uacr',
-    names: ['albuminuria', 'microalbuminuria', 'uacr'],
+    names: ['albuminuria', 'microalbuminuria', 'uacr', 'rac', 'acr'],
     kind: 'lab',
     loinc: ['9318-7', '14959-1', '14958-3'],
     unit: 'mg/g',
     high: 30,
     worseWhen: 'up',
     minChangePct: 25,
-    mentions: ['albuminuria', 'microalbuminuria', 'proteinuria'],
+    mentions: [
+      'albuminuria',
+      'microalbuminuria',
+      'microalb',
+      'proteinuria',
+      'rac',
+      'acr',
+      'uacr',
+      'albumina/creatinina',
+      'relacion albumina/creatinina',
+      'cociente albumina/creatinina',
+      'indice albumina/creatinina',
+    ],
     decimals: 0,
   },
   {
@@ -467,6 +521,124 @@ export const SYMPTOMS: readonly SymptomDefinition[] = [
     terms: ['cansancio', 'fatiga', 'astenia', 'fatigue', 'tiredness'],
   },
 ];
+
+/**
+ * Red flags that make a recurring symptom urgent (`high`), named in the
+ * finding. Read only in the sentence that mentions the symptom, and never
+ * when denied ("sin déficit neurológico").
+ */
+export interface RedFlag {
+  readonly key: string;
+  /** Folded phrases, Spanish and English. */
+  readonly terms: readonly string[];
+}
+
+export const SYMPTOM_RED_FLAGS: Readonly<Record<string, readonly RedFlag[]>> = {
+  headache: [
+    {
+      key: 'nocturnal_awakening',
+      terms: [
+        'la despierta',
+        'lo despierta',
+        'le despierta',
+        'despierta en la noche',
+        'despertar nocturno',
+        'nocturna',
+        'wakes her',
+        'wakes him',
+        'wakes the patient',
+        'at night',
+      ],
+    },
+    {
+      key: 'worst_headache',
+      terms: [
+        'peor de su vida',
+        'peor cefalea',
+        'peor dolor de cabeza',
+        'en trueno',
+        'subita',
+        'subito',
+        'de inicio brusco',
+        'worst headache',
+        'thunderclap',
+        'sudden onset',
+      ],
+    },
+    {
+      key: 'neurological_deficit',
+      terms: [
+        'deficit neurologico',
+        'focalidad',
+        'focal',
+        'debilidad en',
+        'hemiparesia',
+        'paresia',
+        'diplopia',
+        'disartria',
+        'afasia',
+        'perdida de vision',
+        'convulsion',
+        'neurological deficit',
+        'weakness in',
+        'slurred speech',
+      ],
+    },
+  ],
+};
+
+/** Words of a note that record a poor appetite (a red flag of a weight loss). */
+export const POOR_APPETITE_TERMS = [
+  'menos apetito',
+  'poco apetito',
+  'falta de apetito',
+  'perdida de apetito',
+  'perdida del apetito',
+  'disminucion del apetito',
+  'hiporexia',
+  'anorexia',
+  'inapetencia',
+  'sin apetito',
+  'poor appetite',
+  'loss of appetite',
+  'decreased appetite',
+];
+
+/** Words of a note that make a weight loss intended (a diet, a weight-loss drug, surgery). */
+export const INTENDED_WEIGHT_LOSS_TERMS = [
+  'bajar de peso',
+  'perder peso',
+  'reducir peso',
+  'reduccion de peso',
+  'dieta hipocalorica',
+  'plan de adelgazamiento',
+  'cirugia bariatrica',
+  'manga gastrica',
+  'bypass gastrico',
+  'semaglutid',
+  'liraglutid',
+  'tirzepatid',
+  'lose weight',
+  'weight loss program',
+];
+
+/** ATC prefixes of weight-loss drugs (GLP-1 receptor agonists, antiobesity agents). */
+export const WEIGHT_LOSS_DRUG_ATC = ['A10BJ', 'A08'];
+
+/** A steady weight loss at least this large (%) over 12 months is a red flag. */
+export const WEIGHT_LOSS_RED_FLAG_PCT = 5;
+/** A loss this large (%) is a red flag on its own. */
+export const WEIGHT_LOSS_SEVERE_PCT = 10;
+/** From this age a 5 % unintentional loss is a red flag on its own. */
+export const WEIGHT_LOSS_OLDER_AGE = 65;
+
+/** ATC prefixes of antihypertensive drugs (a treatment change for uncontrolled pressure). */
+export const ANTIHYPERTENSIVE_ATC = ['C02', 'C03', 'C07', 'C08', 'C09'];
+
+/** Office blood pressure at or above this (systolic or diastolic) is not controlled. */
+export const UNCONTROLLED_BP = { systolic: 140, diastolic: 90 } as const;
+/** At or above this it is severe (`high`). */
+export const SEVERE_BP = { systolic: 160, diastolic: 100 } as const;
 
 /** Words that, right before a symptom, deny it ("niega cefalea", "sin disnea"). */
 export const NEGATIONS = [

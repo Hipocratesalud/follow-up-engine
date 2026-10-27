@@ -6,15 +6,25 @@ import type { CitableDocument, MedicationEntry, NoteDocument, ReviewDossier } fr
 import { isoDay } from './dossier.ts';
 import {
   ALLERGY_TERMS,
+  ANTIHYPERTENSIVE_ATC,
   classKeysOf,
   DRUG_CONDITION_RULES,
   INTERACTION_RULES,
   MEASUREMENTS,
   type MeasurementDefinition,
+  INTENDED_WEIGHT_LOSS_TERMS,
   NEGATIONS,
+  POOR_APPETITE_TERMS,
   PRE_VISIT_QUESTIONS,
   SCREENING_RULES,
+  SEVERE_BP,
+  SYMPTOM_RED_FLAGS,
   SYMPTOMS,
+  UNCONTROLLED_BP,
+  WEIGHT_LOSS_DRUG_ATC,
+  WEIGHT_LOSS_OLDER_AGE,
+  WEIGHT_LOSS_RED_FLAG_PCT,
+  WEIGHT_LOSS_SEVERE_PCT,
   WORKUP_TERMS,
 } from './knowledge.ts';
 import {
@@ -28,6 +38,8 @@ import {
 } from './text.ts';
 import { ckdEpi2021, formatValue, type TrendSummary } from './trends.ts';
 import { refKey, withoutWithdrawnRecords } from '../timeline.ts';
+import { atcCodeOf } from '../terminology/atc.ts';
+import { foldText } from '../support/text.ts';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -84,6 +96,21 @@ function commentedAfter(
 
 // Lab trends ------------------------------------------------------------------------
 
+function inRange(measurement: MeasurementDefinition, value: number): boolean {
+  return (
+    (measurement.low === undefined || value >= measurement.low) &&
+    (measurement.high === undefined || value <= measurement.high)
+  );
+}
+
+/** Whether an in-range value is close enough to the limit to report (always, without a margin). */
+function nearsLimit(measurement: MeasurementDefinition, value: number): boolean {
+  const margin = measurement.inRangeMargin;
+  if (margin === undefined) return true;
+  const limit = measurement.worseWhen === 'down' ? measurement.low : measurement.high;
+  return limit !== undefined && Math.abs(limit - value) <= margin + 1e-9;
+}
+
 function labTrends(dossier: ReviewDossier): SignalDraft[] {
   const signals: SignalDraft[] = [];
   for (const trend of dossier.trends) {
@@ -100,8 +127,13 @@ function labTrends(dossier: ReviewDossier): SignalDraft[] {
     // A trend the doctor already wrote about is not silent.
     if (commentedAfter(dossier, measurement, run[1]?.at ?? first.at)) continue;
     const rising = change > 0;
-    const severity: FindingSeverity =
-      trend.latestOutOfRange && Math.abs(change) >= 2 * measurement.minChangePct
+    // A trend that never left the reference range is at most low; for some
+    // measurements (potassium) it is noise unless it nears the limit.
+    const withinRange = run.every((point) => inRange(measurement, point.value));
+    if (withinRange && !nearsLimit(measurement, last.value)) continue;
+    const severity: FindingSeverity = withinRange
+      ? 'low'
+      : trend.latestOutOfRange && Math.abs(change) >= 2 * measurement.minChangePct
         ? 'high'
         : 'medium';
     const documents = run.flatMap((point) => {
@@ -147,12 +179,18 @@ function vitalTrends(dossier: ReviewDossier): SignalDraft[] {
     const delta = last.value - first.value;
     const change = (delta / first.value) * 100;
     let severity: FindingSeverity;
+    let redFlags: string[] = [];
     if (measurement.key === 'weight') {
       if (Math.abs(change) < measurement.minChangePct) continue;
       severity = Math.abs(change) >= 10 ? 'medium' : 'low';
+      if (delta < 0) {
+        redFlags = weightLossRedFlags(dossier, trend, last.at);
+        if (redFlags.length > 0) severity = 'high';
+      }
     } else if (measurement.key === 'systolic_bp') {
-      if (!(last.value >= (measurement.high ?? 140) || delta >= 15)) continue;
-      severity = last.value >= 160 ? 'high' : 'medium';
+      // A rise that stays within the normal range is not a finding.
+      if (last.value < (measurement.high ?? UNCONTROLLED_BP.systolic)) continue;
+      severity = last.value >= SEVERE_BP.systolic ? 'high' : 'medium';
     } else {
       continue;
     }
@@ -172,13 +210,162 @@ function vitalTrends(dossier: ReviewDossier): SignalDraft[] {
         count: run.length,
         from: isoDay(first.at),
         to: isoDay(last.at),
+        ...(redFlags.length > 0
+          ? { redFlags: redFlags.map((flag) => dossier.copy.redFlags[flag] ?? flag) }
+          : {}),
       }),
       evidence: documents,
       topic: { test: measurement.key },
       rule: `vital_trend:${measurement.key}`,
     });
   }
-  return signals;
+  return [...signals, ...uncontrolledBloodPressure(dossier, signals)];
+}
+
+/** Notes of the last `days` before `until` (inclusive). */
+function notesWithin(dossier: ReviewDossier, until: Date, days: number): NoteDocument[] {
+  const since = until.getTime() - days * MS_PER_DAY;
+  return dossier.notes.filter(
+    (note) =>
+      note.occurredAt.getTime() >= since &&
+      note.occurredAt.getTime() <= until.getTime() + MS_PER_DAY,
+  );
+}
+
+/** Whether a note affirms one of the phrases (not denied right before it). */
+function affirms(note: NoteDocument, terms: readonly string[]): boolean {
+  const text = foldWithMap(note.text);
+  return findTerms(text, terms).some((hit) => !isNegated(text, hit.start, NEGATIONS));
+}
+
+/**
+ * Red flags of a weight loss over the last 12 months (`[]` when none, or when
+ * the loss was intended: a diet, a weight-loss drug or surgery): at least 5 %
+ * and a loss of 10 % or more, age 65 or older, or a poor appetite in the notes.
+ */
+function weightLossRedFlags(dossier: ReviewDossier, trend: TrendSummary, latestAt: Date): string[] {
+  const latest = trend.points.at(-1);
+  if (latest === undefined) return [];
+  const since = latestAt.getTime() - 365 * MS_PER_DAY;
+  const year = trend.points.filter((point) => point.at.getTime() >= since - 30 * MS_PER_DAY);
+  const top = Math.max(...year.map((point) => point.value));
+  if (!Number.isFinite(top) || top <= 0) return [];
+  const lossPct = ((top - latest.value) / top) * 100;
+  if (lossPct < WEIGHT_LOSS_RED_FLAG_PCT) return [];
+  const notes = notesWithin(dossier, latestAt, 400);
+  const intended =
+    notes.some((note) => affirms(note, INTENDED_WEIGHT_LOSS_TERMS)) ||
+    dossier.medications.some(
+      (medication) =>
+        medication.active &&
+        WEIGHT_LOSS_DRUG_ATC.some((prefix) => medication.atc?.startsWith(prefix) === true),
+    );
+  if (intended) return [];
+  const flags: string[] = [];
+  if (lossPct >= WEIGHT_LOSS_SEVERE_PCT) flags.push('severe_loss');
+  if (dossier.ageYears !== undefined && dossier.ageYears >= WEIGHT_LOSS_OLDER_AGE) {
+    flags.push('older_age');
+  }
+  if (notes.some((note) => affirms(note, POOR_APPETITE_TERMS))) flags.push('poor_appetite');
+  return flags;
+}
+
+/** The antihypertensive regimen as of the end of `day`: drug and dose of each latest prescription. */
+function antihypertensiveRegimen(dossier: ReviewDossier, day: Date): Map<string, string> {
+  const end = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()) + MS_PER_DAY;
+  const regimen = new Map<string, string>();
+  const prescriptions = withoutWithdrawnRecords(dossier.snapshot.events)
+    .filter((event) => event.type === 'medication.prescribed')
+    .filter((event) => event.startAt.getTime() < end)
+    .sort((left, right) => left.startAt.getTime() - right.startAt.getTime());
+  for (const event of prescriptions) {
+    const atc = atcCodeOf(event.medication);
+    if (atc === undefined || !ANTIHYPERTENSIVE_ATC.some((prefix) => atc.startsWith(prefix))) {
+      continue;
+    }
+    const ended =
+      event.durationDays !== undefined &&
+      event.startAt.getTime() + event.durationDays * MS_PER_DAY < end - MS_PER_DAY;
+    if (ended) {
+      regimen.delete(atc);
+      continue;
+    }
+    regimen.set(atc, foldText(`${event.medication.text} ${event.dosageText ?? ''}`).trim());
+  }
+  return regimen;
+}
+
+function sameRegimen(
+  left: ReadonlyMap<string, string>,
+  right: ReadonlyMap<string, string>,
+): boolean {
+  return left.size === right.size && [...left].every(([atc, dose]) => right.get(atc) === dose);
+}
+
+/**
+ * Therapeutic inertia: office blood pressure at or above 140/90 at the last
+ * two visits (at least four weeks apart, in the last 18 months), on an
+ * antihypertensive treatment that did not change between them. Not raised
+ * twice when a rising systolic trend already reports those readings. Severe
+ * (`high`) at 160/100 or more.
+ */
+function uncontrolledBloodPressure(
+  dossier: ReviewDossier,
+  already: readonly SignalDraft[],
+): SignalDraft[] {
+  if (already.some((signal) => signal.rule === 'vital_trend:systolic_bp')) return [];
+  const systolic = dossier.trends.find((trend) => trend.test === 'systolic_bp')?.points ?? [];
+  const diastolic = dossier.trends.find((trend) => trend.test === 'diastolic_bp')?.points ?? [];
+  const readings = systolic
+    .filter((point) => point.at.getTime() >= daysAgo(dossier, 540))
+    .map((point) => ({
+      systolic: point,
+      diastolic: diastolic.find((other) => other.at.getTime() === point.at.getTime()),
+    }));
+  const last = readings.slice(-2);
+  const [previous, latest] = last;
+  if (previous === undefined || latest === undefined) return [];
+  if (latest.systolic.at.getTime() - previous.systolic.at.getTime() < 28 * MS_PER_DAY) return [];
+  const uncontrolled = (reading: (typeof readings)[number]): boolean =>
+    reading.systolic.value >= UNCONTROLLED_BP.systolic ||
+    (reading.diastolic?.value ?? 0) >= UNCONTROLLED_BP.diastolic;
+  if (!last.every(uncontrolled)) return [];
+  const before = antihypertensiveRegimen(dossier, previous.systolic.at);
+  const after = antihypertensiveRegimen(dossier, latest.systolic.at);
+  if (after.size === 0 || !sameRegimen(before, after)) return [];
+  const treatment = dossier.medications.filter(
+    (medication) =>
+      medication.active &&
+      ANTIHYPERTENSIVE_ATC.some((prefix) => medication.atc?.startsWith(prefix) === true),
+  );
+  const documents = [
+    ...last.flatMap((reading) => [reading.systolic.handle, reading.diastolic?.handle]),
+    ...treatment.map((medication) => medication.handle),
+  ].flatMap((handle) => {
+    const document = handle === undefined ? undefined : dossier.documents.get(handle);
+    return document === undefined ? [] : [quoteOf(document)];
+  });
+  const severe =
+    latest.systolic.value >= SEVERE_BP.systolic ||
+    (latest.diastolic?.value ?? 0) >= SEVERE_BP.diastolic;
+  const show = (reading: (typeof readings)[number]): string =>
+    `${formatValue(reading.systolic.value, 0)}/${reading.diastolic === undefined ? '?' : formatValue(reading.diastolic.value, 0)}`;
+  return [
+    {
+      category: 'vital_trend',
+      severity: severe ? 'high' : 'medium',
+      ...dossier.copy.uncontrolledBp({
+        readings: last.map(show).join(' → '),
+        count: last.length,
+        from: isoDay(previous.systolic.at),
+        to: isoDay(latest.systolic.at),
+        treatment: treatment.map(drugLabel).join(', '),
+      }),
+      evidence: documents,
+      topic: { test: 'systolic_bp' },
+      rule: 'vital_trend:uncontrolled_bp',
+    },
+  ];
 }
 
 // Abnormal result without follow-up ----------------------------------------------------
@@ -313,10 +500,19 @@ function conditionDocument(
   dossier: ReviewDossier,
   prefixes: readonly string[],
 ): CitableDocument | undefined {
-  const condition = dossier.conditions.find(
-    (entry) =>
-      entry.handle !== undefined && prefixes.some((prefix) => entry.code.startsWith(prefix)),
-  );
+  // The doctor's coded diagnosis first: a probable inferred one cites a result.
+  const candidates = dossier.conditions
+    .filter(
+      (entry) =>
+        entry.handle !== undefined && prefixes.some((prefix) => entry.code.startsWith(prefix)),
+    )
+    .sort(
+      (left, right) =>
+        Number(right.status === 'confirmed') - Number(left.status === 'confirmed') ||
+        Number(dossier.documents.get(right.handle ?? '')?.kind === 'condition') -
+          Number(dossier.documents.get(left.handle ?? '')?.kind === 'condition'),
+    );
+  const condition = candidates[0];
   return condition?.handle === undefined ? undefined : dossier.documents.get(condition.handle);
 }
 
@@ -373,6 +569,8 @@ function drugConditionConflicts(dossier: ReviewDossier): SignalDraft[] {
 interface Mention {
   readonly note: NoteDocument;
   readonly quote: string;
+  /** The folded sentence around the mention. */
+  readonly sentence: string;
   readonly workedUp: boolean;
 }
 
@@ -385,10 +583,31 @@ function mentionsOf(note: NoteDocument, terms: readonly string[]): Mention | und
     return {
       note,
       quote: sentenceAround(text, hit.start, hit.end),
+      sentence,
       workedUp: WORKUP_TERMS.some((term) => sentence.includes(term)),
     };
   }
   return undefined;
+}
+
+/** Whether a note names the symptom only to deny it ("MsIs sin edema", "niega cefalea"). */
+function deniedIn(note: NoteDocument, terms: readonly string[]): boolean {
+  const text = foldWithMap(note.text);
+  const hits = findTerms(text, terms);
+  return hits.length > 0 && hits.every((hit) => isNegated(text, hit.start, NEGATIONS));
+}
+
+/** The red flags affirmed in the sentences that mention the symptom, in the order of the table. */
+function redFlagsOf(symptomKey: string, mentions: readonly Mention[]): string[] {
+  const flags = SYMPTOM_RED_FLAGS[symptomKey] ?? [];
+  return flags
+    .filter((flag) =>
+      mentions.some((mention) => {
+        const text = foldWithMap(mention.sentence);
+        return findTerms(text, flag.terms).some((hit) => !isNegated(text, hit.start, NEGATIONS));
+      }),
+    )
+    .map((flag) => flag.key);
 }
 
 function unaddressedSymptoms(dossier: ReviewDossier): SignalDraft[] {
@@ -402,8 +621,18 @@ function unaddressedSymptoms(dossier: ReviewDossier): SignalDraft[] {
     const specialties = new Set(mentions.map((mention) => mention.note.specialty ?? 'unknown'));
     if (mentions.length < 3 && !(mentions.length >= 2 && specialties.size >= 2)) continue;
     if (mentions.some((mention) => mention.workedUp)) continue;
+    // Not current: a later note denies it ("MsIs sin edema" at the last visit).
+    const lastAffirmed = mentions.at(-1)?.note.occurredAt.getTime() ?? 0;
+    if (
+      recent.some(
+        (note) => note.occurredAt.getTime() > lastAffirmed && deniedIn(note, symptom.terms),
+      )
+    ) {
+      continue;
+    }
     const cited = mentions.slice(-3);
-    const urgent = symptom.key === 'chest_pain' || symptom.key === 'dyspnea';
+    const redFlags = redFlagsOf(symptom.key, mentions);
+    const urgent = symptom.key === 'chest_pain' || symptom.key === 'dyspnea' || redFlags.length > 0;
     const text = dossier.copy.symptoms[symptom.key];
     if (text === undefined) continue;
     const labels = [...specialties]
@@ -417,6 +646,9 @@ function unaddressedSymptoms(dossier: ReviewDossier): SignalDraft[] {
         count: mentions.length,
         specialties: labels,
         workup: text.workup,
+        ...(redFlags.length > 0
+          ? { redFlags: redFlags.map((flag) => dossier.copy.redFlags[flag] ?? flag) }
+          : {}),
       }),
       evidence: cited.map((mention) => ({ handle: mention.note.handle, quote: mention.quote })),
       // The search term the agent's `get_notes` uses: the note's own word.

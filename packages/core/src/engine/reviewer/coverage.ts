@@ -4,10 +4,14 @@ import type { Catalog } from '../catalog.ts';
 import { parseCodeMatchKey } from '../matching/match-key.ts';
 import { refKey } from '../timeline.ts';
 import type { ReviewDossier } from './dossier.ts';
-import { MEASUREMENTS, SCREENING_RULES } from './knowledge.ts';
+import { MEASUREMENTS, SCREENING_RULES, type ScreeningRule } from './knowledge.ts';
 import { foldWithMap } from './text.ts';
 import { type Signal, utilizationWindow } from './detectors.ts';
 import type { FindingDraft } from './validation.ts';
+
+const DAY_MS = 86_400_000;
+/** An expectation due further out than this does not cover a missing check-up. */
+export const SCREENING_COVER_DAYS = 90;
 
 /**
  * Every test code that fulfills each expectation, from the clinic's catalog:
@@ -81,8 +85,6 @@ export function coverageOf(
       ? ruleKeys.includes(rule.key)
       : rule.coverageTerms.some((term) => text.includes(term)),
   );
-  const screeningRules = screenings.flatMap((rule) => rule.coveredByRules);
-  const screeningCodes = new Set(screenings.flatMap((rule) => rule.resultLoinc ?? []));
   /** The codes of the test an expectation asks for: its own and, from the catalog, its equivalents. */
   const testCodesOf = (expectation: Expectation): Set<string> => {
     const codes = new Set(dossier.snapshot.expectationTestCodes?.get(expectation.id) ?? []);
@@ -93,10 +95,18 @@ export function coverageOf(
   const asksFor = (expectation: Expectation, wanted: ReadonlySet<string>): boolean =>
     [...testCodesOf(expectation)].some((code) => wanted.has(code));
 
+  /** A protocol check-up item, or a request of the check-up's own test. */
+  const asksForScreening = (expectation: Expectation, rule: ScreeningRule): boolean =>
+    rule.coveredByRules.includes(expectation.ruleId) ||
+    (rule.key === 'diabetic_fundus' && expectation.matchKey.endsWith('fundus-exam')) ||
+    asksFor(expectation, new Set(rule.resultLoinc ?? []));
+  /** Due soon enough to count: a check-up next due in ten months does not cover one never done. */
+  const dueSoon = (expectation: Expectation): boolean =>
+    expectation.dueAt.getTime() <= dossier.snapshot.now.getTime() + SCREENING_COVER_DAYS * DAY_MS;
+
   const covers = (expectation: Expectation): boolean => {
     switch (draft.category) {
-      case 'lab_trend':
-      case 'abnormal_result_no_followup': {
+      case 'lab_trend': {
         if (
           cited.has(refKey(expectation.source)) ||
           reportsOfCited.has(refKey(expectation.source))
@@ -105,11 +115,18 @@ export function coverageOf(
         }
         return asksFor(expectation, citedCodes);
       }
+      // An abnormal result nobody reviewed is covered only by an action on that
+      // very result (the review visit it triggered), never by a routine re-test
+      // of the same analyte nor by a visit planned before the result existed.
+      case 'abnormal_result_no_followup':
+        return (
+          (cited.has(refKey(expectation.source)) ||
+            reportsOfCited.has(refKey(expectation.source))) &&
+          !asksFor(expectation, citedCodes)
+        );
       case 'missing_screening':
         return (
-          screeningRules.includes(expectation.ruleId) ||
-          (screeningRules.length > 0 && expectation.matchKey.endsWith('fundus-exam')) ||
-          asksFor(expectation, screeningCodes)
+          dueSoon(expectation) && screenings.some((rule) => asksForScreening(expectation, rule))
         );
       // Nothing the engine tracks answers these: a drug combination, a symptom, a
       // question or a trend in vital signs is never covered by an expectation.
@@ -141,6 +158,15 @@ export function coverageOf(
   const live = liveExpectations.filter(
     (expectation) => expectation.status === 'open' || expectation.status === 'expired',
   );
+  // A finding about several check-ups is covered only when every one of them is.
+  if (
+    draft.category === 'missing_screening' &&
+    !screenings.every((rule) =>
+      live.some((expectation) => dueSoon(expectation) && asksForScreening(expectation, rule)),
+    )
+  ) {
+    return [];
+  }
   for (const expectation of live.filter(covers)) {
     coverage.push({ kind: 'expectation', id: expectation.id, code: expectation.ruleId });
     const holder = activeCases.find((item) =>

@@ -143,9 +143,14 @@ export async function reviewRecord(
     discarded[reason] = (discarded[reason] ?? 0) + 1;
   };
   const knownSignals = new Set(signals.map((signal) => signal.id));
+  const signalRules = new Map(signals.map((signal) => [signal.id, signal.rule]));
   const findings: ReviewedFinding[] = [];
   for (const proposal of candidates) {
-    const check = checkProposal(proposal, dossier, { enabled: options.enabled, knownSignals });
+    const check = checkProposal(proposal, dossier, {
+      enabled: options.enabled,
+      knownSignals,
+      signalRules,
+    });
     if (!check.ok) {
       count(check.reason);
       continue;
