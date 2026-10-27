@@ -391,10 +391,13 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
       'caseId',
       'communicationRequest',
       'dueBy',
+      'language',
       'patientId',
       'purpose',
       'task',
     ]);
+    // The host never stated the patient's language: it writes in the clinic's.
+    expect(request.payload.data['language']).toBeNull();
 
     const missingReason = await call<{
       error: { code: string; fields: { path: string; message: string }[] };
