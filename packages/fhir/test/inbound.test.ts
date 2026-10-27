@@ -132,6 +132,16 @@ describe('consultation bundles, one per specialty', () => {
     expect(resources.every(({ patientId }) => patientId === DM_PATIENT)).toBe(true);
   });
 
+  it('returns the practitioners and organizations of a bundle as context resources', () => {
+    const { contextResources } = map(loadBundle('consultation-diabetology'));
+    expect(contextResources).toEqual([
+      expect.objectContaining({
+        resourceType: 'Practitioner',
+        id: '5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e02',
+      }),
+    ]);
+  });
+
   it('hypertension: PUT entries, HTML note, Medication by reference, ICD-10-CM and an uncoded order', () => {
     const result = map(loadBundle('consultation-hypertension'));
     const batch = onlyBatch(result);

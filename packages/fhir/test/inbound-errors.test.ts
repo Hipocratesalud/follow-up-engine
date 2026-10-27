@@ -66,6 +66,7 @@ describe('envelope', () => {
     expect(map({ resourceType: 'Bundle', type: 'transaction' })).toEqual({
       batches: [],
       resources: [],
+      contextResources: [],
       issues: undefined,
     });
   });

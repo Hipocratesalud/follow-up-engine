@@ -45,7 +45,7 @@ Validation is tolerant (unknown elements are accepted and kept in the stored res
 | `Patient`           | engine opt-out extension with `valueBoolean: true`                                                                                          | `patient.opted_out`       |                                                                                                                                                                                                                                                                                                                                                                                       | `meta.lastUpdated`                                                   |
 | `Consent`           | `status = active`, `provision.type = deny`, `category` has `https://hipocratesalud.com/fhir/CodeSystem/follow-up-consent#follow-up-opt-out` | `patient.opted_out`       |                                                                                                                                                                                                                                                                                                                                                                                       | `dateTime`                                                           |
 
-Missing clinical times fall back to the `receivedAt` the caller passes. `Medication`, `Practitioner`, `PractitionerRole`, `Organization`, `Location`, `Device`, `Specimen`, `RelatedPerson` and `HealthcareService` are context: resolved by reference, never reported. Other resource types are ignored with an `information` issue.
+Missing clinical times fall back to the `receivedAt` the caller passes. `Medication`, `Practitioner`, `PractitionerRole`, `Organization`, `Location`, `Device`, `Specimen`, `RelatedPerson` and `HealthcareService` are context: resolved by reference, never reported, and returned as `contextResources` (references resolved) so the API can keep the host's directory of practitioners and organizations. Other resource types are ignored with an `information` issue.
 
 ### Idempotency
 
@@ -893,6 +893,7 @@ And one of its expectations, from the doctor's plan:
 mapBundleToBatches(bundle: unknown, options: { clinicId: ClinicId | string; receivedAt: Date }): {
   batches: readonly ClinicalBatch[];
   resources: readonly { patientId: PatientId; resource: FhirResourceJson }[]; // for ClinicalRecordRepository.saveResource
+  contextResources: readonly FhirResourceJson[]; // Practitioner, Organization, ...: not patient-scoped
   issues: OperationOutcome | undefined;
 };
 validateBundle(bundle: unknown): { ok: boolean; outcome: OperationOutcome | undefined };
