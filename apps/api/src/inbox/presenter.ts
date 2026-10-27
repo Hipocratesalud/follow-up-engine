@@ -23,6 +23,7 @@ import {
   type PatientId,
   policyOf,
   practitionerId,
+  withoutSubsumedConditions,
 } from '@follow-up-engine/core';
 import { taskPriority } from '@follow-up-engine/fhir';
 import type { EngineRuntime } from '@follow-up-engine/runtime';
@@ -189,21 +190,15 @@ export function conditionView(t: ApiMessages, condition: PatientCondition): Cond
 
 /**
  * Hides a probable condition when the clinician already recorded or confirmed
- * one of the same ICD-10 category (the note says "DM2", the record has
- * E11.9): asking to confirm what the chart already states is noise.
+ * the same disease (the note says "DM2", the record has E11.9; an E14
+ * inferred from an HbA1c next to the coded E11.9; J03 read from a note next
+ * to the recorded J02.9): asking to confirm what the chart already states is
+ * noise. The subsumption table is core's (`withoutSubsumedConditions`).
  */
 export function withoutConfirmedDuplicates(
   conditions: readonly PatientCondition[],
 ): PatientCondition[] {
-  const confirmed = new Set(
-    conditions
-      .filter((condition) => condition.status === 'confirmed')
-      .map((condition) => condition.code.code.slice(0, 3)),
-  );
-  return conditions.filter(
-    (condition) =>
-      condition.status !== 'probable' || !confirmed.has(condition.code.code.slice(0, 3)),
-  );
+  return withoutSubsumedConditions(conditions);
 }
 
 /** Rules whose reason is a result that came back abnormal: the most urgent thing to act on. */
