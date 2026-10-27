@@ -1,7 +1,18 @@
-import type { ResourceRef, ResultInterpretation } from '@follow-up-engine/core';
+import type {
+  Coding,
+  ResourceRef,
+  ResultInterpretation,
+  ResultReceivedEvent,
+} from '@follow-up-engine/core';
 import { TERMINOLOGY } from '../../terminology.ts';
 import { firstDate } from '../../support/datetime.ts';
-import { hasCode, type ConceptInput, type EntryContext, type MappedResource } from '../context.ts';
+import {
+  hasCode,
+  pickCoding,
+  type ConceptInput,
+  type EntryContext,
+  type MappedResource,
+} from '../context.ts';
 import type { ParsedResourceOf } from '../schemas.ts';
 import { orderCoding } from './orders.ts';
 
@@ -25,6 +36,22 @@ export function interpretationOf(
     return 'normal';
   }
   return 'unknown';
+}
+
+/** The numeric value of an Observation (`valueQuantity`), with its unit (`unit`, else the UCUM `code`). */
+export function quantityValue(
+  observation: ParsedResourceOf<'Observation'>,
+): ResultReceivedEvent['value'] {
+  const quantity = observation.valueQuantity;
+  if (quantity?.value === undefined) {
+    return undefined;
+  }
+  const unit = quantity.unit ?? quantity.code;
+  return unit === undefined ? { value: quantity.value } : { value: quantity.value, unit };
+}
+
+function sameCode(left: Coding, right: Coding): boolean {
+  return left.system === right.system && left.code === right.code;
 }
 
 /** Worst interpretation wins: any abnormal → abnormal; all normal → normal; else unknown. */
@@ -103,8 +130,15 @@ export function mapDiagnosticReport(
     const target =
       result.reference === undefined ? undefined : ctx.bundle.resolve(result.reference);
     const observation = target === undefined ? undefined : ctx.bundle.parsed('Observation', target);
-    return observation === undefined ? [] : [interpretationOf(observation.interpretation)];
+    return observation === undefined ? [] : [observation];
   });
+  // A report of a single test (HbA1c) carries the value of its member of the same code.
+  const valued = members.filter((observation) => {
+    const memberCode = pickCoding(observation.code, [TERMINOLOGY.loinc]);
+    return memberCode !== undefined && sameCode(memberCode, code) && quantityValue(observation);
+  });
+  const value =
+    valued.length === 1 && valued[0] !== undefined ? quantityValue(valued[0]) : undefined;
   const orderId = orderIdFrom(report.basedOn, ctx);
   return {
     ...scope,
@@ -120,8 +154,11 @@ export function mapDiagnosticReport(
           ),
         ),
         code,
-        interpretation: combine(members),
+        interpretation: combine(
+          members.map((observation) => interpretationOf(observation.interpretation)),
+        ),
         ...(orderId === undefined ? {} : { basedOnOrderId: orderId }),
+        ...(value === undefined ? {} : { value }),
       },
     ],
   };
@@ -165,6 +202,7 @@ export function mapObservation(
         reference.reference === undefined ? undefined : ctx.bundle.resolve(reference.reference),
       )
       .find((target) => target?.resourceType === 'ServiceRequest')?.id;
+  const value = quantityValue(observation);
   return {
     ...scope,
     events: [
@@ -182,6 +220,7 @@ export function mapObservation(
         code,
         interpretation: interpretationOf(observation.interpretation),
         ...(orderId === undefined ? {} : { basedOnOrderId: orderId }),
+        ...(value === undefined ? {} : { value }),
       },
     ],
   };

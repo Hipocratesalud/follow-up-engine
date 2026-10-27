@@ -53,6 +53,12 @@ export const SPECIALTIES = [
 ] as const;
 export type Specialty = (typeof SPECIALTIES)[number];
 
+/**
+ * Canonical base of every engine-defined artifact (CodeSystems, NamingSystems,
+ * extensions), shared with `@follow-up-engine/fhir` (`ENGINE_FHIR_BASE`).
+ */
+export const ENGINE_FHIR_BASE = 'https://hipocratesalud.com/fhir';
+
 /** Terminology URIs used by the fixtures. */
 export const SYSTEMS = {
   icd10: 'http://hl7.org/fhir/sid/icd-10',
@@ -61,9 +67,9 @@ export const SYSTEMS = {
   atc: 'http://www.whocc.no/atc',
   ucum: 'http://unitsofmeasure.org',
   /** Local code system for the clinic's specialties (codes = {@link SPECIALTIES}). */
-  specialty: 'https://follow-up-engine.dev/fhir/CodeSystem/specialty',
+  specialty: `${ENGINE_FHIR_BASE}/CodeSystem/specialty`,
   /** Local identifier system for the demo clinic's patients. */
-  patientIdentifier: 'https://follow-up-engine.dev/fhir/sid/demo-patient',
+  patientIdentifier: `${ENGINE_FHIR_BASE}/NamingSystem/demo-patient`,
   actCode: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
   observationInterpretation: 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
   observationCategory: 'http://terminology.hl7.org/CodeSystem/observation-category',

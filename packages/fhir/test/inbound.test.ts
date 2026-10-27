@@ -255,6 +255,15 @@ describe('other host events', () => {
     expect(results[2]?.occurredAt).toEqual(new Date('2026-01-14T11:30:00Z'));
   });
 
+  it('results: Observation.valueQuantity becomes the value; a single-test report carries it too', () => {
+    const results = eventsOf(onlyBatch(map(loadBundle('result-hba1c'))), 'result.received');
+    expect(results.map((result) => result.value)).toEqual([
+      { value: 8.1, unit: '%' },
+      { value: 8.1, unit: '%' },
+      { value: 96, unit: 'mg/dL' },
+    ]);
+  });
+
   it('appointments: booked then cancelled, keyed by version', () => {
     const [booked] = eventsOf(
       onlyBatch(map(loadBundle('appointment-booked'))),

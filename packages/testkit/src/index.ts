@@ -18,6 +18,7 @@ export {
   SPECIALTIES,
   type Specialty,
   SYSTEMS,
+  ENGINE_FHIR_BASE,
 } from './constants.ts';
 
 // FHIR R4 validation

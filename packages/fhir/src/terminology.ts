@@ -37,6 +37,8 @@ export const ENGINE_CODE_SYSTEMS = {
   consent: codeSystem('follow-up-consent'),
   /** Placeholder system for orders that arrive with free text only. */
   uncoded: codeSystem('uncoded'),
+  /** Local procedure codes protocols expect when no standard code fits (`fundus-exam`). */
+  procedure: codeSystem('procedure'),
 } as const;
 
 /** `Task.code` of a case Task in {@link ENGINE_CODE_SYSTEMS.taskType}. */
