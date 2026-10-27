@@ -89,6 +89,18 @@ export const ENGINE_EXTENSIONS = {
    * text from the note) and `source` (`valueReference` to the DocumentReference).
    */
   evidence: structureDefinition('follow-up-evidence'),
+  /**
+   * Appointment, `valueReference` to the case `Task` (or the
+   * `CommunicationRequest`) the booking answers: attribution of bookings to
+   * the follow-up engine (HIP-141).
+   */
+  followUpOriginCase: structureDefinition('follow-up-origin-case'),
+  /**
+   * Task (case), on each `input` (one per reason), complex: `ruleId`,
+   * `ruleVersion`, `layer` (`valueCode`), `protocolId`, `protocolVersion`
+   * (`valueString`): which versioned rule or protocol produced the reason.
+   */
+  reasonRule: structureDefinition('follow-up-reason-rule'),
   /** Task (case), `valueInteger`: index into the escalation policy. */
   escalationStep: structureDefinition('follow-up-escalation-step'),
   /** Task (case), `valueString`: the named, versioned escalation policy the case follows. */

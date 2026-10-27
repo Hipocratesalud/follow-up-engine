@@ -48,6 +48,37 @@ export {
   type FeedbackInput,
 } from './case-manager/commands.ts';
 export {
+  caseOpenedAt,
+  computeClinicMetrics,
+  inPeriod,
+  isFirstAction,
+  noteOf,
+  quantile,
+  type AiCostMetrics,
+  type BackfillMetrics,
+  type BookingMetrics,
+  type CaseCohortMetrics,
+  type ClinicMetrics,
+  type ConditionReviewMetrics,
+  type DismissalMetrics,
+  type DurationDistribution,
+  type FeedbackMetrics,
+  type MetricsInput,
+  type OriginSplit,
+  type PlanItemReviewMetrics,
+} from './metrics/metrics.ts';
+export {
+  DEFAULT_METRICS_PERIOD_DAYS,
+  MAX_METRICS_PERIOD_DAYS,
+  metricsPeriod,
+} from './metrics/service.ts';
+export {
+  originTypeOf,
+  recordAttendance,
+  recordCaseBookings,
+  verifyAppointmentOrigins,
+} from './attribution/attribution.ts';
+export {
   CALIBRATION_FEEDBACK_LIMIT,
   type CalibrationReport,
   type RuleCalibration,

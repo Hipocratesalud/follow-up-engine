@@ -232,6 +232,8 @@ export interface ProtocolRef {
 export interface CaseReasonView {
   expectationId: string;
   ruleId: string;
+  /** Version of the rule that produced the reason (HIP-141); absent from older APIs. */
+  ruleVersion?: string;
   layer: Layer;
   label: string;
   /** Only for protocol layer reasons. */

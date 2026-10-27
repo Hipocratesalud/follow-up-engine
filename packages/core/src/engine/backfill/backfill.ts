@@ -14,6 +14,7 @@ import type { BackfillProgress } from '../../ports/backfill-progress.ts';
 import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
 import { LlmBudgetExceededError } from '../../ports/llm.ts';
 import type { TransactionalStores } from '../../ports/unit-of-work.ts';
+import { verifyAppointmentOrigins } from '../attribution/attribution.ts';
 import {
   applyInTransaction,
   extractNotes,
@@ -125,8 +126,12 @@ export async function stageHistory(
       );
     }
   }
-  return deps.unitOfWork.withTransaction(batch.clinicId, (stores) =>
-    stores.clinicalRecords.appendEvents(batch.clinicId, batch.events),
+  return deps.unitOfWork.withTransaction(batch.clinicId, async (stores) =>
+    stores.clinicalRecords.appendEvents(
+      batch.clinicId,
+      // A booking's claimed origin is verified before it is stored, as live.
+      await verifyAppointmentOrigins(stores, batch.clinicId, batch.events),
+    ),
   );
 }
 

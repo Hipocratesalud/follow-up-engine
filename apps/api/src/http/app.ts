@@ -8,6 +8,7 @@ import { registerDemoRoutes } from './demo-routes.ts';
 import { errorResponse, HttpError, toHttpError } from './errors.ts';
 import { fhirErrorResponse, registerFhirRoutes } from './fhir-routes.ts';
 import { registerInboxRoutes } from './inbox-routes.ts';
+import { registerMetricsRoutes } from '../metrics/metrics-routes.ts';
 import { registerJobRoutes } from './job-routes.ts';
 import { registerReviewerDemoRoutes, registerReviewerRoutes } from './reviewer-routes.ts';
 import { docsPage, openApiDocument } from './openapi.ts';
@@ -323,6 +324,7 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   registerJobRoutes(app, runtime);
   registerInboxRoutes(app, runtime);
   registerReviewerRoutes(app, runtime);
+  registerMetricsRoutes(app, runtime);
   if (runtime.fakeClock !== undefined) {
     registerDemoRoutes(app, runtime, runtime.fakeClock, options.worker);
     registerReviewerDemoRoutes(app, runtime);

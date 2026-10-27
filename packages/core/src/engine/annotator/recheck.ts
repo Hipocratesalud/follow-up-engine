@@ -1,6 +1,7 @@
 import type { ClinicalEvent } from '../../domain/clinical-event.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import type { TransactionalStores } from '../../ports/unit-of-work.ts';
+import { recordAttendance } from '../attribution/attribution.ts';
 import { reopened } from '../case-manager/reconcile.ts';
 import type { Catalog } from '../catalog.ts';
 import {
@@ -92,5 +93,14 @@ export async function recheckFulfilled(input: {
     next.recheckAt = recheckAt;
   }
   await stores.expectations.update(expectation.clinicId, next);
+  // A booking kept: its visit fulfills it now (HIP-141 attended metrics).
+  await recordAttendance({
+    stores,
+    expectation: next,
+    previous: expectation.closedBy,
+    event,
+    timeline: input.timeline,
+    now,
+  });
   return { kind: 'refulfilled', expectation: next };
 }

@@ -17,6 +17,7 @@ import {
 import { PostgresExpectationRepository } from './expectation-repository.ts';
 import { PostgresJobQueue } from './job-queue.ts';
 import { PostgresLlmUsageLog } from './llm-usage-log.ts';
+import { PostgresMetricsReadModel } from './metrics-read-model.ts';
 import { PostgresOutbox } from './outbox.ts';
 import type { Queryable, Tables } from './sql.ts';
 
@@ -39,6 +40,7 @@ export interface PostgresStores extends TransactionalStores {
   readonly clinicalFindings: PostgresClinicalFindingRepository;
   readonly reviewRuns: PostgresClinicalReviewRunRepository;
   readonly findingFlags: PostgresFindingFlagRepository;
+  readonly metrics: PostgresMetricsReadModel;
 }
 
 export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): PostgresStores {
@@ -61,5 +63,6 @@ export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): P
     clinicalFindings: new PostgresClinicalFindingRepository(ctx),
     reviewRuns: new PostgresClinicalReviewRunRepository(ctx),
     findingFlags: new PostgresFindingFlagRepository(ctx),
+    metrics: new PostgresMetricsReadModel(ctx),
   };
 }

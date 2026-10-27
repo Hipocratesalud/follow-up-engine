@@ -142,8 +142,20 @@ export const EncounterSchema = z.object({
   period: PeriodSchema.optional(),
 }) satisfies z.ZodType<Partial<R4.Encounter>>;
 
+/** An `Appointment` extension the engine reads (the follow-up case it answers, HIP-141). */
+const AppointmentExtensionSchema = z.object({
+  url: fhirString,
+  valueReference: ReferenceSchema.optional(),
+}) satisfies z.ZodType<R4.Extension>;
+
 export const AppointmentSchema = z.object({
   ...resourceBase('Appointment'),
+  extension: z.array(AppointmentExtensionSchema).optional(),
+  // Attribution (HIP-141): the case `Task` or the `CommunicationRequest` the
+  // booking answers. `basedOn` targets ServiceRequest in strict R4 profiles;
+  // `supportingInformation` (Reference(Any)) and the extension are conformant.
+  basedOn: z.array(ReferenceSchema).optional(),
+  supportingInformation: z.array(ReferenceSchema).optional(),
   status: z.enum([
     'proposed',
     'pending',

@@ -7,6 +7,7 @@
 export * from './domain/ids.ts';
 export * from './domain/resource.ts';
 export * from './domain/clinical-event.ts';
+export * from './domain/attribution.ts';
 export type * from './domain/common.ts';
 export * from './domain/expectation.ts';
 export * from './domain/case.ts';

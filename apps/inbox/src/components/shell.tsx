@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   CalendarClock,
   FlaskConical,
   HeartPulse,
@@ -19,6 +20,7 @@ import {
 import { cx } from '../lib/cx.ts';
 import { formatDate } from '../lib/format.ts';
 import { REVIEW_COPY } from '../features/reviewer/copy.ts';
+import { metricsCopy } from '../features/metrics/copy.ts';
 import { ThemeToggle } from './theme.tsx';
 
 interface NavItem {
@@ -151,6 +153,7 @@ export function Shell(): ReactNode {
       count: findings.data?.counts.byStatus.open,
     },
   ];
+  items.push({ to: '/metricas', label: metricsCopy().nav.label, icon: BarChart3 });
   if (clock.data) items.push({ to: '/demo', label: 'Demo', icon: FlaskConical });
 
   return (

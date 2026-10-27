@@ -36,6 +36,7 @@ import {
 } from './note-extraction.ts';
 import { scheduleReviewAfterIngest } from '../reviewer/service.ts';
 import { withListedResultWithdrawals } from './report-withdrawals.ts';
+import { verifyAppointmentOrigins } from '../attribution/attribution.ts';
 
 export interface IngestDeps {
   readonly unitOfWork: UnitOfWork;
@@ -245,10 +246,16 @@ export async function applyInTransaction(
   input: ApplyBatchInput,
 ): Promise<Omit<IngestReport, 'notes' | 'eventsReceived'>> {
   const derivedEvents = input.derived.flatMap((derived) => derived.events);
-  const all = await withListedResultWithdrawals(stores, input.clinicId, input.patientId, [
-    ...input.events,
-    ...derivedEvents,
-  ]);
+  // A booking's claimed origin (case, contact attempt) is verified before
+  // it is stored (HIP-141 attribution).
+  const all = await verifyAppointmentOrigins(
+    stores,
+    input.clinicId,
+    await withListedResultWithdrawals(stores, input.clinicId, input.patientId, [
+      ...input.events,
+      ...derivedEvents,
+    ]),
+  );
   const now = input.now ?? deps.clock.now();
   if (input.asOf === undefined) {
     await withdrawFromOtherPatients(deps, stores, input, now);

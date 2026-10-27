@@ -48,6 +48,7 @@ import {
   DismissalSummary,
 } from './contact-panel.tsx';
 import { FeedbackPanel } from './feedback-panel.tsx';
+import { ReasonRuleVersion } from '../metrics/rule-version.tsx';
 
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   ServiceRequest: 'Orden',
@@ -90,6 +91,11 @@ function ReasonCard({
         </p>
       </div>
       <ReasonProtocol protocol={reason.protocol} />
+      <ReasonRuleVersion
+        ruleId={reason.ruleId}
+        ruleVersion={reason.ruleVersion}
+        protocol={reason.protocol}
+      />
       {reason.evidence ? <EvidenceExcerpt evidence={reason.evidence} /> : null}
     </li>
   );

@@ -42,6 +42,7 @@ export type { MappedClinicalEvent, MappedCommunication } from './inbound/context
 export { expectationToTask, EXPECTATION_TASK_STATUS } from './outbound/expectation-task.ts';
 export {
   caseToTask,
+  type CaseTaskOptions,
   CASE_PRIORITY_THRESHOLDS,
   CASE_TASK_STATUS,
   taskPriority,

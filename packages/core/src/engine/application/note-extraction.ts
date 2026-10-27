@@ -88,7 +88,12 @@ export function deriveFromExtraction(
       : { replacesDocumentIds: note.replacesDocumentIds }),
     items: extraction.planItems,
     ...(extraction.discharged === true ? { discharged: true } : {}),
-    extractor: { model: extraction.model, promptVersion: extraction.promptVersion },
+    extractor: {
+      model: extraction.model,
+      promptVersion: extraction.promptVersion,
+      // What reading the note cost: attributed to the cases its plan opens (metrics).
+      costUsd: extraction.costUsd,
+    },
   };
   const confidence = new Map<string, number>();
   const conditions = extraction.conditions

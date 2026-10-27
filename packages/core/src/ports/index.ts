@@ -15,6 +15,7 @@ export type * from './feedback-repository.ts';
 export type * from './id-generator.ts';
 export type * from './job-queue.ts';
 export type * from './llm-usage-log.ts';
+export * from './metrics-read-model.ts';
 export type * from './note-extractor.ts';
 export type * from './suppression-repository.ts';
 export type * from './unit-of-work.ts';

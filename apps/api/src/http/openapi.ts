@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import './schemas.ts';
 import './reviewer-schemas.ts';
+import '../metrics/schemas.ts';
 
 /*
  * OpenAPI 3.1 document of the API. Component schemas are generated from the
@@ -346,6 +347,25 @@ const OPERATIONS: readonly Operation[] = [
     summary: 'Per rule: useful rate and dismissals by reason (rule calibration)',
     params: [{ name: 'since', in: 'query', description: 'ISO 8601 date-time' }],
     response: 'CalibrationReport',
+    errors: [422],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/metrics',
+    tag: 'Inbox',
+    summary:
+      'Clinic metrics: bookings attributed or organic, attendance, time to first action, AI cost',
+    description:
+      'Cohort numbers follow the cases that reached the inbox in [from, to) up to now; activity numbers (AI cost, review runs, extraction reviews) count what happened in the period. Definitions: docs/metrics.md.',
+    params: [
+      {
+        name: 'from',
+        in: 'query',
+        description: 'ISO 8601 date-time, inclusive (default: to - 30 days)',
+      },
+      { name: 'to', in: 'query', description: 'ISO 8601 date-time, exclusive (default: now)' },
+    ],
+    response: 'ClinicMetrics',
     errors: [422],
   },
   {

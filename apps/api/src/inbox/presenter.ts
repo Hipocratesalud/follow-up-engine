@@ -770,6 +770,7 @@ export class InboxPresenter {
     return {
       expectationId: expectation.id,
       ruleId: expectation.ruleId,
+      ruleVersion: expectation.ruleVersion,
       layer: expectation.layer,
       label: this.reasonLabel(expectation.ruleId, expectation),
       ...(protocol === undefined ? {} : { protocol }),

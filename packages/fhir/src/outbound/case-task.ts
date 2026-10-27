@@ -1,4 +1,4 @@
-import type { CaseStatus, FollowUpCase } from '@follow-up-engine/core';
+import type { CaseReason, CaseStatus, Expectation, FollowUpCase } from '@follow-up-engine/core';
 import type { Extension, Task } from '../fhir-types.ts';
 import { toFhirInstant } from '../support/datetime.ts';
 import { toFhirId } from '../support/hash.ts';
@@ -69,14 +69,59 @@ function statusReason(followUpCase: FollowUpCase): Task['statusReason'] {
 }
 
 /**
+ * Which versioned rule (and protocol) produced a reason, on its `Task.input`
+ * (HIP-141): a clinician or an auditor can tell a case raised by
+ * `protocol_diabetes_hba1c` 1.2.0 from one raised by 1.3.0 without opening
+ * the expectation Task.
+ */
+function reasonRuleExtension(expectation: Expectation | undefined): Extension[] {
+  if (expectation === undefined) {
+    return [];
+  }
+  return ext.complex(ENGINE_EXTENSIONS.reasonRule, [
+    ...ext.code('ruleId', expectation.ruleId),
+    ...ext.string('ruleVersion', expectation.ruleVersion),
+    ...ext.code('layer', expectation.layer),
+    ...ext.code('protocolId', expectation.protocolId),
+    ...ext.string('protocolVersion', expectation.protocolVersion),
+  ]);
+}
+
+function reasonInput(
+  reason: CaseReason,
+  expectations: ReadonlyMap<string, Expectation>,
+): NonNullable<Task['input']>[number] {
+  const extension = reasonRuleExtension(expectations.get(reason.expectationId));
+  return {
+    ...(extension.length === 0 ? {} : { extension }),
+    type: concept(ENGINE_CODE_SYSTEMS.reason, reason.reasonCode),
+    valueReference: taskReference(reason.expectationId),
+  };
+}
+
+/** Outbound options of a case `Task`. */
+export interface CaseTaskOptions {
+  /**
+   * The case's reasons (its expectations): each `input` then says which
+   * rule and protocol version produced it ({@link ENGINE_EXTENSIONS.reasonRule}).
+   */
+  readonly reasons?: readonly Expectation[];
+}
+
+/**
  * A follow-up case as a FHIR `Task` (code `follow-up-case`, intent
  * `proposal`: the engine suggests, the clinic decides).
  *
  * - `status`: {@link CASE_TASK_STATUS}; `businessStatus`: the exact engine status.
  * - `priority`: {@link taskPriority}; `owner`: the assignee (host user).
- * - `input`: one entry per reason, typed by the reason code, pointing at the expectation Task.
+ * - `input`: one entry per reason, typed by the reason code, pointing at the
+ *   expectation Task, with the rule and protocol versions behind it when
+ *   `options.reasons` are given.
  */
-export function caseToTask(followUpCase: FollowUpCase): Task {
+export function caseToTask(followUpCase: FollowUpCase, options: CaseTaskOptions = {}): Task {
+  const expectations = new Map(
+    (options.reasons ?? []).map((expectation) => [expectation.id as string, expectation]),
+  );
   const extension: Extension[] = [
     ...ext.integer(ENGINE_EXTENSIONS.escalationStep, followUpCase.escalationStep),
     ...ext.integer(ENGINE_EXTENSIONS.priorityScore, followUpCase.priority),
@@ -120,10 +165,7 @@ export function caseToTask(followUpCase: FollowUpCase): Task {
     ...(followUpCase.reasons.length === 0
       ? {}
       : {
-          input: followUpCase.reasons.map((reason) => ({
-            type: concept(ENGINE_CODE_SYSTEMS.reason, reason.reasonCode),
-            valueReference: taskReference(reason.expectationId),
-          })),
+          input: followUpCase.reasons.map((reason) => reasonInput(reason, expectations)),
         }),
   };
 }

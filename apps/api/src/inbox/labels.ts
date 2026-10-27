@@ -13,6 +13,7 @@ import type {
   PlanItemKind,
   QualityFindingKind,
 } from '@follow-up-engine/core';
+import { attributionTimelineLabel } from '../metrics/labels.ts';
 
 /*
  * Spanish UI copy the API returns to the clinic inbox (neutral Spanish, "tú").
@@ -370,5 +371,9 @@ export function timelineLabel(
       return 'Sin respuesta tras todos los escalamientos: perdido en seguimiento';
     case 'feedback_recorded':
       return payload['useful'] === true ? 'Marcado como útil' : 'Marcado como no útil';
+    case 'appointment_booked':
+    case 'appointment_attended':
+      // HIP-141 copy lives in its own en/es module; this timeline is Spanish today.
+      return attributionTimelineLabel(event, 'es') ?? '';
   }
 }
