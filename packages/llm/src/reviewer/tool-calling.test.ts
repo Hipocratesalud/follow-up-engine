@@ -63,12 +63,15 @@ function toolCallReply(name: string, args: string, content: string | null = null
 }
 
 describe('native tool calling (Meta Model API)', () => {
-  it('sends every tool with its JSON Schema and requires a call', async () => {
+  it('sends every tool with its JSON Schema, with the only tool_choice Meta accepts', async () => {
     const { fetch, calls } = mockFetch(toolCallReply('get_lab_trend', '{"test":"creatinine"}'));
     const provider = createMetaProvider({ apiKey: 'k', fetch });
     const result = await provider.complete(request);
     const body = calls[0]?.body ?? {};
-    expect(body['tool_choice']).toBe('required');
+    // The Meta Model API answers 400 "only `auto` is supported for `tool_choice`"
+    // to "required", "none" and named choices (observed 2026-10-27). A reply
+    // without a call is repaired by the gateway instead (next test).
+    expect(body['tool_choice']).toBe('auto');
     expect(body['parallel_tool_calls']).toBe(false);
     expect(body['response_format']).toBeUndefined();
     const sent = body['tools'] as {
@@ -107,6 +110,29 @@ describe('native tool calling (Meta Model API)', () => {
     const error: unknown = await provider.complete(request).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(LlmSchemaError);
     expect((error as LlmSchemaError).repairable).toBe(true);
+  });
+});
+
+describe('native tool calling (other OpenAI-compatible endpoints)', () => {
+  it('requires a call by default, and sends auto when configured', async () => {
+    const required = mockFetch(toolCallReply('get_medications', '{}'));
+    await createOpenAiCompatibleProvider({
+      name: 'other',
+      baseUrl: 'https://example.invalid/v1',
+      apiKey: 'k',
+      fetch: required.fetch,
+    }).complete(request);
+    expect(required.calls[0]?.body['tool_choice']).toBe('required');
+
+    const auto = mockFetch(toolCallReply('get_medications', '{}'));
+    await createOpenAiCompatibleProvider({
+      name: 'other',
+      baseUrl: 'https://example.invalid/v1',
+      apiKey: 'k',
+      toolChoice: 'auto',
+      fetch: auto.fetch,
+    }).complete(request);
+    expect(auto.calls[0]?.body['tool_choice']).toBe('auto');
   });
 });
 

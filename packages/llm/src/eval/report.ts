@@ -33,6 +33,25 @@ function fieldTable(aggregate: Aggregate): string[] {
   ];
 }
 
+/** Items the post-checks dropped or demoted, by field and reason. */
+function rejectionTable(aggregate: Aggregate): string[] {
+  const entries = Object.entries(aggregate.rejectedByReason ?? {}).sort(
+    ([a, x], [b, y]) => y - x || a.localeCompare(b),
+  );
+  if (entries.length === 0) return [];
+  return [
+    '## Dropped or demoted by the post-checks',
+    '',
+    '| Field | Reason | Items |',
+    '| --- | --- | ---: |',
+    ...entries.map(([key, count]) => {
+      const [field, reason] = key.split(':');
+      return `| ${field ?? ''} | \`${reason ?? ''}\` | ${String(count)} |`;
+    }),
+    '',
+  ];
+}
+
 /** Machine-readable summary written next to each report (no note text), read by `eval:compare`. */
 export interface ReportSidecar {
   readonly provider: string;
@@ -71,7 +90,108 @@ export function renderComparison(runs: readonly ReportSidecar[]): string {
       return `| ${r.startedAt.slice(0, 10)} | ${r.provider} | [\`${r.model}\`](${r.report}) | ${r.promptVersion} | ${r.dataset} | ${pct(o.scores.conditions.f1)} | ${pct(o.scores.medications.f1)} | ${pct(o.scores.planItems.f1)} | ${pct(o.hasPlanAccuracy)} | ${pct(o.hallucinatedQuoteRate)} | ${usd(r.summary.cost.perNoteUsd)} | ${String(r.summary.latencyMs.p50)} ms | ${String(r.summary.latencyMs.p95)} ms | ${String(o.errors)} |`;
     }),
     '',
+    ...comparisonDetails(rows),
   ].join('\n');
+}
+
+/** A run's column header: `provider / model`. */
+const runLabel = (r: ReportSidecar): string => `${r.provider} / ${r.model}`;
+
+function columns(rows: readonly ReportSidecar[], first: string): string[] {
+  return [
+    `| ${first} | ${rows.map(runLabel).join(' | ')} |`,
+    `| --- | ${rows.map(() => '---:').join(' | ')} |`,
+  ];
+}
+
+/** Per-field, per-specialty, per-language, cost and post-check tables, one column per run. */
+function comparisonDetails(rows: readonly ReportSidecar[]): string[] {
+  const pr = (s: Scores | undefined): string =>
+    s === undefined ? 'n/a' : `${pct(s.precision)} / ${pct(s.recall)}`;
+  const fields: [string, (a: Aggregate) => Scores | undefined][] = [
+    ['Conditions', (a) => a.scores.conditions],
+    ['Medications', (a) => a.scores.medications],
+    ['Plan items', (a) => a.scores.planItems],
+    ['Pregnancy outcome', (a) => a.scores.pregnancyOutcome],
+    ['Pregnancy dating', (a) => a.scores.pregnancyDating],
+  ];
+  const specialties = [
+    ...new Set(rows.flatMap((r) => r.summary.bySpecialty.map((s) => s.specialty))),
+  ].sort();
+  const languages = [
+    ...new Set(rows.flatMap((r) => (r.summary.byLanguage ?? []).map((l) => l.language))),
+  ].sort();
+  const reasons = [
+    ...new Set(rows.flatMap((r) => Object.keys(r.summary.overall.rejectedByReason ?? {}))),
+  ].sort();
+  const bySpecialty = (title: string, score: (a: Aggregate) => Scores): string[] => [
+    `## ${title} by specialty`,
+    '',
+    ...columns(rows, 'Specialty'),
+    ...specialties.map((specialty) => {
+      const cells = rows.map((r) => {
+        const s = r.summary.bySpecialty.find((item) => item.specialty === specialty);
+        return s === undefined ? 'n/a' : `${pct(score(s).f1)} (${String(s.notes)})`;
+      });
+      return `| ${specialty} | ${cells.join(' | ')} |`;
+    }),
+    '',
+  ];
+  return [
+    '## Per field (precision / recall)',
+    '',
+    ...columns(rows, 'Field'),
+    ...fields.map(([name, score]) => {
+      return `| ${name} | ${rows.map((r) => pr(score(r.summary.overall))).join(' | ')} |`;
+    }),
+    `| hasPlan accuracy | ${rows.map((r) => pct(r.summary.overall.hasPlanAccuracy)).join(' | ')} |`,
+    `| Discharge accuracy | ${rows.map((r) => pct(r.summary.overall.dischargeAccuracy)).join(' | ')} |`,
+    '',
+    ...bySpecialty('Conditions F1', (a) => a.scores.conditions),
+    ...bySpecialty('Medications F1', (a) => a.scores.medications),
+    ...bySpecialty('Plan items F1', (a) => a.scores.planItems),
+    ...(languages.length === 0
+      ? []
+      : [
+          '## By note language (conditions / medications / plan items F1)',
+          '',
+          ...columns(rows, 'Language'),
+          ...languages.map((language) => {
+            const cells = rows.map((r) => {
+              const l = r.summary.byLanguage?.find((item) => item.language === language);
+              return l === undefined
+                ? 'n/a'
+                : `${pct(l.scores.conditions.f1)} / ${pct(l.scores.medications.f1)} / ${pct(l.scores.planItems.f1)}`;
+            });
+            return `| ${language} | ${cells.join(' | ')} |`;
+          }),
+          '',
+        ]),
+    '## Tokens, cost and latency',
+    '',
+    ...columns(rows, 'Metric'),
+    `| Input tokens per note | ${rows.map((r) => r.summary.tokens.inputPerNote.toFixed(0)).join(' | ')} |`,
+    `| Output tokens per note | ${rows.map((r) => r.summary.tokens.outputPerNote.toFixed(0)).join(' | ')} |`,
+    `| Cost per note | ${rows.map((r) => usd(r.summary.cost.perNoteUsd)).join(' | ')} |`,
+    `| Cost of the run | ${rows.map((r) => usd(r.summary.cost.totalUsd)).join(' | ')} |`,
+    `| Latency p50 / p95 | ${rows.map((r) => `${String(r.summary.latencyMs.p50)} / ${String(r.summary.latencyMs.p95)} ms`).join(' | ')} |`,
+    `| Hallucinated quotes (dropped) | ${rows.map((r) => `${String(r.summary.overall.quoteRejected)} of ${String(r.summary.overall.modelItems)}`).join(' | ')} |`,
+    '',
+    '## Dropped by the post-checks',
+    '',
+    'Items the model returned that the evidence checks dropped or demoted, by field and reason (`rejected` of `DetailedNoteExtraction`).',
+    '',
+    ...columns(rows, 'Field: reason'),
+    ...(reasons.length === 0
+      ? [`| none | ${rows.map(() => '0').join(' | ')} |`]
+      : reasons.map(
+          (reason) =>
+            `| \`${reason}\` | ${rows.map((r) => String(r.summary.overall.rejectedByReason?.[reason] ?? 0)).join(' | ')} |`,
+        )),
+    '',
+    'Why each Muse Spark miss happened (label, model or post-check), and how to reproduce every number: [README.md](README.md).',
+    '',
+  ];
 }
 
 /** Renders an eval run as a Markdown report. */
@@ -106,6 +226,7 @@ export function renderReport(run: EvalRun, notes?: string): string {
     `| Latency p50 | ${String(summary.latencyMs.p50)} ms |`,
     `| Latency p95 | ${String(summary.latencyMs.p95)} ms |`,
     '',
+    ...rejectionTable(overall),
     '## By specialty',
     '',
     '| Specialty | Notes | Conditions F1 | Medications F1 | Plan items F1 | hasPlan acc. | Errors |',

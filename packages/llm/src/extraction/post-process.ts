@@ -2,8 +2,9 @@ import { ICD10_SYSTEM, type PlanItem, type PlanItemKind } from '@follow-up-engin
 import { conditionTermsFor, type ConditionTermTable } from './condition-terms.ts';
 import { daysBetween, durationInDays, parseIsoDate, resolveDueAt } from './due-date.ts';
 import { lexiconLanguage, type LexiconLanguage } from './language.ts';
-import { testGroup, testGroupOfLoinc, testGroupsIn } from './lab-tests.ts';
+import { namedTests, testGroup, testGroupOfLoinc, testGroupsIn } from './lab-tests.ts';
 import { postProcessPregnancy } from './pregnancy.ts';
+import { gestationalAges, statesCurrentPregnancy } from './pregnancy-signals.ts';
 import { prepareNote, type PreparedNote } from './prepare.ts';
 import { createQuoteIndex, normalizeForMatch, type QuoteSpan } from './quote.ts';
 import type { ModelExtraction, ModelPlanItem } from './schema.ts';
@@ -179,6 +180,63 @@ interface PlanReading {
   readonly downgraded: boolean;
 }
 
+const TARGET_WEEKS = /(?<![a-z0-9])a (?:los|las) (\d{1,2}) ?(?:semanas|semana|sem)(?![a-z])/;
+
+/**
+ * When a study is due at a gestational age ("eco morfologico a las 20
+ * semanas") and the note states the current one ("embarazo de 12 sem"):
+ * the note date plus the difference. Undefined when the note states no
+ * current pregnancy, its ages disagree, or the target is not ahead.
+ */
+function gestationalTargetDue(
+  clause: string,
+  noteText: string,
+  authoredAt: Date,
+  lang: LexiconLanguage,
+): Date | undefined {
+  // The gestational readers are Spanish ("a las 20 semanas", "embarazo de 12 sem").
+  if (lang !== 'es') return undefined;
+  const target = TARGET_WEEKS.exec(clause);
+  if (target?.[1] === undefined || !statesCurrentPregnancy(noteText)) return undefined;
+  const ages = gestationalAges(noteText);
+  const [first] = ages;
+  if (first === undefined || ages.some((age) => age.weeks !== first.weeks)) return undefined;
+  const days = Number(target[1]) * 7 - (first.weeks * 7 + (first.days ?? 0));
+  return days > 0 ? new Date(authoredAt.getTime() + days * MS_PER_DAY) : undefined;
+}
+
+/** "sesión" / "session": the next session of a series. */
+const SESSION_WORD = /(?<![a-z])(?:sesion(?:es)?|sessions?)(?![a-z])/;
+
+/**
+ * Whether `quote` (normalized) names the kind of plan item it supports: the
+ * plan wording of `signals.ts`, or for a lab or imaging item any test of the
+ * lexicon (`lab-tests.ts`), so a test the model quotes by a name the plan
+ * wording lacks ("curva de tolerancia glucosada") is read as a test.
+ */
+function namesKind(kind: ModelPlanItem['kind'], quote: string, lang: LexiconLanguage): boolean {
+  if (hasKindKeyword(kind, quote, lang)) return true;
+  return (kind === 'lab' || kind === 'imaging') && testGroupsIn(quote, kind).size > 0;
+}
+
+/**
+ * Whether a plan quote too short to back an item on its own is exactly one
+ * test, referral or procedure name: the model quotes a list item by its
+ * bare abbreviation ("K+", "HIV", "ECG" in "Se solicita: creatinina, K+,
+ * ECG"). Its timing is still read from the sentence around it.
+ */
+function isWholeTerm(kind: ModelPlanItem['kind'], quote: string, lang: LexiconLanguage): boolean {
+  const term = quote.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}+]+$/gu, '');
+  if (alnumCount(term) === 0) return false;
+  if (kind === 'lab' || kind === 'imaging') {
+    return namedTests(term).some(
+      (test) => test.group.kind === kind && test.start === 0 && test.end === term.length,
+    );
+  }
+  const match = findKindKeyword(kind, term, lang);
+  return match !== null && match.index === 0 && match[0].length === term.length;
+}
+
 /**
  * Reads what a plan item is from its quote, not from the model's word:
  *
@@ -200,7 +258,7 @@ function readPlanItem(item: ModelPlanItem, quote: string, lang: LexiconLanguage)
     downgraded: true,
   };
   if (item.kind === 'lab' || item.kind === 'imaging') {
-    if (!hasKindKeyword(item.kind, quote, lang)) return visit;
+    if (!namesKind(item.kind, quote, lang)) return visit;
     const named = testGroupsIn(quote, item.kind);
     const described = testGroupsIn(normalizeForMatch(description), item.kind);
     if (named.size === 0) {
@@ -230,8 +288,10 @@ function readPlanItem(item: ModelPlanItem, quote: string, lang: LexiconLanguage)
   }
   if (item.kind === 'other' && findKindKeyword('other', quote, lang) === null) return visit;
   if (item.kind === 'follow_up_visit') {
+    // "Próx. sesión en 1 semana": the next session of a series, whatever the model called it.
+    const kind = SESSION_WORD.test(quote) ? 'session' : item.kind;
     return {
-      kind: item.kind,
+      kind,
       description: description || GENERIC_DESCRIPTIONS.follow_up_visit,
       key: '',
       downgraded: false,
@@ -481,11 +541,11 @@ export function postProcessExtraction(
       continue;
     }
     const quote = quoteText(span);
-    if (alnumCount(quote) < MIN_PLAN_QUOTE_ALNUM) {
+    if (alnumCount(quote) < MIN_PLAN_QUOTE_ALNUM && !isWholeTerm(item.kind, quote, lang)) {
       reject('planItem', 'quote_too_short', item.evidenceQuote);
       continue;
     }
-    if (!hasKindKeyword(item.kind, quote, lang) && !hasTimeExpression(quote, lang)) {
+    if (!namesKind(item.kind, quote, lang) && !hasTimeExpression(quote, lang)) {
       reject('planItem', 'quote_unrelated', item.evidenceQuote);
       continue;
     }
@@ -511,6 +571,18 @@ export function postProcessExtraction(
       continue;
     }
     const reading = readPlanItem(item, quote, lang);
+    const targetDue = gestationalTargetDue(clause, noteText, note.authoredAt, lang);
+    if (targetDue !== undefined) {
+      // "Eco morfológico a las 20 semanas" in a note at week 12: due in 8 weeks, computed here.
+      candidates.push({
+        item,
+        reading,
+        quote: verbatim(span),
+        cap: MAX_ITEM_CONFIDENCE,
+        dueAt: targetDue,
+      });
+      continue;
+    }
     const resolution = resolveDueAt(note.authoredAt, item.timing);
     if (!resolution.ok) {
       if (resolution.reason === 'due_before_note') {

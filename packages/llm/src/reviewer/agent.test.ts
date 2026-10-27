@@ -216,6 +216,28 @@ describe('reviewer agent loop', () => {
     expect(userMessages(requests[2]).at(-1)?.content).toContain('unknown_tool');
   });
 
+  it('reads the string "null" as null in tool arguments (a slip Muse Spark makes on nullable fields)', async () => {
+    // Observed on the Meta Model API (2026-10-27): get_notes called four times
+    // with {"query":"fondo","docIds":"null"}, each rejected, until the step
+    // budget ran out on the planted question.
+    const { agent } = agentWith(
+      script([
+        call('get_notes', { query: 'metformina', docIds: 'null' }),
+        call('get_notes', { query: 'null', docIds: 'null' }),
+        call('submit_findings', { findings: [] }),
+      ]),
+    );
+    const result = await agent.review(CLINIC, request());
+    expect(result.trace.map((step) => step.outcome)).toEqual([
+      'ok',
+      // Both null: still invalid (a query or document ids is required).
+      'invalid_arguments',
+      'ok',
+    ]);
+    expect(result.trace[0]).toMatchObject({ tool: 'get_notes' });
+    expect(result.toolCalls).toBe(1);
+  });
+
   it('past the tool budget the model is told to submit; past the step limit the loop stops', async () => {
     const lookAgain = call('get_medications', {});
     const { agent, requests } = agentWith(script([lookAgain]));

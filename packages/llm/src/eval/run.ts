@@ -47,6 +47,11 @@ export interface NoteResult {
    * a medication). Optional in older summaries.
    */
   readonly evidenceRejected?: number;
+  /**
+   * Every item the post-checks dropped or demoted, by field and reason
+   * (`planItem:quote_unrelated`). Optional in older summaries.
+   */
+  readonly rejectedByReason?: Readonly<Record<string, number>>;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly costUsd: number;
@@ -73,6 +78,8 @@ export interface Aggregate {
   readonly modelItems: number;
   readonly quoteRejected: number;
   readonly evidenceRejected: number;
+  /** Sum of {@link NoteResult.rejectedByReason}. Optional in older summaries. */
+  readonly rejectedByReason?: Readonly<Record<string, number>>;
 }
 
 export interface LanguageAggregate extends Aggregate {
@@ -128,6 +135,12 @@ export function aggregate(results: readonly NoteResult[]): Aggregate {
   const modelItems = results.reduce((s, r) => s + r.modelItemCount, 0);
   const quoteRejected = results.reduce((s, r) => s + r.quoteRejected, 0);
   const evidenceRejected = results.reduce((s, r) => s + (r.evidenceRejected ?? 0), 0);
+  const rejectedByReason: Record<string, number> = {};
+  for (const result of results) {
+    for (const [reason, count] of Object.entries(result.rejectedByReason ?? {})) {
+      rejectedByReason[reason] = (rejectedByReason[reason] ?? 0) + count;
+    }
+  }
   return {
     notes: results.length,
     errors: results.filter((r) => r.error !== undefined).length,
@@ -149,6 +162,7 @@ export function aggregate(results: readonly NoteResult[]): Aggregate {
     modelItems,
     quoteRejected,
     evidenceRejected,
+    rejectedByReason,
   };
 }
 
@@ -191,6 +205,17 @@ export function summarize(results: readonly NoteResult[]): EvalSummary {
       ),
     },
   };
+}
+
+function countReasons(
+  rejected: readonly { readonly field: string; readonly reason: string }[],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const item of rejected) {
+    const key = `${item.field}:${item.reason}`;
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
 }
 
 /** Runs `fn` over `items` with at most `concurrency` in flight, keeping input order. */
@@ -259,6 +284,7 @@ export async function runExtractionEval(options: RunEvalOptions): Promise<EvalRu
           quoteRejected: extraction.rejected.filter((r) => r.reason === 'quote_not_found').length,
           evidenceRejected: extraction.rejected.filter((r) => EVIDENCE_REASONS.has(r.reason))
             .length,
+          rejectedByReason: countReasons(extraction.rejected),
           inputTokens: extraction.inputTokens,
           outputTokens: extraction.outputTokens,
           costUsd: extraction.costUsd,

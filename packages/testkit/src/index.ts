@@ -121,3 +121,6 @@ export {
   describeFindingFlagRepositoryContract,
 } from './contracts/clinical-finding.contract.ts';
 export * as contractBuilders from './contracts/builders.ts';
+
+// Recorded model replies (demo seed, evals)
+export { LLM_SNAPSHOTS, llmSnapshotPath, readLlmSnapshot } from './llm-snapshots/load.ts';

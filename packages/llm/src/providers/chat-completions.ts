@@ -52,6 +52,13 @@ export interface ChatCompletionsProviderOptions {
    * `structured` for an endpoint without tool calling.
    */
   readonly toolCalling?: 'native' | 'structured';
+  /**
+   * `tool_choice` of a native agent step. `required` (default) forces a
+   * call; `auto` lets the model answer in text, which comes back as a
+   * repairable "no tool call" error and is re-asked by the gateway. The
+   * Meta Model API accepts only `auto` (400 otherwise, 2026-10-27).
+   */
+  readonly toolChoice?: 'required' | 'auto';
   /** Extra body fields merged into every request, for example `{ reasoning_effort: 'low' }`. */
   readonly extraBody?: Readonly<Record<string, unknown>>;
   readonly headers?: Readonly<Record<string, string>>;
@@ -115,7 +122,7 @@ export function createChatCompletionsProvider(
                 parameters: toJsonSchema(tool.parameters),
               },
             })),
-            tool_choice: 'required',
+            tool_choice: options.toolChoice ?? 'required',
             parallel_tool_calls: false,
           }),
     };

@@ -2,55 +2,55 @@
   "provider": "meta",
   "model": "muse-spark-1.3",
   "promptVersion": "note-extraction@5",
-  "startedAt": "2026-10-27T14:22:31.110Z",
-  "dataset": "packages/testkit/fixtures/gold-notes (22 of 101 notes: --ids gold-001,gold-026,gold-047,gold-062,gold-071,gold-101,gold-102,gold-103,gold-104,gold-105,gold-106,gold-107,gold-108,gold-109,gold-110,gold-111,gold-112,gold-113,gold-114,gold-115,gold-116,gold-117)",
+  "startedAt": "2026-10-27T15:23:11.297Z",
+  "dataset": "packages/testkit/fixtures/gold-notes (101 of 101 notes)",
   "report": "2026-10-27-meta-muse-spark-1.3.md",
   "summary": {
     "overall": {
-      "notes": 22,
+      "notes": 101,
       "errors": 0,
       "counts": {
         "conditions": {
-          "tp": 25,
-          "fp": 0,
-          "fn": 0
+          "tp": 99,
+          "fp": 4,
+          "fn": 15
         },
         "medications": {
-          "tp": 20,
-          "fp": 0,
+          "tp": 77,
+          "fp": 1,
           "fn": 2
         },
         "planItems": {
-          "tp": 33,
-          "fp": 1,
+          "tp": 123,
+          "fp": 18,
           "fn": 1
         },
         "pregnancyOutcome": {
-          "tp": 0,
+          "tp": 4,
           "fp": 0,
           "fn": 0
         },
         "pregnancyDating": {
-          "tp": 0,
+          "tp": 6,
           "fp": 0,
           "fn": 0
         }
       },
       "scores": {
         "conditions": {
-          "precision": 1,
-          "recall": 1,
-          "f1": 1
+          "precision": 0.9611650485436893,
+          "recall": 0.868421052631579,
+          "f1": 0.9124423963133641
         },
         "medications": {
-          "precision": 1,
-          "recall": 0.9090909090909091,
-          "f1": 0.9523809523809523
+          "precision": 0.9871794871794872,
+          "recall": 0.9746835443037974,
+          "f1": 0.980891719745223
         },
         "planItems": {
-          "precision": 0.9705882352941176,
-          "recall": 0.9705882352941176,
-          "f1": 0.9705882352941176
+          "precision": 0.8723404255319149,
+          "recall": 0.9919354838709677,
+          "f1": 0.928301886792453
         },
         "pregnancyOutcome": {
           "precision": 1,
@@ -63,32 +63,38 @@
           "f1": 1
         }
       },
-      "hasPlanAccuracy": 1,
+      "hasPlanAccuracy": 0.9801980198019802,
       "dischargeAccuracy": 1,
       "hallucinatedQuoteRate": 0,
-      "modelItems": 83,
+      "modelItems": 348,
       "quoteRejected": 0,
-      "evidenceRejected": 0
+      "evidenceRejected": 1,
+      "rejectedByReason": {
+        "planItem:no_due_date": 6,
+        "condition:duplicate": 1,
+        "planItem:quote_unrelated": 1,
+        "planItem:duplicate": 1
+      }
     },
     "bySpecialty": [
       {
         "specialty": "diabetology",
-        "notes": 6,
+        "notes": 24,
         "errors": 0,
         "counts": {
           "conditions": {
-            "tp": 11,
+            "tp": 38,
             "fp": 0,
             "fn": 0
           },
           "medications": {
-            "tp": 11,
+            "tp": 35,
             "fp": 0,
             "fn": 0
           },
           "planItems": {
-            "tp": 16,
-            "fp": 0,
+            "tp": 44,
+            "fp": 2,
             "fn": 0
           },
           "pregnancyOutcome": {
@@ -114,9 +120,9 @@
             "f1": 1
           },
           "planItems": {
-            "precision": 1,
+            "precision": 0.9565217391304348,
             "recall": 1,
-            "f1": 1
+            "f1": 0.9777777777777777
           },
           "pregnancyOutcome": {
             "precision": 1,
@@ -132,46 +138,50 @@
         "hasPlanAccuracy": 1,
         "dischargeAccuracy": 1,
         "hallucinatedQuoteRate": 0,
-        "modelItems": 39,
+        "modelItems": 123,
         "quoteRejected": 0,
-        "evidenceRejected": 0
+        "evidenceRejected": 0,
+        "rejectedByReason": {
+          "planItem:no_due_date": 3,
+          "condition:duplicate": 1
+        }
       },
       {
         "specialty": "gynecology",
-        "notes": 3,
+        "notes": 26,
         "errors": 0,
         "counts": {
           "conditions": {
-            "tp": 3,
-            "fp": 0,
-            "fn": 0
+            "tp": 20,
+            "fp": 1,
+            "fn": 8
           },
           "medications": {
-            "tp": 1,
+            "tp": 10,
             "fp": 0,
             "fn": 0
           },
           "planItems": {
-            "tp": 8,
-            "fp": 0,
+            "tp": 39,
+            "fp": 6,
             "fn": 0
           },
           "pregnancyOutcome": {
-            "tp": 0,
+            "tp": 4,
             "fp": 0,
             "fn": 0
           },
           "pregnancyDating": {
-            "tp": 0,
+            "tp": 6,
             "fp": 0,
             "fn": 0
           }
         },
         "scores": {
           "conditions": {
-            "precision": 1,
-            "recall": 1,
-            "f1": 1
+            "precision": 0.9523809523809523,
+            "recall": 0.7142857142857143,
+            "f1": 0.8163265306122449
           },
           "medications": {
             "precision": 1,
@@ -179,9 +189,9 @@
             "f1": 1
           },
           "planItems": {
-            "precision": 1,
+            "precision": 0.8666666666666667,
             "recall": 1,
-            "f1": 1
+            "f1": 0.9285714285714286
           },
           "pregnancyOutcome": {
             "precision": 1,
@@ -194,96 +204,32 @@
             "f1": 1
           }
         },
-        "hasPlanAccuracy": 1,
+        "hasPlanAccuracy": 0.9615384615384616,
         "dischargeAccuracy": 1,
         "hallucinatedQuoteRate": 0,
-        "modelItems": 12,
+        "modelItems": 85,
         "quoteRejected": 0,
-        "evidenceRejected": 0
+        "evidenceRejected": 0,
+        "rejectedByReason": {}
       },
       {
         "specialty": "internal_medicine",
-        "notes": 8,
+        "notes": 32,
         "errors": 0,
         "counts": {
           "conditions": {
-            "tp": 8,
-            "fp": 0,
-            "fn": 0
+            "tp": 30,
+            "fp": 2,
+            "fn": 6
           },
           "medications": {
-            "tp": 8,
-            "fp": 0,
-            "fn": 0
-          },
-          "planItems": {
-            "tp": 8,
-            "fp": 0,
-            "fn": 0
-          },
-          "pregnancyOutcome": {
-            "tp": 0,
-            "fp": 0,
-            "fn": 0
-          },
-          "pregnancyDating": {
-            "tp": 0,
-            "fp": 0,
-            "fn": 0
-          }
-        },
-        "scores": {
-          "conditions": {
-            "precision": 1,
-            "recall": 1,
-            "f1": 1
-          },
-          "medications": {
-            "precision": 1,
-            "recall": 1,
-            "f1": 1
-          },
-          "planItems": {
-            "precision": 1,
-            "recall": 1,
-            "f1": 1
-          },
-          "pregnancyOutcome": {
-            "precision": 1,
-            "recall": 1,
-            "f1": 1
-          },
-          "pregnancyDating": {
-            "precision": 1,
-            "recall": 1,
-            "f1": 1
-          }
-        },
-        "hasPlanAccuracy": 1,
-        "dischargeAccuracy": 1,
-        "hallucinatedQuoteRate": 0,
-        "modelItems": 24,
-        "quoteRejected": 0,
-        "evidenceRejected": 0
-      },
-      {
-        "specialty": "psychology",
-        "notes": 5,
-        "errors": 0,
-        "counts": {
-          "conditions": {
-            "tp": 3,
-            "fp": 0,
-            "fn": 0
-          },
-          "medications": {
-            "tp": 0,
-            "fp": 0,
-            "fn": 2
-          },
-          "planItems": {
-            "tp": 1,
+            "tp": 31,
             "fp": 1,
+            "fn": 0
+          },
+          "planItems": {
+            "tp": 28,
+            "fp": 10,
             "fn": 1
           },
           "pregnancyOutcome": {
@@ -299,19 +245,89 @@
         },
         "scores": {
           "conditions": {
+            "precision": 0.9375,
+            "recall": 0.8333333333333334,
+            "f1": 0.8823529411764706
+          },
+          "medications": {
+            "precision": 0.96875,
+            "recall": 1,
+            "f1": 0.9841269841269841
+          },
+          "planItems": {
+            "precision": 0.7368421052631579,
+            "recall": 0.9655172413793104,
+            "f1": 0.835820895522388
+          },
+          "pregnancyOutcome": {
             "precision": 1,
             "recall": 1,
             "f1": 1
           },
-          "medications": {
+          "pregnancyDating": {
             "precision": 1,
-            "recall": 0,
-            "f1": 0
+            "recall": 1,
+            "f1": 1
+          }
+        },
+        "hasPlanAccuracy": 0.96875,
+        "dischargeAccuracy": 1,
+        "hallucinatedQuoteRate": 0,
+        "modelItems": 108,
+        "quoteRejected": 0,
+        "evidenceRejected": 1,
+        "rejectedByReason": {
+          "planItem:quote_unrelated": 1,
+          "planItem:duplicate": 1,
+          "planItem:no_due_date": 2
+        }
+      },
+      {
+        "specialty": "psychology",
+        "notes": 19,
+        "errors": 0,
+        "counts": {
+          "conditions": {
+            "tp": 11,
+            "fp": 1,
+            "fn": 1
+          },
+          "medications": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 2
           },
           "planItems": {
-            "precision": 0.5,
-            "recall": 0.5,
+            "tp": 12,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyOutcome": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          },
+          "pregnancyDating": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          }
+        },
+        "scores": {
+          "conditions": {
+            "precision": 0.9166666666666666,
+            "recall": 0.9166666666666666,
+            "f1": 0.9166666666666666
+          },
+          "medications": {
+            "precision": 1,
+            "recall": 0.3333333333333333,
             "f1": 0.5
+          },
+          "planItems": {
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
           },
           "pregnancyOutcome": {
             "precision": 1,
@@ -327,9 +343,12 @@
         "hasPlanAccuracy": 1,
         "dischargeAccuracy": 1,
         "hallucinatedQuoteRate": 0,
-        "modelItems": 8,
+        "modelItems": 32,
         "quoteRejected": 0,
-        "evidenceRejected": 0
+        "evidenceRejected": 0,
+        "rejectedByReason": {
+          "planItem:no_due_date": 1
+        }
       }
     ],
     "byLanguage": [
@@ -345,13 +364,13 @@
           },
           "medications": {
             "tp": 14,
-            "fp": 0,
+            "fp": 1,
             "fn": 2
           },
           "planItems": {
-            "tp": 28,
-            "fp": 1,
-            "fn": 1
+            "tp": 29,
+            "fp": 0,
+            "fn": 0
           },
           "pregnancyOutcome": {
             "tp": 0,
@@ -371,14 +390,14 @@
             "f1": 1
           },
           "medications": {
-            "precision": 1,
+            "precision": 0.9333333333333333,
             "recall": 0.875,
-            "f1": 0.9333333333333333
+            "f1": 0.9032258064516129
           },
           "planItems": {
-            "precision": 0.9655172413793104,
-            "recall": 0.9655172413793104,
-            "f1": 0.9655172413793104
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
           },
           "pregnancyOutcome": {
             "precision": 1,
@@ -394,47 +413,50 @@
         "hasPlanAccuracy": 1,
         "dischargeAccuracy": 1,
         "hallucinatedQuoteRate": 0,
-        "modelItems": 66,
+        "modelItems": 68,
         "quoteRejected": 0,
         "evidenceRejected": 0,
+        "rejectedByReason": {
+          "planItem:no_due_date": 2
+        },
         "detectionAccuracy": 1
       },
       {
         "language": "es",
-        "notes": 5,
+        "notes": 84,
         "errors": 0,
         "counts": {
           "conditions": {
-            "tp": 5,
-            "fp": 0,
-            "fn": 0
+            "tp": 79,
+            "fp": 4,
+            "fn": 15
           },
           "medications": {
-            "tp": 6,
+            "tp": 63,
             "fp": 0,
             "fn": 0
           },
           "planItems": {
-            "tp": 5,
-            "fp": 0,
-            "fn": 0
+            "tp": 94,
+            "fp": 18,
+            "fn": 1
           },
           "pregnancyOutcome": {
-            "tp": 0,
+            "tp": 4,
             "fp": 0,
             "fn": 0
           },
           "pregnancyDating": {
-            "tp": 0,
+            "tp": 6,
             "fp": 0,
             "fn": 0
           }
         },
         "scores": {
           "conditions": {
-            "precision": 1,
-            "recall": 1,
-            "f1": 1
+            "precision": 0.9518072289156626,
+            "recall": 0.8404255319148937,
+            "f1": 0.8926553672316384
           },
           "medications": {
             "precision": 1,
@@ -442,9 +464,9 @@
             "f1": 1
           },
           "planItems": {
-            "precision": 1,
-            "recall": 1,
-            "f1": 1
+            "precision": 0.8392857142857143,
+            "recall": 0.9894736842105263,
+            "f1": 0.9082125603864734
           },
           "pregnancyOutcome": {
             "precision": 1,
@@ -457,26 +479,32 @@
             "f1": 1
           }
         },
-        "hasPlanAccuracy": 1,
+        "hasPlanAccuracy": 0.9761904761904762,
         "dischargeAccuracy": 1,
         "hallucinatedQuoteRate": 0,
-        "modelItems": 17,
+        "modelItems": 280,
         "quoteRejected": 0,
-        "evidenceRejected": 0,
-        "detectionAccuracy": 1
+        "evidenceRejected": 1,
+        "rejectedByReason": {
+          "planItem:no_due_date": 4,
+          "condition:duplicate": 1,
+          "planItem:quote_unrelated": 1,
+          "planItem:duplicate": 1
+        },
+        "detectionAccuracy": 0.9880952380952381
       }
     ],
     "tokens": {
-      "inputPerNote": 3827.090909090909,
-      "outputPerNote": 953.6363636363636
+      "inputPerNote": 3836.732673267327,
+      "outputPerNote": 982.2673267326733
     },
     "cost": {
-      "totalUsd": 0.10887100000000001,
-      "perNoteUsd": 0.004948681818181818
+      "totalUsd": 0.49360299999999996,
+      "perNoteUsd": 0.004887158415841583
     },
     "latencyMs": {
-      "p50": 3313,
-      "p95": 6217
+      "p50": 3430,
+      "p95": 6847
     }
   }
 }

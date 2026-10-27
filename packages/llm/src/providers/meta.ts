@@ -63,6 +63,9 @@ export function createMetaProvider(options: MetaProviderOptions): StructuredLlmP
     outputMode: options.outputMode ?? 'json_schema',
     maxTokensParam: 'max_completion_tokens',
     ...(options.toolCalling === undefined ? {} : { toolCalling: options.toolCalling }),
+    // Only `auto` is accepted ("required" and named choices are a 400); a
+    // text reply without a call is re-asked by the gateway's repair.
+    toolChoice: 'auto',
     extraBody: {
       reasoning_effort: options.reasoningEffort ?? 'low',
       ...(options.promptCacheKey === undefined ? {} : { prompt_cache_key: options.promptCacheKey }),

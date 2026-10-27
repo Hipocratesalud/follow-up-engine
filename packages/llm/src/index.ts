@@ -66,6 +66,19 @@ export {
   type FakeResponder,
 } from './providers/fake.ts';
 
+export {
+  createSnapshotProvider,
+  emptySnapshot,
+  mergeSnapshots,
+  parseSnapshot,
+  serializeSnapshot,
+  snapshotKey,
+  type LlmSnapshot,
+  type LlmSnapshotEntry,
+  type SnapshotProvider,
+  type SnapshotProviderOptions,
+} from './providers/snapshot.ts';
+
 // Gateway
 export {
   createLlmGateway,

@@ -54,6 +54,7 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
 | Usage log  | `LlmUsageLog`, `LlmCallRecord` (structural copies of the core port), `InMemoryLlmUsageLog`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | Errors     | `LlmProviderError` (status, code, retryable, retryAfterMs), `LlmTimeoutError`, `LlmSchemaError` (raw output, issues, usage, repairable), `LlmUnavailableError`, `LlmConfigError`; core's `LlmBudgetExceededError` and `LlmOutputError` are thrown as is                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Extraction | `createNoteExtractor`, `NOTE_EXTRACTION_PROMPT_VERSION`, `NOTE_EXTRACTION_TASK`, `buildExtractionMessages`, `sanitizeSpecialty`, `ModelExtractionSchema`, `ModelPregnancySchema`, `PREGNANCY_OUTCOME_KINDS`, `postProcessExtraction`, `postProcessPregnancy`, `MAX_ITEM_CONFIDENCE`, `prepareNote`, `MAX_NOTE_CHARS`, `REDACTION_PLACEHOLDER`, `DEFAULT_CONDITION_TERMS`, `ENGLISH_CONDITION_TERMS`, `conditionTermsFor`, `detectNoteLanguage`, `resolveNoteLanguage`, `lexiconLanguage`, `resolveDueAt`, `addInterval`, `createQuoteIndex`, `locateQuote`, `isValidLoinc`, port types (`NoteExtractor`, `NoteExtraction`, `ExtractedPregnancy`, ...) and `DetailedNoteExtraction` (with `rejected`, `warnings`, `dischargeEvidenceQuote`) |
+| Snapshots  | `createSnapshotProvider` (replays recorded replies, records misses from a live provider), `snapshotKey`, `emptySnapshot`, `parseSnapshot`, `serializeSnapshot`, `mergeSnapshots`, `LlmSnapshot`, `LlmSnapshotEntry`, `SnapshotProvider`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Fixtures   | `createNoteFixtureResponder`, `chainResponders`, `ExpectedPregnancySchema`, `modelOutputFromExpected` (gold `expected`), `modelOutputFromExtraction` (scenario `llmFixture`), `heuristicExtraction` / `heuristicResponder` (rule-based baseline)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | Reviewer   | `createReviewAgent` (the `ClinicalReviewAgent` port: a bounded tool-calling loop on the gateway), `CLINICAL_REVIEW_TASK`, `CLINICAL_REVIEW_PROMPT_VERSION`, `ReviewerActionSchema`, `reviewerSystemPrompt`, `scriptedReviewerResponder` + `FAKE_REVIEWER_MODEL` (deterministic agent for CI and the demo), `quoteFromOriginal`, `inertJson`, `maskStrings`; the `eval:reviewer` harness                                                                                                                                                                                                                                                                                                                                                    |
 | Evals      | `loadGoldNotes`, `runExtractionEval`, `compareExtraction`, `pregnancyOutcomeCounts`, `pregnancyDatingCounts`, `scores`, `renderReport`, `renderComparison`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -319,9 +320,10 @@ prediabetes (061, R73.03), conditional returns in any word order (062, 063), new
 (068, 069, the "Diabetes con plan" demo note) and a written date with a month name (070). Heuristic
 baseline on the 70 notes, before and after the round-2 fixes: conditions F1 70.9% → 78.8%,
 medications 82.2% → 82.2%, plan items 88.7% → 92.2%, hasPlan 91.4% → 94.3%, discharge 92.9% → 98.6%.
-The older gold notes label "perfil lipídico y creatinina" as one lab item; the extractor now returns
-one item per test (each with its own code, so each is fulfilled by its own result), which shows as
-four plan false positives on gold-003, 014, 022 and 039.
+The older gold notes labeled "perfil lipídico y creatinina" as one lab item; the extractor returns
+one item per test (each with its own code, so each is fulfilled by its own result). Their labels were
+corrected to one item per test in HIP-106 (gold-003, 014, 022 and 039), see
+[docs/evals/README.md](../../docs/evals/README.md#gold-label-changes).
 
 QA round 3 added gold-071 to 076: two intervals in one sentence ("TSH en 6 semanas, control en 3
 meses" and the reverse, "HbA1c en 1 mes y control en 3 meses"), frequency words ("Control anual",
@@ -366,12 +368,31 @@ is read with the Spanish lexicons anyway). The English rules were written while 
 English notes, so the English column overstates how well they generalize. The oracle scores 100% in
 both languages.
 
-First real Muse Spark run (`muse-spark-1.3`, reasoning `low`, 2026-10-27,
-[report](../../docs/evals/2026-10-27-meta-muse-spark-1.3.md)), on the 17 English notes plus five
-Spanish ones (gold-001, 026, 047, 062, 071): conditions F1 100% (25/0/0), medications 95.2%, plan items
-97.1%, hasPlan and discharge 100%, no hallucinated quote, language detected right on all 22; English
-alone: medications 93.3%, plan items 96.6%, the rest 100%. About 3,850 input and 350 to 1,600 output
-tokens per note (reasoning included), $0.0049 per note, $0.11 for the run, p50 3.3 s, p95 6.2 s.
+HIP-106 corrected four Spanish labels to one lab item per test (above), which moves the Spanish
+baseline's plan items to 96.3% (all 101 notes: conditions 84.3%, medications 81.1%, plan items
+97.2%, hasPlan 96.0%, discharge 99.0%).
+
+Muse Spark (`muse-spark-1.3`, reasoning `low`, prompt `note-extraction@5`, 2026-10-27,
+[report](../../docs/evals/2026-10-27-meta-muse-spark-1.3.md), [comparison](../../docs/evals/comparison.md))
+on all 101 gold notes: conditions F1 91.2%, medications 98.1%, plan items 92.8% (recall 99.2%),
+pregnancy outcome and dating 100%, hasPlan 98.0%, discharge 100%, 0 hallucinated quotes of 348
+items, no error. Spanish: conditions 89.3%, medications 100%, plan items 90.8%; English:
+conditions 100%, medications 90.3%, plan items 100%; language detected right on 100 of 101.
+3,837 input tokens per note (97% of them served from the prompt cache) and 982 output (78%
+reasoning), $0.0049 per note, $0.49 for the run, p50 3.4 s, p95 6.8 s. Every miss is explained, and
+the prompt changes it suggests are listed, in [docs/evals/README.md](../../docs/evals/README.md).
+
+Every Muse Spark number in `docs/evals` can be reproduced offline: the eval CLIs take
+`--snapshot <file>` (replay the replies recorded in it, record the rest live into it) and
+`--offline` (never call the model). The committed recordings are in
+`packages/testkit/fixtures/llm-snapshots/`; a post-processing change is re-scored on the same
+model replies for free. [docs/evals/README.md](../../docs/evals/README.md) lists the command
+behind every number.
+
+```sh
+pnpm --filter @follow-up-engine/llm eval:extraction --provider meta --offline \
+  --snapshot ../../packages/testkit/fixtures/llm-snapshots/gold-notes.meta.json --no-report
+```
 
 Real-network smoke test, never run by `pnpm verify`:
 
@@ -390,7 +411,7 @@ RUN_LLM_SMOKE=1 node --env-file=.env node_modules/vitest/vitest.mjs run --projec
 - The patient's names and identifiers are masked in the input and every tool result, and host text is JSON-escaped so it cannot forge `</review_input>`.
 - Quotes copied from masked text are mapped back to the original before the engine checks them verbatim.
 
-On the Meta Model API and Baseten, a step uses **native tool calling** (`tools`, `tool_choice: "required"`). `toolCalling: 'structured'` sends the same action as strict structured output instead, for endpoints without tools. The fake provider runs `scriptedReviewerResponder`: a deterministic agent that speaks the same protocol (it checks each detector signal with the tools and submits the confirmed ones), so CI and the demo run the real loop.
+On the Meta Model API and Baseten, a step uses **native tool calling** (`tools`; `tool_choice: "auto"` on Meta, which rejects `"required"` with a 400, `"required"` elsewhere). `toolCalling: 'structured'` sends the same action as strict structured output instead, for endpoints without tools. The fake provider runs `scriptedReviewerResponder`: a deterministic agent that speaks the same protocol (it checks each detector signal with the tools and submits the confirmed ones), so CI and the demo run the real loop.
 
 ```sh
 pnpm --filter @follow-up-engine/llm eval:reviewer --provider fake        # scripted agent, offline
@@ -412,7 +433,7 @@ The eval reviews the testkit's reviewer cohort (10 planted, 10 controls) through
 3. Add its price to `DEFAULT_PRICING` (`<provider>:<model>`, with `source` and `verifiedAt`).
 4. Route a task to it in the app and run the eval against it.
 
-## What was verified about the vendors (2026-10-26)
+## What was verified about the vendors (2026-10-26, live runs 2026-10-27)
 
 Meta Model API ([quickstart](https://dev.meta.ai/docs/quickstart),
 [models](https://dev.meta.ai/docs/models), [authentication](https://dev.meta.ai/docs/authentication),
@@ -436,12 +457,22 @@ Meta Model API ([quickstart](https://dev.meta.ai/docs/quickstart),
   400/401/402/403/404/413. Rate limits 3,000 RPM / 4M TPM (contributor models 150 RPM).
 - Prices (USD per 1M tokens, standard): Muse Spark 1.3/1.2 $1.25 in, $0.15 cached in, $4.25 out;
   Muse Wonder $4 / $0.20 / $20. Contributor mode $0.10 / $0.002 / $0.20, in exchange for training rights.
-- Live check with the hackathon key: `GET /v1/models` returned 200 with `muse-spark-1.3`,
-  `muse-spark-1.2`, `muse-spark-1.1`, `muse-spark-1.3-contributor`, `muse-spark-1.2-contributor`,
-  `muse-wonder-1.0` and others. Every inference call (`/chat/completions` and `/responses`, standard and
-  contributor models) returned **HTTP 402** `{"error":{"code":"billing_not_configured","type":"billing_error",...}}`:
-  the key authenticates, but the team has no billing set up yet. The adapter maps that body to a
-  non-retryable `LlmProviderError` with `code: 'billing_not_configured'` (tested with the observed body).
+- Live with the hackathon key (2026-10-27, billing enabled; until 2026-10-26 every inference call
+  was HTTP 402 `billing_not_configured`, which the adapter still maps to a non-retryable
+  `LlmProviderError`):
+  - strict `json_schema` with `ModelExtractionSchema` is accepted: 84 of 84 gold notes parsed, no
+    repair round trip, no truncation (largest reply 2,028 completion tokens of the 8,000 allowed);
+  - `prompt_cache_key` works: 94% of the extraction prompt tokens come back as
+    `cached_tokens` (3,442 of 3,676 per note);
+  - `completion_tokens` includes the reasoning tokens (`reasoning_tokens` 767 of 976 per note at
+    `reasoning_effort: 'low'`), as assumed in the pricing;
+  - native tool calling works, but **`tool_choice` accepts only `"auto"`**: `"required"`, `"none"`
+    and named choices are HTTP 400 ("only `auto` is supported for `tool_choice`"). The Meta
+    provider sends `auto`; a text reply without a call is repaired by the gateway;
+  - Muse Spark sometimes writes a nullable tool argument as the string `"null"`; the reviewer
+    agent reads it as `null` when that makes the arguments valid.
+  - Latency at `reasoning_effort: 'low'`: extraction p50 3.2 s, p95 6.6 s; reviewer steps p50
+    2.4 s, p95 5.1 s.
 
 Baseten ([Model APIs overview](https://docs.baseten.co/development/model-apis/overview),
 [Muse Spark Open](https://www.baseten.co/library/muse-spark-open/),
@@ -457,13 +488,8 @@ Baseten ([Model APIs overview](https://docs.baseten.co/development/model-apis/ov
 - Price $1.25 in, $0.15 cached in, $4.25 out per 1M tokens. `n > 1` is rejected; `seed` and
   `temperature: 0` do not guarantee determinism.
 
-## Still to validate with working keys
+## Still to validate
 
-- Muse Spark extraction now works with billing enabled (2026-10-27): strict `json_schema` accepted
-  with this schema, 22 notes without a schema error. Still open: whether `cached_tokens` is reported
-  with `prompt_cache_key`, latency with `reasoning_effort: 'low'` vs `minimal`, and the full gold set.
-- The exact Baseten slug (`GET https://inference.baseten.co/v1/models`), that a forced `tool_choice`
-  works for Muse Spark Open, and whether its usage includes reasoning tokens.
-- Whether `completion_tokens` includes reasoning tokens on both vendors (assumed, as in OpenAI's
-  convention; cost would be understated otherwise).
-- Then run the eval on both and on the full testkit gold set, and commit the reports.
+- Baseten (no key yet): the exact slug (`GET https://inference.baseten.co/v1/models`), that a
+  forced `tool_choice` works for Muse Spark Open, and whether its usage includes reasoning tokens.
+  Then `eval:extraction --provider baseten` and `eval:reviewer --provider baseten`.

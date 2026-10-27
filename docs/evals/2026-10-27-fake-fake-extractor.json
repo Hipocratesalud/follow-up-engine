@@ -2,7 +2,7 @@
   "provider": "fake",
   "model": "fake-extractor",
   "promptVersion": "note-extraction@5",
-  "startedAt": "2026-10-27T14:21:49.422Z",
+  "startedAt": "2026-10-27T15:27:18.250Z",
   "dataset": "packages/testkit/fixtures/gold-notes (101 of 101 notes)",
   "report": "2026-10-27-fake-fake-extractor.md",
   "summary": {
@@ -21,8 +21,8 @@
           "fn": 19
         },
         "planItems": {
-          "tp": 117,
-          "fp": 8,
+          "tp": 121,
+          "fp": 4,
           "fn": 3
         },
         "pregnancyOutcome": {
@@ -48,9 +48,9 @@
           "f1": 0.8108108108108109
         },
         "planItems": {
-          "precision": 0.936,
-          "recall": 0.975,
-          "f1": 0.9551020408163265
+          "precision": 0.968,
+          "recall": 0.9758064516129032,
+          "f1": 0.9718875502008033
         },
         "pregnancyOutcome": {
           "precision": 1,
@@ -68,7 +68,12 @@
       "hallucinatedQuoteRate": 0,
       "modelItems": 303,
       "quoteRejected": 0,
-      "evidenceRejected": 0
+      "evidenceRejected": 0,
+      "rejectedByReason": {
+        "medication:duplicate": 6,
+        "planItem:due_before_note": 2,
+        "planItem:test_not_named": 1
+      }
     },
     "bySpecialty": [
       {
@@ -87,8 +92,8 @@
             "fn": 9
           },
           "planItems": {
-            "tp": 43,
-            "fp": 1,
+            "tp": 44,
+            "fp": 0,
             "fn": 0
           },
           "pregnancyOutcome": {
@@ -114,9 +119,9 @@
             "f1": 0.8253968253968255
           },
           "planItems": {
-            "precision": 0.9772727272727273,
+            "precision": 1,
             "recall": 1,
-            "f1": 0.9885057471264368
+            "f1": 1
           },
           "pregnancyOutcome": {
             "precision": 1,
@@ -134,7 +139,10 @@
         "hallucinatedQuoteRate": 0,
         "modelItems": 114,
         "quoteRejected": 0,
-        "evidenceRejected": 0
+        "evidenceRejected": 0,
+        "rejectedByReason": {
+          "medication:duplicate": 4
+        }
       },
       {
         "specialty": "gynecology",
@@ -152,8 +160,8 @@
             "fn": 7
           },
           "planItems": {
-            "tp": 36,
-            "fp": 2,
+            "tp": 37,
+            "fp": 1,
             "fn": 2
           },
           "pregnancyOutcome": {
@@ -179,9 +187,9 @@
             "f1": 0.33333333333333326
           },
           "planItems": {
-            "precision": 0.9473684210526315,
-            "recall": 0.9473684210526315,
-            "f1": 0.9473684210526315
+            "precision": 0.9736842105263158,
+            "recall": 0.9487179487179487,
+            "f1": 0.9610389610389611
           },
           "pregnancyOutcome": {
             "precision": 1,
@@ -199,7 +207,11 @@
         "hallucinatedQuoteRate": 0,
         "modelItems": 70,
         "quoteRejected": 0,
-        "evidenceRejected": 0
+        "evidenceRejected": 0,
+        "rejectedByReason": {
+          "planItem:due_before_note": 2,
+          "planItem:test_not_named": 1
+        }
       },
       {
         "specialty": "internal_medicine",
@@ -217,8 +229,8 @@
             "fn": 3
           },
           "planItems": {
-            "tp": 27,
-            "fp": 4,
+            "tp": 29,
+            "fp": 2,
             "fn": 0
           },
           "pregnancyOutcome": {
@@ -244,9 +256,9 @@
             "f1": 0.9180327868852459
           },
           "planItems": {
-            "precision": 0.8709677419354839,
+            "precision": 0.9354838709677419,
             "recall": 1,
-            "f1": 0.9310344827586207
+            "f1": 0.9666666666666666
           },
           "pregnancyOutcome": {
             "precision": 1,
@@ -264,7 +276,10 @@
         "hallucinatedQuoteRate": 0,
         "modelItems": 89,
         "quoteRejected": 0,
-        "evidenceRejected": 0
+        "evidenceRejected": 0,
+        "rejectedByReason": {
+          "medication:duplicate": 2
+        }
       },
       {
         "specialty": "psychology",
@@ -329,7 +344,8 @@
         "hallucinatedQuoteRate": 0,
         "modelItems": 30,
         "quoteRejected": 0,
-        "evidenceRejected": 0
+        "evidenceRejected": 0,
+        "rejectedByReason": {}
       }
     ],
     "byLanguage": [
@@ -397,6 +413,10 @@
         "modelItems": 65,
         "quoteRejected": 0,
         "evidenceRejected": 0,
+        "rejectedByReason": {
+          "planItem:due_before_note": 1,
+          "planItem:test_not_named": 1
+        },
         "detectionAccuracy": 1
       },
       {
@@ -415,8 +435,8 @@
             "fn": 15
           },
           "planItems": {
-            "tp": 88,
-            "fp": 8,
+            "tp": 92,
+            "fp": 4,
             "fn": 3
           },
           "pregnancyOutcome": {
@@ -442,9 +462,9 @@
             "f1": 0.8067226890756302
           },
           "planItems": {
-            "precision": 0.9166666666666666,
-            "recall": 0.967032967032967,
-            "f1": 0.9411764705882353
+            "precision": 0.9583333333333334,
+            "recall": 0.968421052631579,
+            "f1": 0.9633507853403142
           },
           "pregnancyOutcome": {
             "precision": 1,
@@ -463,6 +483,10 @@
         "modelItems": 238,
         "quoteRejected": 0,
         "evidenceRejected": 0,
+        "rejectedByReason": {
+          "medication:duplicate": 6,
+          "planItem:due_before_note": 1
+        },
         "detectionAccuracy": 0.9880952380952381
       }
     ],
@@ -476,7 +500,7 @@
     },
     "latencyMs": {
       "p50": 1,
-      "p95": 11
+      "p95": 15
     }
   }
 }

@@ -1,9 +1,16 @@
 import {
+  CLINICAL_REVIEW_PROMPT_VERSION,
+  emptySnapshot,
+  NOTE_EXTRACTION_PROMPT_VERSION,
+  parseSnapshot,
+} from '@follow-up-engine/llm';
+import {
   createRuntime,
   DEFAULT_DEMO_API_KEY,
   DEFAULT_DEMO_INBOX_API_KEY,
   loadRuntimeConfig,
 } from '@follow-up-engine/runtime';
+import { LLM_SNAPSHOTS, readLlmSnapshot } from '@follow-up-engine/testkit';
 import { loadApiConfig } from '../config.ts';
 import { createApiServer } from '../server.ts';
 import { seedReviewerPilot } from './seed-reviewer.ts';
@@ -16,6 +23,16 @@ import { seedSyntheticClinic } from './seed.ts';
  * synthetic clinic loaded at startup through the initial backfill (all 148
  * patients; `SEED_PATIENTS=N` loads fewer, `SEED=false` skips it). Seeding an
  * already seeded database is a no-op.
+ *
+ * Notes are read by Muse Spark when `META_API_KEY` is set (the default
+ * `LLM_PROVIDER`), by the fake provider otherwise. With Muse Spark the seed
+ * never calls the model: it replays the readings recorded once from it
+ * (`packages/testkit/fixtures/llm-snapshots/demo-clinic.meta.json`,
+ * `demo:record`), so the backfill takes seconds, costs nothing and is the
+ * same on every boot. A seed request the snapshot does not hold (a newer
+ * prompt version) is answered by the fake provider and labeled as such.
+ * Once the seed is done, every request (a consultation from the Demo page,
+ * `POST /fhir`) calls Muse Spark.
  */
 const apiKey = process.env['DEMO_API_KEY'] ?? DEFAULT_DEMO_API_KEY;
 const inboxApiKey = process.env['DEMO_INBOX_API_KEY'] ?? DEFAULT_DEMO_INBOX_API_KEY;
@@ -25,7 +42,25 @@ const config = loadRuntimeConfig({
   DEMO_API_KEY: apiKey,
   DEMO_INBOX_API_KEY: inboxApiKey,
 });
-const runtime = await createRuntime(config, { service: 'api' });
+const snapshotText = readLlmSnapshot(LLM_SNAPSHOTS.demoClinic);
+const snapshot = snapshotText === undefined ? emptySnapshot('meta') : parseSnapshot(snapshotText);
+/** The seed replays only; live calls start once it is done. */
+let seeding = true;
+const runtime = await createRuntime(config, {
+  service: 'api',
+  llmSnapshot: { snapshot, allowLive: () => !seeding },
+});
+if (runtime.llmReplay !== undefined) {
+  const stale = [NOTE_EXTRACTION_PROMPT_VERSION, CLINICAL_REVIEW_PROMPT_VERSION].filter(
+    (version) => !snapshot.promptVersions.includes(version),
+  );
+  if (stale.length > 0) {
+    runtime.logger.warn(
+      { recorded: snapshot.promptVersions, current: stale },
+      'the Muse Spark snapshot predates these prompt versions: the seed reads their requests with the fake provider (re-record with `pnpm --filter @follow-up-engine/api demo:record`)',
+    );
+  }
+}
 if (process.env['SEED'] !== 'false') {
   const report = await seedSyntheticClinic(runtime, {
     apiKey,
@@ -39,7 +74,20 @@ if (process.env['SEED'] !== 'false') {
     // The clinical reviewer's shadow pilot: the planted cohort, then one review per patient.
     runtime.logger.info(await seedReviewerPilot(runtime), 'clinical reviewer shadow pilot seeded');
   }
+  if (runtime.llmReplay !== undefined) {
+    const { hits, misses } = runtime.llmReplay.stats();
+    runtime.logger.info(
+      {
+        replayed: hits,
+        notInSnapshot: misses,
+        provider: runtime.extractor.provider,
+        model: runtime.extractor.model,
+      },
+      'seed model calls: recorded Muse Spark replies replayed, the rest read by the fake provider',
+    );
+  }
 }
+seeding = false;
 const server = createApiServer(runtime, { ...loadApiConfig(), embeddedWorker: true });
 const port = await server.listen();
 process.stdout.write(

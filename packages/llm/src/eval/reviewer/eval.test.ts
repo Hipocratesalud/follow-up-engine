@@ -62,3 +62,51 @@ describe('reviewer eval on the planted cohort (fake provider, the real loop)', (
     expect(report).not.toMatch(/Rodolfo|Arismendi/);
   }, 30_000);
 });
+
+describe('the eval citation check', () => {
+  it('reads a citation of a blood pressure component against that component (Muse Spark cites diastolic values)', async () => {
+    // A blood pressure panel is one Observation with two documents, systolic
+    // (R1) and diastolic (R2); the stored citation only keeps the
+    // Observation. Muse Spark cited both on rev-0006 (2026-10-27).
+    const submit = {
+      thought: 'Confirmed.',
+      tool: 'submit_findings',
+      arguments: JSON.stringify({
+        findings: [
+          {
+            category: 'vital_trend',
+            severity: 'medium',
+            summary: 'Presión arterial en ascenso',
+            rationale: 'Sistólica y diastólica en ascenso.',
+            suggestion: 'Considerar revisar el tratamiento.',
+            citations: [
+              { docId: 'R1', quote: 'Systolic blood pressure: 128 mmHg' },
+              { docId: 'R2', quote: 'Diastolic blood pressure: 82 mmHg' },
+            ],
+            signalIds: ['S1'],
+          },
+        ],
+      }),
+    };
+    const gateway = createLlmGateway({
+      providers: { fake: createFakeProvider({ respond: () => submit }) },
+      tasks: {
+        [CLINICAL_REVIEW_TASK]: { route: [{ provider: 'fake', model: FAKE_REVIEWER_MODEL }] },
+      },
+      usageLog: new InMemoryLlmUsageLog(),
+      pricing: DEFAULT_PRICING,
+    });
+    const records = (await loadCohort(COHORT_DIR))
+      .map(recordOf)
+      .filter((record) => record.patient.patientId === 'rev-0006');
+    const run = await runReviewerEval({
+      records,
+      agent: createReviewAgent({ gateway }),
+      provider: 'fake',
+      model: FAKE_REVIEWER_MODEL,
+      promptVersion: CLINICAL_REVIEW_PROMPT_VERSION,
+    });
+    expect(run.totals.citations).toBe(2);
+    expect(run.totals.hallucinatedCitations).toBe(0);
+  });
+});

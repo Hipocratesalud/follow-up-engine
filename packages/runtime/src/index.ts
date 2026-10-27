@@ -60,7 +60,7 @@ export {
   type IngestMode,
   type StoredEntry,
 } from './ingestion.ts';
-export type { ExtractorInfo } from './llm.ts';
+export type { ExtractorInfo, LlmSnapshotOption } from './llm.ts';
 /** Gateway task names, for per-task LLM usage (notes read vs clinical reviews). */
 export { CLINICAL_REVIEW_TASK, NOTE_EXTRACTION_TASK } from '@follow-up-engine/llm';
 export { createLogger, type Logger } from './logger.ts';
