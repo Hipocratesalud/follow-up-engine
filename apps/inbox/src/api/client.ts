@@ -33,6 +33,13 @@ import type {
   FindingView,
   ReviewMetrics,
 } from './reviewer-contract.ts';
+import type {
+  PatientQueueItem,
+  PatientQueuePage,
+  PatientQueueQuery,
+  PlanItemReviewResponse,
+} from './patient-queue-contract.ts';
+import type { PlanItemCommand, PlanItemCorrectionRequest } from './plan-item-contract.ts';
 
 /** An HTTP error from the API, with the contract's `{ error: { code, message } }` body when present. */
 export class ApiError extends Error {
@@ -139,6 +146,14 @@ export interface ApiClient {
   getReviewMetrics(): Promise<ReviewMetrics>;
   listFindingFlags(): Promise<{ items: FindingFlagView[] }>;
   updateFindingFlag(body: FindingFlagUpdate): Promise<FindingFlagView>;
+  listPatientQueue(query: PatientQueueQuery): Promise<PatientQueuePage>;
+  getPatientCard(patientId: string): Promise<PatientQueueItem>;
+  requestPatientContact(patientId: string, body: { note?: string }): Promise<PatientQueueItem>;
+  reviewPlanItem(
+    expectationId: string,
+    command: PlanItemCommand,
+    body?: PlanItemCorrectionRequest,
+  ): Promise<PlanItemReviewResponse>;
 }
 
 export function createApiClient(config: ApiConfig): ApiClient {
@@ -218,5 +233,18 @@ export function createApiClient(config: ApiConfig): ApiClient {
     getReviewMetrics: () => request('GET', '/inbox/findings/metrics'),
     listFindingFlags: () => request('GET', '/inbox/finding-flags'),
     updateFindingFlag: (body) => request('PUT', '/inbox/finding-flags', { body }),
+    listPatientQueue: (query) => request('GET', '/inbox/patients-queue', { query: { ...query } }),
+    getPatientCard: (patientId) =>
+      request('GET', `/inbox/patients-queue/${encodeURIComponent(patientId)}`),
+    requestPatientContact: (patientId, body) =>
+      request('POST', `/inbox/patients-queue/${encodeURIComponent(patientId)}/request-contact`, {
+        body,
+      }),
+    reviewPlanItem: (expectationId, command, body) =>
+      request(
+        'POST',
+        `/inbox/plan-items/${encodeURIComponent(expectationId)}/${command}`,
+        body === undefined ? {} : { body },
+      ),
   };
 }

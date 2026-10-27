@@ -6,6 +6,8 @@
  * talks HTTP. Dates are ISO 8601 strings. Spanish labels come from the API.
  */
 
+import type { PlanItemView } from './plan-item-contract.ts';
+
 export const LAYERS = ['universal', 'doctor_plan', 'cadence', 'protocol'] as const;
 export type Layer = (typeof LAYERS)[number];
 
@@ -245,6 +247,8 @@ export interface CaseReasonView {
   suppressible: boolean;
   source: ResourceSource;
   evidence?: ReasonEvidence;
+  /** Doctor's-plan reasons: the AI reading and its review (HIP-141). */
+  planItem?: PlanItemView;
 }
 
 export const ESCALATION_ACTIONS = [
@@ -434,6 +438,8 @@ export interface PatientExpectationView {
   /** Why the engine closed it, in Spanish. */
   closedReason?: string;
   evidence?: { quote: string; documentId: string };
+  /** Doctor's-plan expectations: the AI reading and its review (HIP-141). */
+  planItem?: PlanItemView;
 }
 
 export interface QualityFindingView {
@@ -459,6 +465,8 @@ export interface PatientDetail {
 
 export interface InboxStats {
   activeCases: number;
+  /** Patients with an active case (one card each). */
+  activePatients: number;
   byLayer: Record<Layer, number>;
   byStatus: Record<string, number>;
   feedback: { total: number; usefulRate: number };

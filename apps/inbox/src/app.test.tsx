@@ -61,14 +61,15 @@ describe('inbox', () => {
 
   it('never sends a diagnosis in the patient message preview', async () => {
     const { user } = renderApp(DIABETES_CASE);
-    await user.click(await screen.findByRole('button', { name: 'Pedir contacto' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Pedir contacto con el paciente' });
+    // HIP-141: contact is requested once for the patient, from the patient card.
+    await user.click(await screen.findByRole('button', { name: 'Request contact' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Request contact with the patient' });
     const preview = within(dialog).getByText(/^Hola, María\./);
     expect(preview.textContent).not.toMatch(/diabetes|DM2|HbA1c|lipídico/i);
 
-    await user.click(within(dialog).getByRole('button', { name: 'Pedir contacto' }));
-    expect(await screen.findByText(/le pedimos al sistema del consultorio/)).toBeInTheDocument();
-    expect(screen.getAllByText('Avisado').length).toBeGreaterThan(0);
+    // María was contacted 9 days ago: one message per patient every 14 days, across cases.
+    await user.click(within(dialog).getByRole('button', { name: 'Request contact' }));
+    expect(await within(dialog).findByText(/hace pocos días/)).toBeInTheDocument();
   });
 
   it('explains instead of contacting a patient who opted out', async () => {
@@ -79,11 +80,13 @@ describe('inbox', () => {
     await user.click(
       await screen.findByRole('link', { name: new RegExp(optedOut?.patient.name ?? '') }),
     );
-    await user.click(await screen.findByRole('button', { name: 'Pedir contacto' }));
+    await user.click(await screen.findByRole('button', { name: 'Request contact' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/no acepta mensajes del consultorio/)).toBeInTheDocument();
     expect(
-      within(dialog).queryByRole('button', { name: 'Pedir contacto' }),
+      within(dialog).getByText(/does not accept messages from the clinic/),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole('button', { name: 'Request contact' }),
     ).not.toBeInTheDocument();
   });
 });

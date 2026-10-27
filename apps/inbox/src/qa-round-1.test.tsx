@@ -38,27 +38,30 @@ function rows(): HTMLElement[] {
 describe('HIP-114 inbox counts', () => {
   it('shows the total of the view, not the page size, and loads the rest on demand', async () => {
     const { user, store } = renderApp('/bandeja', {
-      // Pages of 5, so a handful of cases already spans several pages.
+      // Pages of 5 patients, so a handful of cards already spans several pages.
       handlers: (mock) => [
-        http.get('*/api/inbox/cases', ({ request }) => {
+        http.get('*/api/inbox/patients-queue', ({ request }) => {
           const url = new URL(request.url);
           const cursor = url.searchParams.get('cursor');
           return HttpResponse.json(
-            mock.listCases({ view: 'active', limit: 5, ...(cursor ? { cursor } : {}) }),
+            mock.listPatientQueue({ view: 'active', limit: 5, ...(cursor ? { cursor } : {}) }),
           );
         }),
       ],
     });
-    const total = store.stats().activeCases;
+    // HIP-141: the inbox counts patients (one card each), cases second.
+    const { activePatients: total, activeCases: cases } = store.stats();
     const title = await screen.findByRole('heading', {
-      name: new RegExp(`Casos ${String(total)}`),
+      name: new RegExp(`Patients ${String(total)}`),
     });
     expect(title).toBeInTheDocument();
     await waitFor(() => {
       expect(rows()).toHaveLength(5);
     });
-    expect(screen.getByText(`Mostrando 5 de ${String(total)} casos`)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Cargar más casos' }));
+    expect(
+      screen.getByText(`Showing 5 of ${String(total)} patients · ${String(cases)} cases`),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Load more patients' }));
     await waitFor(() => {
       expect(rows()).toHaveLength(10);
     });
@@ -70,13 +73,15 @@ describe('HIP-125 owner filter and escalation meter', () => {
     const { user, store } = renderApp('/bandeja');
     const owner = store.listOwners().items.find((item) => item.name.startsWith('Dr'));
     expect(owner).toBeDefined();
-    const select = await screen.findByLabelText('Responsable');
+    const select = await screen.findByLabelText('Owner');
     await waitFor(() => {
       expect(within(select).getByRole('option', { name: owner?.name ?? '' })).toBeInTheDocument();
     });
     await user.selectOptions(select, owner?.id ?? '');
+    // One card per patient with a case of that owner.
+    const patients = store.listPatientQueue({ view: 'active', assignee: owner?.id ?? '' }).total;
     await waitFor(() => {
-      expect(rows()).toHaveLength(owner?.activeCases ?? -1);
+      expect(rows()).toHaveLength(patients);
     });
     for (const row of rows()) expect(row).toHaveTextContent(owner?.name ?? '');
   });
@@ -96,7 +101,7 @@ describe('HIP-126 finding the demo case', () => {
   it('finds a patient by name (any case, no accents)', async () => {
     const { user } = renderApp('/bandeja');
     await screen.findAllByRole('link', { name: /Vencido hace/ });
-    await user.type(screen.getByLabelText('Buscar paciente'), 'ana lucia');
+    await user.type(screen.getByLabelText('Search patient'), 'ana lucia');
     await waitFor(() => {
       expect(rows()).toHaveLength(1);
     });
@@ -121,7 +126,7 @@ describe('HIP-126 finding the demo case', () => {
       expect(heading).toHaveFocus();
     });
     const row = screen.getByRole('link', { name: /Diego Hernández/ });
-    expect(within(row).getByText('Nuevo')).toBeInTheDocument();
+    expect(within(row).getByText('New')).toBeInTheDocument();
   });
 
   it('keeps the last reading when leaving the demo and coming back', async () => {
@@ -130,7 +135,7 @@ describe('HIP-126 finding the demo case', () => {
     await user.click(screen.getByRole('button', { name: 'Guardar consulta' }));
     await screen.findByRole('region', { name: /Lectura de Muse Spark/ });
     await user.click(only(screen.getAllByRole('link', { name: /Bandeja/ })));
-    await screen.findByRole('heading', { name: 'Bandeja de seguimiento' });
+    await screen.findByRole('heading', { name: 'Follow-up inbox' });
     await user.click(only(screen.getAllByRole('link', { name: /Demo/ })));
     expect(
       await screen.findByRole('region', { name: /Lectura de Muse Spark/ }),

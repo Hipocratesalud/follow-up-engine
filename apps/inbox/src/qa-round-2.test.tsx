@@ -78,7 +78,7 @@ describe('HIP-127 validation errors in Spanish, next to the input', () => {
   it('shows a too long search under the box instead of replacing the list with an error', async () => {
     renderApp('/bandeja?buscar=ana', {
       handlers: () => [
-        http.get('*/api/inbox/cases', () =>
+        http.get('*/api/inbox/patients-queue', () =>
           HttpResponse.json(
             {
               error: {
@@ -93,11 +93,8 @@ describe('HIP-127 validation errors in Spanish, next to the input', () => {
       ],
     });
     const message = await screen.findByText('La búsqueda puede tener hasta 100 caracteres.');
-    expect(screen.getByLabelText('Buscar paciente')).toHaveAttribute(
-      'aria-describedby',
-      message.id,
-    );
-    expect(screen.queryByText('No pudimos cargar los casos')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Search patient')).toHaveAttribute('aria-describedby', message.id);
+    expect(screen.queryByText('We could not load the patients')).not.toBeInTheDocument();
   });
 
   it('puts the API limits on the inputs, so they are visible while typing', async () => {
@@ -106,7 +103,7 @@ describe('HIP-127 validation errors in Spanish, next to the input', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Posponer el caso' });
     expect(within(dialog).getByLabelText(/Nota interna/)).toHaveAttribute('maxLength', '2000');
     await user.keyboard('{Escape}');
-    expect(screen.getByLabelText('Buscar paciente')).toHaveAttribute('maxLength', '100');
+    expect(screen.getByLabelText('Search patient')).toHaveAttribute('maxLength', '100');
     await user.click(screen.getByRole('button', { name: 'No útil' }));
     expect(screen.getByLabelText('Comentario (opcional)')).toHaveAttribute('maxLength', '2000');
   });

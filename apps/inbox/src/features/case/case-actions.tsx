@@ -48,7 +48,14 @@ export function patientMessagePreview(name: string): string {
   return `Hola, ${firstName(name)}. Tienes un control pendiente con tu equipo de salud. Responde este mensaje para agendar tu cita.`;
 }
 
-export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactNode {
+export function CaseActions({
+  detail,
+  withContactRequest = true,
+}: {
+  readonly detail: CaseDetail;
+  /** False on the patient card: contact is requested once for the patient, not per case. */
+  readonly withContactRequest?: boolean;
+}): ReactNode {
   const mutation = useCaseAction(detail.id);
   const refreshAfterConflict = useRefreshAfterConflict(detail.id);
   const now = useNow();
@@ -202,15 +209,17 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-2">
-        <Button
-          // A pending call is the case's primary action: asking for contact steps back.
-          variant={detail.callTask ? 'secondary' : 'primary'}
-          value="notify"
-          onClick={handleOpen}
-          icon={<BellRing className="size-4" aria-hidden="true" />}
-        >
-          Pedir contacto
-        </Button>
+        {withContactRequest ? (
+          <Button
+            // A pending call is the case's primary action: asking for contact steps back.
+            variant={detail.callTask ? 'secondary' : 'primary'}
+            value="notify"
+            onClick={handleOpen}
+            icon={<BellRing className="size-4" aria-hidden="true" />}
+          >
+            Pedir contacto
+          </Button>
+        ) : null}
         <Button
           value="snooze"
           onClick={handleOpen}

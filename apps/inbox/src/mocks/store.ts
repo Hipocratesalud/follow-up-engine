@@ -39,6 +39,7 @@ import {
   type Page,
   type PatientContact,
   type PatientDetail,
+  type PatientExpectationView,
   type PatientSummary,
   type PriorityLabel,
   type ProtocolRef,
@@ -48,6 +49,7 @@ import {
   type WebhookDelivery,
 } from '../api/contract.ts';
 import { MOCK_TIMELINE_COPY, VALIDATION_COPY } from '../lib/copy.ts';
+import { planItemCopy } from '../features/plan-items/copy.ts';
 import {
   ATTEMPT_STATUS_LABELS,
   CALL_OUTCOME_LABELS,
@@ -58,6 +60,28 @@ import {
   HOST_CHANNEL_LABEL,
 } from '../lib/labels.ts';
 import { extractFromNote, MOCK_MODEL } from './extraction.ts';
+import type {
+  PatientQueueItem,
+  PatientQueuePage,
+  PatientQueueQuery,
+  PlanItemReviewResponse,
+} from '../api/patient-queue-contract.ts';
+import type {
+  PlanItemCommand,
+  PlanItemCorrectionRequest,
+  PlanItemView,
+  PlanItemViewKind,
+} from '../api/plan-item-contract.ts';
+import {
+  allViews,
+  CORRECTED_BY_CLINICIAN,
+  mockCaseGroup,
+  mockPatientQueueItem,
+  mockPatientQueuePage,
+  mockPlanItemView,
+  mockPlanKind,
+  REJECTED_BY_CLINICIAN,
+} from './patient-queue.ts';
 import {
   ASSIGNEES,
   CLINIC_NAME,
@@ -134,6 +158,12 @@ interface MockExpectation {
   evidence?: { quote: string; documentId: string };
   caseId?: string;
   origin: 'live' | 'backfill';
+  /** Doctor's-plan items (HIP-141): a corrected kind, the review and its closure. */
+  kind?: PlanItemViewKind;
+  closedReason?: string;
+  confirmedBy?: string;
+  confirmedAt?: Date;
+  correctionOf?: string;
 }
 
 interface TimelineEntry {
@@ -382,6 +412,16 @@ export interface MockStore {
   listWebhooks(limit?: number, type?: string): { items: WebhookDelivery[] };
   /** The clinical reviewer's findings and flags. */
   readonly reviewer: ReviewerMock;
+  /** HIP-141: one card per patient. */
+  listPatientQueue(query: PatientQueueQuery): PatientQueuePage;
+  getPatientCard(patientId: string): PatientQueueItem;
+  requestPatientContact(patientId: string, note?: string, actorId?: string): PatientQueueItem;
+  reviewPlanItem(
+    expectationId: string,
+    command: PlanItemCommand,
+    correction?: PlanItemCorrectionRequest,
+    actorId?: string,
+  ): PlanItemReviewResponse;
 }
 
 export function createMockStore(options: MockStoreOptions = {}): MockStore {
@@ -765,6 +805,33 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
             },
           }
         : {}),
+      ...planItemField(expectation),
+    };
+  }
+
+  function planItemField(expectation: MockExpectation): { planItem?: PlanItemView } {
+    const planItem = mockPlanItemView(expectation);
+    return planItem === undefined ? {} : { planItem };
+  }
+
+  function expectationView(expectation: MockExpectation): PatientExpectationView {
+    const closedLabel =
+      expectation.closedReason === CORRECTED_BY_CLINICIAN
+        ? 'Corrected by a clinician'
+        : expectation.closedReason === REJECTED_BY_CLINICIAN
+          ? 'Rejected by a clinician: the note did not ask for it'
+          : undefined;
+    return {
+      id: expectation.id,
+      ruleId: expectation.ruleId,
+      layer: expectation.layer,
+      label: expectation.label,
+      ...(expectation.protocol ? { protocol: { ...expectation.protocol } } : {}),
+      status: expectation.status,
+      dueAt: expectation.dueAt.toISOString(),
+      ...(closedLabel === undefined ? {} : { closedReason: closedLabel }),
+      ...(expectation.evidence ? { evidence: { ...expectation.evidence } } : {}),
+      ...planItemField(expectation),
     };
   }
 
@@ -1028,11 +1095,16 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   // ----------------------------------------------------------- engine-like
 
   function openOrMergeCase(expectation: MockExpectation): void {
+    // One case per patient and case group, as the engine groups them.
+    const group = mockCaseGroup(expectation.ruleId);
     const existing = [...cases.values()].find(
       (candidate) =>
         candidate.patientId === expectation.patientId &&
         ACTIVE.includes(candidate.status) &&
-        isReleased(candidate),
+        isReleased(candidate) &&
+        candidate.expectationIds.some(
+          (id) => mockCaseGroup(expectations.get(id)?.ruleId ?? '') === group,
+        ),
     );
     expectation.status = 'expired';
     if (existing) {
@@ -1758,6 +1830,217 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     };
   }
 
+  // ------------------------------------------------- patient queue (HIP-141)
+
+  /** One message per patient every 14 days, whatever the number of cases (the engine's window). */
+  const CONTACT_WINDOW_DAYS = 14;
+
+  function requestPatientContact(
+    patientId: string,
+    note?: string,
+    actorId = 'Dra. Lucía Paredes',
+  ): PatientQueueItem {
+    const patient = patients.get(patientId);
+    const active = [...cases.values()]
+      .filter(
+        (followUpCase) =>
+          followUpCase.patientId === patientId &&
+          isReleased(followUpCase) &&
+          ACTIVE.includes(followUpCase.status),
+      )
+      .map((followUpCase) => ({ followUpCase, view: caseView(followUpCase) }))
+      .sort((left, right) => right.view.priority - left.view.priority);
+    const primary = active[0];
+    if (!patient || !primary) {
+      throw new MockHttpError(404, 'not_found', 'This patient has no active cases in the inbox.');
+    }
+    if (!patient.contact.allowed || patient.contact.optedOut) {
+      throw new MockHttpError(
+        409,
+        'patient_contact_not_allowed',
+        'El paciente no acepta mensajes del consultorio. Contáctalo por otra vía.',
+      );
+    }
+    const last = patient.contact.lastContactAt;
+    if (last !== undefined && daysBetween(new Date(last), now) < CONTACT_WINDOW_DAYS) {
+      throw new MockHttpError(
+        409,
+        'patient_contact_not_allowed',
+        'Ya se pidió contactar a este paciente hace pocos días. Espera a que responda o contáctalo por otra vía.',
+      );
+    }
+    const trimmed = note?.trim();
+    act(
+      primary.followUpCase.id,
+      { action: 'notify', ...(trimmed ? { note: trimmed } : {}) },
+      actorId,
+    );
+    for (const { followUpCase } of active.slice(1)) {
+      followUpCase.timeline.push({
+        at: now,
+        type: 'patient_contact_requested',
+        actor: { type: 'user', id: actorId },
+        label: 'Contact requested for the patient (one request covers all their cases)',
+        ...(trimmed ? { note: trimmed } : {}),
+      });
+      if (followUpCase.status === 'open' || followUpCase.status === 'snoozed') {
+        followUpCase.status = 'notified';
+        delete followUpCase.snoozedUntil;
+        followUpCase.nextActionAt = addDays(now, ESCALATION_DELAYS_DAYS[0]);
+      }
+    }
+    return getPatientCard(patientId);
+  }
+
+  function getPatientCard(patientId: string): PatientQueueItem {
+    const views = [...cases.values()]
+      .filter((followUpCase) => followUpCase.patientId === patientId && isReleased(followUpCase))
+      .map(caseView);
+    if (views.length === 0) {
+      throw new MockHttpError(404, 'not_found', 'This patient has no active cases in the inbox.');
+    }
+    return mockPatientQueueItem(views);
+  }
+
+  /** Resolves the case of a plan item once none of its reasons is pending. */
+  function resolveIfSatisfied(caseId: string | undefined, actorId: string): string[] {
+    const followUpCase = caseId === undefined ? undefined : cases.get(caseId);
+    if (!followUpCase || !ACTIVE.includes(followUpCase.status)) return [];
+    const pending = followUpCase.expectationIds.some((id) => {
+      const status = expectations.get(id)?.status;
+      return status === 'open' || status === 'expired';
+    });
+    if (pending) return [];
+    followUpCase.status = 'resolved';
+    delete followUpCase.nextActionAt;
+    followUpCase.timeline.push({
+      at: now,
+      type: 'resolved',
+      actor: { type: 'user', id: actorId },
+      label: 'Resuelto: no hacía falta',
+    });
+    emit('case.resolved', webhookCasePayload(followUpCase));
+    return [followUpCase.id];
+  }
+
+  function reviewPlanItem(
+    expectationId: string,
+    command: PlanItemCommand,
+    correction: PlanItemCorrectionRequest = {},
+    actorId = 'Dra. Lucía Paredes',
+  ): PlanItemReviewResponse {
+    const expectation = expectations.get(expectationId);
+    if (!expectation) {
+      throw new MockHttpError(404, 'not_found', 'We could not find that plan item.');
+    }
+    if (expectation.layer !== 'doctor_plan') {
+      const message =
+        'Only a plan item the AI read from a note can be confirmed, corrected or rejected.';
+      throw new MockHttpError(422, 'invalid_request', message, [
+        { path: 'expectationId', message },
+      ]);
+    }
+    if (
+      expectation.closedReason === CORRECTED_BY_CLINICIAN ||
+      expectation.closedReason === REJECTED_BY_CLINICIAN
+    ) {
+      throw new MockHttpError(
+        409,
+        'conflict',
+        'A clinician already corrected or rejected this plan item.',
+      );
+    }
+    const live = expectation.status === 'open' || expectation.status === 'expired';
+    const followUpCase =
+      expectation.caseId === undefined ? undefined : cases.get(expectation.caseId);
+    const activeCase =
+      followUpCase && ACTIVE.includes(followUpCase.status) ? followUpCase : undefined;
+    const kindLabel = planItemCopy().kinds;
+    if (command === 'confirm') {
+      if (expectation.confirmedBy === undefined) {
+        expectation.confirmedBy = actorId;
+        expectation.confirmedAt = now;
+        activeCase?.timeline.push({
+          at: now,
+          type: 'plan_item_confirmed',
+          actor: { type: 'user', id: actorId },
+          label: `Plan item confirmed: ${kindLabel[expectation.kind ?? mockPlanKind(expectation.ruleId)].toLowerCase()}`,
+        });
+      }
+      return { expectation: expectationView(expectation), casesResolved: [] };
+    }
+    if (!live) {
+      throw new MockHttpError(
+        409,
+        'conflict',
+        'This plan item is already closed: there is nothing left to correct or reject.',
+      );
+    }
+    if (command === 'reject') {
+      expectation.status = 'cancelled';
+      expectation.closedReason = REJECTED_BY_CLINICIAN;
+      activeCase?.timeline.push({
+        at: now,
+        type: 'plan_item_rejected',
+        actor: { type: 'user', id: actorId },
+        label: `Plan item rejected: ${kindLabel[expectation.kind ?? mockPlanKind(expectation.ruleId)].toLowerCase()}`,
+      });
+      return {
+        expectation: expectationView(expectation),
+        casesResolved: resolveIfSatisfied(activeCase?.id, actorId),
+      };
+    }
+    const kind = correction.kind ?? expectation.kind ?? mockPlanKind(expectation.ruleId);
+    const dueAt =
+      correction.dueDate === undefined
+        ? expectation.dueAt
+        : new Date(`${correction.dueDate}T12:00:00.000Z`);
+    if (Number.isNaN(dueAt.getTime())) {
+      throw new MockHttpError(422, 'invalid_request', 'Enter a valid due date.', [
+        { path: 'dueDate', message: 'Enter a valid due date.' },
+      ]);
+    }
+    if (
+      kind === (expectation.kind ?? mockPlanKind(expectation.ruleId)) &&
+      dueAt.getTime() === expectation.dueAt.getTime()
+    ) {
+      const message = 'Change the due date or the kind to correct the plan item.';
+      throw new MockHttpError(422, 'invalid_request', message, [{ path: 'correction', message }]);
+    }
+    expectation.status = 'superseded';
+    expectation.closedReason = CORRECTED_BY_CLINICIAN;
+    const id = nextId('exp', 'exp');
+    const joins = activeCase !== undefined && dueAt.getTime() <= now.getTime();
+    const replacement: MockExpectation = {
+      ...expectation,
+      id,
+      kind,
+      dueAt,
+      status: joins ? 'expired' : 'open',
+      confirmedBy: actorId,
+      confirmedAt: now,
+      correctionOf: expectation.id,
+    };
+    delete replacement.closedReason;
+    if (joins) {
+      activeCase.expectationIds.push(id);
+    } else {
+      delete replacement.caseId;
+    }
+    expectations.set(id, replacement);
+    activeCase?.timeline.push({
+      at: now,
+      type: 'plan_item_corrected',
+      actor: { type: 'user', id: actorId },
+      label: `Plan item corrected: ${kindLabel[kind].toLowerCase()}`,
+    });
+    return {
+      expectation: expectationView(expectation),
+      replacement: expectationView(replacement),
+      casesResolved: joins ? [] : resolveIfSatisfied(activeCase?.id, actorId),
+    };
+  }
+
   // --------------------------------------------------------------- queries
 
   return {
@@ -1856,16 +2139,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         expectations: [...expectations.values()]
           .filter((expectation) => expectation.patientId === id)
           .sort((a, b) => b.dueAt.getTime() - a.dueAt.getTime())
-          .map((expectation) => ({
-            id: expectation.id,
-            ruleId: expectation.ruleId,
-            layer: expectation.layer,
-            label: expectation.label,
-            ...(expectation.protocol ? { protocol: { ...expectation.protocol } } : {}),
-            status: expectation.status,
-            dueAt: expectation.dueAt.toISOString(),
-            ...(expectation.evidence ? { evidence: { ...expectation.evidence } } : {}),
-          })),
+          .map(expectationView),
         qualityFindings: findings
           .filter((finding) => finding.patientId === id)
           .map((finding) => ({
@@ -1928,6 +2202,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         BASELINE_LLM.costUsd + llmCalls.reduce((sum, call) => sum + call.costUsd, 0);
       return {
         activeCases: active.length,
+        activePatients: new Set(active.map((followUpCase) => followUpCase.patientId)).size,
         byLayer,
         byStatus,
         feedback: { total, usefulRate: total === 0 ? 0 : useful / total },
@@ -1960,6 +2235,24 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     createConsultation,
 
     reviewer,
+
+    listPatientQueue(query: PatientQueueQuery): PatientQueuePage {
+      const views = allViews((cursor) =>
+        this.listCases({
+          ...(query.view === undefined ? {} : { view: query.view }),
+          ...(query.origin === undefined ? {} : { origin: query.origin }),
+          ...(query.assignee === undefined ? {} : { assignee: query.assignee }),
+          ...(query.q === undefined ? {} : { q: query.q }),
+          ...(cursor === undefined ? {} : { cursor }),
+          limit: 200,
+        }),
+      );
+      return mockPatientQueuePage(views, query);
+    },
+
+    getPatientCard,
+    requestPatientContact,
+    reviewPlanItem,
 
     listWebhooks(limit = 30, type?: string): { items: WebhookDelivery[] } {
       return {
