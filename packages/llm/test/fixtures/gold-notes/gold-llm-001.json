@@ -1,0 +1,25 @@
+{
+  "id": "gold-llm-001",
+  "specialty": "diabetology",
+  "authoredAt": "2025-03-10",
+  "text": "Pcte fem 58a, DM2 de 6 años de evolución e HTA. Refiere buena adherencia. Glicemia en ayunas 142 mg/dl, HbA1c previa 7.8%. PA 138/86. Continúa metformina 850 mg c/12h y losartán 50 mg c/24h. Dieta y caminata 30 min diarios. Plan: ctrl en 3 meses con HbA1c y perfil lipídico.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [
+      { "icd10": "E11", "evidenceQuote": "DM2" },
+      { "icd10": "I10", "evidenceQuote": "HTA" }
+    ],
+    "medications": [
+      { "text": "metformina 850 mg c/12h", "evidenceQuote": "metformina 850 mg c/12h" },
+      { "text": "losartán 50 mg c/24h", "evidenceQuote": "losartán 50 mg c/24h" }
+    ],
+    "planItems": [
+      { "kind": "follow_up_visit", "dueInDays": 92, "evidenceQuote": "ctrl en 3 meses" },
+      {
+        "kind": "lab",
+        "dueInDays": 92,
+        "evidenceQuote": "ctrl en 3 meses con HbA1c y perfil lipídico"
+      }
+    ]
+  }
+}

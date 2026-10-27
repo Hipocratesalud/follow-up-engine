@@ -1,0 +1,26 @@
+{
+  "id": "gold-llm-005",
+  "specialty": "traumatology",
+  "authoredAt": "2025-03-10",
+  "text": "Pcte fem 47a con lumbalgia mecánica de 3 sem, sin signos de alarma. Lasègue negativo. Ibuprofeno 400 mg c/8h por 7 días. Indico 10 sesiones de fisioterapia a iniciar en 1 semana. Rx de columna lumbar el 24/03/2025. Ctrl en 1 mes.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [{ "icd10": "M54", "evidenceQuote": "lumbalgia mecánica" }],
+    "medications": [
+      {
+        "text": "ibuprofeno 400 mg c/8h por 7 días",
+        "evidenceQuote": "Ibuprofeno 400 mg c/8h por 7 días",
+        "durationDays": 7
+      }
+    ],
+    "planItems": [
+      {
+        "kind": "session",
+        "dueInDays": 7,
+        "evidenceQuote": "10 sesiones de fisioterapia a iniciar en 1 semana"
+      },
+      { "kind": "imaging", "dueInDays": 14, "evidenceQuote": "Rx de columna lumbar el 24/03/2025" },
+      { "kind": "follow_up_visit", "dueInDays": 31, "evidenceQuote": "Ctrl en 1 mes" }
+    ]
+  }
+}
