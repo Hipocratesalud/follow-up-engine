@@ -5,14 +5,17 @@ import {
 } from '@follow-up-engine/adapter-memory';
 import {
   type Clinic,
+  type ClinicalReviewer,
   type ClinicId,
   clinicId as toClinicId,
   type Clock,
+  createClinicalReviewer,
   createFollowUpEngine,
   type EventPublisher,
   FakeClock,
   type FollowUpEngine,
   type IdGenerator,
+  shadowPilotFlags,
   SystemClock,
 } from '@follow-up-engine/core';
 import type { NoteFixture } from '@follow-up-engine/llm';
@@ -37,7 +40,7 @@ import { createLoopbackPublisher, WebhookSink } from './webhooks/sink.ts';
 import { IngestionService } from './ingestion.ts';
 import { createConfiguredExtractor, type ExtractorInfo } from './llm.ts';
 import { createLogger, type Logger } from './logger.ts';
-import { withPatientRedaction } from './redaction.ts';
+import { patientRedactTerms, withPatientRedaction } from './redaction.ts';
 import { createMemoryStorage, createPostgresStorage, type Storage } from './storage.ts';
 
 /** Id and name of the synthetic demo clinic (fictional). */
@@ -80,6 +83,8 @@ export interface EngineRuntime {
   readonly fakeClock?: FakeClock;
   readonly storage: Storage;
   readonly engine: FollowUpEngine;
+  /** The clinical reviewer (PRD V3): shadow findings, flags, review runs. */
+  readonly reviewer: ClinicalReviewer;
   readonly extractor: ExtractorInfo;
   readonly ingestion: IngestionService;
   /** Delivers outbox events to the host (signed webhooks). */
@@ -159,7 +164,7 @@ export async function createRuntime(
           ...(options.poolSize === undefined ? {} : { poolSize: options.poolSize }),
         });
 
-  const { extractor, info } = createConfiguredExtractor(config.llm, {
+  const { extractor, info, reviewAgent } = createConfiguredExtractor(config.llm, {
     usageLog: storage.llmUsage,
     clinics: storage.clinics,
     clock,
@@ -175,6 +180,14 @@ export async function createRuntime(
     clinics: storage.clinics,
     clock,
     ids: options.ids ?? new UuidIdGenerator(),
+  });
+  const reviewer = createClinicalReviewer({
+    unitOfWork: storage.unitOfWork,
+    clock,
+    ids: options.ids ?? new UuidIdGenerator(),
+    agent: reviewAgent,
+    // Names and identifiers never reach the model (masked in the input and every tool result).
+    redactTermsOf: patientRedactTerms,
   });
 
   const { url: webhookUrl, secret: webhookSecret } = config.webhooks;
@@ -244,6 +257,7 @@ export async function createRuntime(
     ...(fakeClock === undefined ? {} : { fakeClock }),
     storage,
     engine,
+    reviewer,
     extractor: info,
     ingestion: new IngestionService({ storage, engine, clock }),
     publisher,
@@ -344,7 +358,23 @@ export async function registerDemoClinic(
       apiKey: inboxApiKey,
     });
   }
+  await startDemoShadowPilot(runtime, clinic.id);
   return clinic;
+}
+
+/**
+ * The demo clinic runs the clinical reviewer's shadow pilot: every
+ * implemented category on, in shadow (stored for the clinical team's batch
+ * review, never shown to doctors nor sent to the host). Only on first boot:
+ * flags someone changed in the demo are kept.
+ */
+async function startDemoShadowPilot(runtime: EngineRuntime, clinicId: ClinicId): Promise<void> {
+  await runtime.storage.unitOfWork.withTransaction(clinicId, async (stores) => {
+    if ((await stores.findingFlags.list(clinicId)).length > 0) return;
+    for (const flag of shadowPilotFlags(clinicId, 'demo-setup', runtime.clock.now())) {
+      await stores.findingFlags.upsert(clinicId, flag);
+    }
+  });
 }
 
 /** Active clinics, for the sweeps. */

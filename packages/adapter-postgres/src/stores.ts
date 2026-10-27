@@ -3,6 +3,11 @@ import { PostgresBackfillProgressStore } from './backfill-progress-store.ts';
 import { PostgresAuditLog, PostgresFeedbackRepository } from './case-records.ts';
 import { PostgresCaseRepository } from './case-repository.ts';
 import { PostgresClinicDirectory } from './clinic-directory.ts';
+import {
+  PostgresClinicalFindingRepository,
+  PostgresClinicalReviewRunRepository,
+  PostgresFindingFlagRepository,
+} from './clinical-finding-repositories.ts';
 import { PostgresClinicalRecordRepository } from './clinical-record-repository.ts';
 import {
   PostgresConditionRepository,
@@ -28,6 +33,9 @@ export interface PostgresStores extends TransactionalStores {
   readonly clinics: PostgresClinicDirectory;
   readonly llmUsage: PostgresLlmUsageLog;
   readonly backfillProgress: PostgresBackfillProgressStore;
+  readonly clinicalFindings: PostgresClinicalFindingRepository;
+  readonly reviewRuns: PostgresClinicalReviewRunRepository;
+  readonly findingFlags: PostgresFindingFlagRepository;
 }
 
 export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): PostgresStores {
@@ -45,5 +53,8 @@ export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): P
     clinics: new PostgresClinicDirectory(ctx),
     llmUsage: new PostgresLlmUsageLog(ctx),
     backfillProgress: new PostgresBackfillProgressStore(ctx),
+    clinicalFindings: new PostgresClinicalFindingRepository(ctx),
+    reviewRuns: new PostgresClinicalReviewRunRepository(ctx),
+    findingFlags: new PostgresFindingFlagRepository(ctx),
   };
 }

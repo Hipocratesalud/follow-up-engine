@@ -3,11 +3,14 @@ import {
   describeAuditLogContract,
   describeBackfillProgressStoreContract,
   describeCaseRepositoryContract,
+  describeClinicalFindingRepositoryContract,
   describeClinicalRecordRepositoryContract,
+  describeClinicalReviewRunRepositoryContract,
   describeClinicDirectoryContract,
   describeConditionRepositoryContract,
   describeExpectationRepositoryContract,
   describeFeedbackRepositoryContract,
+  describeFindingFlagRepositoryContract,
   describeJobQueueContract,
   describeLlmUsageLogContract,
   describeOutboxContract,
@@ -63,6 +66,18 @@ describe.skipIf(!POSTGRES_ENABLED)(postgresTitle('contract suites'), () => {
   describeBackfillProgressStoreContract(
     NAME,
     store((s) => s.backfillProgress),
+  );
+  describeClinicalFindingRepositoryContract(
+    NAME,
+    store((s) => s.clinicalFindings),
+  );
+  describeClinicalReviewRunRepositoryContract(
+    NAME,
+    store((s) => s.reviewRuns),
+  );
+  describeFindingFlagRepositoryContract(
+    NAME,
+    store((s) => s.findingFlags),
   );
 
   describeOutboxContract(NAME, () => {

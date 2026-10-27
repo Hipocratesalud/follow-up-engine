@@ -49,6 +49,9 @@ const TABLES = [
   'outbox',
   'jobs',
   'backfill_progress',
+  'clinical_findings',
+  'clinical_review_runs',
+  'finding_flags',
 ] as const;
 
 export type TableName = (typeof TABLES)[number];

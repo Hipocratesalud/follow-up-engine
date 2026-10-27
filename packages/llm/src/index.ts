@@ -161,3 +161,17 @@ export {
   type RunEvalOptions,
 } from './eval/run.ts';
 export { renderReport, reportFileName } from './eval/report.ts';
+
+// Clinical reviewer agent (PRD V3)
+export { createReviewAgent, quoteFromOriginal, type ReviewAgentOptions } from './reviewer/agent.ts';
+export {
+  CLINICAL_REVIEW_PROMPT_VERSION,
+  CLINICAL_REVIEW_TASK,
+  inertJson,
+  maskStrings,
+  REVIEWER_ACTION_NAME,
+  ReviewerActionSchema,
+  reviewerSystemPrompt,
+  type ReviewerAction,
+} from './reviewer/prompt.ts';
+export { FAKE_REVIEWER_MODEL, scriptedReviewerResponder } from './reviewer/scripted.ts';

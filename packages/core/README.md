@@ -16,6 +16,8 @@ src/
     case-manager/ case state machine, writer (audit + outbox), priority, reconciliation, commands
     escalation/  escalation sweep and scheduling
     patient-contact/ who may be contacted, and when
+    reviewer/    the clinical reviewer (V3): dossier, trends, detectors, read-only agent tools,
+                 citation checks, coverage, flags, the review service (docs/reviewer.md)
 ```
 
 ## Entry points
@@ -219,6 +221,29 @@ How it works:
 For the inbox: active cases are `list({ statuses: ACTIVE, releasedAsOf: now })`; the patients to recover are `list({ origin: 'backfill', unreleasedAsOf: now })`.
 
 On the synthetic clinic (120 patients, two years, 1,680 bundles; acceptance test `packages/acceptance/test/backfill.test.ts`): 5,074 events and 671 notes replayed, 1,853 expectations created and 1,325 of them fulfilled by the history itself, 85 cases for 75 patients (at most 2 per patient), all released on day 0: no owner has more than the default cap of 20 (`packages/acceptance/test/backfill-release-cap.test.ts`).
+
+## Clinical reviewer
+
+`createClinicalReviewer({ unitOfWork, clock, ids, agent?, redactTermsOf?, localeOf? })` (`engine/reviewer`) reviews one patient's record and stores **findings** (`ClinicalFinding`, FHIR `DetectedIssue`): suggestions to the clinical team, each with verbatim citations.
+
+1. Code builds the dossier and computes the trends.
+2. Deterministic detectors emit signals.
+3. The `ClinicalReviewAgent` port (an LLM in `@follow-up-engine/llm`) confirms, discards, merges or adds findings through read-only tools.
+4. Code checks every citation verbatim, decides `alreadyCovered` from open expectations and cases, deduplicates over 90 days, and stores each finding in shadow or live mode by its category flag (`finding_flags`, live only with `validatedBy`).
+
+Ingest queues `clinical_review.run` 10 minutes after new results, notes or prescriptions (one review per patient). `scheduleStaleReviews` queues high-priority patients not reviewed in 30 days. With no agent, or when it fails, the checked detector signals are stored instead. Details, safety rules and the eval: [docs/reviewer.md](../../docs/reviewer.md).
+
+| Method                                                     | What it does                                                                                   |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `reviewPatient(clinicId, patientId, trigger)`              | One review now: findings stored, a `ClinicalReviewRun` with cost, tokens, steps and tool trace |
+| `runReviewJob(clinicId, payload)`                          | Handler of `clinical_review.run`                                                               |
+| `scheduleStaleReviews(clinicId, now)`                      | The daily job (case priority ≥ 75 stands in for V2's risk tier)                                |
+| `listFindings`, `countFindings`, `getFinding`, `getRun`    | The batch review                                                                               |
+| `reviewFinding(clinicId, id, { verdict, reason, userId })` | `relevant`, `already_known`, `not_relevant` (reason required, `ValidationError`)               |
+| `listFlags`, `updateFlag`                                  | Categories per clinic and specialty; live needs `validatedBy` (`ValidationError`)              |
+| `runStats(clinicId, since)`                                | Runs, patients, findings, discarded, cost                                                      |
+
+`reviewRecord(clinicId, snapshot, options)` is the pure pipeline, without stores. The eval and the tests use it directly.
 
 ## Adding a rule or a protocol
 

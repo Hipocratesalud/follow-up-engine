@@ -53,6 +53,10 @@ export {
   type PatientConditionInput,
 } from './outbound/condition.ts';
 export { QUALITY_FINDING_CODES, qualityFindingToDetectedIssue } from './outbound/detected-issue.ts';
+export {
+  CLINICAL_FINDING_DISPLAYS,
+  clinicalFindingToDetectedIssue,
+} from './outbound/clinical-finding.ts';
 export { caseEventId, caseEventToProvenance, provenanceAgent } from './outbound/provenance.ts';
 export { toSearchsetBundle, type SearchsetOptions } from './outbound/searchset.ts';
 export {

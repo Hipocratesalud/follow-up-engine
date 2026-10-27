@@ -105,5 +105,15 @@ export function toWebhookBody(event: DomainEvent): WebhookBody {
           ...backfillCounts(event.payload),
         },
       };
+    case 'clinical_finding.created':
+      return {
+        ...base,
+        data: {
+          findingId: event.payload.findingId,
+          patientId: event.payload.patientId,
+          severity: event.payload.severity,
+          detectedIssue: `DetectedIssue/${event.payload.findingId}`,
+        },
+      };
   }
 }

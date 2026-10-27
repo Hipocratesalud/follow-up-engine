@@ -29,6 +29,8 @@ export const ENGINE_CODE_SYSTEMS = {
   reason: codeSystem('follow-up-reason'),
   /** `DetectedIssue.code` of a documentation-quality finding. */
   qualityFinding: codeSystem('follow-up-quality-finding'),
+  /** `DetectedIssue.code` of a clinical reviewer finding: its category (`lab-trend`, ...). */
+  clinicalFinding: codeSystem('clinical-finding-category'),
   /** `Provenance.activity` of a case event (`CaseEvent.type`). */
   caseEvent: codeSystem('follow-up-case-event'),
   /** Specialty codes a host may send in `Encounter.serviceType` (e.g. `diabetology`). */
@@ -96,6 +98,14 @@ export const ENGINE_EXTENSIONS = {
   confirmedBy: structureDefinition('follow-up-confirmed-by'),
   /** Condition (`refuted`), `valueString`: host user id of the clinician who rejected it. */
   refutedBy: structureDefinition('follow-up-refuted-by'),
+  /** DetectedIssue (clinical finding), `valueCode`: `shadow` | `live`. */
+  findingMode: structureDefinition('clinical-finding-mode'),
+  /** DetectedIssue (clinical finding), `valueBoolean`: an open expectation or case already covers it. */
+  alreadyCovered: structureDefinition('clinical-finding-already-covered'),
+  /** DetectedIssue (clinical finding), `valueCode`: `confirmed` | `added` | `fallback`. */
+  findingOrigin: structureDefinition('clinical-finding-origin'),
+  /** DetectedIssue (clinical finding), `valueString`: `<provider>:<model>` and prompt version. */
+  reviewerModel: structureDefinition('clinical-finding-model'),
   /** Provenance, `valueString`: the case event payload as JSON (ids and codes only). */
   caseEventPayload: structureDefinition('follow-up-case-event-payload'),
 } as const;

@@ -62,6 +62,16 @@ export {
 } from './synthetic/fhir-builders.ts';
 export type { TimelineEntry, TimelineEntryKind } from './synthetic/timeline.ts';
 
+// Clinical reviewer cohort (planted findings and controls)
+export { generateReviewerCohort, REVIEWER_COHORT_SIZE } from './reviewer/cohort.ts';
+export { loadReviewerCohort } from './reviewer/load.ts';
+export {
+  type ExpectedFinding,
+  type ReviewerCohort,
+  type ReviewerCohortPatient,
+  ReviewerCohortPatientSchema,
+} from './reviewer/schema.ts';
+
 // Contract suites
 export { describeClockContract } from './clock-contract.ts';
 export { describeCaseRepositoryContract } from './contracts/case-repository.contract.ts';
@@ -91,4 +101,11 @@ export {
 } from './contracts/unit-of-work.contract.ts';
 export type { ContractSubject, MakeSubject } from './contracts/harness.ts';
 export { describeBackfillProgressStoreContract } from './contracts/backfill-progress.contract.ts';
+export {
+  aClinicalFinding,
+  aReviewRun,
+  describeClinicalFindingRepositoryContract,
+  describeClinicalReviewRunRepositoryContract,
+  describeFindingFlagRepositoryContract,
+} from './contracts/clinical-finding.contract.ts';
 export * as contractBuilders from './contracts/builders.ts';

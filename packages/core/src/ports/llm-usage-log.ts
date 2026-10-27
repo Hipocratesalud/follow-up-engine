@@ -39,6 +39,10 @@ export interface LlmUsageSummary {
 export interface LlmUsageLog {
   record(call: LlmCallRecord): Promise<void>;
   totalCostUsd(clinicId: ClinicId, since: Date): Promise<number>;
-  /** Calls at or after `since`. */
-  summary(clinicId: ClinicId, since: Date): Promise<LlmUsageSummary>;
+  /** Calls at or after `since`; only those of `task` when given (`note_extraction`, `clinical_review`). */
+  summary(
+    clinicId: ClinicId,
+    since: Date,
+    options?: { readonly task?: string },
+  ): Promise<LlmUsageSummary>;
 }

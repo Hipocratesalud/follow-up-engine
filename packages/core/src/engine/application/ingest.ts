@@ -34,6 +34,7 @@ import {
   NOTE_EXTRACTION_MAX_ATTEMPTS,
   type NoteExtractionJobPayload,
 } from './note-extraction.ts';
+import { scheduleReviewAfterIngest } from '../reviewer/service.ts';
 import { withListedResultWithdrawals } from './report-withdrawals.ts';
 
 export interface IngestDeps {
@@ -336,6 +337,15 @@ export async function ingest(deps: IngestDeps, batch: ClinicalBatch): Promise<In
       events: batch.events,
       derived: pass.derived,
     });
+    if (applied.eventsInserted > 0) {
+      // New results, notes or prescriptions queue a (debounced) clinical review.
+      await scheduleReviewAfterIngest(stores, {
+        clinicId,
+        patientId,
+        events: batch.events,
+        now: deps.clock.now(),
+      });
+    }
     return { ...applied, eventsReceived: batch.events.length, notes: outcomes };
   });
 }

@@ -13,7 +13,7 @@ import {
   parseConditionId,
   patientId as toPatientId,
 } from '@follow-up-engine/core';
-import type { EngineRuntime } from '@follow-up-engine/runtime';
+import { type EngineRuntime, NOTE_EXTRACTION_TASK } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import { conditionView, InboxPresenter } from '../inbox/presenter.ts';
@@ -411,10 +411,14 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     const clinicId = c.var.clinicId;
     const now = runtime.clock.now();
     const presenter = await InboxPresenter.create(runtime, clinicId);
-    const [active, feedback, usage] = await Promise.all([
+    const [active, feedback, usage, notes] = await Promise.all([
       listAll(runtime, clinicId, { statuses: ACTIVE_CASE_STATUSES, releasedAsOf: now }),
       stores.feedback.listSince(clinicId, new Date(0), 100_000),
       runtime.storage.llmUsage.summary(clinicId, startOfUtcMonth(now)),
+      // Notes read: the clinical reviewer's calls are its own (`/api/inbox/findings/metrics`).
+      runtime.storage.llmUsage.summary(clinicId, startOfUtcMonth(now), {
+        task: NOTE_EXTRACTION_TASK,
+      }),
     ]);
     await presenter.prefetch(active);
     const byLayer = Object.fromEntries(EXPECTATION_LAYERS.map((layer) => [layer, 0])) as Record<
@@ -441,11 +445,11 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
       },
       llm: {
         monthCostUsd: Number(usage.costUsd.toFixed(6)),
-        calls: usage.calls,
+        calls: notes.calls,
         avgCostPerNoteUsd:
-          usage.successfulCalls === 0
+          notes.successfulCalls === 0
             ? 0
-            : Number((usage.costUsd / usage.successfulCalls).toFixed(6)),
+            : Number((notes.costUsd / notes.successfulCalls).toFixed(6)),
         provider: runtime.extractor.provider,
         model: runtime.extractor.model,
       },

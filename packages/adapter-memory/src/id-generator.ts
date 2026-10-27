@@ -7,6 +7,8 @@ const PREFIXES: Readonly<Record<IdKind, string>> = {
   feedback: 'fb',
   domain_event: 'evt',
   finding: 'qf',
+  clinical_finding: 'cf',
+  review_run: 'rr',
 };
 
 /** Deterministic ids (`case-1`, `exp-2`, ...) for tests and reproducible demos. */
