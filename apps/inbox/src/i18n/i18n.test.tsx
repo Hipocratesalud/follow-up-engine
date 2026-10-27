@@ -45,6 +45,7 @@ const SAME_IN_BOTH = new Set([
   'labels.sexShort.female',
   'labels.sexShort.male',
   'labels.channels.whatsapp',
+  'why.statuses.final',
   'labels.channels.sms',
   'labels.source',
   'consultation.labs.4548-4',
