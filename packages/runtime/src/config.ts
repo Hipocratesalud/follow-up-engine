@@ -77,6 +77,11 @@ const EnvSchema = z
      * `demo:clock` and `demo:ingest` on a fake clock): `VITE_API_KEY`.
      */
     DEMO_INBOX_API_KEY: optionalString,
+    /**
+     * Monthly LLM budget of the demo clinic, in USD (default: the clinic
+     * default). A hosted demo caps what public traffic can spend on live calls.
+     */
+    DEMO_LLM_MONTHLY_BUDGET_USD: z.coerce.number().positive().optional(),
     /** Register the demo clinic with `CLOCK=system` too (its keys must not be the public ones). */
     DEMO_CLINIC: z
       .enum(['true', 'false', '1', '0', ''])
@@ -177,7 +182,12 @@ export interface RuntimeConfig {
    * The demo clinic to register: on a fake clock whenever `DEMO_API_KEY` is
    * set; on a real clock only with `DEMO_CLINIC=true`.
    */
-  readonly demo?: { readonly apiKey: string; readonly inboxApiKey?: string };
+  readonly demo?: {
+    readonly apiKey: string;
+    readonly inboxApiKey?: string;
+    /** `DEMO_LLM_MONTHLY_BUDGET_USD`. */
+    readonly llmMonthlyBudgetUsd?: number;
+  };
   /** `DEMO_API_KEY` was set on a real clock without `DEMO_CLINIC=true` (logged, ignored). */
   readonly ignoredDemoApiKey: boolean;
   readonly logLevel: string;
@@ -253,6 +263,7 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Runtime
           demo: {
             apiKey: e.DEMO_API_KEY,
             ...defined('inboxApiKey', e.DEMO_INBOX_API_KEY),
+            ...defined('llmMonthlyBudgetUsd', e.DEMO_LLM_MONTHLY_BUDGET_USD),
           },
         }
       : {}),

@@ -751,4 +751,14 @@ export const ES = {
       protocol: 'Protocolo',
     },
   },
+  accessGate: {
+    title: 'Seguimiento clínico',
+    heading: 'Seguimiento clínico',
+    intro: 'Esta demo es privada. Escribe el código de acceso que te compartieron.',
+    codeLabel: 'Código de acceso',
+    submit: 'Entrar',
+    wrongCode: 'Ese código no es válido. Revísalo e inténtalo de nuevo.',
+    tooManyAttempts: 'Demasiados intentos. Espera un minuto e inténtalo de nuevo.',
+    required: 'Primero escribe el código de acceso.',
+  },
 } satisfies ApiMessages;

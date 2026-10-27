@@ -1,0 +1,59 @@
+# The hosted demo (docs/deploy.md#hosted-demo): one container serves the API,
+# the embedded worker and the built inbox on the same origin, on a fake clock
+# over the synthetic clinic. Railway builds it from railway.json.
+#
+#   docker build -f apps/api/Dockerfile.demo --build-arg DEMO_INBOX_API_KEY=... -t follow-up-engine-demo .
+#
+# The inbox key is compiled into the browser bundle (a demo only: the whole
+# site sits behind DEMO_ACCESS_CODE), so it is a build argument; Railway passes
+# the service variable of the same name.
+FROM node:22-slim AS base
+ENV PNPM_HOME=/pnpm \
+    PATH=/pnpm:$PATH \
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
+WORKDIR /app
+
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY packages/core/package.json packages/core/
+COPY packages/fhir/package.json packages/fhir/
+COPY packages/adapter-memory/package.json packages/adapter-memory/
+COPY packages/adapter-postgres/package.json packages/adapter-postgres/
+COPY packages/llm/package.json packages/llm/
+COPY packages/testkit/package.json packages/testkit/
+COPY packages/runtime/package.json packages/runtime/
+COPY apps/api/package.json apps/api/
+COPY apps/worker/package.json apps/worker/
+RUN pnpm install --frozen-lockfile --ignore-scripts \
+      --filter "@follow-up-engine/api..." --filter "@follow-up-engine/worker..." \
+      --filter "@follow-up-engine/testkit..."
+
+FROM base AS inbox
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/inbox/package.json apps/inbox/
+RUN pnpm install --frozen-lockfile --ignore-scripts --filter "@follow-up-engine/inbox"
+COPY tsconfig.base.json ./
+COPY apps/inbox ./apps/inbox
+ARG DEMO_INBOX_API_KEY=demo-inbox-key
+# Same origin: the inbox calls /api on the host that served it.
+RUN cd apps/inbox && VITE_API_URL=/ VITE_API_KEY="$DEMO_INBOX_API_KEY" pnpm exec vite build
+
+FROM base AS runtime
+ENV NODE_ENV=production
+COPY --from=deps /app /app
+COPY config ./config
+COPY packages ./packages
+COPY apps/api ./apps/api
+COPY apps/worker ./apps/worker
+COPY docs/integration.md ./docs/integration.md
+COPY --from=inbox /app/apps/inbox/dist ./apps/inbox/dist
+USER node
+EXPOSE 3000
+ENV PORT=3000 \
+    CLOCK=fake \
+    EMBEDDED_WORKER=true \
+    INBOX_DIST_DIR=/app/apps/inbox/dist
+HEALTHCHECK --interval=10s --timeout=3s --start-period=300s \
+  CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+CMD ["node", "--experimental-strip-types", "--no-warnings=ExperimentalWarning", "apps/api/src/test/demo-server.ts"]

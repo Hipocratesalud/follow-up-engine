@@ -21,6 +21,8 @@ export interface SeedOptions {
   readonly apiKey: string;
   /** The inbox key (`VITE_API_KEY`): inbox and demo scopes (fake clock), never `fhir:write`. */
   readonly inboxApiKey?: string;
+  /** The clinic's monthly LLM budget in USD (`DEMO_LLM_MONTHLY_BUDGET_USD`); the clinic default otherwise. */
+  readonly llmMonthlyBudgetUsd?: number;
   /** Only the first N patients (by id). All 148 by default. */
   readonly patients?: number;
   /**
@@ -62,7 +64,12 @@ export async function seedSyntheticClinic(
     throw new Error('Seeding replays two years of history: run it with CLOCK=fake');
   }
   const started = performance.now();
-  const clinic = await registerDemoClinic(runtime, options.apiKey, options.inboxApiKey);
+  const clinic = await registerDemoClinic(
+    runtime,
+    options.apiKey,
+    options.inboxApiKey,
+    options.llmMonthlyBudgetUsd,
+  );
   const synthetic = loadSyntheticClinic();
   const patients = [...synthetic.patients]
     .sort((left, right) => left.patientId.localeCompare(right.patientId))

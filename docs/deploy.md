@@ -202,3 +202,34 @@ The worker queues one `reconciliation.run` job per clinic and night, at `setting
 - **Webhooks.** A long random `WEBHOOK_SECRET` shared with the host only. Never deploy the development default `dev-only-webhook-secret` (the engine logs a warning when it runs on a real clock with it). Hosts verify the HMAC over `timestamp.deliveryId.body` and a 5-minute window ([integration.md](integration.md#verifying-the-signature-node)).
 - **Edge limits.** The API caps bodies at 5 MB and rate-limits per key (600/min) and per client for wrong keys (60/min), in process memory: with several API replicas, add a shared limit at the gateway. It sends `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, a deny-all `Content-Security-Policy` (the `/docs` page allows only its pinned, SRI-checked Scalar bundle) and HSTS over HTTPS. Terminate TLS in front of it.
 - **Database role.** The engine must connect as the role that owns its tables (the one that runs the migrations at boot): RLS is on for every table and does not restrict the owner.
+
+## Hosted demo
+
+The demo can run on a public URL for people to try from their own computers: one container serves the API, the embedded worker and the built inbox on the same origin (no CORS, one URL), on a fake clock over the synthetic clinic, with the seed replaying the recorded Muse Spark readings and every live call (a consultation saved from the Demo page) going to Muse Spark. It is the `pnpm demo` process with three extras, all off unless set:
+
+| Variable                      | What it does                                                                                                                                                                                                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INBOX_DIST_DIR`              | Serves this inbox build at `/` (client routes get `index.html`, `/assets` are cached for good, the page gets its own CSP); `/api`, `/fhir`, `/jobs`, `/docs` stay the API. The image sets it.                                                                                                                             |
+| `DEMO_ACCESS_CODE`            | A shared code (16+ characters) in front of everything but `/healthz` and `/readyz`: a page load goes to `/_access`, an API call without it gets 401. The right code sets an HttpOnly cookie for 30 days (an HMAC of the code: changing the code signs everyone out). Wrong codes are limited to 10 per minute per client. |
+| `DEFAULT_UI_LOCALE`           | `en` (default) or `es`: the inbox's language until a viewer picks one with the EN / ES switch, and the language of the code page.                                                                                                                                                                                         |
+| `DEMO_LLM_MONTHLY_BUDGET_USD` | The demo clinic's monthly LLM budget (default 50). The replayed seed readings count at what they cost when recorded (about USD 4.8), so a cap of 15 leaves about USD 10 for live calls; past it the model is not called.                                                                                                  |
+
+The image is `apps/api/Dockerfile.demo` (the inbox is built inside it with `VITE_API_URL=/`, and the `DEMO_INBOX_API_KEY` build argument compiled in as `VITE_API_KEY`: whoever passes the code holds the inbox key, which is why the code covers the whole site). `railway.json` points Railway at it, with `/healthz` as the health check (the first boot seeds for about a minute before it listens).
+
+**Railway.** The project is `follow-up-engine-demo` (one service of the same name and a Postgres database). Its service variables: `DATABASE_URL` (a reference to the Postgres service), `LLM_PROVIDER=meta`, `META_API_KEY`, `DEMO_API_KEY`, `DEMO_INBOX_API_KEY` (private random keys), `DEMO_ACCESS_CODE`, `DEFAULT_UI_LOCALE=es`, `DEMO_LLM_MONTHLY_BUDGET_USD=15`, `WEBHOOK_SECRET` (random; the webhooks land in the in-process sink). `CLOCK=fake`, `EMBEDDED_WORKER=true` and `INBOX_DIST_DIR` come from the image.
+
+The service settings also carry the build (Dockerfile path `apps/api/Dockerfile.demo`, health check `/healthz` with a 600 s window): a CLI upload built with Railpack until they were set on the service, `railway.json` alone was not enough. Both services run in `us-east4` (closest to the clinics in Latin America).
+
+**Live Muse Spark calls from Railway.** The Meta Model API answers Railway's egress addresses (EU and US alike) with an empty model list and 404 on `muse-spark-1.3`, while the same key works from a developer's machine. The seed is unaffected (it replays the recorded readings, labeled Muse Spark), but a consultation saved from the Demo page is read by the fake provider, labeled "simulated reading (no model)", until Meta allows those addresses (or the demo runs where Meta answers).
+
+**Redeploy** after changes, from a checkout of the branch to ship:
+
+```sh
+pnpm deploy:demo
+```
+
+(`sh scripts/deploy-demo.sh` does the same with any pnpm.) It uploads the working tree (git-ignored files, `.env` included, stay out) to that project only: it looks the project up by name, passes the project, service and environment explicitly, and refuses to run in a directory the Railway CLI links to any other project. The new deployment takes traffic once `/healthz` answers; until then the previous one serves.
+
+- **Seeded once.** The seed is a no-op on a database that holds the seeded clinic, so a restart or a redeploy keeps every case, verdict and action people took.
+- **One shared clock.** The simulated date lives in the process: "+1 day" moves it for everyone, and a restart or a redeploy starts it again on 2026-01-05 (cases already released stay released). To start the demo over, delete and re-add the Postgres database, then redeploy.
+- **One replica.** The fake clock and the in-process webhook sink assume a single instance.
