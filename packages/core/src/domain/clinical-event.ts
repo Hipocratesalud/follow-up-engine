@@ -1,3 +1,4 @@
+import type { Evidence } from './common.ts';
 import type { ClinicId, PatientId, PractitionerId } from './ids.ts';
 import type { Coding, ResourceRef } from './resource.ts';
 
@@ -98,6 +99,8 @@ export interface ConditionRecordedEvent extends ClinicalEventBase {
   /** ICD-10 code ({@link ICD10_SYSTEM}). */
   readonly code: Coding;
   readonly verification: ConditionVerification;
+  /** When the diagnosis was read from a note: the verbatim quote that supports it. */
+  readonly evidence?: Evidence;
 }
 
 /** A clinical note arrived (FHIR `DocumentReference`). */
@@ -129,11 +132,17 @@ export interface PlanExtractedEvent extends ClinicalEventBase {
   readonly type: 'plan.extracted';
   readonly sourceDocumentId: string;
   readonly items: readonly PlanItem[];
+  /** The note discharged the patient from this specialty ("alta"): no visit pattern after it. */
+  readonly discharged?: boolean;
   /** Which model and prompt produced the items, for provenance. */
   readonly extractor: { readonly model: string; readonly promptVersion: string };
 }
 
-/** The patient asked not to be followed up. Closes everything open. */
+/**
+ * The patient asked not to be contacted. The clinic keeps following them up
+ * (expectations and cases go on); the engine never asks the host to contact
+ * them again.
+ */
 export interface PatientOptedOutEvent extends ClinicalEventBase {
   readonly type: 'patient.opted_out';
 }

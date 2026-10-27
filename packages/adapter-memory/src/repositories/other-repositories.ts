@@ -33,15 +33,15 @@ export class MemoryFeedbackRepository implements FeedbackRepository {
     ) {
       return Promise.reject(new ConflictError('CaseFeedback', feedback.id));
     }
-    this.#db.state.feedback.push(feedback);
+    this.#db.pushTo(this.#db.state.feedback, feedback);
     return Promise.resolve();
   }
 
   listForCase(clinicId: ClinicId, caseId: CaseId): Promise<readonly CaseFeedback[]> {
     return Promise.resolve(
-      this.#db.state.feedback.filter(
-        (item) => item.clinicId === clinicId && item.caseId === caseId,
-      ),
+      this.#db.state.feedback
+        .filter((item) => item.clinicId === clinicId && item.caseId === caseId)
+        .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime()),
     );
   }
 
@@ -67,7 +67,8 @@ export class MemoryConditionRepository implements ConditionRepository {
     if (condition.clinicId !== clinicId) {
       return Promise.reject(new TenantMismatchError());
     }
-    this.#db.state.conditions.set(
+    this.#db.setIn(
+      this.#db.state.conditions,
       tenantKey(clinicId, condition.patientId, condition.code.system, condition.code.code),
       condition,
     );
@@ -104,7 +105,7 @@ export class MemoryQualityFindingRepository implements QualityFindingRepository 
     }
     const key = tenantKey(clinicId, finding.id);
     if (!this.#db.state.findings.has(key)) {
-      this.#db.state.findings.set(key, finding);
+      this.#db.setIn(this.#db.state.findings, key, finding);
     }
     return Promise.resolve();
   }
@@ -130,7 +131,7 @@ export class MemoryAuditLog implements AuditLog {
     if (event.clinicId !== clinicId) {
       return Promise.reject(new TenantMismatchError());
     }
-    this.#db.state.audit.push(event);
+    this.#db.pushTo(this.#db.state.audit, event);
     return Promise.resolve();
   }
 

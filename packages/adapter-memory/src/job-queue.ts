@@ -36,11 +36,14 @@ export class MemoryJobQueue implements JobQueue {
   enqueue(clinicId: ClinicId, job: JobRequest): Promise<JobId> {
     const jobs = this.#db.state.jobs;
     if (job.dedupKey !== undefined) {
+      // Like the Postgres partial unique index: a dedup key is unique among
+      // unfinished jobs only, so the same work can run again once it finished.
       const duplicate = [...jobs.values()].find(
         (existing) =>
           existing.clinicId === clinicId &&
           existing.type === job.type &&
-          existing.dedupKey === job.dedupKey,
+          existing.dedupKey === job.dedupKey &&
+          (existing.status === 'pending' || existing.status === 'running'),
       );
       if (duplicate !== undefined) {
         return Promise.resolve(duplicate.id);
@@ -48,7 +51,7 @@ export class MemoryJobQueue implements JobQueue {
     }
     const id = jobId(`job-${String(this.#db.nextSequence())}`);
     const now = this.#clock.now();
-    jobs.set(id, {
+    this.#db.setIn(jobs, id, {
       id,
       clinicId,
       type: job.type,
@@ -79,7 +82,7 @@ export class MemoryJobQueue implements JobQueue {
         break;
       }
       if (job.attempt >= job.maxAttempts) {
-        this.#db.state.jobs.set(job.id, {
+        this.#db.setIn(this.#db.state.jobs, job.id, {
           ...job,
           status: 'dead',
           lastError: job.lastError ?? 'lease expired',
@@ -89,7 +92,7 @@ export class MemoryJobQueue implements JobQueue {
       const attempt = job.attempt + 1;
       const leaseToken = `${job.id}:${String(attempt)}:${String(this.#db.nextSequence())}`;
       const leaseExpiresAt = new Date(now + durationToMilliseconds(options.leaseFor));
-      this.#db.state.jobs.set(job.id, {
+      this.#db.setIn(this.#db.state.jobs, job.id, {
         ...job,
         attempt,
         status: 'running',
@@ -119,7 +122,7 @@ export class MemoryJobQueue implements JobQueue {
     if (job === undefined) {
       return Promise.resolve('lease_lost');
     }
-    this.#db.state.jobs.set(job.id, { ...job, status: 'completed' });
+    this.#db.setIn(this.#db.state.jobs, job.id, { ...job, status: 'completed' });
     return Promise.resolve('acknowledged');
   }
 
@@ -136,7 +139,7 @@ export class MemoryJobQueue implements JobQueue {
       return Promise.resolve('lease_lost');
     }
     const exhausted = job.attempt >= job.maxAttempts;
-    this.#db.state.jobs.set(job.id, {
+    this.#db.setIn(this.#db.state.jobs, job.id, {
       ...job,
       status: exhausted ? 'dead' : 'pending',
       runAt: failure.retryAt ?? this.#clock.now(),
@@ -160,11 +163,9 @@ export class MemoryJobQueue implements JobQueue {
     if (job.clinicId !== clinicId) {
       return new TenantMismatchError();
     }
-    const now = this.#clock.now().getTime();
-    const valid =
-      job.status === 'running' &&
-      job.leaseToken === lease.leaseToken &&
-      (job.leaseExpiresAt?.getTime() ?? 0) > now;
+    // Ownership is the token: an expired lease stays valid until another
+    // worker reclaims the job (which mints a new token), as in Postgres.
+    const valid = job.status === 'running' && job.leaseToken === lease.leaseToken;
     return valid ? job : undefined;
   }
 }
@@ -181,8 +182,21 @@ export class MemoryOutbox implements Outbox {
     if (event.clinicId !== clinicId) {
       return Promise.reject(new TenantMismatchError());
     }
-    this.#db.state.outbox.push({ sequence: this.#db.nextSequence(), clinicId, event });
+    this.#db.pushTo(this.#db.state.outbox, {
+      sequence: this.#db.nextSequence(),
+      clinicId,
+      event,
+    });
     return Promise.resolve();
+  }
+
+  /** Events of a clinic not delivered yet, in insertion order. */
+  pending(clinicId: ClinicId): Promise<readonly DomainEvent[]> {
+    return Promise.resolve(
+      this.records(clinicId)
+        .filter((record) => record.deliveredAt === undefined)
+        .map((record) => record.event),
+    );
   }
 
   /** Events in insertion order, optionally only one clinic's. */
@@ -207,7 +221,7 @@ export class MemoryOutbox implements Outbox {
     for (const record of this.#db.state.outbox.filter((item) => item.deliveredAt === undefined)) {
       await publisher.publish(record.clinicId, record.event);
       const index = this.#db.state.outbox.findIndex((item) => item.sequence === record.sequence);
-      this.#db.state.outbox[index] = { ...record, deliveredAt: now };
+      this.#db.replaceAt(this.#db.state.outbox, index, { ...record, deliveredAt: now });
       delivered += 1;
     }
     return delivered;

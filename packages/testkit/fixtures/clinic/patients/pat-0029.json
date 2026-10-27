@@ -8,13 +8,13 @@
   "pattern": "new_patient",
   "entries": [
     {
-      "at": "2025-10-27T19:56:00.000Z",
+      "at": "2025-10-27T20:05:00.000Z",
       "kind": "consultation",
       "bundle": {
         "resourceType": "Bundle",
         "id": "pat-0029-bundle01",
         "type": "transaction",
-        "timestamp": "2025-10-27T19:56:00.000Z",
+        "timestamp": "2025-10-27T20:05:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:425b0c86-3113-57c8-9a49-e021f08b8159",
@@ -24,7 +24,7 @@
               "identifier": [
                 {
                   "use": "usual",
-                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "system": "https://hipocratesalud.com/fhir/NamingSystem/demo-patient",
                   "value": "HC-11073"
                 }
               ],
@@ -61,7 +61,7 @@
               "serviceType": {
                 "coding": [
                   {
-                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                     "code": "diabetology",
                     "display": "Diabetología"
                   }
@@ -70,7 +70,7 @@
               },
               "subject": { "reference": "Patient/pat-0029" },
               "participant": [{ "individual": { "reference": "Practitioner/prac-diab-02" } }],
-              "period": { "start": "2025-10-27T19:30:00.000Z", "end": "2025-10-27T19:56:00.000Z" },
+              "period": { "start": "2025-10-27T19:30:00.000Z", "end": "2025-10-27T20:05:00.000Z" },
               "reasonCode": [{ "text": "Control de diabetes" }],
               "serviceProvider": {
                 "reference": "Organization/clinic-demo",
@@ -93,7 +93,7 @@
                 "text": "Nota de evolución"
               },
               "subject": { "reference": "Patient/pat-0029" },
-              "date": "2025-10-27T19:56:00.000Z",
+              "date": "2025-10-27T20:05:00.000Z",
               "author": [{ "reference": "Practitioner/prac-diab-02" }],
               "custodian": {
                 "reference": "Organization/clinic-demo",
@@ -104,9 +104,9 @@
                   "attachment": {
                     "contentType": "text/plain; charset=utf-8",
                     "language": "es",
-                    "data": "UGN0ZSBNIDQwYSwgcmVmZXJpZG8gcG9yIG3DqWRpY28gZ2VuZXJhbCBwb3IgRE0yIGRlIDkgYcOxb3MgZGUgZHggeSBkaXNsaXBpZGVtaWEuIFByaW1lcmEgY29uc3VsdGEgZW4gZWwgc2VydmljaW8uClJlZmllcmUgcG9saXVyaWEgbGV2ZSB5IGNhbnNhbmNpby4gTmllZ2EgaGlwb2dsaWNlbWlhcy4KRUY6IFRBIDEyNy83NyBtbUhnLCBGQyA4NSBscG0sIHBlc28gOTcga2cuIEdsaWNlbWlhIGNhcGlsYXIgOTggbWcvZGwuIFBpZXMgc2luIGxlc2lvbmVzLCBwdWxzb3MgcGVkaW9zIHByZXNlbnRlcy4KRHg6IERNMiBlbiBtZXRhcy4gZGlzbGlwaWRlbWlhLgpQbGFuOiBjb250aW51YXIgbWV0Zm9ybWluYSA4NTAgbWcgVk8gYy8xMmggY29uIGxhcyBjb21pZGFzIHkgYXRvcnZhc3RhdGluYSAyMCBtZyBWTyBIUy4gc2Ugc29saWNpdGEgcGVyZmlsIGxpcMOtZGljbywgY3JlYXRpbmluYSB5IG1pY3JvYWxidW1pbnVyaWEuIGFjdGl2aWRhZCBmw61zaWNhIHJlZ3VsYXIuIFZvbHZlciBhIGNvbnN1bHRhIGVuIDMgbWVzZXMgY29uIHJlc3VsdGFkb3Mu",
+                    "data": "TWFzYyA0MCBhw7FvcywgcmVmZXJpZG8gcG9yIG3DqWRpY28gZ2VuZXJhbCBwb3IgRE0yIGRlIDkgYcOxb3MgZGUgZHggeSBkaXNsaXBpZGVtaWEuIFByaW1lcmEgY29uc3VsdGEgZW4gZWwgc2VydmljaW8uClJlZmllcmUgYnVlbmEgYWRoZXJlbmNpYSBhbCB0dG8sIG5pZWdhIGhpcG9nbGljZW1pYXMuCkVGOiBUQSAxMjMvODIgbW1IZywgRkMgNjggbHBtLCBwZXNvIDk4IGtnLiBHbGljZW1pYSBjYXBpbGFyIDEyMyBtZy9kbC4gUGllcyBzaW4gbGVzaW9uZXMsIHB1bHNvcyBwZWRpb3MgcHJlc2VudGVzLgpEeDogRE0yIGVuIG1ldGFzLiBkaXNsaXBpZGVtaWEuClBsYW46IG1hbnRlbmVyIG1ldGZvcm1pbmEgODUwIG1nIFZPIGMvMTJoIGNvbiBsYXMgY29taWRhcyB5IGF0b3J2YXN0YXRpbmEgMjAgbWcgVk8gSFMuIHNlIHNvbGljaXRhIHBlcmZpbCBsaXDDrWRpY28sIGNyZWF0aW5pbmEgeSBtaWNyb2FsYnVtaW51cmlhLiBhY3RpdmlkYWQgZsOtc2ljYSByZWd1bGFyLiBjdHJsIGVuIDMgbWVzZXMu",
                     "title": "Nota de evolución",
-                    "creation": "2025-10-27T19:56:00.000Z"
+                    "creation": "2025-10-27T20:05:00.000Z"
                   }
                 }
               ],
@@ -114,12 +114,12 @@
                 "encounter": [{ "reference": "Encounter/pat-0029-enc01" }],
                 "period": {
                   "start": "2025-10-27T19:30:00.000Z",
-                  "end": "2025-10-27T19:56:00.000Z"
+                  "end": "2025-10-27T20:05:00.000Z"
                 },
                 "practiceSetting": {
                   "coding": [
                     {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                       "code": "diabetology",
                       "display": "Diabetología"
                     }
@@ -160,7 +160,7 @@
               },
               "subject": { "reference": "Patient/pat-0029" },
               "encounter": { "reference": "Encounter/pat-0029-enc01" },
-              "authoredOn": "2025-10-27T19:56:00.000Z",
+              "authoredOn": "2025-10-27T20:05:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-02" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0029-sr01" }
@@ -195,7 +195,7 @@
               },
               "subject": { "reference": "Patient/pat-0029" },
               "encounter": { "reference": "Encounter/pat-0029-enc01" },
-              "authoredOn": "2025-10-27T19:56:00.000Z",
+              "authoredOn": "2025-10-27T20:05:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-02" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0029-sr02" }
@@ -230,7 +230,7 @@
               },
               "subject": { "reference": "Patient/pat-0029" },
               "encounter": { "reference": "Encounter/pat-0029-enc01" },
-              "authoredOn": "2025-10-27T19:56:00.000Z",
+              "authoredOn": "2025-10-27T20:05:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-02" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0029-sr03" }
@@ -250,7 +250,7 @@
               },
               "subject": { "reference": "Patient/pat-0029" },
               "encounter": { "reference": "Encounter/pat-0029-enc01" },
-              "authoredOn": "2025-10-27T19:56:00.000Z",
+              "authoredOn": "2025-10-27T20:05:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-02" },
               "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
             },
@@ -275,7 +275,7 @@
               },
               "subject": { "reference": "Patient/pat-0029" },
               "encounter": { "reference": "Encounter/pat-0029-enc01" },
-              "authoredOn": "2025-10-27T19:56:00.000Z",
+              "authoredOn": "2025-10-27T20:05:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-02" },
               "dosageInstruction": [{ "text": "1 tab VO HS" }]
             },
@@ -325,7 +325,7 @@
               },
               "subject": { "reference": "Patient/pat-0029" },
               "encounter": { "reference": "Encounter/pat-0029-enc01" },
-              "recordedDate": "2025-10-27T19:56:00.000Z",
+              "recordedDate": "2025-10-27T20:05:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-02" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0029-cond01" }
@@ -374,7 +374,7 @@
               },
               "subject": { "reference": "Patient/pat-0029" },
               "encounter": { "reference": "Encounter/pat-0029-enc01" },
-              "recordedDate": "2025-10-27T19:56:00.000Z",
+              "recordedDate": "2025-10-27T20:05:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-02" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0029-cond02" }
@@ -383,13 +383,13 @@
       }
     },
     {
-      "at": "2025-10-27T20:06:00.000Z",
+      "at": "2025-10-27T20:15:00.000Z",
       "kind": "appointment_booked",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0029-bundle05",
+        "id": "pat-0029-bundle04",
         "type": "transaction",
-        "timestamp": "2025-10-27T20:06:00.000Z",
+        "timestamp": "2025-10-27T20:15:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:6afe744c-dde5-54c1-8f84-161b8a683e81",
@@ -401,7 +401,7 @@
                 {
                   "coding": [
                     {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                       "code": "diabetology",
                       "display": "Diabetología"
                     }
@@ -410,10 +410,10 @@
                 }
               ],
               "description": "Control de diabetes",
-              "start": "2026-02-05T17:30:00.000Z",
-              "end": "2026-02-05T18:00:00.000Z",
+              "start": "2026-02-02T19:30:00.000Z",
+              "end": "2026-02-02T20:00:00.000Z",
               "minutesDuration": 30,
-              "created": "2025-10-27T20:06:00.000Z",
+              "created": "2025-10-27T20:15:00.000Z",
               "participant": [
                 {
                   "actor": { "reference": "Patient/pat-0029" },
@@ -433,126 +433,13 @@
       }
     },
     {
-      "at": "2025-11-03T21:53:00.000Z",
-      "kind": "result",
-      "bundle": {
-        "resourceType": "Bundle",
-        "id": "pat-0029-bundle03",
-        "type": "transaction",
-        "timestamp": "2025-11-03T21:53:00.000Z",
-        "entry": [
-          {
-            "fullUrl": "urn:uuid:c9af1eac-d2ae-58cc-9b30-f8be71471065",
-            "resource": {
-              "resourceType": "DiagnosticReport",
-              "id": "pat-0029-dr02",
-              "basedOn": [{ "reference": "ServiceRequest/pat-0029-sr02" }],
-              "status": "final",
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
-                      "code": "LAB",
-                      "display": "Laboratory"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://loinc.org",
-                    "code": "2160-0",
-                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
-                  }
-                ],
-                "text": "Creatinina sérica"
-              },
-              "subject": { "reference": "Patient/pat-0029" },
-              "effectiveDateTime": "2025-10-31T21:53:00.000Z",
-              "issued": "2025-11-03T21:53:00.000Z",
-              "result": [{ "reference": "Observation/pat-0029-dr02-obs1" }]
-            },
-            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0029-dr02" }
-          },
-          {
-            "fullUrl": "urn:uuid:504aef8f-f648-513e-85c9-70d83414defa",
-            "resource": {
-              "resourceType": "Observation",
-              "id": "pat-0029-dr02-obs1",
-              "basedOn": [{ "reference": "ServiceRequest/pat-0029-sr02" }],
-              "status": "final",
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
-                      "code": "laboratory",
-                      "display": "Laboratory"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://loinc.org",
-                    "code": "2160-0",
-                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
-                  }
-                ]
-              },
-              "subject": { "reference": "Patient/pat-0029" },
-              "effectiveDateTime": "2025-10-31T21:53:00.000Z",
-              "issued": "2025-11-03T21:53:00.000Z",
-              "valueQuantity": {
-                "value": 0.77,
-                "unit": "mg/dL",
-                "system": "http://unitsofmeasure.org",
-                "code": "mg/dL"
-              },
-              "interpretation": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
-                      "code": "N",
-                      "display": "Normal"
-                    }
-                  ]
-                }
-              ],
-              "referenceRange": [
-                {
-                  "low": {
-                    "value": 0.5,
-                    "unit": "mg/dL",
-                    "system": "http://unitsofmeasure.org",
-                    "code": "mg/dL"
-                  },
-                  "high": {
-                    "value": 1.2,
-                    "unit": "mg/dL",
-                    "system": "http://unitsofmeasure.org",
-                    "code": "mg/dL"
-                  }
-                }
-              ]
-            },
-            "request": { "method": "PUT", "url": "Observation/pat-0029-dr02-obs1" }
-          }
-        ]
-      }
-    },
-    {
-      "at": "2025-11-05T20:42:00.000Z",
+      "at": "2025-11-03T21:45:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
         "id": "pat-0029-bundle02",
         "type": "transaction",
-        "timestamp": "2025-11-05T20:42:00.000Z",
+        "timestamp": "2025-11-03T21:45:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:b699337c-e841-5492-a1f8-cfaec3630a65",
@@ -583,8 +470,8 @@
                 "text": "Perfil lipídico"
               },
               "subject": { "reference": "Patient/pat-0029" },
-              "effectiveDateTime": "2025-11-01T20:42:00.000Z",
-              "issued": "2025-11-05T20:42:00.000Z",
+              "effectiveDateTime": "2025-10-30T21:45:00.000Z",
+              "issued": "2025-11-03T21:45:00.000Z",
               "result": [
                 { "reference": "Observation/pat-0029-dr01-obs1" },
                 { "reference": "Observation/pat-0029-dr01-obs2" },
@@ -622,10 +509,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0029" },
-              "effectiveDateTime": "2025-11-01T20:42:00.000Z",
-              "issued": "2025-11-05T20:42:00.000Z",
+              "effectiveDateTime": "2025-10-30T21:45:00.000Z",
+              "issued": "2025-11-03T21:45:00.000Z",
               "valueQuantity": {
-                "value": 176,
+                "value": 181,
                 "unit": "mg/dL",
                 "system": "http://unitsofmeasure.org",
                 "code": "mg/dL"
@@ -682,10 +569,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0029" },
-              "effectiveDateTime": "2025-11-01T20:42:00.000Z",
-              "issued": "2025-11-05T20:42:00.000Z",
+              "effectiveDateTime": "2025-10-30T21:45:00.000Z",
+              "issued": "2025-11-03T21:45:00.000Z",
               "valueQuantity": {
-                "value": 136,
+                "value": 129,
                 "unit": "mg/dL",
                 "system": "http://unitsofmeasure.org",
                 "code": "mg/dL"
@@ -742,10 +629,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0029" },
-              "effectiveDateTime": "2025-11-01T20:42:00.000Z",
-              "issued": "2025-11-05T20:42:00.000Z",
+              "effectiveDateTime": "2025-10-30T21:45:00.000Z",
+              "issued": "2025-11-03T21:45:00.000Z",
               "valueQuantity": {
-                "value": 62,
+                "value": 65,
                 "unit": "mg/dL",
                 "system": "http://unitsofmeasure.org",
                 "code": "mg/dL"
@@ -802,10 +689,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0029" },
-              "effectiveDateTime": "2025-11-01T20:42:00.000Z",
-              "issued": "2025-11-05T20:42:00.000Z",
+              "effectiveDateTime": "2025-10-30T21:45:00.000Z",
+              "issued": "2025-11-03T21:45:00.000Z",
               "valueQuantity": {
-                "value": 117,
+                "value": 86,
                 "unit": "mg/dL",
                 "system": "http://unitsofmeasure.org",
                 "code": "mg/dL"
@@ -838,20 +725,20 @@
       }
     },
     {
-      "at": "2025-11-05T20:47:00.000Z",
+      "at": "2025-11-04T21:05:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0029-bundle04",
+        "id": "pat-0029-bundle03",
         "type": "transaction",
-        "timestamp": "2025-11-05T20:47:00.000Z",
+        "timestamp": "2025-11-04T21:05:00.000Z",
         "entry": [
           {
-            "fullUrl": "urn:uuid:bb8d2ade-eeab-56b6-bf11-6b4aff00b6f6",
+            "fullUrl": "urn:uuid:c9af1eac-d2ae-58cc-9b30-f8be71471065",
             "resource": {
               "resourceType": "DiagnosticReport",
-              "id": "pat-0029-dr03",
-              "basedOn": [{ "reference": "ServiceRequest/pat-0029-sr03" }],
+              "id": "pat-0029-dr02",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0029-sr02" }],
               "status": "final",
               "category": [
                 {
@@ -868,25 +755,25 @@
                 "coding": [
                   {
                     "system": "http://loinc.org",
-                    "code": "14959-1",
-                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
                   }
                 ],
-                "text": "Microalbuminuria (relación albúmina/creatinina)"
+                "text": "Creatinina sérica"
               },
               "subject": { "reference": "Patient/pat-0029" },
-              "effectiveDateTime": "2025-11-02T20:47:00.000Z",
-              "issued": "2025-11-05T20:47:00.000Z",
-              "result": [{ "reference": "Observation/pat-0029-dr03-obs1" }]
+              "effectiveDateTime": "2025-11-02T21:05:00.000Z",
+              "issued": "2025-11-04T21:05:00.000Z",
+              "result": [{ "reference": "Observation/pat-0029-dr02-obs1" }]
             },
-            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0029-dr03" }
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0029-dr02" }
           },
           {
-            "fullUrl": "urn:uuid:cf54cd91-a5cc-5826-a132-29c9dc53188d",
+            "fullUrl": "urn:uuid:504aef8f-f648-513e-85c9-70d83414defa",
             "resource": {
               "resourceType": "Observation",
-              "id": "pat-0029-dr03-obs1",
-              "basedOn": [{ "reference": "ServiceRequest/pat-0029-sr03" }],
+              "id": "pat-0029-dr02-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0029-sr02" }],
               "status": "final",
               "category": [
                 {
@@ -903,19 +790,19 @@
                 "coding": [
                   {
                     "system": "http://loinc.org",
-                    "code": "14959-1",
-                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
                   }
                 ]
               },
               "subject": { "reference": "Patient/pat-0029" },
-              "effectiveDateTime": "2025-11-02T20:47:00.000Z",
-              "issued": "2025-11-05T20:47:00.000Z",
+              "effectiveDateTime": "2025-11-02T21:05:00.000Z",
+              "issued": "2025-11-04T21:05:00.000Z",
               "valueQuantity": {
-                "value": 22,
-                "unit": "mg/g",
+                "value": 1,
+                "unit": "mg/dL",
                 "system": "http://unitsofmeasure.org",
-                "code": "mg/g"
+                "code": "mg/dL"
               },
               "interpretation": [
                 {
@@ -930,16 +817,22 @@
               ],
               "referenceRange": [
                 {
-                  "high": {
-                    "value": 30,
-                    "unit": "mg/g",
+                  "low": {
+                    "value": 0.5,
+                    "unit": "mg/dL",
                     "system": "http://unitsofmeasure.org",
-                    "code": "mg/g"
+                    "code": "mg/dL"
+                  },
+                  "high": {
+                    "value": 1.2,
+                    "unit": "mg/dL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/dL"
                   }
                 }
               ]
             },
-            "request": { "method": "PUT", "url": "Observation/pat-0029-dr03-obs1" }
+            "request": { "method": "PUT", "url": "Observation/pat-0029-dr02-obs1" }
           }
         ]
       }

@@ -7,6 +7,7 @@ import {
   aDomainEvent,
   aFeedback,
   anExpectation,
+  anEncounterEvent,
   aQualityFinding,
 } from './builders.ts';
 import { at, freshClinics, uniqueId, useSubject } from './harness.ts';
@@ -64,6 +65,16 @@ export function describeUnitOfWorkContract(
             runAt: at(0),
           });
           await stores.outbox.add(clinic, event);
+          await stores.clinicalRecords.saveResource(
+            clinic,
+            followUp.patientId,
+            { resourceType: 'Encounter', id: `enc-${followUp.id}`, status: 'finished' },
+            at(0),
+          );
+          await stores.clinicalRecords.appendEvents(clinic, [
+            anEncounterEvent(clinic, followUp.patientId, at(0)),
+          ]);
+          await stores.backfillProgress.start(clinic, `run-${followUp.id}`, { now: at(0) });
         },
       };
     }
@@ -85,6 +96,10 @@ export function describeUnitOfWorkContract(
         expect(await stores.feedback.listForCase(a, w.followUp.id)).toHaveLength(1);
         expect(await stores.conditions.listByPatient(a, w.followUp.patientId)).toHaveLength(1);
         expect(await stores.qualityFindings.listByPatient(a, w.followUp.patientId)).toHaveLength(1);
+        expect(
+          await stores.clinicalRecords.listEventsForPatient(a, w.followUp.patientId),
+        ).toHaveLength(1);
+        expect(await stores.backfillProgress.findRunning(a)).toBeDefined();
         const jobs = await stores.jobs.claim({
           workerId: 'w',
           types: [jobType],
@@ -117,6 +132,16 @@ export function describeUnitOfWorkContract(
         expect(await stores.feedback.listForCase(a, w.followUp.id)).toEqual([]);
         expect(await stores.conditions.listByPatient(a, w.followUp.patientId)).toEqual([]);
         expect(await stores.qualityFindings.listByPatient(a, w.followUp.patientId)).toEqual([]);
+        expect(await stores.clinicalRecords.listEventsForPatient(a, w.followUp.patientId)).toEqual(
+          [],
+        );
+        expect(
+          await stores.clinicalRecords.getResource(a, {
+            resourceType: 'Encounter',
+            id: `enc-${w.followUp.id}`,
+          }),
+        ).toBeUndefined();
+        expect(await stores.backfillProgress.findRunning(a)).toBeUndefined();
         const jobs = await stores.jobs.claim({
           workerId: 'w',
           types: [jobType],

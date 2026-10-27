@@ -14,6 +14,7 @@ import {
   NotFoundError,
   patientId,
   TenantMismatchError,
+  ZERO_BACKFILL_COUNTS,
 } from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import {
@@ -106,7 +107,13 @@ describe(PACKAGE_NAME, () => {
             type: 'backfill.completed',
             clinicId: CLINIC,
             occurredAt: T0,
-            payload: { runId: 'r', patientsScanned: 0, expectationsCreated: 0, casesOpened: 0 },
+            payload: {
+              runId: 'r',
+              shadow: false,
+              ...ZERO_BACKFILL_COUNTS,
+              casesScheduled: 0,
+              casesNotNotified: 0,
+            },
           });
           throw new Error('boom');
         }),

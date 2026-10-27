@@ -6,7 +6,26 @@ import { addDays } from '../support/time.ts';
 
 /** Why the engine did not ask the host to contact the patient. */
 export type PatientContactDenial =
-  'clinic_disallows_contact' | 'patient_opted_out' | 'low_confidence' | 'contact_window';
+  | 'clinic_disallows_contact'
+  | 'patient_opted_out'
+  | 'backfill_case'
+  | 'low_confidence'
+  | 'contact_window';
+
+/**
+ * A clinic user asked to contact a patient and the rules forbid it (the
+ * clinic does not allow contact, the patient opted out, or the patient was
+ * already asked within the window). HTTP 409 with `reason`.
+ */
+export class PatientContactNotAllowedError extends Error {
+  override readonly name = 'PatientContactNotAllowedError';
+  readonly reason: PatientContactDenial;
+
+  constructor(reason: PatientContactDenial) {
+    super(`Patient contact is not allowed: ${reason}`);
+    this.reason = reason;
+  }
+}
 
 export type PatientContactDecision =
   { readonly allowed: true } | { readonly allowed: false; readonly reason: PatientContactDenial };
@@ -14,6 +33,11 @@ export type PatientContactDecision =
 export interface PatientContactInput {
   readonly clinicAllowsContact: boolean;
   readonly patientOptedOut: boolean;
+  /**
+   * The case comes from the initial backfill: the team decides who to
+   * contact, nothing is sent to patients automatically.
+   */
+  readonly backfill?: boolean;
   /** Every reason of the case rests on a probable (unconfirmed) condition. */
   readonly lowConfidence: boolean;
   /** Last contact request for this patient, from any case. */
@@ -25,8 +49,8 @@ export interface PatientContactInput {
 /**
  * Whether the engine may ask the host to message the patient. At most one
  * request per patient per window whatever the number of open cases; never
- * for patients who opted out, clinics that do not allow it, or cases built
- * only on probable conditions. The request itself never names a diagnosis
+ * for patients who opted out, clinics that do not allow it, backfill cases,
+ * or cases built only on probable conditions. The request itself never names a diagnosis
  * (see `PatientContactRequestedPayload`).
  */
 export function decidePatientContact(input: PatientContactInput): PatientContactDecision {
@@ -35,6 +59,9 @@ export function decidePatientContact(input: PatientContactInput): PatientContact
   }
   if (input.patientOptedOut) {
     return { allowed: false, reason: 'patient_opted_out' };
+  }
+  if (input.backfill === true) {
+    return { allowed: false, reason: 'backfill_case' };
   }
   if (input.lowConfidence) {
     return { allowed: false, reason: 'low_confidence' };

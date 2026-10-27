@@ -70,4 +70,3 @@ export {
   type DrainOutboxOptions,
   type DrainOutboxResult,
 } from './outbox.ts';
-export type * from './local-ports.ts';

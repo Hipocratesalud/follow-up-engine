@@ -17,6 +17,11 @@ import {
   policyOf,
   withNextActionAt,
 } from '../escalation/schedule.ts';
+import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
+import { hasOptedOut, lastPatientContactAt } from '../patient-contact/history.ts';
+import { decidePatientContact, PatientContactNotAllowedError } from '../patient-contact/policy.ts';
+import type { EngineSettings } from '../settings.ts';
+import { addDays } from '../support/time.ts';
 import { CaseWriter, withoutKey } from './case-writer.ts';
 import { resolveCase } from './reconcile.ts';
 import { isActiveCaseStatus } from './state-machine.ts';
@@ -41,6 +46,8 @@ export interface CaseCommandDeps {
   readonly unitOfWork: UnitOfWork;
   readonly ids: IdGenerator;
   readonly clock: Clock;
+  readonly clinics: ClinicDirectory;
+  readonly settings: EngineSettings;
   readonly loadCatalog: (clinicId: ClinicId) => Promise<Catalog>;
 }
 
@@ -79,6 +86,21 @@ export interface CaseCommands {
     clinicId: ClinicId,
     caseId: CaseId,
     assignee: string,
+    actor: CaseEventActor,
+  ): Promise<FollowUpCase>;
+  /**
+   * A clinic user asks the host to contact the patient of an active case
+   * ("Pedir contacto"): records `patient_contact_requested` and emits
+   * `patient_contact.requested` (ids, a generic purpose and a date only).
+   * Throws `PatientContactNotAllowedError` when the clinic does not allow
+   * patient contact, the patient opted out, or the patient was already asked
+   * within the contact window; `ValidationError` for an inactive case. The
+   * user decides, so the automatic-only restrictions (backfill cases, cases
+   * resting on probable conditions) do not apply.
+   */
+  requestPatientContact(
+    clinicId: ClinicId,
+    caseId: CaseId,
     actor: CaseEventActor,
   ): Promise<FollowUpCase>;
   /**
@@ -202,8 +224,53 @@ export function createCaseCommands(deps: CaseCommandDeps): CaseCommands {
     });
   }
 
+  async function requestPatientContact(
+    clinicId: ClinicId,
+    caseId: CaseId,
+    actor: CaseEventActor,
+  ): Promise<FollowUpCase> {
+    const clinic = await deps.clinics.get(clinicId);
+    const catalog = await deps.loadCatalog(clinicId);
+    return deps.unitOfWork.withTransaction(clinicId, async (stores) => {
+      const now = deps.clock.now();
+      const current = await requireCase(stores, clinicId, caseId);
+      if (!isActiveCaseStatus(current.status)) {
+        throw new ValidationError('status', 'Only an active case can ask for patient contact');
+      }
+      const optedOut = await hasOptedOut(stores, clinicId, current.patientId);
+      const lastContactAt = await lastPatientContactAt(stores, clinicId, current.patientId);
+      const decision = decidePatientContact({
+        clinicAllowsContact: clinic?.active === true && clinic.settings.allowPatientContact,
+        patientOptedOut: optedOut,
+        lowConfidence: false,
+        ...(lastContactAt === undefined ? {} : { lastContactAt }),
+        now,
+        windowDays: deps.settings.patientContactWindowDays,
+      });
+      if (!decision.allowed) {
+        throw new PatientContactNotAllowedError(decision.reason);
+      }
+      const [first] = await caseExpectations(stores, clinicId, current);
+      const purpose =
+        (first === undefined
+          ? undefined
+          : catalog.definition(first.ruleId)?.suggestedAction.patientContactPurpose) ??
+        'schedule_follow_up';
+      const writer = new CaseWriter(stores, deps.ids, clinicId);
+      await writer.audit(current, 'patient_contact_requested', actor, now, { purpose });
+      await writer.emit('patient_contact.requested', now, {
+        caseId: current.id,
+        patientId: current.patientId,
+        purpose,
+        dueBy: addDays(now, deps.settings.patientContactDueInDays),
+      });
+      return current;
+    });
+  }
+
   return {
     apply,
+    requestPatientContact,
     notify: (clinicId, caseId, actor) => apply(clinicId, caseId, { type: 'notify' }, actor),
     snooze: (clinicId, caseId, until, actor) =>
       apply(clinicId, caseId, { type: 'snooze', until }, actor),

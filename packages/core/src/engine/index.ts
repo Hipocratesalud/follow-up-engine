@@ -4,10 +4,19 @@
  */
 export { createFollowUpEngine } from './application/engine.ts';
 export type {
+  BackfillCommands,
   FollowUpEngine,
   FollowUpEngineDeps,
   PatientContactStatus,
 } from './application/engine.ts';
+export {
+  isBudgetExceeded,
+  replayBatches,
+  type BackfillOptions,
+  type BackfillReport,
+  type ReplayBatch,
+} from './backfill/backfill.ts';
+export { BACKFILL_RELEASE_DEFAULTS, type BackfillReleasePlan } from './backfill/release.ts';
 export type { IngestReport, NoteExtractionOutcome } from './application/ingest.ts';
 export {
   NOTE_EXTRACTION_JOB,
@@ -33,6 +42,7 @@ export type { EscalationReport, EscalationStepRecord } from './escalation/escala
 export { FALLBACK_ESCALATION_POLICY, nextActionAfter } from './escalation/schedule.ts';
 export {
   decidePatientContact,
+  PatientContactNotAllowedError,
   type PatientContactDecision,
   type PatientContactDenial,
 } from './patient-contact/policy.ts';

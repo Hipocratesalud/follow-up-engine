@@ -33,6 +33,17 @@ export class PostgresOutbox implements Outbox {
       [clinicId, event.id, event.type, jsonParam(event), event.occurredAt, this.#ctx.clock.now()],
     );
   }
+
+  /** Events of a clinic not delivered yet (pending or retrying), in insertion order. Not part of the port. */
+  async pending(clinicId: ClinicId): Promise<readonly DomainEvent[]> {
+    const { rows } = await this.#ctx.db().query<{ event: Parameters<typeof decodeDomainEvent>[0] }>(
+      `SELECT event FROM ${this.#ctx.tables.outbox}
+       WHERE clinic_id = $1 AND status = 'pending'
+       ORDER BY seq`,
+      [clinicId],
+    );
+    return rows.map((row) => decodeDomainEvent(row.event));
+  }
 }
 
 /** Exponential backoff between delivery attempts: 5 s, 10 s, 20 s, ... capped at 1 h. */

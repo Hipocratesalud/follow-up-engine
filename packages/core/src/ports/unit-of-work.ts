@@ -1,5 +1,6 @@
 import type { ClinicId } from '../domain/ids.ts';
 import type { AuditLog } from './audit-log.ts';
+import type { BackfillProgressStore } from './backfill-progress.ts';
 import type { CaseRepository } from './case-repository.ts';
 import type { ClinicalRecordRepository } from './clinical-record-repository.ts';
 import type { ConditionRepository, QualityFindingRepository } from './condition-repository.ts';
@@ -18,6 +19,7 @@ export interface TransactionalStores {
   readonly audit: AuditLog;
   readonly jobs: JobQueue;
   readonly outbox: Outbox;
+  readonly backfillProgress: BackfillProgressStore;
 }
 
 /**

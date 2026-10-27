@@ -18,6 +18,7 @@ export {
   SPECIALTIES,
   type Specialty,
   SYSTEMS,
+  ENGINE_FHIR_BASE,
 } from './constants.ts';
 
 // FHIR R4 validation
@@ -89,11 +90,5 @@ export {
   type UnitOfWorkContractSubject,
 } from './contracts/unit-of-work.contract.ts';
 export type { ContractSubject, MakeSubject } from './contracts/harness.ts';
-export type {
-  Clinic,
-  ClinicDirectory,
-  ClinicSettings,
-  LlmCallRecord,
-  LlmUsageLog,
-} from './contracts/shapes.ts';
+export { describeBackfillProgressStoreContract } from './contracts/backfill-progress.contract.ts';
 export * as contractBuilders from './contracts/builders.ts';

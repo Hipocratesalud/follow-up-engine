@@ -1,8 +1,14 @@
 import { createHash } from 'node:crypto';
-import { type ClinicId, clinicId } from '@follow-up-engine/core';
+import {
+  type Clinic,
+  type ClinicDirectory,
+  type ClinicId,
+  clinicId,
+  type LlmCallRecord,
+  type LlmUsageLog,
+} from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import { at, freshClinics, uniqueId, useSubject } from './harness.ts';
-import type { Clinic, ClinicDirectory, LlmCallRecord, LlmUsageLog } from './shapes.ts';
 
 /** A clinic to seed the directory with, plus the hash of its API key. */
 export interface ClinicSeed {
@@ -121,6 +127,33 @@ export function describeLlmUsageLogContract(
       await log().record(aCall(a, { costUsd: 0.125, at: at(-1) }));
       await log().record(aCall(a, { costUsd: 0.0625, ok: false, error: 'timeout', at: at(0) }));
       expect(await log().totalCostUsd(a, at(-30))).toBeCloseTo(0.4375, 10);
+    });
+
+    it('summarizes calls since a date, in total and per provider and model', async () => {
+      const { a } = freshClinics();
+      await log().record(aCall(a, { costUsd: 9, at: at(-40) }));
+      await log().record(aCall(a, { model: 'muse-spark', provider: 'meta', costUsd: 0.25 }));
+      await log().record(aCall(a, { model: 'muse-spark', provider: 'meta', costUsd: 0.5 }));
+      await log().record(
+        aCall(a, { model: 'muse-spark', provider: 'meta', costUsd: 0.125, ok: false, error: 'x' }),
+      );
+      await log().record(aCall(a, { model: 'fake-model', provider: 'fake', costUsd: 0.0625 }));
+      const summary = await log().summary(a, at(-30));
+      expect(summary).toMatchObject({ calls: 4, successfulCalls: 3 });
+      expect(summary.costUsd).toBeCloseTo(0.9375, 10);
+      expect(
+        summary.byModel.map(({ provider, model, calls }) => ({ provider, model, calls })),
+      ).toEqual([
+        { provider: 'meta', model: 'muse-spark', calls: 3 },
+        { provider: 'fake', model: 'fake-model', calls: 1 },
+      ]);
+      expect(summary.byModel[0]?.costUsd).toBeCloseTo(0.875, 10);
+      expect(await log().summary(freshClinics().a, at(-30))).toEqual({
+        calls: 0,
+        successfulCalls: 0,
+        costUsd: 0,
+        byModel: [],
+      });
     });
 
     it('isolates clinics', async () => {

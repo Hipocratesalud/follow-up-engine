@@ -16,6 +16,7 @@ import { hasOptedOut, lastPatientContactAt } from '../patient-contact/history.ts
 import {
   decidePatientContact,
   isLowConfidenceCase,
+  type PatientContactDecision,
   type PatientContactDenial,
 } from '../patient-contact/policy.ts';
 import type { EngineSettings } from '../settings.ts';
@@ -144,12 +145,20 @@ class CaseEscalator {
       const scheduledAt = current.nextActionAt;
       const index = current.escalationStep;
       const step = policy.steps[index];
+      let continueNow = false;
       if (step !== undefined) {
-        current = await this.#execute(current, policy, index, step);
+        const outcome = await this.#execute(current, policy, index, step);
+        current = outcome.followUpCase;
+        continueNow = outcome.continueNow;
         this.#input.report.steps.push({ caseId: current.id, step: index, action: step.action });
       }
+      // A step that cannot happen (a patient who opted out cannot be
+      // contacted) does not make the team wait for its answer: the next step
+      // (coordinator) runs right away.
       const next = isActiveCaseStatus(current.status)
-        ? nextActionAfter(policy, index + 1, scheduledAt)
+        ? continueNow
+          ? now
+          : nextActionAfter(policy, index + 1, scheduledAt)
         : undefined;
       current = withNextActionAt({ ...current, escalationStep: index + 1 }, next);
       await stores.cases.update(clinicId, current);
@@ -193,6 +202,25 @@ class CaseEscalator {
     policy: EscalationPolicy,
     index: number,
     step: EscalationPolicy['steps'][number],
+  ): Promise<{ readonly followUpCase: FollowUpCase; readonly continueNow: boolean }> {
+    if (step.action === 'request_patient_contact') {
+      const decision = await this.#requestPatientContact(current, this.#actor(policy), {
+        step: index,
+        action: step.action,
+      });
+      return {
+        followUpCase: current,
+        continueNow: !decision.allowed && decision.reason === 'patient_opted_out',
+      };
+    }
+    return { followUpCase: await this.#run(current, policy, index, step), continueNow: false };
+  }
+
+  async #run(
+    current: FollowUpCase,
+    policy: EscalationPolicy,
+    index: number,
+    step: EscalationPolicy['steps'][number],
   ): Promise<FollowUpCase> {
     const { now, deps } = this.#input;
     const actor = this.#actor(policy);
@@ -217,7 +245,6 @@ class CaseEscalator {
         return raised;
       }
       case 'request_patient_contact':
-        await this.#requestPatientContact(current, actor, payload);
         return current;
       case 'escalate_to_coordinator': {
         const patch = { assignee: deps.settings.coordinatorOwner };
@@ -270,17 +297,17 @@ class CaseEscalator {
     current: FollowUpCase,
     actor: CaseEventActor,
     payload: { readonly step: number; readonly action: EscalationAction },
-  ): Promise<void> {
+  ): Promise<PatientContactDecision> {
     const { stores, clinicId, catalog, now, deps, report } = this.#input;
-    const [reasons, conditions, optedOut, lastContactAt] = await Promise.all([
-      caseExpectations(stores, clinicId, current),
-      stores.conditions.listByPatient(clinicId, current.patientId),
-      hasOptedOut(stores, clinicId, current.patientId),
-      lastPatientContactAt(stores, clinicId, current.patientId),
-    ]);
+    // One statement at a time: a transaction's connection is not concurrent.
+    const reasons = await caseExpectations(stores, clinicId, current);
+    const conditions = await stores.conditions.listByPatient(clinicId, current.patientId);
+    const optedOut = await hasOptedOut(stores, clinicId, current.patientId);
+    const lastContactAt = await lastPatientContactAt(stores, clinicId, current.patientId);
     const decision = decidePatientContact({
       clinicAllowsContact: this.#input.clinicAllowsContact,
       patientOptedOut: optedOut,
+      backfill: current.origin === 'backfill',
       lowConfidence: isLowConfidenceCase(reasons, conditions, catalog),
       ...(lastContactAt === undefined ? {} : { lastContactAt }),
       now,
@@ -288,7 +315,7 @@ class CaseEscalator {
     });
     if (!decision.allowed) {
       report.contactsSkipped.push({ caseId: current.id, reason: decision.reason });
-      return;
+      return decision;
     }
     const [first] = reasons;
     const purpose =
@@ -308,5 +335,6 @@ class CaseEscalator {
       dueBy,
     });
     report.contactsRequested.push(current.id);
+    return decision;
   }
 }

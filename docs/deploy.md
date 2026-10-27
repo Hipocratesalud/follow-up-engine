@@ -25,7 +25,7 @@ All tables live in their own schema, `follow_up`, so the engine can share a data
 | `llm_calls`          | Tokens, cost (`numeric`, no float drift) and latency of every LLM call, per clinic                                                                  |
 | `outbox`             | Domain events waiting for delivery to the host                                                                                                      |
 | `jobs`               | Background jobs, claimed with `FOR UPDATE SKIP LOCKED`; a `dedup_key` is unique among unfinished (`pending`, `running`) jobs                        |
-| `backfill_progress`  | Resumable cursor and counters of the initial backfill; one running backfill per clinic                                                              |
+| `backfill_progress`  | Resumable cursor and counters of the initial backfill; one unfinished (running or budget-paused) backfill per clinic                                |
 
 Design rules, all enforced by tests:
 

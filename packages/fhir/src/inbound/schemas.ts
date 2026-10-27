@@ -67,6 +67,15 @@ export const DurationSchema = z.object({
   code: fhirString.optional(),
 }) satisfies z.ZodType<R4.Quantity>;
 
+/** A measured amount (`Observation.valueQuantity`). */
+export const QuantitySchema = z.object({
+  value: z.number().optional(),
+  comparator: z.enum(['<', '<=', '>=', '>']).optional(),
+  unit: fhirString.optional(),
+  system: fhirString.optional(),
+  code: fhirString.optional(),
+}) satisfies z.ZodType<R4.Quantity>;
+
 const ExtensionSchema = z.object({
   url: fhirString,
   valueBoolean: z.boolean().optional(),
@@ -281,6 +290,7 @@ export const ObservationSchema = z.object({
   effectivePeriod: PeriodSchema.optional(),
   effectiveInstant: fhirDateTime.optional(),
   issued: fhirDateTime.optional(),
+  valueQuantity: QuantitySchema.optional(),
   interpretation: z.array(CodeableConceptSchema).optional(),
 }) satisfies z.ZodType<Partial<R4.Observation>>;
 

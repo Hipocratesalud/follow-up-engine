@@ -1,4 +1,9 @@
-import { type CaseRepository, type FollowUpCase, patientId } from '@follow-up-engine/core';
+import {
+  type CaseRepository,
+  expectationId,
+  type FollowUpCase,
+  patientId,
+} from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import { aCase } from './builders.ts';
 import {
@@ -25,6 +30,26 @@ export function describeCaseRepositoryContract(
     it('creates a case and reads it back', async () => {
       const { a } = freshClinics();
       const c = aCase(a, { assignee: 'user-1', nextActionAt: at(2), releaseAt: at(1) });
+      await repo().create(a, c);
+      expect(await repo().get(a, c.id)).toEqual(c);
+    });
+
+    it('round-trips every optional field', async () => {
+      const { a } = freshClinics();
+      const c = aCase(a, {
+        reasons: [
+          { expectationId: expectationId('exp-1'), reasonCode: 'lab_order_result_pending' },
+          { expectationId: expectationId('exp-2'), reasonCode: 'doctor_plan_followup' },
+        ],
+        status: 'resolved',
+        assignee: 'prac-1',
+        escalationStep: 3,
+        snoozedUntil: at(4),
+        releaseAt: at(1),
+        origin: 'backfill',
+        resolution: { kind: 'handled_outside', resolvedAt: at(6), resolvedBy: 'u-1', note: 'ok' },
+        updatedAt: at(6),
+      });
       await repo().create(a, c);
       expect(await repo().get(a, c.id)).toEqual(c);
     });
@@ -125,6 +150,8 @@ export function describeCaseRepositoryContract(
       await createAll(a, [visible, pending, live]);
       const page = await repo().list(a, { releasedAsOf: at(5), limit: 10 });
       expect(new Set(page.items.map((c) => c.id))).toEqual(new Set([visible.id, live.id]));
+      const unreleased = await repo().list(a, { unreleasedAsOf: at(5), limit: 10 });
+      expect(unreleased.items.map((c) => c.id)).toEqual([pending.id]);
     });
 
     it('pages through every case exactly once with the cursor', async () => {

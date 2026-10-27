@@ -40,6 +40,12 @@ export interface BundleMappingResult {
   readonly batches: readonly ClinicalBatch[];
   /** Every patient-scoped resource of the bundle, ready for `ClinicalRecordRepository.saveResource`. */
   readonly resources: readonly PatientResource[];
+  /**
+   * Resources that give context to several patients (`Practitioner`,
+   * `PractitionerRole`, `Organization`, `Location`, ...), with bundle
+   * references resolved: the host's directory, for the API to keep.
+   */
+  readonly contextResources: readonly FhirResourceJson[];
   /** Errors, warnings and notes; `undefined` when the bundle mapped cleanly. */
   readonly issues: OperationOutcome | undefined;
 }
@@ -155,7 +161,12 @@ export function mapBundleToBatches(
   const clinic = toClinicId(options.clinicId);
   const indexed = indexBundle(bundle);
   if (!indexed.ok) {
-    return { batches: [], resources: [], issues: toOperationOutcome(indexed.issues) };
+    return {
+      batches: [],
+      resources: [],
+      contextResources: [],
+      issues: toOperationOutcome(indexed.issues),
+    };
   }
   const { index } = indexed;
   const issues: MappingIssue[] = [...indexed.issues];
@@ -195,7 +206,7 @@ export function mapBundleToBatches(
       message: 'transaction rejected: fix the errors above; nothing was processed',
       expression: 'Bundle',
     });
-    return { batches: [], resources: [], issues: toOperationOutcome(issues) };
+    return { batches: [], resources: [], contextResources: [], issues: toOperationOutcome(issues) };
   }
 
   const byPatient = new Map<string, MappedEntry[]>();
@@ -242,7 +253,10 @@ export function mapBundleToBatches(
       }
     }
   }
-  return { batches, resources, issues: toOperationOutcome(issues) };
+  const contextResources = index.entries
+    .filter((entry) => !entry.invalid && CONTEXT_TYPES.includes(entry.ref.resourceType))
+    .map((entry) => entry.stored);
+  return { batches, resources, contextResources, issues: toOperationOutcome(issues) };
 }
 
 export interface BundleValidationResult {

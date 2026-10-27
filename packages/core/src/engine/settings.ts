@@ -14,6 +14,8 @@ export interface EngineSettings {
   readonly coordinatorOwner: string;
   /** Page size of the deadline and escalation sweeps (one transaction per page). */
   readonly sweepBatchSize: number;
+  /** Patients per page of the initial backfill (each patient is its own transaction). */
+  readonly backfillPageSize: number;
 }
 
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
@@ -24,4 +26,5 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   frontDeskOwner: 'front_desk',
   coordinatorOwner: 'coordinator',
   sweepBatchSize: 200,
+  backfillPageSize: 50,
 };

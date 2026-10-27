@@ -327,6 +327,10 @@ function diabetes(ctx: Context, pattern: PatientPattern): void {
     if (rng.chance(0.85)) orders.add(ORDERS.hba1c);
     if (annual) {
       orders.add(ORDERS.lipidPanel).add(ORDERS.creatinine).add(ORDERS.microalbumin);
+      // Yearly ophthalmology referral for the fundus exam (most diabetics, rarely dropouts).
+      if (rng.chance(pattern === 'dropout' || pattern === 'no_plan_notes' ? 0.3 : 0.8)) {
+        orders.add(ORDERS.fundusExam);
+      }
       lastAnnualLabs = dayOf(visit.start);
     }
     if (!controlled && index > 0 && rng.chance(0.5)) {

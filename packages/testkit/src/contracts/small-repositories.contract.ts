@@ -98,6 +98,19 @@ export function describeConditionRepositoryContract(
       expect(await repo().listByPatient(a, patient)).toEqual([confirmed]);
     });
 
+    it('round-trips a condition read from a note, with its evidence', async () => {
+      const { a } = freshClinics();
+      const extracted = aCondition(a, {
+        status: 'probable',
+        confidence: 0.82,
+        sourceType: 'extracted_from_note',
+        source: { resourceType: 'DocumentReference', id: 'doc-1' },
+        evidence: { quote: 'DM2 en tratamiento', sourceDocumentId: 'doc-1' },
+      });
+      await repo().upsert(a, extracted);
+      expect(await repo().listByPatient(a, patient)).toEqual([extracted]);
+    });
+
     it('keeps different codes apart and filters by status', async () => {
       const { a } = freshClinics();
       const dm = aCondition(a);

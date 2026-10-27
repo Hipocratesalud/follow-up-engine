@@ -135,6 +135,26 @@ export function describeJobQueueContract(name: string, makeSubject: MakeSubject<
       expect(claimed.map((j) => j.clinicId).sort()).toEqual([a, b].sort());
     });
 
+    it('treats a dedup key as unique among unfinished jobs only', async () => {
+      const { a } = freshClinics();
+      const type = uniqueId('contract.job');
+      const first = await queue().enqueue(a, { type, payload: {}, runAt: at(0), dedupKey: 'k' });
+      expect(await queue().enqueue(a, { type, payload: {}, runAt: at(0), dedupKey: 'k' })).toBe(
+        first,
+      );
+      const [running] = await queue().claim(claimOptions(type, at(0)));
+      if (!running) throw new Error('no job claimed');
+      // Still a no-op while the first one runs.
+      expect(await queue().enqueue(a, { type, payload: {}, runAt: at(0), dedupKey: 'k' })).toBe(
+        first,
+      );
+      expect(await queue().complete(a, running)).toBe('acknowledged');
+      // Once it finished, the same work can be queued again.
+      const second = await queue().enqueue(a, { type, payload: {}, runAt: at(1), dedupKey: 'k' });
+      expect(second).not.toBe(first);
+      expect((await queue().claim(claimOptions(type, at(1)))).map((j) => j.id)).toEqual([second]);
+    });
+
     it('isolates clinics: a lease cannot be completed from another clinic', async () => {
       const { a, b } = freshClinics();
       const type = uniqueId('contract.job');

@@ -1,5 +1,4 @@
-import type { ClinicId } from '@follow-up-engine/core';
-import type { LlmCallRecord, LlmUsageLog } from './local-ports.ts';
+import type { ClinicId, LlmCallRecord, LlmUsageLog, LlmUsageSummary } from '@follow-up-engine/core';
 import type { RepositoryContext } from './sql.ts';
 
 /** Per-clinic LLM accounting (`llm_calls`). Costs are stored as `numeric(20, 10)` USD (no float drift when summing). */
@@ -44,5 +43,37 @@ export class PostgresLlmUsageLog implements LlmUsageLog {
       [clinicId, since],
     );
     return Number(rows[0]?.total ?? 0);
+  }
+
+  /** Calls, successful calls and cost since `since`, in total and per provider and model. */
+  async summary(clinicId: ClinicId, since: Date): Promise<LlmUsageSummary> {
+    const { rows } = await this.#ctx.db().query<{
+      provider: string;
+      model: string;
+      calls: number;
+      ok: number;
+      cost: string;
+    }>(
+      `SELECT provider, model, count(*)::int AS calls, count(*) FILTER (WHERE ok)::int AS ok,
+              sum(cost_usd)::text AS cost
+       FROM ${this.#ctx.tables.llm_calls}
+       WHERE clinic_id = $1 AND at >= $2
+       GROUP BY provider, model
+       ORDER BY count(*) DESC, provider, model`,
+      [clinicId, since],
+    );
+    // Sum the exact numeric texts per model before turning them into floats.
+    const total = rows.reduce((sum, row) => sum + Number(row.cost), 0);
+    return {
+      calls: rows.reduce((sum, row) => sum + row.calls, 0),
+      successfulCalls: rows.reduce((sum, row) => sum + row.ok, 0),
+      costUsd: total,
+      byModel: rows.map((row) => ({
+        provider: row.provider,
+        model: row.model,
+        calls: row.calls,
+        costUsd: Number(row.cost),
+      })),
+    };
   }
 }

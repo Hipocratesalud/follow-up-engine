@@ -155,28 +155,69 @@ describe('patient contact rules', () => {
     ]);
   });
 
-  it('never contacts a patient who opted out, and closes everything open', async () => {
+  it('an opt-out stops patient contact only: the case goes on and escalates straight to the coordinator', async () => {
     const world = await pendingLabCase()
       .runEscalation()
       .at(20)
       .ingest((current) => [patientOptedOut(current.context(), { id: 'consent-1' })])
-      .expectNoCases()
+      .expectCases([{ reasons: ['lab_order_result_pending'], status: 'notified' }])
       .at(30)
       .runEscalation()
+      .expectCases([{ status: 'escalated', assignee: 'coordinator' }])
       .at(60)
       .consult({ encounterId: 'enc-2', labs: [{ id: 'sr-2', code: CODES.creatinine }] })
-      .expectOpenExpectations([])
+      // Follow-up goes on: the new order is expected, and so is the next visit.
+      .expectOpenExpectations([
+        { ruleId: 'lab_order_result_pending', dueDay: 75 },
+        { ruleId: 'cadence_break', dueDay: 240 },
+      ])
       .run();
     expect(contactRequests(world)).toHaveLength(0);
-    const [closed] = await world.cases();
-    expect(closed?.resolution?.kind).toBe('patient_declined');
-    expect((await world.audit(defined(closed).id)).at(-1)?.actor).toEqual({
-      type: 'patient',
-      id: 'pat-1',
-    });
-    expect(world.expectations()[0]?.closedReason).toBe('patient_opted_out');
+    expect(world.lastEscalation?.contactsSkipped.map((skip) => skip.reason)).toEqual([
+      'patient_opted_out',
+    ]);
+    // Raise priority, contact (skipped), coordinator: all on day 30, no wait for an answer.
+    expect(world.lastEscalation?.steps.map((step) => step.action)).toEqual([
+      'raise_priority',
+      'request_patient_contact',
+      'escalate_to_coordinator',
+    ]);
     const status = await world.engine.patientContactStatus(world.clinicId, world.patientId);
     expect(status).toEqual({ allowed: false, optedOut: true });
+  });
+
+  it('a user asks for patient contact: allowed once per window, never for an opted-out patient', async () => {
+    const world = await pendingLabCase().run();
+    const caseId = await onlyCaseId(world);
+    await world.engine.cases.requestPatientContact(world.clinicId, caseId, USER);
+    const [request] = contactRequests(world);
+    expect(request?.payload).toMatchObject({ caseId, purpose: 'complete_pending_test' });
+    const audit = await world.audit(caseId);
+    expect(audit.at(-1)).toMatchObject({ type: 'patient_contact_requested', actor: USER });
+    await expect(
+      world.engine.cases.requestPatientContact(world.clinicId, caseId, USER),
+    ).rejects.toMatchObject({ name: 'PatientContactNotAllowedError', reason: 'contact_window' });
+
+    const optedOut = await pendingLabCase()
+      .ingest((current) => [patientOptedOut(current.context(), { id: 'consent-1' })])
+      .run();
+    await expect(
+      optedOut.engine.cases.requestPatientContact(
+        optedOut.clinicId,
+        await onlyCaseId(optedOut),
+        USER,
+      ),
+    ).rejects.toMatchObject({ reason: 'patient_opted_out' });
+
+    const closedClinic = await pendingLabCase({ allowPatientContact: false }).run();
+    await expect(
+      closedClinic.engine.cases.requestPatientContact(
+        closedClinic.clinicId,
+        await onlyCaseId(closedClinic),
+        USER,
+      ),
+    ).rejects.toMatchObject({ reason: 'clinic_disallows_contact' });
+    expect(contactRequests(optedOut)).toEqual([]);
   });
 
   it('never contacts the patient for a case built only on a probable condition', async () => {

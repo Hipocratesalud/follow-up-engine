@@ -24,6 +24,9 @@ describe('decidePatientContact', () => {
     expect(decidePatientContact({ ...allowed, patientOptedOut: true })).toMatchObject({
       reason: 'patient_opted_out',
     });
+    expect(decidePatientContact({ ...allowed, backfill: true })).toMatchObject({
+      reason: 'backfill_case',
+    });
     expect(decidePatientContact({ ...allowed, lowConfidence: true })).toMatchObject({
       reason: 'low_confidence',
     });

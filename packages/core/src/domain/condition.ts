@@ -1,3 +1,4 @@
+import type { Evidence } from './common.ts';
 import type { ClinicId, PatientId } from './ids.ts';
 import type { Coding, ResourceRef } from './resource.ts';
 
@@ -24,5 +25,7 @@ export interface PatientCondition {
   readonly source: ResourceRef;
   /** Host user id of the clinician who confirmed an inferred condition. */
   readonly confirmedBy?: string;
+  /** For conditions read from a note: the verbatim quote that supports it. */
+  readonly evidence?: Evidence;
   readonly updatedAt: Date;
 }

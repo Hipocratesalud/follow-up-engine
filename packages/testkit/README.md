@@ -9,12 +9,12 @@ Contract test suites every adapter must pass, the synthetic demo clinic, the ext
 | Path                                     | What                                                                                                      | Count                       |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------- |
 | `fixtures/clinic/clinic.json`            | Clinic directory: `Organization` `clinic-demo`, 8 `Practitioner`s + `PractitionerRole`s, generation stats | 1                           |
-| `fixtures/clinic/patients/pat-NNNN.json` | One patient's history: chronological FHIR R4 transaction Bundles with timestamps                          | 120 patients, 1,647 bundles |
+| `fixtures/clinic/patients/pat-NNNN.json` | One patient's history: chronological FHIR R4 transaction Bundles with timestamps                          | 120 patients, 1,680 bundles |
 | `fixtures/gold-notes/gold-NNN.json`      | Hand-labeled Spanish notes for the extraction evals                                                       | 44 (11 per specialty)       |
 | `fixtures/scenarios/<name>.json`         | PRD acceptance cases, replayable with a fake clock and fake LLM                                           | 9                           |
 | `fhir/fhir.schema.json.gz`               | Official FHIR R4 4.0.1 JSON Schema, unmodified, gzipped                                                   | 1                           |
 
-Synthetic clinic: 35 diabetology, 30 internal medicine / hypertension, 30 psychology, 25 gynecology patients; two years of history ending at `BASE_DATE` (2026-01-05T12:00:00Z); 668 consultations (26% of notes without a plan), 487 result bundles, 480 bookings, 12 cancellations. Patterns: adherent chronic patients, dropouts (some cancel their booking), lab orders never resulted and re-ordered, abnormal results with or without a recall visit, short treatments with or without a control, weekly/biweekly/monthly psychotherapy that ends in discharge or stops, annual gynecology controls, pregnancies with or without the 6-week postpartum control.
+Synthetic clinic: 35 diabetology, 30 internal medicine / hypertension, 30 psychology, 25 gynecology patients; two years of history ending at `BASE_DATE` (2026-01-05T12:00:00Z); 671 consultations (25% of notes without a plan), 517 result bundles, 480 bookings, 12 cancellations. Patterns: adherent chronic patients (with the yearly ophthalmology referral for the fundus exam, coded `fundus-exam` in the engine's procedure CodeSystem), dropouts (some cancel their booking), lab orders never resulted and re-ordered, abnormal results with or without a recall visit, short treatments with or without a control, weekly/biweekly/monthly psychotherapy that ends in discharge or stops, annual gynecology controls, pregnancies with or without the 6-week postpartum control.
 
 ## API
 
@@ -46,6 +46,7 @@ import {
   describeUnitOfWorkContract,
   describeClinicDirectoryContract,
   describeLlmUsageLogContract,
+  describeBackfillProgressStoreContract,
   describeClockContract,
   contractBuilders,
 } from '@follow-up-engine/testkit';
@@ -78,7 +79,7 @@ describeClinicDirectoryContract('memory', async (seed) => ({
 }));
 ```
 
-Every suite checks clinic isolation (nothing of clinic A is visible or writable from clinic B, and writing an entity of another clinic rejects with `TenantMismatchError`). Others: idempotent upsert, `findDue` ordering and limit, a single active case per `dedupKey`, cursor paging, job leases (expiry, reclaim with a new token, `lease_lost` for the stale holder, retry at `retryAt`, dead letter after `maxAttempts`, dedup per clinic), and `UnitOfWork` rollback leaving no partial writes in any store, jobs and outbox included. Each test uses fresh random clinic ids and job types, so suites also run against a persistent database that is not truncated. Ports must reject, not throw synchronously. `ClinicDirectory` and `LlmUsageLog` shapes are exported from here until core exports them (structurally identical to the shared brief).
+Every suite checks clinic isolation (nothing of clinic A is visible or writable from clinic B, and writing an entity of another clinic rejects with `TenantMismatchError`). Others: idempotent upsert, `findDue` ordering and limit, a single active case per `dedupKey`, cursor paging, job leases (expiry, reclaim with a new token, `lease_lost` for the stale holder, retry at `retryAt`, dead letter after `maxAttempts`, dedup per clinic while the first job is unfinished), backfill runs (one unfinished run per clinic, cursor and counters, budget pause and resume), and `UnitOfWork` rollback leaving no partial writes in any store, jobs and outbox included. Each test uses fresh random clinic ids and job types, so suites also run against a persistent database that is not truncated. Ports must reject, not throw synchronously. Every port type comes from `@follow-up-engine/core`; `packages/acceptance` runs every suite against `adapter-memory` and `adapter-postgres`.
 
 ## Fixture formats
 
@@ -108,7 +109,7 @@ Every suite checks clinic isolation (nothing of clinic A is visible or writable 
 FHIR conventions (the `fhir` package maps these):
 
 - Every bundle is a `transaction` with `PUT Type/id` entries and deterministic `urn:uuid` full URLs. References are relative (`Patient/pat-0001`).
-- Consultation: `Encounter` (`finished`, class `AMB` or `VR`, `serviceType` coded in `https://follow-up-engine.dev/fhir/CodeSystem/specialty` with `diabetology | internal_medicine | psychology | gynecology`, `appointment` when it fulfils a booking) + `DocumentReference` (LOINC 11506-3, note as base64 `text/plain; charset=utf-8`, `context.encounter`) + `ServiceRequest`s (LOINC; category SNOMED 108252007 laboratory or 363679005 imaging) + `MedicationRequest`s (ATC) + `Condition`s (ICD-10 `http://hl7.org/fhir/sid/icd-10`, encounter diagnoses). The `Patient` is in the first consultation only.
+- Consultation: `Encounter` (`finished`, class `AMB` or `VR`, `serviceType` coded in `https://hipocratesalud.com/fhir/CodeSystem/specialty` (the engine's base, shared with `@follow-up-engine/fhir`) with `diabetology | internal_medicine | psychology | gynecology`, `appointment` when it fulfils a booking) + `DocumentReference` (LOINC 11506-3, note as base64 `text/plain; charset=utf-8`, `context.encounter`) + `ServiceRequest`s (LOINC; category SNOMED 108252007 laboratory or 363679005 imaging) + `MedicationRequest`s (ATC) + `Condition`s (ICD-10 `http://hl7.org/fhir/sid/icd-10`, encounter diagnoses). The `Patient` is in the first consultation only.
 - Short treatments, and only them, carry `MedicationRequest.dispenseRequest.expectedSupplyDuration` (UCUM `d`).
 - Result: `DiagnosticReport` (`basedOn` the order when the host links it; category LAB or RAD) + `Observation`s with `interpretation` `H | L | N` (v3-ObservationInterpretation). Imaging reports carry `conclusion` and `conclusionCode` (SNOMED 17621005 normal / 263654008 abnormal).
 - Booking: `Appointment` `booked` with `created` = when it was booked; a cancellation re-sends the same `Appointment` as `cancelled`.
@@ -147,7 +148,7 @@ Rules the expected outcomes follow: lab result 15 days, imaging 30, short treatm
 | `short_treatment_no_followup`         | 7-day antibiotic → case at day 10                                                                        |
 | `gynecology_postpartum_6_weeks`       | Plan "control puerperal en 6 semanas" → case at day 42                                                   |
 | `postpartum_booked_resolves`          | Booking on day 45 resolves the case as fulfilled                                                         |
-| `three_layers_one_case`               | Universal (lab), doctor plan and protocol (HbA1c) expire into one case                                   |
+| `three_layers_one_case`               | Universal (short treatment), doctor plan and protocol (HbA1c) expire into one follow-up case             |
 
 ## Regenerating
 

@@ -5,6 +5,7 @@ import type {
   ClinicSettings,
   LlmCallRecord,
   LlmUsageLog,
+  LlmUsageSummary,
 } from '@follow-up-engine/core';
 import type { MemoryDatabase } from './memory-database.ts';
 
@@ -59,7 +60,7 @@ export class MemoryLlmUsageLog implements LlmUsageLog {
   }
 
   record(call: LlmCallRecord): Promise<void> {
-    this.#db.state.llmCalls.push(call);
+    this.#db.pushTo(this.#db.state.llmCalls, call);
     return Promise.resolve();
   }
 
@@ -69,6 +70,37 @@ export class MemoryLlmUsageLog implements LlmUsageLog {
         .filter((call) => call.clinicId === clinicId && call.at.getTime() >= since.getTime())
         .reduce((total, call) => total + call.costUsd, 0),
     );
+  }
+
+  summary(clinicId: ClinicId, since: Date): Promise<LlmUsageSummary> {
+    const calls = this.#db.state.llmCalls.filter(
+      (call) => call.clinicId === clinicId && call.at.getTime() >= since.getTime(),
+    );
+    const byModel = new Map<
+      string,
+      { provider: string; model: string; calls: number; costUsd: number }
+    >();
+    for (const call of calls) {
+      const key = `${call.provider}\u0000${call.model}`;
+      const usage = byModel.get(key) ?? {
+        provider: call.provider,
+        model: call.model,
+        calls: 0,
+        costUsd: 0,
+      };
+      byModel.set(key, { ...usage, calls: usage.calls + 1, costUsd: usage.costUsd + call.costUsd });
+    }
+    return Promise.resolve({
+      calls: calls.length,
+      successfulCalls: calls.filter((call) => call.ok).length,
+      costUsd: calls.reduce((total, call) => total + call.costUsd, 0),
+      byModel: [...byModel.values()].sort(
+        (left, right) =>
+          right.calls - left.calls ||
+          left.provider.localeCompare(right.provider) ||
+          left.model.localeCompare(right.model),
+      ),
+    });
   }
 
   /** Every recorded call of a clinic, for tests and stats. */

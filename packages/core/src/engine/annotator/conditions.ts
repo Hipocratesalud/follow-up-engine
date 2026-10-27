@@ -1,5 +1,6 @@
 import type { Protocol } from '../../config/protocol.ts';
 import type { ClinicalEvent } from '../../domain/clinical-event.ts';
+import type { Evidence } from '../../domain/common.ts';
 import type {
   ConditionSourceType,
   PatientCondition,
@@ -23,6 +24,7 @@ export interface ConditionCandidate {
   readonly confidence: number;
   readonly sourceType: ConditionSourceType;
   readonly source: ResourceRef;
+  readonly evidence?: Evidence;
 }
 
 /** A medication read from a note, used only to infer conditions. */
@@ -89,6 +91,7 @@ function recordedCandidate(
       : (extractedConfidence.get(event.idempotencyKey) ?? PROVISIONAL_CONFIDENCE),
     sourceType: fromNote ? 'extracted_from_note' : 'recorded',
     source: event.source,
+    ...(event.evidence === undefined ? {} : { evidence: event.evidence }),
   };
 }
 
@@ -198,6 +201,7 @@ export function mergeCondition(
     confidence: candidate.confidence,
     sourceType: candidate.sourceType,
     source: candidate.source,
+    ...(candidate.evidence === undefined ? {} : { evidence: candidate.evidence }),
     updatedAt: context.now,
   };
   if (existing === undefined || existing.status === 'resolved') {

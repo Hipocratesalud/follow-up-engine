@@ -8,13 +8,13 @@
   "pattern": "adherent",
   "entries": [
     {
-      "at": "2024-01-22T19:21:00.000Z",
+      "at": "2024-01-22T19:20:00.000Z",
       "kind": "consultation",
       "bundle": {
         "resourceType": "Bundle",
         "id": "pat-0010-bundle01",
         "type": "transaction",
-        "timestamp": "2024-01-22T19:21:00.000Z",
+        "timestamp": "2024-01-22T19:20:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:c6ebfefb-2945-56cb-845c-32805bff6cef",
@@ -24,7 +24,7 @@
               "identifier": [
                 {
                   "use": "usual",
-                  "system": "https://follow-up-engine.dev/fhir/sid/demo-patient",
+                  "system": "https://hipocratesalud.com/fhir/NamingSystem/demo-patient",
                   "value": "HC-10370"
                 }
               ],
@@ -61,7 +61,7 @@
               "serviceType": {
                 "coding": [
                   {
-                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                     "code": "diabetology",
                     "display": "Diabetología"
                   }
@@ -70,7 +70,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
-              "period": { "start": "2024-01-22T19:00:00.000Z", "end": "2024-01-22T19:21:00.000Z" },
+              "period": { "start": "2024-01-22T19:00:00.000Z", "end": "2024-01-22T19:20:00.000Z" },
               "reasonCode": [{ "text": "Control de diabetes" }],
               "serviceProvider": {
                 "reference": "Organization/clinic-demo",
@@ -93,7 +93,7 @@
                 "text": "Nota de evolución"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "date": "2024-01-22T19:21:00.000Z",
+              "date": "2024-01-22T19:20:00.000Z",
               "author": [{ "reference": "Practitioner/prac-diab-01" }],
               "custodian": {
                 "reference": "Organization/clinic-demo",
@@ -104,9 +104,9 @@
                   "attachment": {
                     "contentType": "text/plain; charset=utf-8",
                     "language": "es",
-                    "data": "UGN0ZSBmZW0gNDBhLCByZWZlcmlkYSBwb3IgbcOpZGljbyBnZW5lcmFsIHBvciBETTIgZGUgOSBhw7FvcyBkZSBkeCB5IG9iZXNpZGFkLiBQcmltZXJhIGNvbnN1bHRhIGVuIGVsIHNlcnZpY2lvLiBSZWZpZXJlIHBvbGl1cmlhIGxldmUgeSBjYW5zYW5jaW8uIE5pZWdhIGhpcG9nbGljZW1pYXMuIEVGOiBUQSAxMTIvNzQgbW1IZywgRkMgODMgbHBtLCBwZXNvIDc3IGtnLiBHbGljZW1pYSBjYXBpbGFyIDIzMiBtZy9kbC4gUGllcyBzaW4gbGVzaW9uZXMsIHB1bHNvcyBwZWRpb3MgcHJlc2VudGVzLiBEeDogRE0yIGZ1ZXJhIGRlIG1ldGFzLiBvYmVzaWRhZC4gUGxhbjogQ29udGluw7phIG1ldGZvcm1pbmEgODUwIG1nIFZPIGMvMTJoIGNvbiBsYXMgY29taWRhcy4gc2Ugc29saWNpdGEgSGJBMWMsIHBlcmZpbCBsaXDDrWRpY28sIGNyZWF0aW5pbmEgeSBtaWNyb2FsYnVtaW51cmlhLiBhY3RpdmlkYWQgZsOtc2ljYSByZWd1bGFyLiBDaXRhIGNvbnRyb2wgZW4gMyBtZXNlcyBjb24gcmVzdWx0YWRvcy4=",
+                    "data": "RmVtIDQwIGHDsW9zLCByZWZlcmlkYSBwb3IgbcOpZGljbyBnZW5lcmFsIHBvciBETTIgZGUgOSBhw7FvcyBkZSBkeCB5IG9iZXNpZGFkLiBQcmltZXJhIGNvbnN1bHRhIGVuIGVsIHNlcnZpY2lvLiBTaW4gcXVlamFzLiBDYW1pbmEgMzAgbWluIDMgdmVjZXMgcG9yIHNlbWFuYS4gRUY6IFRBIDExOS84MSBtbUhnLCBGQyA3OCBscG0sIHBlc28gNzgga2cuIEdsaWNlbWlhIGNhcGlsYXIgMTYyIG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcywgcHVsc29zIHBlZGlvcyBwcmVzZW50ZXMuIER4OiBETTIgZnVlcmEgZGUgbWV0YXMuIG9iZXNpZGFkLiBTZSBleHBsaWNhIGNvbmRpY2nDs24u",
                     "title": "Nota de evolución",
-                    "creation": "2024-01-22T19:21:00.000Z"
+                    "creation": "2024-01-22T19:20:00.000Z"
                   }
                 }
               ],
@@ -114,12 +114,12 @@
                 "encounter": [{ "reference": "Encounter/pat-0010-enc01" }],
                 "period": {
                   "start": "2024-01-22T19:00:00.000Z",
-                  "end": "2024-01-22T19:21:00.000Z"
+                  "end": "2024-01-22T19:20:00.000Z"
                 },
                 "practiceSetting": {
                   "coding": [
                     {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                       "code": "diabetology",
                       "display": "Diabetología"
                     }
@@ -160,7 +160,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc01" },
-              "authoredOn": "2024-01-22T19:21:00.000Z",
+              "authoredOn": "2024-01-22T19:20:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr01" }
@@ -195,7 +195,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc01" },
-              "authoredOn": "2024-01-22T19:21:00.000Z",
+              "authoredOn": "2024-01-22T19:20:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr02" }
@@ -230,7 +230,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc01" },
-              "authoredOn": "2024-01-22T19:21:00.000Z",
+              "authoredOn": "2024-01-22T19:20:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr03" }
@@ -265,7 +265,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc01" },
-              "authoredOn": "2024-01-22T19:21:00.000Z",
+              "authoredOn": "2024-01-22T19:20:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr04" }
@@ -285,7 +285,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc01" },
-              "authoredOn": "2024-01-22T19:21:00.000Z",
+              "authoredOn": "2024-01-22T19:20:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" },
               "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
             },
@@ -335,7 +335,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc01" },
-              "recordedDate": "2024-01-22T19:21:00.000Z",
+              "recordedDate": "2024-01-22T19:20:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond01" }
@@ -384,7 +384,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc01" },
-              "recordedDate": "2024-01-22T19:21:00.000Z",
+              "recordedDate": "2024-01-22T19:20:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond02" }
@@ -393,63 +393,13 @@
       }
     },
     {
-      "at": "2024-01-22T19:31:00.000Z",
-      "kind": "appointment_booked",
-      "bundle": {
-        "resourceType": "Bundle",
-        "id": "pat-0010-bundle06",
-        "type": "transaction",
-        "timestamp": "2024-01-22T19:31:00.000Z",
-        "entry": [
-          {
-            "fullUrl": "urn:uuid:2abdfe5c-e458-5154-bc04-35a91de46f39",
-            "resource": {
-              "resourceType": "Appointment",
-              "id": "pat-0010-appt01",
-              "status": "booked",
-              "serviceType": [
-                {
-                  "coding": [
-                    {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
-                      "code": "diabetology",
-                      "display": "Diabetología"
-                    }
-                  ],
-                  "text": "Diabetología"
-                }
-              ],
-              "description": "Control de diabetes",
-              "start": "2024-04-22T16:15:00.000Z",
-              "end": "2024-04-22T16:45:00.000Z",
-              "minutesDuration": 30,
-              "created": "2024-01-22T19:31:00.000Z",
-              "participant": [
-                {
-                  "actor": { "reference": "Patient/pat-0010" },
-                  "required": "required",
-                  "status": "accepted"
-                },
-                {
-                  "actor": { "reference": "Practitioner/prac-diab-01" },
-                  "required": "required",
-                  "status": "accepted"
-                }
-              ]
-            },
-            "request": { "method": "PUT", "url": "Appointment/pat-0010-appt01" }
-          }
-        ]
-      }
-    },
-    {
-      "at": "2024-01-25T19:51:00.000Z",
+      "at": "2024-01-25T19:50:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
         "id": "pat-0010-bundle02",
         "type": "transaction",
-        "timestamp": "2024-01-25T19:51:00.000Z",
+        "timestamp": "2024-01-25T19:50:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:3176f3e3-50e9-5e3b-9d52-4ee88c849379",
@@ -480,8 +430,8 @@
                 "text": "Hemoglobina glicosilada (HbA1c)"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-01-23T19:51:00.000Z",
-              "issued": "2024-01-25T19:51:00.000Z",
+              "effectiveDateTime": "2024-01-23T19:50:00.000Z",
+              "issued": "2024-01-25T19:50:00.000Z",
               "result": [{ "reference": "Observation/pat-0010-dr01-obs1" }]
             },
             "request": { "method": "PUT", "url": "DiagnosticReport/pat-0010-dr01" }
@@ -514,8 +464,8 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-01-23T19:51:00.000Z",
-              "issued": "2024-01-25T19:51:00.000Z",
+              "effectiveDateTime": "2024-01-23T19:50:00.000Z",
+              "issued": "2024-01-25T19:50:00.000Z",
               "valueQuantity": {
                 "value": 8,
                 "unit": "%",
@@ -550,13 +500,13 @@
       }
     },
     {
-      "at": "2024-01-27T21:20:00.000Z",
+      "at": "2024-01-27T21:19:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
         "id": "pat-0010-bundle03",
         "type": "transaction",
-        "timestamp": "2024-01-27T21:20:00.000Z",
+        "timestamp": "2024-01-27T21:19:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:d78d0f61-bb09-5c23-841e-dc059d3c6d7c",
@@ -587,8 +537,8 @@
                 "text": "Perfil lipídico"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-01-23T21:20:00.000Z",
-              "issued": "2024-01-27T21:20:00.000Z",
+              "effectiveDateTime": "2024-01-23T21:19:00.000Z",
+              "issued": "2024-01-27T21:19:00.000Z",
               "result": [
                 { "reference": "Observation/pat-0010-dr02-obs1" },
                 { "reference": "Observation/pat-0010-dr02-obs2" },
@@ -626,8 +576,8 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-01-23T21:20:00.000Z",
-              "issued": "2024-01-27T21:20:00.000Z",
+              "effectiveDateTime": "2024-01-23T21:19:00.000Z",
+              "issued": "2024-01-27T21:19:00.000Z",
               "valueQuantity": {
                 "value": 174,
                 "unit": "mg/dL",
@@ -686,8 +636,8 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-01-23T21:20:00.000Z",
-              "issued": "2024-01-27T21:20:00.000Z",
+              "effectiveDateTime": "2024-01-23T21:19:00.000Z",
+              "issued": "2024-01-27T21:19:00.000Z",
               "valueQuantity": {
                 "value": 123,
                 "unit": "mg/dL",
@@ -746,8 +696,8 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-01-23T21:20:00.000Z",
-              "issued": "2024-01-27T21:20:00.000Z",
+              "effectiveDateTime": "2024-01-23T21:19:00.000Z",
+              "issued": "2024-01-27T21:19:00.000Z",
               "valueQuantity": {
                 "value": 50,
                 "unit": "mg/dL",
@@ -806,8 +756,8 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-01-23T21:20:00.000Z",
-              "issued": "2024-01-27T21:20:00.000Z",
+              "effectiveDateTime": "2024-01-23T21:19:00.000Z",
+              "issued": "2024-01-27T21:19:00.000Z",
               "valueQuantity": {
                 "value": 92,
                 "unit": "mg/dL",
@@ -842,13 +792,13 @@
       }
     },
     {
-      "at": "2024-01-28T20:40:00.000Z",
+      "at": "2024-01-28T20:39:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
         "id": "pat-0010-bundle05",
         "type": "transaction",
-        "timestamp": "2024-01-28T20:40:00.000Z",
+        "timestamp": "2024-01-28T20:39:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:b9b7fee7-9e0f-5471-94f6-18e2c774af76",
@@ -879,8 +829,8 @@
                 "text": "Microalbuminuria (relación albúmina/creatinina)"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-01-26T20:40:00.000Z",
-              "issued": "2024-01-28T20:40:00.000Z",
+              "effectiveDateTime": "2024-01-26T20:39:00.000Z",
+              "issued": "2024-01-28T20:39:00.000Z",
               "result": [{ "reference": "Observation/pat-0010-dr04-obs1" }]
             },
             "request": { "method": "PUT", "url": "DiagnosticReport/pat-0010-dr04" }
@@ -913,8 +863,8 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-01-26T20:40:00.000Z",
-              "issued": "2024-01-28T20:40:00.000Z",
+              "effectiveDateTime": "2024-01-26T20:39:00.000Z",
+              "issued": "2024-01-28T20:39:00.000Z",
               "valueQuantity": {
                 "value": 21,
                 "unit": "mg/g",
@@ -949,13 +899,13 @@
       }
     },
     {
-      "at": "2024-01-30T20:26:00.000Z",
+      "at": "2024-01-30T20:25:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
         "id": "pat-0010-bundle04",
         "type": "transaction",
-        "timestamp": "2024-01-30T20:26:00.000Z",
+        "timestamp": "2024-01-30T20:25:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:d6c6cd0f-d644-5f4f-912a-c61957245188",
@@ -986,8 +936,8 @@
                 "text": "Creatinina sérica"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-01-28T20:26:00.000Z",
-              "issued": "2024-01-30T20:26:00.000Z",
+              "effectiveDateTime": "2024-01-28T20:25:00.000Z",
+              "issued": "2024-01-30T20:25:00.000Z",
               "result": [{ "reference": "Observation/pat-0010-dr03-obs1" }]
             },
             "request": { "method": "PUT", "url": "DiagnosticReport/pat-0010-dr03" }
@@ -1020,8 +970,8 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-01-28T20:26:00.000Z",
-              "issued": "2024-01-30T20:26:00.000Z",
+              "effectiveDateTime": "2024-01-28T20:25:00.000Z",
+              "issued": "2024-01-30T20:25:00.000Z",
               "valueQuantity": {
                 "value": 0.97,
                 "unit": "mg/dL",
@@ -1062,13 +1012,13 @@
       }
     },
     {
-      "at": "2024-04-22T16:39:00.000Z",
+      "at": "2024-05-27T12:59:00.000Z",
       "kind": "consultation",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle07",
+        "id": "pat-0010-bundle06",
         "type": "transaction",
-        "timestamp": "2024-04-22T16:39:00.000Z",
+        "timestamp": "2024-05-27T12:59:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:2f4f38c9-6292-5423-b484-1643574c7565",
@@ -1085,7 +1035,7 @@
               "serviceType": {
                 "coding": [
                   {
-                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                     "code": "diabetology",
                     "display": "Diabetología"
                   }
@@ -1094,8 +1044,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
-              "appointment": [{ "reference": "Appointment/pat-0010-appt01" }],
-              "period": { "start": "2024-04-22T16:15:00.000Z", "end": "2024-04-22T16:39:00.000Z" },
+              "period": { "start": "2024-05-27T12:30:00.000Z", "end": "2024-05-27T12:59:00.000Z" },
               "reasonCode": [{ "text": "Control de diabetes" }],
               "serviceProvider": {
                 "reference": "Organization/clinic-demo",
@@ -1118,7 +1067,7 @@
                 "text": "Nota de evolución"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "date": "2024-04-22T16:39:00.000Z",
+              "date": "2024-05-27T12:59:00.000Z",
               "author": [{ "reference": "Practitioner/prac-diab-01" }],
               "custodian": {
                 "reference": "Organization/clinic-demo",
@@ -1129,22 +1078,22 @@
                   "attachment": {
                     "contentType": "text/plain; charset=utf-8",
                     "language": "es",
-                    "data": "RmVtIDQxIGHDsW9zLCBjb25vY2lkbyBETTIgZGVzZGUgaGFjZSA5IGHDsW9zLCBlbiB0dG8gY29uIG1ldGZvcm1pbmEgODUwIG1nIFZPIGMvMTJoIGNvbiBsYXMgY29taWRhcy4gQWN1ZGUgYSBjdHJsLiBTaW4gcXVlamFzLiBDYW1pbmEgMzAgbWluIDMgdmVjZXMgcG9yIHNlbWFuYS4gRUY6IFRBIDExNi83OSBtbUhnLCBGQyA2OCBscG0sIHBlc28gNzcga2cuIEdsaWNlbWlhIGNhcGlsYXIgMjEwIG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcywgcHVsc29zIHBlZGlvcyBwcmVzZW50ZXMuIFRyYWUgbGFiczogSGJBMWMgOC4wJS4gRHg6IERNMiBmdWVyYSBkZSBtZXRhcy4gb2Jlc2lkYWQuIFBsYW46IFNlIGFqdXN0YSBkb3Npcy4gbWFudGVuZXIgbWV0Zm9ybWluYSA4NTAgbWcgVk8gYy8xMmggY29uIGxhcyBjb21pZGFzLiBzZSBzb2xpY2l0YSBIYkExYy4gYWN0aXZpZGFkIGZpc2ljYSByZWd1bGFyLiBDdHJsIGVuIDIgbWVzZXMu",
+                    "data": "UGFjaWVudGUgZmVtZW5pbmEgZGUgNDEgYcOxb3MsIGNvbm9jaWRvIERNMiBkZXNkZSBoYWNlIDkgYcOxb3MsIGVuIHR0byBjb24gbWV0Zm9ybWluYSA4NTAgbWcgVk8gYy8xMmggY29uIGxhcyBjb21pZGFzIHkgc2l0YWdsaXB0aW5hIDEwMCBtZyBWTyBPRC4gQWN1ZGUgYSBjdHJsLiBTaW4gcXVlamFzLiBDYW1pbmEgMzAgbWluIDMgdmVjZXMgcG9yIHNlbWFuYS4gRUY6IFRBIDEyNS83MiBtbUhnLCBGQyA4MCBscG0sIHBlc28gNzUga2cuIEdsaWNlbWlhIGNhcGlsYXIgMjMyIG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcywgcHVsc29zIHBlZGlvcyBwcmVzZW50ZXMuIFRyYWUgbGFiczogSGJBMWMgOC4wJS4gRHg6IERNMiBmdWVyYSBkZSBtZXRhcy4gb2Jlc2lkYWQuIFBsYW46IFNlIGFqdXN0YSBkb3Npcy4gQ29udGluw7phIG1ldGZvcm1pbmEgODUwIG1nIFZPIGMvMTJoIGNvbiBsYXMgY29taWRhcyB5IHNpdGFnbGlwdGluYSAxMDAgbWcgVk8gT0QuIHNlIHNvbGljaXRhIEhiQTFjLiBhY3RpdmlkYWQgZsOtc2ljYSByZWd1bGFyLiBQcsOzeGltbyBjb250cm9sIGVuIDMgbWVzZXMgY29uIHJlc3VsdGFkb3Mu",
                     "title": "Nota de evolución",
-                    "creation": "2024-04-22T16:39:00.000Z"
+                    "creation": "2024-05-27T12:59:00.000Z"
                   }
                 }
               ],
               "context": {
                 "encounter": [{ "reference": "Encounter/pat-0010-enc02" }],
                 "period": {
-                  "start": "2024-04-22T16:15:00.000Z",
-                  "end": "2024-04-22T16:39:00.000Z"
+                  "start": "2024-05-27T12:30:00.000Z",
+                  "end": "2024-05-27T12:59:00.000Z"
                 },
                 "practiceSetting": {
                   "coding": [
                     {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                       "code": "diabetology",
                       "display": "Diabetología"
                     }
@@ -1185,7 +1134,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc02" },
-              "authoredOn": "2024-04-22T16:39:00.000Z",
+              "authoredOn": "2024-05-27T12:59:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr05" }
@@ -1205,11 +1154,36 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc02" },
-              "authoredOn": "2024-04-22T16:39:00.000Z",
+              "authoredOn": "2024-05-27T12:59:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" },
               "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
             },
             "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr02" }
+          },
+          {
+            "fullUrl": "urn:uuid:d41d2d0f-7bba-535a-90e6-b940f3be93e1",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr03",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A10BH01",
+                    "display": "sitagliptin"
+                  }
+                ],
+                "text": "Sitagliptina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc02" },
+              "authoredOn": "2024-05-27T12:59:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr03" }
           },
           {
             "fullUrl": "urn:uuid:8c89cde2-b2e7-551a-8cf3-3e44bd920911",
@@ -1255,7 +1229,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc02" },
-              "recordedDate": "2024-04-22T16:39:00.000Z",
+              "recordedDate": "2024-05-27T12:59:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond03" }
@@ -1304,7 +1278,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc02" },
-              "recordedDate": "2024-04-22T16:39:00.000Z",
+              "recordedDate": "2024-05-27T12:59:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond04" }
@@ -1313,25 +1287,25 @@
       }
     },
     {
-      "at": "2024-04-22T16:49:00.000Z",
+      "at": "2024-05-27T13:09:00.000Z",
       "kind": "appointment_booked",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle09",
+        "id": "pat-0010-bundle08",
         "type": "transaction",
-        "timestamp": "2024-04-22T16:49:00.000Z",
+        "timestamp": "2024-05-27T13:09:00.000Z",
         "entry": [
           {
-            "fullUrl": "urn:uuid:2960f252-d172-5633-9a62-d87388b95d1a",
+            "fullUrl": "urn:uuid:2abdfe5c-e458-5154-bc04-35a91de46f39",
             "resource": {
               "resourceType": "Appointment",
-              "id": "pat-0010-appt02",
+              "id": "pat-0010-appt01",
               "status": "booked",
               "serviceType": [
                 {
                   "coding": [
                     {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                       "code": "diabetology",
                       "display": "Diabetología"
                     }
@@ -1340,10 +1314,10 @@
                 }
               ],
               "description": "Control de diabetes",
-              "start": "2024-06-17T20:15:00.000Z",
-              "end": "2024-06-17T20:45:00.000Z",
+              "start": "2024-08-22T12:45:00.000Z",
+              "end": "2024-08-22T13:15:00.000Z",
               "minutesDuration": 30,
-              "created": "2024-04-22T16:49:00.000Z",
+              "created": "2024-05-27T13:09:00.000Z",
               "participant": [
                 {
                   "actor": { "reference": "Patient/pat-0010" },
@@ -1357,19 +1331,19 @@
                 }
               ]
             },
-            "request": { "method": "PUT", "url": "Appointment/pat-0010-appt02" }
+            "request": { "method": "PUT", "url": "Appointment/pat-0010-appt01" }
           }
         ]
       }
     },
     {
-      "at": "2024-04-28T18:38:00.000Z",
+      "at": "2024-06-01T13:34:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle08",
+        "id": "pat-0010-bundle07",
         "type": "transaction",
-        "timestamp": "2024-04-28T18:38:00.000Z",
+        "timestamp": "2024-06-01T13:34:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:94db311d-6b77-57db-bc78-a0818449ce5a",
@@ -1400,8 +1374,8 @@
                 "text": "Hemoglobina glicosilada (HbA1c)"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-04-24T18:38:00.000Z",
-              "issued": "2024-04-28T18:38:00.000Z",
+              "effectiveDateTime": "2024-05-28T13:34:00.000Z",
+              "issued": "2024-06-01T13:34:00.000Z",
               "result": [{ "reference": "Observation/pat-0010-dr05-obs1" }]
             },
             "request": { "method": "PUT", "url": "DiagnosticReport/pat-0010-dr05" }
@@ -1434,10 +1408,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-04-24T18:38:00.000Z",
-              "issued": "2024-04-28T18:38:00.000Z",
+              "effectiveDateTime": "2024-05-28T13:34:00.000Z",
+              "issued": "2024-06-01T13:34:00.000Z",
               "valueQuantity": {
-                "value": 7.5,
+                "value": 7.8,
                 "unit": "%",
                 "system": "http://unitsofmeasure.org",
                 "code": "%"
@@ -1470,13 +1444,13 @@
       }
     },
     {
-      "at": "2024-06-17T20:45:00.000Z",
+      "at": "2024-08-22T13:17:00.000Z",
       "kind": "consultation",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle10",
+        "id": "pat-0010-bundle09",
         "type": "transaction",
-        "timestamp": "2024-06-17T20:45:00.000Z",
+        "timestamp": "2024-08-22T13:17:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:775743b5-d022-5167-9341-f80416ae4575",
@@ -1493,7 +1467,7 @@
               "serviceType": {
                 "coding": [
                   {
-                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                     "code": "diabetology",
                     "display": "Diabetología"
                   }
@@ -1502,8 +1476,8 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
-              "appointment": [{ "reference": "Appointment/pat-0010-appt02" }],
-              "period": { "start": "2024-06-17T20:15:00.000Z", "end": "2024-06-17T20:45:00.000Z" },
+              "appointment": [{ "reference": "Appointment/pat-0010-appt01" }],
+              "period": { "start": "2024-08-22T12:45:00.000Z", "end": "2024-08-22T13:17:00.000Z" },
               "reasonCode": [{ "text": "Control de diabetes" }],
               "serviceProvider": {
                 "reference": "Organization/clinic-demo",
@@ -1526,7 +1500,7 @@
                 "text": "Nota de evolución"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "date": "2024-06-17T20:45:00.000Z",
+              "date": "2024-08-22T13:17:00.000Z",
               "author": [{ "reference": "Practitioner/prac-diab-01" }],
               "custodian": {
                 "reference": "Organization/clinic-demo",
@@ -1537,22 +1511,22 @@
                   "attachment": {
                     "contentType": "text/plain; charset=utf-8",
                     "language": "es",
-                    "data": "UGN0ZSBGIDQxYSwgY29ub2NpZG8gRE0yIGRlc2RlIGhhY2UgOSBhw7FvcywgZW4gdHRvIGNvbiBtZXRmb3JtaW5hIDg1MCBtZyBWTyBjLzEyaCBjb24gbGFzIGNvbWlkYXMuIEFjdWRlIGEgY3RybC4gUmVmaWVyZSBvbHZpZGFyIGRvc2lzIG9jYXNpb25hbG1lbnRlLiBOaWVnYSBwb2xpdXJpYSBuaSBwb2xpZGlwc2lhLiBFRjogVEEgMTMxLzgxIG1tSGcsIEZDIDY0IGxwbSwgcGVzbyA3NSBrZy4gR2xpY2VtaWEgY2FwaWxhciAxMDggbWcvZGwuIFBpZXMgc2luIGxlc2lvbmVzLCBwdWxzb3MgcGVkaW9zIHByZXNlbnRlcy4gVHJhZSBsYWJzOiBIYkExYyA3LjUlLiBEeDogRE0yIGVuIG1ldGFzLiBvYmVzaWRhZC4gUGxhbjogQ29udGludWEgbWV0Zm9ybWluYSA4NTAgbWcgVk8gYy8xMmggY29uIGxhcyBjb21pZGFzLiBzZSBzb2xpY2l0YSBIYkExYy4gYWN0aXZpZGFkIGZpc2ljYSByZWd1bGFyLiBWb2x2ZXIgYSBjb25zdWx0YSBlbiAzIG1lc2VzLg==",
+                    "data": "UGN0ZSBkZSA0MSBhw7FvcywgY29ub2NpZG8gRE0yIGRlc2RlIGhhY2UgOSBhw7FvcywgZW4gdHRvIGNvbiBtZXRmb3JtaW5hIDg1MCBtZyBWTyBjLzEyaCBjb24gbGFzIGNvbWlkYXMsIHNpdGFnbGlwdGluYSAxMDAgbWcgVk8gT0QgeSBlbXBhZ2xpZmxvemluYSAxMCBtZyBWTyBPRC4gQWN1ZGUgYSBjdHJsLgpSZWZpZXJlIG9sdmlkYXIgZG9zaXMgb2Nhc2lvbmFsbWVudGUuIE5pZWdhIHBvbGl1cmlhIG5pIHBvbGlkaXBzaWEuCkVGOiBUQSAxMzAvNzAgbW1IZywgRkMgNjggbHBtLCBwZXNvIDc3IGtnLiBHbGljZW1pYSBjYXBpbGFyIDIzNSBtZy9kbC4gUGllcyBzaW4gbGVzaW9uZXMsIHB1bHNvcyBwZWRpb3MgcHJlc2VudGVzLgpUcmFlIGxhYnM6IEhiQTFjIDcuOCUuCkR4OiBETTIgZnVlcmEgZGUgbWV0YXMuIG9iZXNpZGFkLgpQbGFuOiBTZSBhanVzdGEgZG9zaXMuIG1hbnRlbmVyIG1ldGZvcm1pbmEgODUwIG1nIFZPIGMvMTJoIGNvbiBsYXMgY29taWRhcywgc2l0YWdsaXB0aW5hIDEwMCBtZyBWTyBPRCB5IGVtcGFnbGlmbG96aW5hIDEwIG1nIFZPIE9ELiBzZSBzb2xpY2l0YSBIYkExYy4gYWN0aXZpZGFkIGZpc2ljYSByZWd1bGFyLiBWb2x2ZXIgYSBjb25zdWx0YSBlbiAzIG1lc2VzIGNvbiByZXN1bHRhZG9zLg==",
                     "title": "Nota de evolución",
-                    "creation": "2024-06-17T20:45:00.000Z"
+                    "creation": "2024-08-22T13:17:00.000Z"
                   }
                 }
               ],
               "context": {
                 "encounter": [{ "reference": "Encounter/pat-0010-enc03" }],
                 "period": {
-                  "start": "2024-06-17T20:15:00.000Z",
-                  "end": "2024-06-17T20:45:00.000Z"
+                  "start": "2024-08-22T12:45:00.000Z",
+                  "end": "2024-08-22T13:17:00.000Z"
                 },
                 "practiceSetting": {
                   "coding": [
                     {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                       "code": "diabetology",
                       "display": "Diabetología"
                     }
@@ -1593,16 +1567,16 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc03" },
-              "authoredOn": "2024-06-17T20:45:00.000Z",
+              "authoredOn": "2024-08-22T13:17:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr06" }
           },
           {
-            "fullUrl": "urn:uuid:d41d2d0f-7bba-535a-90e6-b940f3be93e1",
+            "fullUrl": "urn:uuid:e7007c18-98f4-570a-8495-400954470fdb",
             "resource": {
               "resourceType": "MedicationRequest",
-              "id": "pat-0010-mr03",
+              "id": "pat-0010-mr04",
               "status": "active",
               "intent": "order",
               "medicationCodeableConcept": {
@@ -1613,11 +1587,61 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc03" },
-              "authoredOn": "2024-06-17T20:45:00.000Z",
+              "authoredOn": "2024-08-22T13:17:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" },
               "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
             },
-            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr03" }
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr04" }
+          },
+          {
+            "fullUrl": "urn:uuid:48f7ece3-4798-528b-bc06-e63019398a9f",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr05",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A10BH01",
+                    "display": "sitagliptin"
+                  }
+                ],
+                "text": "Sitagliptina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc03" },
+              "authoredOn": "2024-08-22T13:17:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr05" }
+          },
+          {
+            "fullUrl": "urn:uuid:a51fc4cd-f4bd-564e-8e3f-8a9292cfcd27",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr06",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A10BK03",
+                    "display": "empagliflozin"
+                  }
+                ],
+                "text": "Empagliflozina 10 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc03" },
+              "authoredOn": "2024-08-22T13:17:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr06" }
           },
           {
             "fullUrl": "urn:uuid:6b3e1efa-9ebf-54a0-86e4-f47ab7412c79",
@@ -1663,7 +1687,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc03" },
-              "recordedDate": "2024-06-17T20:45:00.000Z",
+              "recordedDate": "2024-08-22T13:17:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond05" }
@@ -1712,7 +1736,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc03" },
-              "recordedDate": "2024-06-17T20:45:00.000Z",
+              "recordedDate": "2024-08-22T13:17:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond06" }
@@ -1721,25 +1745,25 @@
       }
     },
     {
-      "at": "2024-06-17T20:55:00.000Z",
+      "at": "2024-08-22T13:27:00.000Z",
       "kind": "appointment_booked",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle12",
+        "id": "pat-0010-bundle11",
         "type": "transaction",
-        "timestamp": "2024-06-17T20:55:00.000Z",
+        "timestamp": "2024-08-22T13:27:00.000Z",
         "entry": [
           {
-            "fullUrl": "urn:uuid:bf75fe93-2325-53f7-9c92-fe4e712b2f78",
+            "fullUrl": "urn:uuid:2960f252-d172-5633-9a62-d87388b95d1a",
             "resource": {
               "resourceType": "Appointment",
-              "id": "pat-0010-appt03",
+              "id": "pat-0010-appt02",
               "status": "booked",
               "serviceType": [
                 {
                   "coding": [
                     {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                       "code": "diabetology",
                       "display": "Diabetología"
                     }
@@ -1748,10 +1772,10 @@
                 }
               ],
               "description": "Control de diabetes",
-              "start": "2024-09-13T14:15:00.000Z",
-              "end": "2024-09-13T14:45:00.000Z",
+              "start": "2024-11-20T17:15:00.000Z",
+              "end": "2024-11-20T17:45:00.000Z",
               "minutesDuration": 30,
-              "created": "2024-06-17T20:55:00.000Z",
+              "created": "2024-08-22T13:27:00.000Z",
               "participant": [
                 {
                   "actor": { "reference": "Patient/pat-0010" },
@@ -1765,19 +1789,19 @@
                 }
               ]
             },
-            "request": { "method": "PUT", "url": "Appointment/pat-0010-appt03" }
+            "request": { "method": "PUT", "url": "Appointment/pat-0010-appt02" }
           }
         ]
       }
     },
     {
-      "at": "2024-06-22T21:52:00.000Z",
+      "at": "2024-08-27T14:08:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle11",
+        "id": "pat-0010-bundle10",
         "type": "transaction",
-        "timestamp": "2024-06-22T21:52:00.000Z",
+        "timestamp": "2024-08-27T14:08:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:08e7d684-b0e4-54ab-87a6-7e4686b99d92",
@@ -1808,8 +1832,8 @@
                 "text": "Hemoglobina glicosilada (HbA1c)"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-06-20T21:52:00.000Z",
-              "issued": "2024-06-22T21:52:00.000Z",
+              "effectiveDateTime": "2024-08-26T14:08:00.000Z",
+              "issued": "2024-08-27T14:08:00.000Z",
               "result": [{ "reference": "Observation/pat-0010-dr06-obs1" }]
             },
             "request": { "method": "PUT", "url": "DiagnosticReport/pat-0010-dr06" }
@@ -1842,10 +1866,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-06-20T21:52:00.000Z",
-              "issued": "2024-06-22T21:52:00.000Z",
+              "effectiveDateTime": "2024-08-26T14:08:00.000Z",
+              "issued": "2024-08-27T14:08:00.000Z",
               "valueQuantity": {
-                "value": 6.5,
+                "value": 8.5,
                 "unit": "%",
                 "system": "http://unitsofmeasure.org",
                 "code": "%"
@@ -1878,13 +1902,13 @@
       }
     },
     {
-      "at": "2024-09-13T14:41:00.000Z",
+      "at": "2024-11-20T17:35:00.000Z",
       "kind": "consultation",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle13",
+        "id": "pat-0010-bundle12",
         "type": "transaction",
-        "timestamp": "2024-09-13T14:41:00.000Z",
+        "timestamp": "2024-11-20T17:35:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:108fc5a7-ac36-5c5d-9046-645c94ab0378",
@@ -1901,7 +1925,7 @@
               "serviceType": {
                 "coding": [
                   {
-                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                     "code": "diabetology",
                     "display": "Diabetología"
                   }
@@ -1910,8 +1934,8 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
-              "appointment": [{ "reference": "Appointment/pat-0010-appt03" }],
-              "period": { "start": "2024-09-13T14:15:00.000Z", "end": "2024-09-13T14:41:00.000Z" },
+              "appointment": [{ "reference": "Appointment/pat-0010-appt02" }],
+              "period": { "start": "2024-11-20T17:15:00.000Z", "end": "2024-11-20T17:35:00.000Z" },
               "reasonCode": [{ "text": "Control de diabetes" }],
               "serviceProvider": {
                 "reference": "Organization/clinic-demo",
@@ -1934,7 +1958,7 @@
                 "text": "Nota de evolución"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "date": "2024-09-13T14:41:00.000Z",
+              "date": "2024-11-20T17:35:00.000Z",
               "author": [{ "reference": "Practitioner/prac-diab-01" }],
               "custodian": {
                 "reference": "Organization/clinic-demo",
@@ -1945,22 +1969,22 @@
                   "attachment": {
                     "contentType": "text/plain; charset=utf-8",
                     "language": "es",
-                    "data": "cGN0ZSBmZW1lbmluYSA0MWEsIGNvbm9jaWRvIERNMiBkZXNkZSBoYWNlIDkgYcOxb3MsIGVuIHR0byBjb24gbWV0Zm9ybWluYSA4NTAgbWcgVk8gYy8xMmggY29uIGxhcyBjb21pZGFzLiBBY3VkZSBhIGN0cmwuClJlZmllcmUgYnVlbmEgYWRoZXJlbmNpYSBhbCB0dG8sIG5pZWdhIGhpcG9nbGljZW1pYXMuCkVGOiBUQSAxMTMvODQgbW1IZywgRkMgODggbHBtLCBwZXNvIDc3IGtnLiBHbGljZW1pYSBjYXBpbGFyIDk5IG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcywgcHVsc29zIHBlZGlvcyBwcmVzZW50ZXMuClRyYWUgbGFiczogSGJBMWMgNi41JS4KRHg6IERNMiBlbiBtZXRhcy4gb2Jlc2lkYWQuClBsYW46IGNvbnRpbnVhciBtZXRmb3JtaW5hIDg1MCBtZyBWTyBjLzEyaCBjb24gbGFzIGNvbWlkYXMuIHNlIHNvbGljaXRhIEhiQTFjLiBhY3RpdmlkYWQgZmlzaWNhIHJlZ3VsYXIuIEN0cmwgZW4gMyBtZXNlcy4=",
+                    "data": "RmVtIDQxIGHDsW9zLCBjb25vY2lkbyBETTIgZGVzZGUgaGFjZSA5IGHDsW9zLCBlbiB0dG8gY29uIG1ldGZvcm1pbmEgODUwIG1nIFZPIGMvMTJoIGNvbiBsYXMgY29taWRhcywgc2l0YWdsaXB0aW5hIDEwMCBtZyBWTyBPRCB5IGVtcGFnbGlmbG96aW5hIDEwIG1nIFZPIE9ELiBBY3VkZSBhIGN0cmwuIFNpbiBxdWVqYXMuIENhbWluYSAzMCBtaW4gMyB2ZWNlcyBwb3Igc2VtYW5hLiBFRjogVEEgMTE0LzgyIG1tSGcsIEZDIDY3IGxwbSwgcGVzbyA3OSBrZy4gR2xpY2VtaWEgY2FwaWxhciAyMDIgbWcvZGwuIFBpZXMgc2luIGxlc2lvbmVzLCBwdWxzb3MgcGVkaW9zIHByZXNlbnRlcy4gVHJhZSBsYWJzOiBIYkExYyA4LjUlLiBEeDogRE0yIGZ1ZXJhIGRlIG1ldGFzLiBvYmVzaWRhZC4gU2UgZXhwbGljYSBjb25kaWNpw7NuLg==",
                     "title": "Nota de evolución",
-                    "creation": "2024-09-13T14:41:00.000Z"
+                    "creation": "2024-11-20T17:35:00.000Z"
                   }
                 }
               ],
               "context": {
                 "encounter": [{ "reference": "Encounter/pat-0010-enc04" }],
                 "period": {
-                  "start": "2024-09-13T14:15:00.000Z",
-                  "end": "2024-09-13T14:41:00.000Z"
+                  "start": "2024-11-20T17:15:00.000Z",
+                  "end": "2024-11-20T17:35:00.000Z"
                 },
                 "practiceSetting": {
                   "coding": [
                     {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                       "code": "diabetology",
                       "display": "Diabetología"
                     }
@@ -2001,16 +2025,16 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc04" },
-              "authoredOn": "2024-09-13T14:41:00.000Z",
+              "authoredOn": "2024-11-20T17:35:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr07" }
           },
           {
-            "fullUrl": "urn:uuid:e7007c18-98f4-570a-8495-400954470fdb",
+            "fullUrl": "urn:uuid:28b58255-c783-5379-9490-97687816e80d",
             "resource": {
               "resourceType": "MedicationRequest",
-              "id": "pat-0010-mr04",
+              "id": "pat-0010-mr07",
               "status": "active",
               "intent": "order",
               "medicationCodeableConcept": {
@@ -2021,11 +2045,61 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc04" },
-              "authoredOn": "2024-09-13T14:41:00.000Z",
+              "authoredOn": "2024-11-20T17:35:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" },
               "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
             },
-            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr04" }
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr07" }
+          },
+          {
+            "fullUrl": "urn:uuid:75c5bdc5-0263-5a8e-95a0-4c3d7b6a5507",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr08",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A10BH01",
+                    "display": "sitagliptin"
+                  }
+                ],
+                "text": "Sitagliptina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc04" },
+              "authoredOn": "2024-11-20T17:35:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr08" }
+          },
+          {
+            "fullUrl": "urn:uuid:067e37e3-3f4c-5f19-997c-b64f6fad34e3",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr09",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A10BK03",
+                    "display": "empagliflozin"
+                  }
+                ],
+                "text": "Empagliflozina 10 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc04" },
+              "authoredOn": "2024-11-20T17:35:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr09" }
           },
           {
             "fullUrl": "urn:uuid:e345c7e8-9085-5878-9f8a-f900dc456d46",
@@ -2071,7 +2145,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc04" },
-              "recordedDate": "2024-09-13T14:41:00.000Z",
+              "recordedDate": "2024-11-20T17:35:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond07" }
@@ -2120,7 +2194,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc04" },
-              "recordedDate": "2024-09-13T14:41:00.000Z",
+              "recordedDate": "2024-11-20T17:35:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond08" }
@@ -2129,63 +2203,13 @@
       }
     },
     {
-      "at": "2024-09-13T14:51:00.000Z",
-      "kind": "appointment_booked",
-      "bundle": {
-        "resourceType": "Bundle",
-        "id": "pat-0010-bundle15",
-        "type": "transaction",
-        "timestamp": "2024-09-13T14:51:00.000Z",
-        "entry": [
-          {
-            "fullUrl": "urn:uuid:c4604dfd-861e-5326-9792-9f7bcdb0bb10",
-            "resource": {
-              "resourceType": "Appointment",
-              "id": "pat-0010-appt04",
-              "status": "booked",
-              "serviceType": [
-                {
-                  "coding": [
-                    {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
-                      "code": "diabetology",
-                      "display": "Diabetología"
-                    }
-                  ],
-                  "text": "Diabetología"
-                }
-              ],
-              "description": "Control de diabetes",
-              "start": "2024-12-10T14:30:00.000Z",
-              "end": "2024-12-10T15:00:00.000Z",
-              "minutesDuration": 30,
-              "created": "2024-09-13T14:51:00.000Z",
-              "participant": [
-                {
-                  "actor": { "reference": "Patient/pat-0010" },
-                  "required": "required",
-                  "status": "accepted"
-                },
-                {
-                  "actor": { "reference": "Practitioner/prac-diab-01" },
-                  "required": "required",
-                  "status": "accepted"
-                }
-              ]
-            },
-            "request": { "method": "PUT", "url": "Appointment/pat-0010-appt04" }
-          }
-        ]
-      }
-    },
-    {
-      "at": "2024-09-19T15:12:00.000Z",
+      "at": "2024-11-24T17:47:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle14",
+        "id": "pat-0010-bundle13",
         "type": "transaction",
-        "timestamp": "2024-09-19T15:12:00.000Z",
+        "timestamp": "2024-11-24T17:47:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:b83a5be9-cf6b-5ecd-9771-c43822f316a8",
@@ -2216,8 +2240,8 @@
                 "text": "Hemoglobina glicosilada (HbA1c)"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-09-16T15:12:00.000Z",
-              "issued": "2024-09-19T15:12:00.000Z",
+              "effectiveDateTime": "2024-11-22T17:47:00.000Z",
+              "issued": "2024-11-24T17:47:00.000Z",
               "result": [{ "reference": "Observation/pat-0010-dr07-obs1" }]
             },
             "request": { "method": "PUT", "url": "DiagnosticReport/pat-0010-dr07" }
@@ -2250,10 +2274,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-09-16T15:12:00.000Z",
-              "issued": "2024-09-19T15:12:00.000Z",
+              "effectiveDateTime": "2024-11-22T17:47:00.000Z",
+              "issued": "2024-11-24T17:47:00.000Z",
               "valueQuantity": {
-                "value": 6.1,
+                "value": 8.6,
                 "unit": "%",
                 "system": "http://unitsofmeasure.org",
                 "code": "%"
@@ -2286,13 +2310,13 @@
       }
     },
     {
-      "at": "2024-12-10T14:56:00.000Z",
+      "at": "2025-04-04T20:47:00.000Z",
       "kind": "consultation",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle16",
+        "id": "pat-0010-bundle14",
         "type": "transaction",
-        "timestamp": "2024-12-10T14:56:00.000Z",
+        "timestamp": "2025-04-04T20:47:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:afe07b1c-60ab-5627-8d20-ca5d0b3fefe1",
@@ -2309,7 +2333,7 @@
               "serviceType": {
                 "coding": [
                   {
-                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                     "code": "diabetology",
                     "display": "Diabetología"
                   }
@@ -2318,8 +2342,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
-              "appointment": [{ "reference": "Appointment/pat-0010-appt04" }],
-              "period": { "start": "2024-12-10T14:30:00.000Z", "end": "2024-12-10T14:56:00.000Z" },
+              "period": { "start": "2025-04-04T20:15:00.000Z", "end": "2025-04-04T20:47:00.000Z" },
               "reasonCode": [{ "text": "Control de diabetes" }],
               "serviceProvider": {
                 "reference": "Organization/clinic-demo",
@@ -2342,7 +2365,7 @@
                 "text": "Nota de evolución"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "date": "2024-12-10T14:56:00.000Z",
+              "date": "2025-04-04T20:47:00.000Z",
               "author": [{ "reference": "Practitioner/prac-diab-01" }],
               "custodian": {
                 "reference": "Organization/clinic-demo",
@@ -2353,22 +2376,22 @@
                   "attachment": {
                     "contentType": "text/plain; charset=utf-8",
                     "language": "es",
-                    "data": "RmVtIDQxIGHDsW9zLCBjb25vY2lkbyBETTIgZGVzZGUgaGFjZSA5IGHDsW9zLCBlbiB0dG8gY29uIG1ldGZvcm1pbmEgODUwIG1nIFZPIGMvMTJoIGNvbiBsYXMgY29taWRhcy4gQWN1ZGUgYSBjdHJsLgpTaW4gcXVlamFzLiBDYW1pbmEgMzAgbWluIDMgdmVjZXMgcG9yIHNlbWFuYS4KRUY6IFRBIDExOS84MSBtbUhnLCBGQyA4OCBscG0sIHBlc28gNzcga2cuIEdsaWNlbWlhIGNhcGlsYXIgMTEzIG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcywgcHVsc29zIHBlZGlvcyBwcmVzZW50ZXMuClRyYWUgbGFiczogSGJBMWMgNi4xJS4KRHg6IERNMiBlbiBtZXRhcy4gb2Jlc2lkYWQuClBsYW46IGNvbnRpbnVhciBtZXRmb3JtaW5hIDg1MCBtZyBWTyBjLzEyaCBjb24gbGFzIGNvbWlkYXMuIHNlIHNvbGljaXRhIEhiQTFjLiBkaWV0YSBoaXBvY2Fsw7NyaWNhLiBjaXRhIGNvbnRyb2wgZW4gMyBtZXNlcyBjb24gcmVzdWx0YWRvcy4=",
+                    "data": "UGFjaWVudGUgZmVtZW5pbmEgZGUgNDIgYcOxb3MsIGNvbm9jaWRvIERNMiBkZXNkZSBoYWNlIDEwIGHDsW9zLCBlbiB0dG8gY29uIG1ldGZvcm1pbmEgODUwIG1nIFZPIGMvMTJoIGNvbiBsYXMgY29taWRhcywgc2l0YWdsaXB0aW5hIDEwMCBtZyBWTyBPRCB5IGVtcGFnbGlmbG96aW5hIDEwIG1nIFZPIE9ELiBBY3VkZSBhIGN0cmwuClJlZmllcmUgb2x2aWRhciBkb3NpcyBvY2FzaW9uYWxtZW50ZS4gTmllZ2EgcG9saXVyaWEgbmkgcG9saWRpcHNpYS4KRUY6IFRBIDEzMy83NyBtbUhnLCBGQyA3MyBscG0sIHBlc28gNzYga2cuIEdsaWNlbWlhIGNhcGlsYXIgMTc0IG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcywgcHVsc29zIHBlZGlvcyBwcmVzZW50ZXMuClRyYWUgbGFiczogSGJBMWMgOC42JS4KRHg6IERNMiBmdWVyYSBkZSBtZXRhcy4gb2Jlc2lkYWQuClBsYW46IFNlIGFqdXN0YSBkb3Npcy4gbWFudGVuZXIgbWV0Zm9ybWluYSA4NTAgbWcgVk8gYy8xMmggY29uIGxhcyBjb21pZGFzLCBzaXRhZ2xpcHRpbmEgMTAwIG1nIFZPIE9EIHkgZW1wYWdsaWZsb3ppbmEgMTAgbWcgVk8gT0QuIHNlIHNvbGljaXRhIEhiQTFjLCBwZXJmaWwgbGlww61kaWNvLCBjcmVhdGluaW5hIHkgbWljcm9hbGJ1bWludXJpYS4gcGxhbiBkZSBhbGltZW50YWNpw7NuLiBDdHJsIGVuIDIgbWVzZXMu",
                     "title": "Nota de evolución",
-                    "creation": "2024-12-10T14:56:00.000Z"
+                    "creation": "2025-04-04T20:47:00.000Z"
                   }
                 }
               ],
               "context": {
                 "encounter": [{ "reference": "Encounter/pat-0010-enc05" }],
                 "period": {
-                  "start": "2024-12-10T14:30:00.000Z",
-                  "end": "2024-12-10T14:56:00.000Z"
+                  "start": "2025-04-04T20:15:00.000Z",
+                  "end": "2025-04-04T20:47:00.000Z"
                 },
                 "practiceSetting": {
                   "coding": [
                     {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                       "code": "diabetology",
                       "display": "Diabetología"
                     }
@@ -2409,16 +2432,121 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc05" },
-              "authoredOn": "2024-12-10T14:56:00.000Z",
+              "authoredOn": "2025-04-04T20:47:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr08" }
           },
           {
-            "fullUrl": "urn:uuid:48f7ece3-4798-528b-bc06-e63019398a9f",
+            "fullUrl": "urn:uuid:7cca2eba-c2b3-5408-9646-f5bcbbc8dcd6",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0010-sr09",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "57698-3",
+                    "display": "Lipid panel with direct LDL - Serum or Plasma"
+                  }
+                ],
+                "text": "Perfil lipídico"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc05" },
+              "authoredOn": "2025-04-04T20:47:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr09" }
+          },
+          {
+            "fullUrl": "urn:uuid:98607f5b-cd71-5edc-9eef-1c832e46f246",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0010-sr10",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "2160-0",
+                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
+                  }
+                ],
+                "text": "Creatinina sérica"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc05" },
+              "authoredOn": "2025-04-04T20:47:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr10" }
+          },
+          {
+            "fullUrl": "urn:uuid:bfbaac77-688d-5623-88aa-6079f34d784c",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0010-sr11",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "14959-1",
+                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Microalbuminuria (relación albúmina/creatinina)"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc05" },
+              "authoredOn": "2025-04-04T20:47:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr11" }
+          },
+          {
+            "fullUrl": "urn:uuid:f2f50310-0732-55a2-8233-5995e0cd1fa2",
             "resource": {
               "resourceType": "MedicationRequest",
-              "id": "pat-0010-mr05",
+              "id": "pat-0010-mr10",
               "status": "active",
               "intent": "order",
               "medicationCodeableConcept": {
@@ -2429,11 +2557,61 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc05" },
-              "authoredOn": "2024-12-10T14:56:00.000Z",
+              "authoredOn": "2025-04-04T20:47:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" },
               "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
             },
-            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr05" }
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr10" }
+          },
+          {
+            "fullUrl": "urn:uuid:38e74ffa-745a-5786-be69-d3468e53bd38",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr11",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A10BH01",
+                    "display": "sitagliptin"
+                  }
+                ],
+                "text": "Sitagliptina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc05" },
+              "authoredOn": "2025-04-04T20:47:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr11" }
+          },
+          {
+            "fullUrl": "urn:uuid:2cb03259-805a-51fc-b741-40c36ef86bba",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr12",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A10BK03",
+                    "display": "empagliflozin"
+                  }
+                ],
+                "text": "Empagliflozina 10 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc05" },
+              "authoredOn": "2025-04-04T20:47:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr12" }
           },
           {
             "fullUrl": "urn:uuid:0bc24144-34d9-543f-9854-c68fd939dc43",
@@ -2479,7 +2657,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc05" },
-              "recordedDate": "2024-12-10T14:56:00.000Z",
+              "recordedDate": "2025-04-04T20:47:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond09" }
@@ -2528,7 +2706,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc05" },
-              "recordedDate": "2024-12-10T14:56:00.000Z",
+              "recordedDate": "2025-04-04T20:47:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond10" }
@@ -2537,25 +2715,25 @@
       }
     },
     {
-      "at": "2024-12-10T15:06:00.000Z",
+      "at": "2025-04-04T20:57:00.000Z",
       "kind": "appointment_booked",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle18",
+        "id": "pat-0010-bundle19",
         "type": "transaction",
-        "timestamp": "2024-12-10T15:06:00.000Z",
+        "timestamp": "2025-04-04T20:57:00.000Z",
         "entry": [
           {
-            "fullUrl": "urn:uuid:4e83cb02-b946-5f36-a977-f5514fccc5b5",
+            "fullUrl": "urn:uuid:bf75fe93-2325-53f7-9c92-fe4e712b2f78",
             "resource": {
               "resourceType": "Appointment",
-              "id": "pat-0010-appt05",
+              "id": "pat-0010-appt03",
               "status": "booked",
               "serviceType": [
                 {
                   "coding": [
                     {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                       "code": "diabetology",
                       "display": "Diabetología"
                     }
@@ -2564,10 +2742,10 @@
                 }
               ],
               "description": "Control de diabetes",
-              "start": "2025-03-17T15:30:00.000Z",
-              "end": "2025-03-17T16:00:00.000Z",
+              "start": "2025-06-16T15:30:00.000Z",
+              "end": "2025-06-16T16:00:00.000Z",
               "minutesDuration": 30,
-              "created": "2024-12-10T15:06:00.000Z",
+              "created": "2025-04-04T20:57:00.000Z",
               "participant": [
                 {
                   "actor": { "reference": "Patient/pat-0010" },
@@ -2581,19 +2759,126 @@
                 }
               ]
             },
-            "request": { "method": "PUT", "url": "Appointment/pat-0010-appt05" }
+            "request": { "method": "PUT", "url": "Appointment/pat-0010-appt03" }
           }
         ]
       }
     },
     {
-      "at": "2024-12-20T15:56:00.000Z",
+      "at": "2025-04-07T21:34:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle17",
+        "id": "pat-0010-bundle18",
         "type": "transaction",
-        "timestamp": "2024-12-20T15:56:00.000Z",
+        "timestamp": "2025-04-07T21:34:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:718d07b7-8db5-58d4-8094-e2c503a11484",
+            "resource": {
+              "resourceType": "DiagnosticReport",
+              "id": "pat-0010-dr11",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0010-sr11" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                      "code": "LAB",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "14959-1",
+                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ],
+                "text": "Microalbuminuria (relación albúmina/creatinina)"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "effectiveDateTime": "2025-04-05T21:34:00.000Z",
+              "issued": "2025-04-07T21:34:00.000Z",
+              "result": [{ "reference": "Observation/pat-0010-dr11-obs1" }]
+            },
+            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0010-dr11" }
+          },
+          {
+            "fullUrl": "urn:uuid:97e2439a-1229-5051-bc70-331b2fbb0f87",
+            "resource": {
+              "resourceType": "Observation",
+              "id": "pat-0010-dr11-obs1",
+              "basedOn": [{ "reference": "ServiceRequest/pat-0010-sr11" }],
+              "status": "final",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory",
+                      "display": "Laboratory"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "14959-1",
+                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
+                  }
+                ]
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "effectiveDateTime": "2025-04-05T21:34:00.000Z",
+              "issued": "2025-04-07T21:34:00.000Z",
+              "valueQuantity": {
+                "value": 25,
+                "unit": "mg/g",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg/g"
+              },
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "N",
+                      "display": "Normal"
+                    }
+                  ]
+                }
+              ],
+              "referenceRange": [
+                {
+                  "high": {
+                    "value": 30,
+                    "unit": "mg/g",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/g"
+                  }
+                }
+              ]
+            },
+            "request": { "method": "PUT", "url": "Observation/pat-0010-dr11-obs1" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-04-10T22:46:00.000Z",
+      "kind": "result",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0010-bundle15",
+        "type": "transaction",
+        "timestamp": "2025-04-10T22:46:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:5f911669-febc-55f9-b0a4-94564dbd07c8",
@@ -2624,8 +2909,8 @@
                 "text": "Hemoglobina glicosilada (HbA1c)"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-12-16T15:56:00.000Z",
-              "issued": "2024-12-20T15:56:00.000Z",
+              "effectiveDateTime": "2025-04-08T22:46:00.000Z",
+              "issued": "2025-04-10T22:46:00.000Z",
               "result": [{ "reference": "Observation/pat-0010-dr08-obs1" }]
             },
             "request": { "method": "PUT", "url": "DiagnosticReport/pat-0010-dr08" }
@@ -2658,10 +2943,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2024-12-16T15:56:00.000Z",
-              "issued": "2024-12-20T15:56:00.000Z",
+              "effectiveDateTime": "2025-04-08T22:46:00.000Z",
+              "issued": "2025-04-10T22:46:00.000Z",
               "valueQuantity": {
-                "value": 6.1,
+                "value": 8.2,
                 "unit": "%",
                 "system": "http://unitsofmeasure.org",
                 "code": "%"
@@ -2694,384 +2979,13 @@
       }
     },
     {
-      "at": "2025-03-17T15:54:00.000Z",
-      "kind": "consultation",
-      "bundle": {
-        "resourceType": "Bundle",
-        "id": "pat-0010-bundle19",
-        "type": "transaction",
-        "timestamp": "2025-03-17T15:54:00.000Z",
-        "entry": [
-          {
-            "fullUrl": "urn:uuid:7adf0c5c-7740-5174-974f-fe09b9788ef5",
-            "resource": {
-              "resourceType": "Encounter",
-              "id": "pat-0010-enc06",
-              "status": "finished",
-              "class": {
-                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
-                "code": "AMB",
-                "display": "ambulatory"
-              },
-              "type": [{ "text": "Consulta de control" }],
-              "serviceType": {
-                "coding": [
-                  {
-                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
-                    "code": "diabetology",
-                    "display": "Diabetología"
-                  }
-                ],
-                "text": "Diabetología"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
-              "appointment": [{ "reference": "Appointment/pat-0010-appt05" }],
-              "period": { "start": "2025-03-17T15:30:00.000Z", "end": "2025-03-17T15:54:00.000Z" },
-              "reasonCode": [{ "text": "Control de diabetes" }],
-              "serviceProvider": {
-                "reference": "Organization/clinic-demo",
-                "display": "Clínica Demo Hipócrates"
-              }
-            },
-            "request": { "method": "PUT", "url": "Encounter/pat-0010-enc06" }
-          },
-          {
-            "fullUrl": "urn:uuid:77340413-2ce9-547a-a069-e95a6b0189ac",
-            "resource": {
-              "resourceType": "DocumentReference",
-              "id": "pat-0010-doc06",
-              "status": "current",
-              "docStatus": "final",
-              "type": {
-                "coding": [
-                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
-                ],
-                "text": "Nota de evolución"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "date": "2025-03-17T15:54:00.000Z",
-              "author": [{ "reference": "Practitioner/prac-diab-01" }],
-              "custodian": {
-                "reference": "Organization/clinic-demo",
-                "display": "Clínica Demo Hipócrates"
-              },
-              "content": [
-                {
-                  "attachment": {
-                    "contentType": "text/plain; charset=utf-8",
-                    "language": "es",
-                    "data": "UGFjaWVudGUgZmVtZW5pbmEgZGUgNDIgYcOxb3MsIGNvbm9jaWRvIERNMiBkZXNkZSBoYWNlIDEwIGHDsW9zLCBlbiB0dG8gY29uIG1ldGZvcm1pbmEgODUwIG1nIFZPIGMvMTJoIGNvbiBsYXMgY29taWRhcy4gQWN1ZGUgYSBjdHJsLiBSZWZpZXJlIHBvbGl1cmlhIGxldmUgeSBjYW5zYW5jaW8uIE5pZWdhIGhpcG9nbGljZW1pYXMuIEVGOiBUQSAxMzMvNzkgbW1IZywgRkMgNzAgbHBtLCBwZXNvIDc4IGtnLiBHbGljZW1pYSBjYXBpbGFyIDEyMSBtZy9kbC4gUGllcyBzaW4gbGVzaW9uZXMsIHB1bHNvcyBwZWRpb3MgcHJlc2VudGVzLiBUcmFlIGxhYnM6IEhiQTFjIDYuMSUuIER4OiBETTIgZW4gbWV0YXMuIG9iZXNpZGFkLiBQbGFuOiBtYW50ZW5lciBtZXRmb3JtaW5hIDg1MCBtZyBWTyBjLzEyaCBjb24gbGFzIGNvbWlkYXMuIHNlIHNvbGljaXRhIHBlcmZpbCBsaXBpZGljbywgY3JlYXRpbmluYSB5IG1pY3JvYWxidW1pbnVyaWEuIGRpZXRhIGhpcG9jYWxvcmljYS4gUHJveGltbyBjb250cm9sIGVuIDMgbWVzZXMgY29uIHJlc3VsdGFkb3Mu",
-                    "title": "Nota de evolución",
-                    "creation": "2025-03-17T15:54:00.000Z"
-                  }
-                }
-              ],
-              "context": {
-                "encounter": [{ "reference": "Encounter/pat-0010-enc06" }],
-                "period": {
-                  "start": "2025-03-17T15:30:00.000Z",
-                  "end": "2025-03-17T15:54:00.000Z"
-                },
-                "practiceSetting": {
-                  "coding": [
-                    {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
-                      "code": "diabetology",
-                      "display": "Diabetología"
-                    }
-                  ],
-                  "text": "Diabetología"
-                }
-              }
-            },
-            "request": { "method": "PUT", "url": "DocumentReference/pat-0010-doc06" }
-          },
-          {
-            "fullUrl": "urn:uuid:7cca2eba-c2b3-5408-9646-f5bcbbc8dcd6",
-            "resource": {
-              "resourceType": "ServiceRequest",
-              "id": "pat-0010-sr09",
-              "status": "active",
-              "intent": "order",
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://snomed.info/sct",
-                      "code": "108252007",
-                      "display": "Laboratory procedure"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://loinc.org",
-                    "code": "57698-3",
-                    "display": "Lipid panel with direct LDL - Serum or Plasma"
-                  }
-                ],
-                "text": "Perfil lipídico"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "encounter": { "reference": "Encounter/pat-0010-enc06" },
-              "authoredOn": "2025-03-17T15:54:00.000Z",
-              "requester": { "reference": "Practitioner/prac-diab-01" }
-            },
-            "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr09" }
-          },
-          {
-            "fullUrl": "urn:uuid:98607f5b-cd71-5edc-9eef-1c832e46f246",
-            "resource": {
-              "resourceType": "ServiceRequest",
-              "id": "pat-0010-sr10",
-              "status": "active",
-              "intent": "order",
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://snomed.info/sct",
-                      "code": "108252007",
-                      "display": "Laboratory procedure"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://loinc.org",
-                    "code": "2160-0",
-                    "display": "Creatinine [Mass/volume] in Serum or Plasma"
-                  }
-                ],
-                "text": "Creatinina sérica"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "encounter": { "reference": "Encounter/pat-0010-enc06" },
-              "authoredOn": "2025-03-17T15:54:00.000Z",
-              "requester": { "reference": "Practitioner/prac-diab-01" }
-            },
-            "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr10" }
-          },
-          {
-            "fullUrl": "urn:uuid:bfbaac77-688d-5623-88aa-6079f34d784c",
-            "resource": {
-              "resourceType": "ServiceRequest",
-              "id": "pat-0010-sr11",
-              "status": "active",
-              "intent": "order",
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://snomed.info/sct",
-                      "code": "108252007",
-                      "display": "Laboratory procedure"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://loinc.org",
-                    "code": "14959-1",
-                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
-                  }
-                ],
-                "text": "Microalbuminuria (relación albúmina/creatinina)"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "encounter": { "reference": "Encounter/pat-0010-enc06" },
-              "authoredOn": "2025-03-17T15:54:00.000Z",
-              "requester": { "reference": "Practitioner/prac-diab-01" }
-            },
-            "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr11" }
-          },
-          {
-            "fullUrl": "urn:uuid:a51fc4cd-f4bd-564e-8e3f-8a9292cfcd27",
-            "resource": {
-              "resourceType": "MedicationRequest",
-              "id": "pat-0010-mr06",
-              "status": "active",
-              "intent": "order",
-              "medicationCodeableConcept": {
-                "coding": [
-                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
-                ],
-                "text": "Metformina 850 mg"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "encounter": { "reference": "Encounter/pat-0010-enc06" },
-              "authoredOn": "2025-03-17T15:54:00.000Z",
-              "requester": { "reference": "Practitioner/prac-diab-01" },
-              "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
-            },
-            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr06" }
-          },
-          {
-            "fullUrl": "urn:uuid:87000a2c-c48b-5f17-b884-f69350b8b040",
-            "resource": {
-              "resourceType": "Condition",
-              "id": "pat-0010-cond11",
-              "clinicalStatus": {
-                "coding": [
-                  {
-                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
-                    "code": "active"
-                  }
-                ]
-              },
-              "verificationStatus": {
-                "coding": [
-                  {
-                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
-                    "code": "confirmed"
-                  }
-                ]
-              },
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
-                      "code": "encounter-diagnosis",
-                      "display": "Encounter Diagnosis"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://hl7.org/fhir/sid/icd-10",
-                    "code": "E11.9",
-                    "display": "Type 2 diabetes mellitus without complications"
-                  }
-                ],
-                "text": "DM2"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "encounter": { "reference": "Encounter/pat-0010-enc06" },
-              "recordedDate": "2025-03-17T15:54:00.000Z",
-              "recorder": { "reference": "Practitioner/prac-diab-01" }
-            },
-            "request": { "method": "PUT", "url": "Condition/pat-0010-cond11" }
-          },
-          {
-            "fullUrl": "urn:uuid:94e4b26a-8cfa-59d5-8fe9-e273dba3db3e",
-            "resource": {
-              "resourceType": "Condition",
-              "id": "pat-0010-cond12",
-              "clinicalStatus": {
-                "coding": [
-                  {
-                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
-                    "code": "active"
-                  }
-                ]
-              },
-              "verificationStatus": {
-                "coding": [
-                  {
-                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
-                    "code": "confirmed"
-                  }
-                ]
-              },
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
-                      "code": "encounter-diagnosis",
-                      "display": "Encounter Diagnosis"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://hl7.org/fhir/sid/icd-10",
-                    "code": "E66.9",
-                    "display": "Obesity, unspecified"
-                  }
-                ],
-                "text": "obesidad"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "encounter": { "reference": "Encounter/pat-0010-enc06" },
-              "recordedDate": "2025-03-17T15:54:00.000Z",
-              "recorder": { "reference": "Practitioner/prac-diab-01" }
-            },
-            "request": { "method": "PUT", "url": "Condition/pat-0010-cond12" }
-          }
-        ]
-      }
-    },
-    {
-      "at": "2025-03-17T16:04:00.000Z",
-      "kind": "appointment_booked",
-      "bundle": {
-        "resourceType": "Bundle",
-        "id": "pat-0010-bundle23",
-        "type": "transaction",
-        "timestamp": "2025-03-17T16:04:00.000Z",
-        "entry": [
-          {
-            "fullUrl": "urn:uuid:550ff99d-9159-57f2-a1e0-75f800cbd088",
-            "resource": {
-              "resourceType": "Appointment",
-              "id": "pat-0010-appt06",
-              "status": "booked",
-              "serviceType": [
-                {
-                  "coding": [
-                    {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
-                      "code": "diabetology",
-                      "display": "Diabetología"
-                    }
-                  ],
-                  "text": "Diabetología"
-                }
-              ],
-              "description": "Control de diabetes",
-              "start": "2025-06-23T13:45:00.000Z",
-              "end": "2025-06-23T14:15:00.000Z",
-              "minutesDuration": 30,
-              "created": "2025-03-17T16:04:00.000Z",
-              "participant": [
-                {
-                  "actor": { "reference": "Patient/pat-0010" },
-                  "required": "required",
-                  "status": "accepted"
-                },
-                {
-                  "actor": { "reference": "Practitioner/prac-diab-01" },
-                  "required": "required",
-                  "status": "accepted"
-                }
-              ]
-            },
-            "request": { "method": "PUT", "url": "Appointment/pat-0010-appt06" }
-          }
-        ]
-      }
-    },
-    {
-      "at": "2025-03-22T17:45:00.000Z",
+      "at": "2025-04-12T21:19:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle21",
+        "id": "pat-0010-bundle17",
         "type": "transaction",
-        "timestamp": "2025-03-22T17:45:00.000Z",
+        "timestamp": "2025-04-12T21:19:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:7e4f2b0b-6327-519d-af3c-b3a8ad7a6e52",
@@ -3102,8 +3016,8 @@
                 "text": "Creatinina sérica"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2025-03-21T17:45:00.000Z",
-              "issued": "2025-03-22T17:45:00.000Z",
+              "effectiveDateTime": "2025-04-09T21:19:00.000Z",
+              "issued": "2025-04-12T21:19:00.000Z",
               "result": [{ "reference": "Observation/pat-0010-dr10-obs1" }]
             },
             "request": { "method": "PUT", "url": "DiagnosticReport/pat-0010-dr10" }
@@ -3136,10 +3050,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2025-03-21T17:45:00.000Z",
-              "issued": "2025-03-22T17:45:00.000Z",
+              "effectiveDateTime": "2025-04-09T21:19:00.000Z",
+              "issued": "2025-04-12T21:19:00.000Z",
               "valueQuantity": {
-                "value": 0.86,
+                "value": 0.66,
                 "unit": "mg/dL",
                 "system": "http://unitsofmeasure.org",
                 "code": "mg/dL"
@@ -3178,120 +3092,13 @@
       }
     },
     {
-      "at": "2025-03-24T17:28:00.000Z",
+      "at": "2025-04-12T21:48:00.000Z",
       "kind": "result",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle22",
+        "id": "pat-0010-bundle16",
         "type": "transaction",
-        "timestamp": "2025-03-24T17:28:00.000Z",
-        "entry": [
-          {
-            "fullUrl": "urn:uuid:718d07b7-8db5-58d4-8094-e2c503a11484",
-            "resource": {
-              "resourceType": "DiagnosticReport",
-              "id": "pat-0010-dr11",
-              "basedOn": [{ "reference": "ServiceRequest/pat-0010-sr11" }],
-              "status": "final",
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
-                      "code": "LAB",
-                      "display": "Laboratory"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://loinc.org",
-                    "code": "14959-1",
-                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
-                  }
-                ],
-                "text": "Microalbuminuria (relación albúmina/creatinina)"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2025-03-21T17:28:00.000Z",
-              "issued": "2025-03-24T17:28:00.000Z",
-              "result": [{ "reference": "Observation/pat-0010-dr11-obs1" }]
-            },
-            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0010-dr11" }
-          },
-          {
-            "fullUrl": "urn:uuid:97e2439a-1229-5051-bc70-331b2fbb0f87",
-            "resource": {
-              "resourceType": "Observation",
-              "id": "pat-0010-dr11-obs1",
-              "basedOn": [{ "reference": "ServiceRequest/pat-0010-sr11" }],
-              "status": "final",
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
-                      "code": "laboratory",
-                      "display": "Laboratory"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://loinc.org",
-                    "code": "14959-1",
-                    "display": "Microalbumin/Creatinine [Mass Ratio] in Urine"
-                  }
-                ]
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2025-03-21T17:28:00.000Z",
-              "issued": "2025-03-24T17:28:00.000Z",
-              "valueQuantity": {
-                "value": 27,
-                "unit": "mg/g",
-                "system": "http://unitsofmeasure.org",
-                "code": "mg/g"
-              },
-              "interpretation": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
-                      "code": "N",
-                      "display": "Normal"
-                    }
-                  ]
-                }
-              ],
-              "referenceRange": [
-                {
-                  "high": {
-                    "value": 30,
-                    "unit": "mg/g",
-                    "system": "http://unitsofmeasure.org",
-                    "code": "mg/g"
-                  }
-                }
-              ]
-            },
-            "request": { "method": "PUT", "url": "Observation/pat-0010-dr11-obs1" }
-          }
-        ]
-      }
-    },
-    {
-      "at": "2025-03-26T16:10:00.000Z",
-      "kind": "result",
-      "bundle": {
-        "resourceType": "Bundle",
-        "id": "pat-0010-bundle20",
-        "type": "transaction",
-        "timestamp": "2025-03-26T16:10:00.000Z",
+        "timestamp": "2025-04-12T21:48:00.000Z",
         "entry": [
           {
             "fullUrl": "urn:uuid:575f3776-a377-5918-a936-1594687f1447",
@@ -3322,8 +3129,8 @@
                 "text": "Perfil lipídico"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2025-03-22T16:10:00.000Z",
-              "issued": "2025-03-26T16:10:00.000Z",
+              "effectiveDateTime": "2025-04-09T21:48:00.000Z",
+              "issued": "2025-04-12T21:48:00.000Z",
               "result": [
                 { "reference": "Observation/pat-0010-dr09-obs1" },
                 { "reference": "Observation/pat-0010-dr09-obs2" },
@@ -3361,10 +3168,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2025-03-22T16:10:00.000Z",
-              "issued": "2025-03-26T16:10:00.000Z",
+              "effectiveDateTime": "2025-04-09T21:48:00.000Z",
+              "issued": "2025-04-12T21:48:00.000Z",
               "valueQuantity": {
-                "value": 164,
+                "value": 162,
                 "unit": "mg/dL",
                 "system": "http://unitsofmeasure.org",
                 "code": "mg/dL"
@@ -3421,10 +3228,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2025-03-22T16:10:00.000Z",
-              "issued": "2025-03-26T16:10:00.000Z",
+              "effectiveDateTime": "2025-04-09T21:48:00.000Z",
+              "issued": "2025-04-12T21:48:00.000Z",
               "valueQuantity": {
-                "value": 114,
+                "value": 133,
                 "unit": "mg/dL",
                 "system": "http://unitsofmeasure.org",
                 "code": "mg/dL"
@@ -3481,10 +3288,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2025-03-22T16:10:00.000Z",
-              "issued": "2025-03-26T16:10:00.000Z",
+              "effectiveDateTime": "2025-04-09T21:48:00.000Z",
+              "issued": "2025-04-12T21:48:00.000Z",
               "valueQuantity": {
-                "value": 59,
+                "value": 58,
                 "unit": "mg/dL",
                 "system": "http://unitsofmeasure.org",
                 "code": "mg/dL"
@@ -3541,10 +3348,10 @@
                 ]
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2025-03-22T16:10:00.000Z",
-              "issued": "2025-03-26T16:10:00.000Z",
+              "effectiveDateTime": "2025-04-09T21:48:00.000Z",
+              "issued": "2025-04-12T21:48:00.000Z",
               "valueQuantity": {
-                "value": 103,
+                "value": 92,
                 "unit": "mg/dL",
                 "system": "http://unitsofmeasure.org",
                 "code": "mg/dL"
@@ -3577,19 +3384,19 @@
       }
     },
     {
-      "at": "2025-06-23T14:19:00.000Z",
+      "at": "2025-06-16T15:58:00.000Z",
       "kind": "consultation",
       "bundle": {
         "resourceType": "Bundle",
-        "id": "pat-0010-bundle24",
+        "id": "pat-0010-bundle20",
         "type": "transaction",
-        "timestamp": "2025-06-23T14:19:00.000Z",
+        "timestamp": "2025-06-16T15:58:00.000Z",
         "entry": [
           {
-            "fullUrl": "urn:uuid:ed1552ab-938e-5225-9366-49d02010cce5",
+            "fullUrl": "urn:uuid:7adf0c5c-7740-5174-974f-fe09b9788ef5",
             "resource": {
               "resourceType": "Encounter",
-              "id": "pat-0010-enc07",
+              "id": "pat-0010-enc06",
               "status": "finished",
               "class": {
                 "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
@@ -3600,7 +3407,7 @@
               "serviceType": {
                 "coding": [
                   {
-                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                     "code": "diabetology",
                     "display": "Diabetología"
                   }
@@ -3609,21 +3416,21 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
-              "appointment": [{ "reference": "Appointment/pat-0010-appt06" }],
-              "period": { "start": "2025-06-23T13:45:00.000Z", "end": "2025-06-23T14:19:00.000Z" },
+              "appointment": [{ "reference": "Appointment/pat-0010-appt03" }],
+              "period": { "start": "2025-06-16T15:30:00.000Z", "end": "2025-06-16T15:58:00.000Z" },
               "reasonCode": [{ "text": "Control de diabetes" }],
               "serviceProvider": {
                 "reference": "Organization/clinic-demo",
                 "display": "Clínica Demo Hipócrates"
               }
             },
-            "request": { "method": "PUT", "url": "Encounter/pat-0010-enc07" }
+            "request": { "method": "PUT", "url": "Encounter/pat-0010-enc06" }
           },
           {
-            "fullUrl": "urn:uuid:a072ea0b-3b5d-5d1b-803e-412b5bd1a612",
+            "fullUrl": "urn:uuid:77340413-2ce9-547a-a069-e95a6b0189ac",
             "resource": {
               "resourceType": "DocumentReference",
-              "id": "pat-0010-doc07",
+              "id": "pat-0010-doc06",
               "status": "current",
               "docStatus": "final",
               "type": {
@@ -3633,7 +3440,7 @@
                 "text": "Nota de evolución"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "date": "2025-06-23T14:19:00.000Z",
+              "date": "2025-06-16T15:58:00.000Z",
               "author": [{ "reference": "Practitioner/prac-diab-01" }],
               "custodian": {
                 "reference": "Organization/clinic-demo",
@@ -3644,22 +3451,22 @@
                   "attachment": {
                     "contentType": "text/plain; charset=utf-8",
                     "language": "es",
-                    "data": "ZmVtIDQyIGHDsW9zLCBjb25vY2lkbyBETTIgZGVzZGUgaGFjZSAxMCBhw7FvcywgZW4gdHRvIGNvbiBtZXRmb3JtaW5hIDg1MCBtZyBWTyBjLzEyaCBjb24gbGFzIGNvbWlkYXMuIEFjdWRlIGEgY3RybC4KUmVmaWVyZSBwb2xpdXJpYSBsZXZlIHkgY2Fuc2FuY2lvLiBOaWVnYSBoaXBvZ2xpY2VtaWFzLgpFRjogVEEgMTE2LzgzIG1tSGcsIEZDIDc1IGxwbSwgcGVzbyA3NSBrZy4gR2xpY2VtaWEgY2FwaWxhciAxMzEgbWcvZGwuIFBpZXMgc2luIGxlc2lvbmVzLCBwdWxzb3MgcGVkaW9zIHByZXNlbnRlcy4KVHJhZSBsYWJzOiBIYkExYyA2LjElLgpEeDogRE0yIGVuIG1ldGFzLiBvYmVzaWRhZC4KUGxhbjogQ29udGludWEgbWV0Zm9ybWluYSA4NTAgbWcgVk8gYy8xMmggY29uIGxhcyBjb21pZGFzLiBzZSBzb2xpY2l0YSBIYkExYy4gcGxhbiBkZSBhbGltZW50YWNpb24uIGN0cmwgZW4gMyBtZXNlcyBjb24gcmVzdWx0YWRvcy4=",
+                    "data": "UGN0ZSBGIDQyYSwgY29ub2NpZG8gRE0yIGRlc2RlIGhhY2UgMTAgYcOxb3MsIGVuIHR0byBjb24gbWV0Zm9ybWluYSA4NTAgbWcgVk8gYy8xMmggY29uIGxhcyBjb21pZGFzLCBzaXRhZ2xpcHRpbmEgMTAwIG1nIFZPIE9EIHkgZW1wYWdsaWZsb3ppbmEgMTAgbWcgVk8gT0QuIEFjdWRlIGEgY3RybC4KQXNpbnRvbcOhdGljYS4gQ3VtcGxlIGRpZXRhIHBhcmNpYWxtZW50ZS4KRUY6IFRBIDEyNi84MSBtbUhnLCBGQyA4MSBscG0sIHBlc28gNzkga2cuIEdsaWNlbWlhIGNhcGlsYXIgMTE0IG1nL2RsLiBQaWVzIHNpbiBsZXNpb25lcywgcHVsc29zIHBlZGlvcyBwcmVzZW50ZXMuClRyYWUgbGFiczogSGJBMWMgOC4yJS4KRHg6IERNMiBlbiBtZXRhcy4gb2Jlc2lkYWQuClNlIGV4cGxpY2EgY29uZGljacOzbi4=",
                     "title": "Nota de evolución",
-                    "creation": "2025-06-23T14:19:00.000Z"
+                    "creation": "2025-06-16T15:58:00.000Z"
                   }
                 }
               ],
               "context": {
-                "encounter": [{ "reference": "Encounter/pat-0010-enc07" }],
+                "encounter": [{ "reference": "Encounter/pat-0010-enc06" }],
                 "period": {
-                  "start": "2025-06-23T13:45:00.000Z",
-                  "end": "2025-06-23T14:19:00.000Z"
+                  "start": "2025-06-16T15:30:00.000Z",
+                  "end": "2025-06-16T15:58:00.000Z"
                 },
                 "practiceSetting": {
                   "coding": [
                     {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
                       "code": "diabetology",
                       "display": "Diabetología"
                     }
@@ -3668,7 +3475,7 @@
                 }
               }
             },
-            "request": { "method": "PUT", "url": "DocumentReference/pat-0010-doc07" }
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0010-doc06" }
           },
           {
             "fullUrl": "urn:uuid:6479a3ed-4b36-5173-b4b3-08d9f7c01b07",
@@ -3699,17 +3506,317 @@
                 "text": "Hemoglobina glicosilada (HbA1c)"
               },
               "subject": { "reference": "Patient/pat-0010" },
-              "encounter": { "reference": "Encounter/pat-0010-enc07" },
-              "authoredOn": "2025-06-23T14:19:00.000Z",
+              "encounter": { "reference": "Encounter/pat-0010-enc06" },
+              "authoredOn": "2025-06-16T15:58:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr12" }
           },
           {
-            "fullUrl": "urn:uuid:28b58255-c783-5379-9490-97687816e80d",
+            "fullUrl": "urn:uuid:cff429c4-a755-5107-901a-214482f2c8b7",
             "resource": {
               "resourceType": "MedicationRequest",
-              "id": "pat-0010-mr07",
+              "id": "pat-0010-mr13",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
+                ],
+                "text": "Metformina 850 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc06" },
+              "authoredOn": "2025-06-16T15:58:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr13" }
+          },
+          {
+            "fullUrl": "urn:uuid:fbf4bf90-0b71-5141-a49f-8c408ac5b80a",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr14",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A10BH01",
+                    "display": "sitagliptin"
+                  }
+                ],
+                "text": "Sitagliptina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc06" },
+              "authoredOn": "2025-06-16T15:58:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr14" }
+          },
+          {
+            "fullUrl": "urn:uuid:04f23c72-9160-53d6-a281-263d1ca19f7f",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr15",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A10BK03",
+                    "display": "empagliflozin"
+                  }
+                ],
+                "text": "Empagliflozina 10 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc06" },
+              "authoredOn": "2025-06-16T15:58:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr15" }
+          },
+          {
+            "fullUrl": "urn:uuid:87000a2c-c48b-5f17-b884-f69350b8b040",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0010-cond11",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E11.9",
+                    "display": "Type 2 diabetes mellitus without complications"
+                  }
+                ],
+                "text": "DM2"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc06" },
+              "recordedDate": "2025-06-16T15:58:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0010-cond11" }
+          },
+          {
+            "fullUrl": "urn:uuid:94e4b26a-8cfa-59d5-8fe9-e273dba3db3e",
+            "resource": {
+              "resourceType": "Condition",
+              "id": "pat-0010-cond12",
+              "clinicalStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                    "code": "active"
+                  }
+                ]
+              },
+              "verificationStatus": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                    "code": "confirmed"
+                  }
+                ]
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                      "code": "encounter-diagnosis",
+                      "display": "Encounter Diagnosis"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/sid/icd-10",
+                    "code": "E66.9",
+                    "display": "Obesity, unspecified"
+                  }
+                ],
+                "text": "obesidad"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc06" },
+              "recordedDate": "2025-06-16T15:58:00.000Z",
+              "recorder": { "reference": "Practitioner/prac-diab-01" }
+            },
+            "request": { "method": "PUT", "url": "Condition/pat-0010-cond12" }
+          }
+        ]
+      }
+    },
+    {
+      "at": "2025-10-20T21:04:00.000Z",
+      "kind": "consultation",
+      "bundle": {
+        "resourceType": "Bundle",
+        "id": "pat-0010-bundle21",
+        "type": "transaction",
+        "timestamp": "2025-10-20T21:04:00.000Z",
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:ed1552ab-938e-5225-9366-49d02010cce5",
+            "resource": {
+              "resourceType": "Encounter",
+              "id": "pat-0010-enc07",
+              "status": "finished",
+              "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB",
+                "display": "ambulatory"
+              },
+              "type": [{ "text": "Consulta de control" }],
+              "serviceType": {
+                "coding": [
+                  {
+                    "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                    "code": "diabetology",
+                    "display": "Diabetología"
+                  }
+                ],
+                "text": "Diabetología"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
+              "period": { "start": "2025-10-20T20:30:00.000Z", "end": "2025-10-20T21:04:00.000Z" },
+              "reasonCode": [{ "text": "Control de diabetes" }],
+              "serviceProvider": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              }
+            },
+            "request": { "method": "PUT", "url": "Encounter/pat-0010-enc07" }
+          },
+          {
+            "fullUrl": "urn:uuid:a072ea0b-3b5d-5d1b-803e-412b5bd1a612",
+            "resource": {
+              "resourceType": "DocumentReference",
+              "id": "pat-0010-doc07",
+              "status": "current",
+              "docStatus": "final",
+              "type": {
+                "coding": [
+                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
+                ],
+                "text": "Nota de evolución"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "date": "2025-10-20T21:04:00.000Z",
+              "author": [{ "reference": "Practitioner/prac-diab-01" }],
+              "custodian": {
+                "reference": "Organization/clinic-demo",
+                "display": "Clínica Demo Hipócrates"
+              },
+              "content": [
+                {
+                  "attachment": {
+                    "contentType": "text/plain; charset=utf-8",
+                    "language": "es",
+                    "data": "UGN0ZSBmZW1lbmluYSA0MmEsIGNvbm9jaWRvIERNMiBkZXNkZSBoYWNlIDEwIGHDsW9zLCBlbiB0dG8gY29uIG1ldGZvcm1pbmEgODUwIG1nIFZPIGMvMTJoIGNvbiBsYXMgY29taWRhcywgc2l0YWdsaXB0aW5hIDEwMCBtZyBWTyBPRCB5IGVtcGFnbGlmbG96aW5hIDEwIG1nIFZPIE9ELiBBY3VkZSBhIGN0cmwuIEFzaW50b23DoXRpY2EuIEN1bXBsZSBkaWV0YSBwYXJjaWFsbWVudGUuIEVGOiBUQSAxMTcvNzEgbW1IZywgRkMgNzAgbHBtLCBwZXNvIDc5IGtnLiBHbGljZW1pYSBjYXBpbGFyIDEyMiBtZy9kbC4gUGllcyBzaW4gbGVzaW9uZXMsIHB1bHNvcyBwZWRpb3MgcHJlc2VudGVzLiBUcmFlIGxhYnM6IEhiQTFjIDguMiUuIER4OiBETTIgZW4gbWV0YXMuIG9iZXNpZGFkLiBTZSBleHBsaWNhIGNvbmRpY2nDs24u",
+                    "title": "Nota de evolución",
+                    "creation": "2025-10-20T21:04:00.000Z"
+                  }
+                }
+              ],
+              "context": {
+                "encounter": [{ "reference": "Encounter/pat-0010-enc07" }],
+                "period": {
+                  "start": "2025-10-20T20:30:00.000Z",
+                  "end": "2025-10-20T21:04:00.000Z"
+                },
+                "practiceSetting": {
+                  "coding": [
+                    {
+                      "system": "https://hipocratesalud.com/fhir/CodeSystem/specialty",
+                      "code": "diabetology",
+                      "display": "Diabetología"
+                    }
+                  ],
+                  "text": "Diabetología"
+                }
+              }
+            },
+            "request": { "method": "PUT", "url": "DocumentReference/pat-0010-doc07" }
+          },
+          {
+            "fullUrl": "urn:uuid:cde05d93-8dfe-5584-9eb3-bc713d027221",
+            "resource": {
+              "resourceType": "ServiceRequest",
+              "id": "pat-0010-sr13",
+              "status": "active",
+              "intent": "order",
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://snomed.info/sct",
+                      "code": "108252007",
+                      "display": "Laboratory procedure"
+                    }
+                  ]
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "4548-4",
+                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+                  }
+                ],
+                "text": "Hemoglobina glicosilada (HbA1c)"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc07" },
+              "authoredOn": "2025-10-20T21:04:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" }
+            },
+            "request": { "method": "PUT", "url": "ServiceRequest/pat-0010-sr13" }
+          },
+          {
+            "fullUrl": "urn:uuid:97cdae6c-a68f-5f2c-ab98-acaf25d6a9ba",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr16",
               "status": "active",
               "intent": "order",
               "medicationCodeableConcept": {
@@ -3720,11 +3827,61 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc07" },
-              "authoredOn": "2025-06-23T14:19:00.000Z",
+              "authoredOn": "2025-10-20T21:04:00.000Z",
               "requester": { "reference": "Practitioner/prac-diab-01" },
               "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
             },
-            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr07" }
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr16" }
+          },
+          {
+            "fullUrl": "urn:uuid:0c9f7597-3891-589f-89e1-e85ca8c723fa",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr17",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A10BH01",
+                    "display": "sitagliptin"
+                  }
+                ],
+                "text": "Sitagliptina 100 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc07" },
+              "authoredOn": "2025-10-20T21:04:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr17" }
+          },
+          {
+            "fullUrl": "urn:uuid:be8d4acb-42f0-5a6b-902b-626796583ed7",
+            "resource": {
+              "resourceType": "MedicationRequest",
+              "id": "pat-0010-mr18",
+              "status": "active",
+              "intent": "order",
+              "medicationCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "A10BK03",
+                    "display": "empagliflozin"
+                  }
+                ],
+                "text": "Empagliflozina 10 mg"
+              },
+              "subject": { "reference": "Patient/pat-0010" },
+              "encounter": { "reference": "Encounter/pat-0010-enc07" },
+              "authoredOn": "2025-10-20T21:04:00.000Z",
+              "requester": { "reference": "Practitioner/prac-diab-01" },
+              "dosageInstruction": [{ "text": "1 tab VO OD" }]
+            },
+            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr18" }
           },
           {
             "fullUrl": "urn:uuid:acb48d5a-db0e-5fa4-93b9-56a220bfdde0",
@@ -3770,7 +3927,7 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc07" },
-              "recordedDate": "2025-06-23T14:19:00.000Z",
+              "recordedDate": "2025-10-20T21:04:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond13" }
@@ -3819,433 +3976,10 @@
               },
               "subject": { "reference": "Patient/pat-0010" },
               "encounter": { "reference": "Encounter/pat-0010-enc07" },
-              "recordedDate": "2025-06-23T14:19:00.000Z",
+              "recordedDate": "2025-10-20T21:04:00.000Z",
               "recorder": { "reference": "Practitioner/prac-diab-01" }
             },
             "request": { "method": "PUT", "url": "Condition/pat-0010-cond14" }
-          }
-        ]
-      }
-    },
-    {
-      "at": "2025-06-23T14:29:00.000Z",
-      "kind": "appointment_booked",
-      "bundle": {
-        "resourceType": "Bundle",
-        "id": "pat-0010-bundle26",
-        "type": "transaction",
-        "timestamp": "2025-06-23T14:29:00.000Z",
-        "entry": [
-          {
-            "fullUrl": "urn:uuid:1f17d836-9e6d-572f-baa4-020e16724335",
-            "resource": {
-              "resourceType": "Appointment",
-              "id": "pat-0010-appt07",
-              "status": "booked",
-              "serviceType": [
-                {
-                  "coding": [
-                    {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
-                      "code": "diabetology",
-                      "display": "Diabetología"
-                    }
-                  ],
-                  "text": "Diabetología"
-                }
-              ],
-              "description": "Control de diabetes",
-              "start": "2025-10-06T14:45:00.000Z",
-              "end": "2025-10-06T15:15:00.000Z",
-              "minutesDuration": 30,
-              "created": "2025-06-23T14:29:00.000Z",
-              "participant": [
-                {
-                  "actor": { "reference": "Patient/pat-0010" },
-                  "required": "required",
-                  "status": "accepted"
-                },
-                {
-                  "actor": { "reference": "Practitioner/prac-diab-01" },
-                  "required": "required",
-                  "status": "accepted"
-                }
-              ]
-            },
-            "request": { "method": "PUT", "url": "Appointment/pat-0010-appt07" }
-          }
-        ]
-      }
-    },
-    {
-      "at": "2025-07-01T14:47:00.000Z",
-      "kind": "result",
-      "bundle": {
-        "resourceType": "Bundle",
-        "id": "pat-0010-bundle25",
-        "type": "transaction",
-        "timestamp": "2025-07-01T14:47:00.000Z",
-        "entry": [
-          {
-            "fullUrl": "urn:uuid:80650118-aa59-5838-b3c4-f633300a23c2",
-            "resource": {
-              "resourceType": "DiagnosticReport",
-              "id": "pat-0010-dr12",
-              "basedOn": [{ "reference": "ServiceRequest/pat-0010-sr12" }],
-              "status": "final",
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
-                      "code": "LAB",
-                      "display": "Laboratory"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://loinc.org",
-                    "code": "4548-4",
-                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
-                  }
-                ],
-                "text": "Hemoglobina glicosilada (HbA1c)"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2025-06-27T14:47:00.000Z",
-              "issued": "2025-07-01T14:47:00.000Z",
-              "result": [{ "reference": "Observation/pat-0010-dr12-obs1" }]
-            },
-            "request": { "method": "PUT", "url": "DiagnosticReport/pat-0010-dr12" }
-          },
-          {
-            "fullUrl": "urn:uuid:849ea21c-2126-57ba-86a7-12536ca605b0",
-            "resource": {
-              "resourceType": "Observation",
-              "id": "pat-0010-dr12-obs1",
-              "basedOn": [{ "reference": "ServiceRequest/pat-0010-sr12" }],
-              "status": "final",
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
-                      "code": "laboratory",
-                      "display": "Laboratory"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://loinc.org",
-                    "code": "4548-4",
-                    "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
-                  }
-                ]
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "effectiveDateTime": "2025-06-27T14:47:00.000Z",
-              "issued": "2025-07-01T14:47:00.000Z",
-              "valueQuantity": {
-                "value": 6.4,
-                "unit": "%",
-                "system": "http://unitsofmeasure.org",
-                "code": "%"
-              },
-              "interpretation": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
-                      "code": "H",
-                      "display": "High"
-                    }
-                  ]
-                }
-              ],
-              "referenceRange": [
-                {
-                  "high": {
-                    "value": 5.7,
-                    "unit": "%",
-                    "system": "http://unitsofmeasure.org",
-                    "code": "%"
-                  }
-                }
-              ]
-            },
-            "request": { "method": "PUT", "url": "Observation/pat-0010-dr12-obs1" }
-          }
-        ]
-      }
-    },
-    {
-      "at": "2025-10-06T15:05:00.000Z",
-      "kind": "consultation",
-      "bundle": {
-        "resourceType": "Bundle",
-        "id": "pat-0010-bundle27",
-        "type": "transaction",
-        "timestamp": "2025-10-06T15:05:00.000Z",
-        "entry": [
-          {
-            "fullUrl": "urn:uuid:8768c0b8-434e-5736-8e77-0c5573cfcb8d",
-            "resource": {
-              "resourceType": "Encounter",
-              "id": "pat-0010-enc08",
-              "status": "finished",
-              "class": {
-                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
-                "code": "AMB",
-                "display": "ambulatory"
-              },
-              "type": [{ "text": "Consulta de control" }],
-              "serviceType": {
-                "coding": [
-                  {
-                    "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
-                    "code": "diabetology",
-                    "display": "Diabetología"
-                  }
-                ],
-                "text": "Diabetología"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "participant": [{ "individual": { "reference": "Practitioner/prac-diab-01" } }],
-              "appointment": [{ "reference": "Appointment/pat-0010-appt07" }],
-              "period": { "start": "2025-10-06T14:45:00.000Z", "end": "2025-10-06T15:05:00.000Z" },
-              "reasonCode": [{ "text": "Control de diabetes" }],
-              "serviceProvider": {
-                "reference": "Organization/clinic-demo",
-                "display": "Clínica Demo Hipócrates"
-              }
-            },
-            "request": { "method": "PUT", "url": "Encounter/pat-0010-enc08" }
-          },
-          {
-            "fullUrl": "urn:uuid:9494bf82-fd70-56d7-b35d-14ef34d6b46d",
-            "resource": {
-              "resourceType": "DocumentReference",
-              "id": "pat-0010-doc08",
-              "status": "current",
-              "docStatus": "final",
-              "type": {
-                "coding": [
-                  { "system": "http://loinc.org", "code": "11506-3", "display": "Progress note" }
-                ],
-                "text": "Nota de evolución"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "date": "2025-10-06T15:05:00.000Z",
-              "author": [{ "reference": "Practitioner/prac-diab-01" }],
-              "custodian": {
-                "reference": "Organization/clinic-demo",
-                "display": "Clínica Demo Hipócrates"
-              },
-              "content": [
-                {
-                  "attachment": {
-                    "contentType": "text/plain; charset=utf-8",
-                    "language": "es",
-                    "data": "UGN0ZSBkZSA0MiBhw7FvcywgY29ub2NpZG8gRE0yIGRlc2RlIGhhY2UgMTAgYcOxb3MsIGVuIHR0byBjb24gbWV0Zm9ybWluYSA4NTAgbWcgVk8gYy8xMmggY29uIGxhcyBjb21pZGFzLiBBY3VkZSBhIGN0cmwuIFJlZmllcmUgYnVlbmEgYWRoZXJlbmNpYSBhbCB0dG8sIG5pZWdhIGhpcG9nbGljZW1pYXMuIEVGOiBUQSAxMzMvNzUgbW1IZywgRkMgNzIgbHBtLCBwZXNvIDc3IGtnLiBHbGljZW1pYSBjYXBpbGFyIDEyMyBtZy9kbC4gUGllcyBzaW4gbGVzaW9uZXMsIHB1bHNvcyBwZWRpb3MgcHJlc2VudGVzLiBUcmFlIGxhYnM6IEhiQTFjIDYuNCUuIER4OiBETTIgZW4gbWV0YXMuIG9iZXNpZGFkLiBQbGFuOiBDb250aW51YSBtZXRmb3JtaW5hIDg1MCBtZyBWTyBjLzEyaCBjb24gbGFzIGNvbWlkYXMuIGRpZXRhIGhpcG9jYWxvcmljYS4gUHJveGltbyBjb250cm9sIGVuIDMgbWVzZXMu",
-                    "title": "Nota de evolución",
-                    "creation": "2025-10-06T15:05:00.000Z"
-                  }
-                }
-              ],
-              "context": {
-                "encounter": [{ "reference": "Encounter/pat-0010-enc08" }],
-                "period": {
-                  "start": "2025-10-06T14:45:00.000Z",
-                  "end": "2025-10-06T15:05:00.000Z"
-                },
-                "practiceSetting": {
-                  "coding": [
-                    {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
-                      "code": "diabetology",
-                      "display": "Diabetología"
-                    }
-                  ],
-                  "text": "Diabetología"
-                }
-              }
-            },
-            "request": { "method": "PUT", "url": "DocumentReference/pat-0010-doc08" }
-          },
-          {
-            "fullUrl": "urn:uuid:75c5bdc5-0263-5a8e-95a0-4c3d7b6a5507",
-            "resource": {
-              "resourceType": "MedicationRequest",
-              "id": "pat-0010-mr08",
-              "status": "active",
-              "intent": "order",
-              "medicationCodeableConcept": {
-                "coding": [
-                  { "system": "http://www.whocc.no/atc", "code": "A10BA02", "display": "metformin" }
-                ],
-                "text": "Metformina 850 mg"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "encounter": { "reference": "Encounter/pat-0010-enc08" },
-              "authoredOn": "2025-10-06T15:05:00.000Z",
-              "requester": { "reference": "Practitioner/prac-diab-01" },
-              "dosageInstruction": [{ "text": "1 tab VO c/12h con las comidas" }]
-            },
-            "request": { "method": "PUT", "url": "MedicationRequest/pat-0010-mr08" }
-          },
-          {
-            "fullUrl": "urn:uuid:ec208480-dfe4-50bc-b29f-3d43435438cc",
-            "resource": {
-              "resourceType": "Condition",
-              "id": "pat-0010-cond15",
-              "clinicalStatus": {
-                "coding": [
-                  {
-                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
-                    "code": "active"
-                  }
-                ]
-              },
-              "verificationStatus": {
-                "coding": [
-                  {
-                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
-                    "code": "confirmed"
-                  }
-                ]
-              },
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
-                      "code": "encounter-diagnosis",
-                      "display": "Encounter Diagnosis"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://hl7.org/fhir/sid/icd-10",
-                    "code": "E11.9",
-                    "display": "Type 2 diabetes mellitus without complications"
-                  }
-                ],
-                "text": "DM2"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "encounter": { "reference": "Encounter/pat-0010-enc08" },
-              "recordedDate": "2025-10-06T15:05:00.000Z",
-              "recorder": { "reference": "Practitioner/prac-diab-01" }
-            },
-            "request": { "method": "PUT", "url": "Condition/pat-0010-cond15" }
-          },
-          {
-            "fullUrl": "urn:uuid:20296948-847e-56ad-b8ff-53c4ac181248",
-            "resource": {
-              "resourceType": "Condition",
-              "id": "pat-0010-cond16",
-              "clinicalStatus": {
-                "coding": [
-                  {
-                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
-                    "code": "active"
-                  }
-                ]
-              },
-              "verificationStatus": {
-                "coding": [
-                  {
-                    "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
-                    "code": "confirmed"
-                  }
-                ]
-              },
-              "category": [
-                {
-                  "coding": [
-                    {
-                      "system": "http://terminology.hl7.org/CodeSystem/condition-category",
-                      "code": "encounter-diagnosis",
-                      "display": "Encounter Diagnosis"
-                    }
-                  ]
-                }
-              ],
-              "code": {
-                "coding": [
-                  {
-                    "system": "http://hl7.org/fhir/sid/icd-10",
-                    "code": "E66.9",
-                    "display": "Obesity, unspecified"
-                  }
-                ],
-                "text": "obesidad"
-              },
-              "subject": { "reference": "Patient/pat-0010" },
-              "encounter": { "reference": "Encounter/pat-0010-enc08" },
-              "recordedDate": "2025-10-06T15:05:00.000Z",
-              "recorder": { "reference": "Practitioner/prac-diab-01" }
-            },
-            "request": { "method": "PUT", "url": "Condition/pat-0010-cond16" }
-          }
-        ]
-      }
-    },
-    {
-      "at": "2025-10-06T15:15:00.000Z",
-      "kind": "appointment_booked",
-      "bundle": {
-        "resourceType": "Bundle",
-        "id": "pat-0010-bundle28",
-        "type": "transaction",
-        "timestamp": "2025-10-06T15:15:00.000Z",
-        "entry": [
-          {
-            "fullUrl": "urn:uuid:e4db5637-d0f6-52b2-bd07-bd0c16c3c038",
-            "resource": {
-              "resourceType": "Appointment",
-              "id": "pat-0010-appt08",
-              "status": "booked",
-              "serviceType": [
-                {
-                  "coding": [
-                    {
-                      "system": "https://follow-up-engine.dev/fhir/CodeSystem/specialty",
-                      "code": "diabetology",
-                      "display": "Diabetología"
-                    }
-                  ],
-                  "text": "Diabetología"
-                }
-              ],
-              "description": "Control de diabetes",
-              "start": "2026-01-19T17:00:00.000Z",
-              "end": "2026-01-19T17:30:00.000Z",
-              "minutesDuration": 30,
-              "created": "2025-10-06T15:15:00.000Z",
-              "participant": [
-                {
-                  "actor": { "reference": "Patient/pat-0010" },
-                  "required": "required",
-                  "status": "accepted"
-                },
-                {
-                  "actor": { "reference": "Practitioner/prac-diab-01" },
-                  "required": "required",
-                  "status": "accepted"
-                }
-              ]
-            },
-            "request": { "method": "PUT", "url": "Appointment/pat-0010-appt08" }
           }
         ]
       }

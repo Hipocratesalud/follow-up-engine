@@ -37,16 +37,23 @@ export function withNextActionAt(followUpCase: FollowUpCase, at: Date | undefine
   return at === undefined ? base : { ...base, nextActionAt: at };
 }
 
-/** The expectations grouped in a case, in reason order. */
+/**
+ * The expectations grouped in a case, in reason order. Read one after the
+ * other: a transaction's connection runs one statement at a time.
+ */
 export async function caseExpectations(
   stores: TransactionalStores,
   clinicId: ClinicId,
   followUpCase: FollowUpCase,
 ): Promise<Expectation[]> {
-  const loaded = await Promise.all(
-    followUpCase.reasons.map((reason) => stores.expectations.get(clinicId, reason.expectationId)),
-  );
-  return loaded.filter((expectation): expectation is Expectation => expectation !== undefined);
+  const loaded: Expectation[] = [];
+  for (const reason of followUpCase.reasons) {
+    const expectation = await stores.expectations.get(clinicId, reason.expectationId);
+    if (expectation !== undefined) {
+      loaded.push(expectation);
+    }
+  }
+  return loaded;
 }
 
 /** The escalation policy of a case: the one of the rule that opened it. */

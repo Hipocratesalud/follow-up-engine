@@ -2,9 +2,9 @@ import type { ClinicId, TransactionalStores, UnitOfWork } from '@follow-up-engin
 import type { MemoryDatabase } from './memory-database.ts';
 
 /**
- * In-memory {@link UnitOfWork} with real rollback: the database is
- * snapshotted before the work runs and restored if it throws, so jobs,
- * outbox events and domain changes commit together or not at all.
+ * In-memory {@link UnitOfWork} with real rollback: every write of the work is
+ * journaled and undone if it throws, so jobs, outbox events and domain
+ * changes commit together or not at all, at the cost of what the work wrote.
  * Transactions are serialized (one at a time), like `SERIALIZABLE` without
  * retries; do not nest them.
  */
@@ -23,11 +23,13 @@ export class MemoryUnitOfWork implements UnitOfWork {
     work: (stores: TransactionalStores) => Promise<TResult>,
   ): Promise<TResult> {
     const run = async (): Promise<TResult> => {
-      const snapshot = this.#db.snapshot();
+      this.#db.begin();
       try {
-        return await work(this.#stores);
+        const result = await work(this.#stores);
+        this.#db.commit();
+        return result;
       } catch (error) {
-        this.#db.restore(snapshot);
+        this.#db.rollback();
         throw error;
       }
     };

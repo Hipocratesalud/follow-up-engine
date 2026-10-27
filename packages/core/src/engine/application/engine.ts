@@ -1,4 +1,5 @@
 import type { ClinicalBatch } from '../../domain/clinical-event.ts';
+import type { BackfillProgress } from '../../ports/backfill-progress.ts';
 import type { ClinicId, PatientId } from '../../domain/ids.ts';
 import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
 import type { Clock } from '../../ports/clock.ts';
@@ -6,6 +7,18 @@ import type { ProtocolSource, RuleSource } from '../../ports/config-sources.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { NoteExtractor } from '../../ports/note-extractor.ts';
 import type { UnitOfWork } from '../../ports/unit-of-work.ts';
+import {
+  type BackfillOptions,
+  type BackfillReport,
+  runBackfill,
+  stageHistory,
+} from '../backfill/backfill.ts';
+import {
+  type BackfillReleasePlan,
+  planBackfillRelease,
+  releaseDueBackfillCases,
+} from '../backfill/release.ts';
+import type { CaseId } from '../../domain/ids.ts';
 import { type CaseCommands, createCaseCommands } from '../case-manager/commands.ts';
 import { Catalog } from '../catalog.ts';
 import { type EscalationReport, runEscalation } from '../escalation/escalation.ts';
@@ -35,6 +48,26 @@ export interface PatientContactStatus {
   readonly lastContactAt?: Date;
 }
 
+/** The initial backfill of a clinic (see `runBackfill`). */
+export interface BackfillCommands {
+  /** Imports a historical batch without annotating it (the backfill replays it later). Idempotent. */
+  stage(batch: ClinicalBatch): Promise<{ readonly inserted: number }>;
+  /**
+   * Starts the backfill, or resumes the clinic's unfinished run (crashed or
+   * paused on budget). Returns when it completes or pauses.
+   */
+  run(clinicId: ClinicId, options?: BackfillOptions): Promise<BackfillReport>;
+  /** A run by id, or the clinic's unfinished run when `runId` is absent. */
+  status(clinicId: ClinicId, runId?: string): Promise<BackfillProgress | undefined>;
+  /** Activates the held cases whose release day came (the watcher also does it on every sweep). */
+  release(clinicId: ClinicId, now: Date): Promise<readonly CaseId[]>;
+  /**
+   * Schedules every still-unscheduled backfill case (risk order, daily cap per
+   * owner, age window). How a shadow run goes live. Idempotent.
+   */
+  schedule(clinicId: ClinicId, now: Date): Promise<BackfillReleasePlan>;
+}
+
 /**
  * The follow-up engine: the application services over the pure domain.
  * Every method is scoped to a clinic and runs in `UnitOfWork` transactions.
@@ -53,6 +86,7 @@ export interface FollowUpEngine {
   ): Promise<IngestReport>;
   readonly cases: CaseCommands;
   readonly conditions: ConditionCommands;
+  readonly backfill: BackfillCommands;
   /** The rules and protocols enabled for a clinic (labels, suggested actions, policies). */
   catalog(clinicId: ClinicId): Promise<Catalog>;
   patientContactStatus(clinicId: ClinicId, patientId: PatientId): Promise<PatientContactStatus>;
@@ -88,7 +122,22 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
       runEscalation({ ...shared, clinics: deps.clinics }, clinicId, now),
     runNoteExtractionJob: (clinicId, payload) =>
       runNoteExtractionJob(ingestDeps, clinicId, payload),
-    cases: createCaseCommands({ ...shared, clock: deps.clock }),
+    cases: createCaseCommands({ ...shared, clock: deps.clock, clinics: deps.clinics }),
+    backfill: {
+      stage: (batch) => stageHistory(deps, batch),
+      run: (clinicId, options) =>
+        runBackfill({ ...ingestDeps, clinics: deps.clinics }, clinicId, options),
+      status: (clinicId, runId) =>
+        deps.unitOfWork.withTransaction(clinicId, (stores) =>
+          runId === undefined
+            ? stores.backfillProgress.findRunning(clinicId)
+            : stores.backfillProgress.get(clinicId, runId),
+        ),
+      release: async (clinicId, now) =>
+        releaseDueBackfillCases(shared, clinicId, now, await loadCatalog(clinicId)),
+      schedule: (clinicId, now) =>
+        planBackfillRelease({ ...shared, clinics: deps.clinics }, clinicId, now),
+    },
     conditions: createConditionCommands({ ...shared, clock: deps.clock }),
     catalog: loadCatalog,
     async patientContactStatus(clinicId, patientId) {
