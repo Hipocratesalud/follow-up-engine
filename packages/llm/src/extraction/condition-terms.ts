@@ -174,7 +174,13 @@ export const DEFAULT_CONDITION_TERMS: ConditionTermTable = {
   F90: ['tdah', 'deficit de atencion'],
   // Genitourinary
   N18: ['erc', 'enfermedad renal cronica', 'insuficiencia renal cronica', 'irc', 'nefropatia'],
-  N30: ['cistitis'],
+  N30: [
+    'cistitis',
+    'itu baja',
+    'ivu baja',
+    'infeccion urinaria baja',
+    'infeccion de vias urinarias bajas',
+  ],
   N39: ['itu', 'ivu', 'infeccion urinaria', 'infeccion de vias urinarias', 'cistitis'],
   N40: ['hpb', 'hiperplasia prostatica', 'crecimiento prostatico'],
   N60: ['mastopatia fibroquistica', 'mastopatia'],
