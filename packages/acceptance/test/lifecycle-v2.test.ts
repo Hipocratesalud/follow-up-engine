@@ -407,6 +407,74 @@ function lifecycle(makeHarness: (options: HarnessOptions) => Promise<EngineHarne
     await days(harness, 6, 16);
     expect(await activeRuleIds(harness, patient)).toEqual([['lab_order_result_pending']]);
   });
+
+  it.each([
+    ['without its result list', { resultIds: [] as string[] }],
+    ['with only its id and status', { resultIds: [] as string[], basedOn: undefined }],
+  ])(
+    'a report re-sent entered in error %s withdraws the results it listed before (HIP-135)',
+    async (_label, resent) => {
+      // QA round 3, clinical-verify #12: the host re-sends the report in
+      // error without `result`; the engine finds its Observations through
+      // what the report listed when it arrived.
+      const harness = await makeHarness(options(`report-error-bare-${String(resent.basedOn)}`));
+      const patient = `p-w2-${resent.basedOn === undefined ? 'id' : 'list'}`;
+      await day(harness, 0, [
+        transactionOf(
+          labOrderResource({
+            id: `${patient}-sr1`,
+            patientId: patient,
+            loinc: '2160-0',
+            at: dayToDate(0),
+          }),
+        ),
+      ]);
+      const report = {
+        id: `${patient}-dr1`,
+        patientId: patient,
+        loinc: '2160-0',
+        resultIds: [`${patient}-dr1-obs`],
+        basedOn: `${patient}-sr1`,
+      };
+      await day(harness, 2, [
+        transactionOf(
+          diagnosticReportResource({ ...report, at: new Date(dayToDate(2).getTime() + HOUR) }),
+          observationResource({
+            id: `${patient}-dr1-obs`,
+            patientId: patient,
+            loinc: '2160-0',
+            value: 1.0,
+            unit: 'mg/dL',
+            interpretation: 'N',
+            at: new Date(dayToDate(2).getTime() + HOUR),
+          }),
+        ),
+      ]);
+      expect(
+        rule(await snapshotPatient(harness, patientId(patient)), 'lab_order_result_pending').map(
+          (e) => e.status,
+        ),
+      ).toEqual(['fulfilled']);
+      await day(harness, 5, [
+        transactionOf(
+          diagnosticReportResource({
+            ...report,
+            ...resent,
+            status: 'entered-in-error',
+            version: 2,
+            at: dayToDate(5),
+          }),
+        ),
+      ]);
+      expect(
+        rule(await snapshotPatient(harness, patientId(patient)), 'lab_order_result_pending').map(
+          (e) => e.status,
+        ),
+      ).toEqual(['open']);
+      await days(harness, 6, 16);
+      expect(await activeRuleIds(harness, patient)).toEqual([['lab_order_result_pending']]);
+    },
+  );
 }
 
 describe('appointment and visit lifecycle (memory)', () => {

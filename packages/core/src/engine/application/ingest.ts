@@ -34,6 +34,7 @@ import {
   NOTE_EXTRACTION_MAX_ATTEMPTS,
   type NoteExtractionJobPayload,
 } from './note-extraction.ts';
+import { withListedResultWithdrawals } from './report-withdrawals.ts';
 
 export interface IngestDeps {
   readonly unitOfWork: UnitOfWork;
@@ -243,7 +244,10 @@ export async function applyInTransaction(
   input: ApplyBatchInput,
 ): Promise<Omit<IngestReport, 'notes' | 'eventsReceived'>> {
   const derivedEvents = input.derived.flatMap((derived) => derived.events);
-  const all = [...input.events, ...derivedEvents];
+  const all = await withListedResultWithdrawals(stores, input.clinicId, input.patientId, [
+    ...input.events,
+    ...derivedEvents,
+  ]);
   const now = input.now ?? deps.clock.now();
   if (input.asOf === undefined) {
     await withdrawFromOtherPatients(deps, stores, input, now);

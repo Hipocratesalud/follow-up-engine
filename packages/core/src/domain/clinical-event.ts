@@ -110,6 +110,12 @@ export interface ResultReceivedEvent extends ClinicalEventBase {
   readonly severity?: ResultSeverity;
   /** Numeric value (FHIR `Observation.valueQuantity`), when the result has one. */
   readonly value?: { readonly value: number; readonly unit?: string };
+  /**
+   * The results a report lists (FHIR `DiagnosticReport.result`), kept so a
+   * later withdrawal of the report reaches them even when the host re-sends
+   * it without that list.
+   */
+  readonly listedResults?: readonly ResourceRef[];
 }
 
 /** A medication was prescribed (FHIR `MedicationRequest`). */

@@ -196,7 +196,9 @@ function withdrawReport(
 
 /**
  * DiagnosticReport (final) → `result.received`. Its interpretation combines
- * the Observations it lists that are in the same bundle.
+ * the Observations it lists that are in the same bundle; the references it
+ * lists are kept (`listedResults`), so a later withdrawal of the report
+ * withdraws them even when it comes without its `result` list.
  */
 export function mapDiagnosticReport(
   report: ParsedResourceOf<'DiagnosticReport'>,
@@ -242,6 +244,14 @@ export function mapDiagnosticReport(
   const value =
     valued.length === 1 && valued[0] !== undefined ? quantityValue(valued[0]) : undefined;
   const orderId = orderIdFrom(report.basedOn, ctx);
+  // Kept with the report, so withdrawing it later reaches them without the list.
+  const listedResults = (report.result ?? []).flatMap((result) => {
+    const target =
+      result.reference === undefined ? undefined : ctx.bundle.resolve(result.reference);
+    return target?.resourceType === 'Observation'
+      ? [{ resourceType: target.resourceType, id: target.id }]
+      : [];
+  });
   return {
     ...scope,
     events: [
@@ -264,6 +274,7 @@ export function mapDiagnosticReport(
         ),
         ...(orderId === undefined ? {} : { basedOnOrderId: orderId }),
         ...(value === undefined ? {} : { value }),
+        ...(listedResults.length === 0 ? {} : { listedResults }),
       },
     ],
   };
