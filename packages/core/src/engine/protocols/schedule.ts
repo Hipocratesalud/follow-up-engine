@@ -32,6 +32,8 @@ export interface ScheduleInput {
 }
 
 const MS_PER_DAY = 86_400_000;
+/** An outcome told this many days after it happened was told at a later visit. */
+const RECORDED_LATER_DAYS = 3;
 
 /**
  * The events that count as the item happening (a visit, a result), oldest
@@ -199,12 +201,15 @@ function afterOutcomeSchedule(
   const closure = episode.endedBy;
   const closedAt = closure.occurredAt.getTime();
   const encounter = encounterOf(closure);
-  // A visit after the outcome; the visit that recorded it counts only when
-  // it is itself such a visit (a puerperal visit coding Z39), never the
-  // delivery.
+  // A visit after the outcome. The encounter that recorded it counts when
+  // it is a puerperal visit (Z39), or took place days after the outcome it
+  // tells about ("cesárea hace 10 días"); never the delivery itself.
   const done = fulfillingEvents(input.definition, input.timeline).some((event) => {
+    const after = eventInstant(event).getTime() - closedAt;
     const sameEncounter = encounter !== undefined && encounterOf(event) === encounter;
-    return sameEncounter ? episode.endedAtFollowUp : eventInstant(event).getTime() > closedAt;
+    return sameEncounter
+      ? episode.endedAtFollowUp || after >= RECORDED_LATER_DAYS * MS_PER_DAY
+      : after > 0;
   });
   return done
     ? undefined

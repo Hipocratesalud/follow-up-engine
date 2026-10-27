@@ -296,6 +296,35 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
       expect(liveDue(snapshot, POSTPARTUM)).toEqual([delivery + 42]);
     });
 
+    it("the doctor's next prenatal control is moot after the delivery, and does not stand in for the postpartum visit", async () => {
+      const delivery = weekDay(10, 39);
+      const extractor = new FakeNoteExtractor().setExtraction('preg-last-note', {
+        planItems: [planItem(delivery + 2, 'control prenatal en 1 semana')],
+      });
+      const harness = await harnessWith(extractor);
+      await day(harness, 0, pregnancyStart());
+      await day(harness, delivery - 5, [
+        visit('preg-last', delivery - 5, {
+          specialty: 'gynecology',
+          noteText: 'Embarazo a término. Control prenatal en 1 semana.',
+          diagnoses: [{ icd10: 'Z34.9', display: 'embarazo' }],
+        }),
+      ]);
+      expect(liveDue(await snapshotPatient(harness, patient), 'doctor_plan_followup')).toEqual([
+        delivery + 2,
+      ]);
+      await day(harness, delivery, [
+        visit('delivery-2', delivery, {
+          specialty: 'obstetrics',
+          diagnoses: [{ icd10: 'O82', display: 'cesárea' }],
+        }),
+      ]);
+      const snapshot = await snapshotPatient(harness, patient);
+      expect(live(ofRule(snapshot, 'doctor_plan_followup'))).toEqual([]);
+      expect(ofRule(snapshot, 'doctor_plan_followup').at(-1)?.closedReason).toBe('protocol_closed');
+      expect(liveDue(snapshot, POSTPARTUM)).toEqual([delivery + 42]);
+    });
+
     it('a puerperal visit that records the end is itself the postpartum visit', async () => {
       const harness = await harnessWith();
       await day(harness, 0, pregnancyStart());
