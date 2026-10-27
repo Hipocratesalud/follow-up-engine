@@ -66,6 +66,28 @@ export function enrollingConditions(
   );
 }
 
+/**
+ * The patient's conditions a protocol rests on: those that enroll them, and
+ * for an episodic protocol the outcome that ended it (the delivery behind
+ * the postpartum visit). A confirmed one means the protocol's reasons rest
+ * on a clinician's diagnosis, not only on an inference.
+ */
+export function protocolConditions(
+  protocol: Protocol,
+  conditions: readonly PatientCondition[],
+): PatientCondition[] {
+  const outcomes = (protocol.closing?.outcomes ?? []).flatMap((outcome) => outcome.conditionCodes);
+  return [
+    ...enrollingConditions(protocol, conditions),
+    ...conditions.filter(
+      (condition) =>
+        outcomes.length > 0 &&
+        meetsMinimumStatus(condition.status, protocol.enrollment.minimumStatus) &&
+        icd10Matches(condition.code, outcomes),
+    ),
+  ];
+}
+
 function icd10(code: string): Coding {
   return { system: ICD10_SYSTEM, code };
 }

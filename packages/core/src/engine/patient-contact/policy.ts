@@ -1,6 +1,6 @@
 import type { PatientCondition } from '../../domain/condition.ts';
 import type { Expectation } from '../../domain/expectation.ts';
-import { enrollingConditions } from '../annotator/conditions.ts';
+import { protocolConditions } from '../annotator/conditions.ts';
 import type { Catalog } from '../catalog.ts';
 import { addDays } from '../support/time.ts';
 
@@ -96,7 +96,7 @@ export function isLowConfidenceCase(
     if (protocol === undefined) {
       return true;
     }
-    return !enrollingConditions(protocol, conditions).some(
+    return !protocolConditions(protocol, conditions).some(
       (condition) => condition.status === 'confirmed',
     );
   });
