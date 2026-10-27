@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FakeClock, NoteExtraction } from '@follow-up-engine/core';
 import { buildConsultationBundle } from '@follow-up-engine/fhir';
-import { type EngineRuntime, Worker } from '@follow-up-engine/runtime';
+import { DEMO_CLINIC, type EngineRuntime, Worker } from '@follow-up-engine/runtime';
 import { InboxPresenter } from '../inbox/presenter.ts';
 import { icd10Label } from '../inbox/terminology.ts';
 import type { App } from './context.ts';
@@ -81,8 +81,9 @@ export function registerDemoRoutes(
   clock: FakeClock,
   worker: Worker = new Worker(runtime),
 ): void {
-  // Reading the demo clock and webhooks: `inbox:read`; moving the shared
-  // clock or saving a demo consultation: `demo` (never any clinic's key).
+  // Reading the demo clock: `inbox:read`; the webhook feed and moving the
+  // shared clock: `demo:clock`; saving a demo consultation: `demo:ingest`,
+  // and only into the demo clinic.
   app.use('/api/demo/*', requireScope({ demoRoutes: true }));
   app.get('/api/demo/clock', (c) => c.json({ now: clock.now().toISOString(), fake: true }));
 
@@ -92,7 +93,7 @@ export function registerDemoRoutes(
     // expectation expires and escalate on schedule, not all at the end.
     // Webhooks go out at the end of each day, so the host sees them on the
     // simulated timeline. The clock is the whole process's, so every clinic
-    // is swept (only keys with the `demo` scope get here). Atomic: a
+    // is swept (only keys with the `demo:clock` scope get here). Atomic: a
     // concurrent advance waits for this one.
     const { now, webhooks } = await worker.advanceFakeClock(days);
     c.var.log.info({ days, webhooks }, 'demo clock advanced');
@@ -100,6 +101,14 @@ export function registerDemoRoutes(
   });
 
   app.post('/api/demo/consultations', async (c) => {
+    // Clinical data for synthetic patients only: never another clinic's record.
+    if (c.var.clinicId !== DEMO_CLINIC.id) {
+      throw new HttpError(
+        403,
+        'insufficient_scope',
+        'Las consultas de demostración solo se guardan en la clínica de demostración.',
+      );
+    }
     const body = await readJson(c, DemoConsultationRequestSchema);
     const isNewPatient = body.patientId === undefined;
     const patientId = body.patientId ?? `pat-demo-${randomUUID().slice(0, 8)}`;

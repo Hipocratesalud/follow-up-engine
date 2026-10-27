@@ -50,22 +50,27 @@ DATABASE_URL=... pnpm --filter @follow-up-engine/api clinic:create \
 
 Each key carries the least it needs:
 
-| Scope        | Allows                                                                                                                     | Who holds it                      |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `fhir:write` | Everything under `/fhir` (ingest, read `Task`, `Condition`, `DetectedIssue`) and `/jobs`.                                  | The host integration (server)     |
-| `inbox:read` | `GET /api/inbox/*` (and reading the demo clock and webhooks).                                                              | The inbox                         |
-| `inbox:act`  | `POST /api/inbox/*`: case actions, feedback, condition review.                                                             | The inbox                         |
-| `demo`       | `POST /api/demo/*`: moving the fake clock (shared by every clinic of the process) and demo consultations. Fake clock only. | The demo operator; never a clinic |
+| Scope         | Allows                                                                                                                 | Who holds it                      |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `fhir:write`  | Everything under `/fhir` (ingest, read `Task`, `Condition`, `DetectedIssue`) and `/jobs`.                              | The host integration (server)     |
+| `inbox:read`  | `GET /api/inbox/*` (and reading the demo clock).                                                                       | The inbox                         |
+| `inbox:act`   | `POST /api/inbox/*`: case actions, feedback, condition review.                                                         | The inbox                         |
+| `demo:clock`  | `POST /api/demo/clock/advance` (the fake clock is shared by every clinic of the process) and `GET /api/demo/webhooks`. | The demo operator; never a clinic |
+| `demo:ingest` | `POST /api/demo/consultations`: synthetic consultations, only into the demo clinic `clinic-demo`.                      | The demo operator; never a clinic |
+
+`demo:*` scopes only exist on a fake clock (`CLOCK=fake`): on a real clock they are dropped and the demo routes do not exist. The CLI refuses them for any clinic but `clinic-demo` unless `--allow-demo` is passed.
 
 An inbox key never has `fhir:write`: whoever can open the inbox cannot ingest clinical data or opt patients out. In production the inbox runs behind the host's own login, and the host calls the inbox API from its server (or a proxy), so the key never reaches a browser; `VITE_API_KEY` in a browser bundle is for the demo only.
 
 ### Who acted: `X-FollowUp-User`
 
-Inbox actions (notify, snooze, resolve, feedback, confirming or rejecting a condition) record the acting clinic user in the audit trail from the `X-FollowUp-User` header (host user id, at most 120 characters; `inbox-user` when absent). The engine does not authenticate users: the header is trusted **only when the host sets it**, after its own login, on the server side (strip any value the browser sent). A key used straight from a browser lets its holder write any name there.
+Inbox actions (notify, snooze, resolve, feedback, confirming or rejecting a condition) record the acting clinic user in the audit trail from the `X-FollowUp-User` header (host user id or name, at most 120 printable characters: letters, digits, punctuation, symbols and spaces; `inbox-user` when absent). Send it as UTF-8 bytes (`Dr. Médico`); a value whose bytes are not valid UTF-8 is read as Latin-1, which is what browsers send. A longer value, or one with control or invisible characters, gets `400 invalid_request`. The engine does not authenticate users: the header is trusted **only when the host sets it**, after its own login, on the server side (strip any value the browser sent). A key used straight from a browser lets its holder write any name there.
 
 ### Limits
 
-Each key may make 600 requests per minute (`429` with `Retry-After` beyond that, per API process); requests with a wrong key are limited per client address (60 per minute) before any lookup. Request bodies are at most 5 MB (`413`).
+Each key may make 600 requests per minute (`429` with `Retry-After` beyond that, per API process). Requests with a missing or wrong key are limited per client address (60 per minute): past the limit they get `429` and reach the key lookup at most one at a time per address. Only failed attempts count, and a valid key is never refused because of them, so a client guessing keys behind the same proxy as the host never locks the host out. `X-Request-Id` is echoed when it is 1 to 64 characters of `A-Z a-z 0-9 _ -`; anything else is replaced by a generated id. Request bodies are at most 5 MB (`413`, readable by the browsers in `CORS_ORIGINS`).
+
+Errors of the JSON API (`/api/*`) are `{ "error": { "code", "message" } }`, with `message` in Spanish, ready to show to the clinic team. A request that breaks the validation rules is `422` with `code: "invalid_request"` and `fields`, one entry per invalid field: `{ "path": "note", "message": "Debe tener como máximo 2000 caracteres." }`.
 
 ## 2. Sending a consultation
 

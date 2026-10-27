@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { type EngineRuntime, hashApiKey, type Worker } from '@follow-up-engine/runtime';
 import { Hono, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -16,6 +15,7 @@ import {
   DEFAULT_RATE_LIMITS,
   RateLimiter,
   type RateLimits,
+  requestIdOf,
   requireScope,
   securityHeaders,
   tooManyRequests,
@@ -71,31 +71,117 @@ function rejectControlCharacters(): MiddlewareHandler<AppEnv> {
 
 const BEARER = /^Bearer\s+(\S+)$/i;
 
+/** How long a key that authenticated counts as known (it skips the failed-attempt limit). */
+const KNOWN_KEY_MS = 10 * 60_000;
+/** Most known keys remembered per process (each is a 64-character hash). */
+const MAX_KNOWN_KEYS = 10_000;
+
+/**
+ * Key hashes that authenticated recently, so a valid key never waits on the
+ * failed-attempt limit of its address (behind a proxy, every clinic shares
+ * one). Only hashes are kept; the lookup still runs on every request, so a
+ * revoked key stops at once.
+ */
+class KnownKeys {
+  readonly #until = new Map<string, number>();
+
+  has(keyHash: string, now: number): boolean {
+    const until = this.#until.get(keyHash);
+    return until !== undefined && until > now;
+  }
+
+  remember(keyHash: string, now: number): void {
+    this.#until.delete(keyHash);
+    if (this.#until.size >= MAX_KNOWN_KEYS) {
+      const oldest = this.#until.keys().next();
+      if (oldest.done !== true) {
+        this.#until.delete(oldest.value);
+      }
+    }
+    this.#until.set(keyHash, now + KNOWN_KEY_MS);
+  }
+
+  forget(keyHash: string): void {
+    this.#until.delete(keyHash);
+  }
+}
+
 /**
  * `Authorization: Bearer <api key>` → the clinic and the key's scopes. The
- * clinic never comes from the body. Each key has its own rate limit; failed
- * attempts are limited per client address before any lookup.
+ * clinic never comes from the body. Each key has its own rate limit.
+ *
+ * Failed attempts (missing or wrong key) are limited per client address,
+ * and only failed attempts: a valid key is never refused because someone
+ * else at the same address guessed keys.
+ * - An unknown key takes a token of its address before the lookup
+ *   (atomically, so a concurrent burst cannot outrun the limit); the token
+ *   is given back when the key turns out valid.
+ * - With no token left, unknown keys are still looked up, but one at a time
+ *   per address (a valid key is served; a burst of guesses gets 429 without
+ *   reaching the database).
+ * - A key that authenticated recently skips the limit altogether.
  */
 function authenticate(
   runtime: EngineRuntime,
   limiter: RateLimiter,
   limits: RateLimits,
 ): MiddlewareHandler<AppEnv> {
+  const known = new KnownKeys();
+  const lookingUp = new Set<string>();
   return async (c, next) => {
     const key = BEARER.exec(c.req.header('authorization') ?? '')?.[1];
-    const client = `failed:${clientAddress(c)}`;
-    const guessing = limiter.check(client, limits.failedAuthPerMinute);
-    if (!guessing.ok) {
-      throw tooManyRequests(c, guessing.retryAfter);
+    const address = clientAddress(c);
+    const bucket = `failed:${address}`;
+    if (key === undefined) {
+      const attempt = limiter.take(bucket, limits.failedAuthPerMinute);
+      if (!attempt.ok) {
+        throw tooManyRequests(c, attempt.retryAfter);
+      }
+      throw new HttpError(401, 'unauthorized', 'Falta la clave de API (Authorization: Bearer).');
     }
-    const principal = key === undefined ? undefined : await runtime.authenticate(key);
+    const keyHash = hashApiKey(key);
+    let reserved = false;
+    let gated = false;
+    let retryAfter = 0;
+    if (!known.has(keyHash, Date.now())) {
+      const attempt = limiter.take(bucket, limits.failedAuthPerMinute);
+      reserved = attempt.ok;
+      retryAfter = attempt.retryAfter;
+      if (!reserved) {
+        if (lookingUp.has(address)) {
+          throw tooManyRequests(c, retryAfter);
+        }
+        lookingUp.add(address);
+        gated = true;
+      }
+    }
+    let principal;
+    try {
+      principal = await runtime.authenticate(key);
+    } finally {
+      if (gated) {
+        lookingUp.delete(address);
+      }
+    }
     if (principal === undefined) {
-      limiter.take(client, limits.failedAuthPerMinute);
-      throw key === undefined
-        ? new HttpError(401, 'unauthorized', 'Falta la clave de API (Authorization: Bearer).')
-        : new HttpError(401, 'unauthorized', 'Clave de API no válida.');
+      known.forget(keyHash);
+      if (gated) {
+        throw tooManyRequests(c, retryAfter);
+      }
+      if (!reserved) {
+        // A known key that stopped working (revoked): it counts from now on.
+        const attempt = limiter.take(bucket, limits.failedAuthPerMinute);
+        if (!attempt.ok) {
+          throw tooManyRequests(c, attempt.retryAfter);
+        }
+      }
+      throw new HttpError(401, 'unauthorized', 'Clave de API no válida.');
     }
-    const quota = limiter.take(`key:${hashApiKey(key ?? '')}`, limits.perKeyPerMinute);
+    if (reserved) {
+      limiter.refund(bucket, limits.failedAuthPerMinute);
+    }
+    known.remember(keyHash, Date.now());
+    const quota = limiter.take(`key:${keyHash}`, limits.perKeyPerMinute);
     if (!quota.ok) {
       throw tooManyRequests(c, quota.retryAfter);
     }
@@ -110,7 +196,7 @@ function authenticate(
 /** Access log: method, route, status, duration and clinic. Never bodies or query values. */
 function accessLog(runtime: EngineRuntime): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
-    const requestId = c.req.header('x-request-id') ?? randomUUID();
+    const requestId = requestIdOf(c);
     const log = runtime.logger.child({ requestId });
     c.set('requestId', requestId);
     c.set('log', log);

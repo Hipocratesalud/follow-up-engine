@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import type { ApiKeyScope } from '@follow-up-engine/runtime';
 import type { Context, MiddlewareHandler } from 'hono';
@@ -9,10 +10,11 @@ import { DOCS_UI_SCRIPT } from './openapi.ts';
  * The scope a request needs, from its method and path:
  * `/fhir/*` and `/jobs/*` → `fhir:write` (the host integration);
  * `GET /api/inbox/*` → `inbox:read`, other methods → `inbox:act`;
- * `GET /api/demo/*` → `inbox:read` (the inbox shows the demo clock and
- * webhooks), other methods → `demo` (moving the shared clock, demo
- * consultations). The demo routes check their scope themselves, so with a
- * real clock they stay a plain 404.
+ * `GET /api/demo/clock` → `inbox:read` (the inbox shows the demo date);
+ * the demo webhook feed and moving the shared clock → `demo:clock`;
+ * saving a demo consultation → `demo:ingest` (and the route only accepts
+ * the demo clinic). The demo routes check their scope themselves, so with
+ * a real clock they stay a plain 404.
  */
 export function requiredScope(method: string, path: string): ApiKeyScope | undefined {
   const read = method === 'GET' || method === 'HEAD';
@@ -23,7 +25,10 @@ export function requiredScope(method: string, path: string): ApiKeyScope | undef
     return read ? 'inbox:read' : 'inbox:act';
   }
   if (path.startsWith('/api/demo/')) {
-    return read ? 'inbox:read' : 'demo';
+    if (path.startsWith('/api/demo/consultations')) {
+      return 'demo:ingest';
+    }
+    return read && !path.startsWith('/api/demo/webhooks') ? 'inbox:read' : 'demo:clock';
   }
   return undefined;
 }
@@ -100,12 +105,10 @@ export class RateLimiter {
     return { ok: false, retryAfter: Math.ceil(((1 - bucket.tokens) / perMinute) * 60) };
   }
 
-  /** Like {@link take} without taking: whether a request would be refused now. */
-  check(key: string, perMinute: number): { readonly ok: boolean; readonly retryAfter: number } {
+  /** Gives back a token {@link take} took (the request turned out not to count). */
+  refund(key: string, perMinute: number): void {
     const bucket = this.#refill(key, perMinute);
-    return bucket.tokens >= 1
-      ? { ok: true, retryAfter: 0 }
-      : { ok: false, retryAfter: Math.ceil(((1 - bucket.tokens) / perMinute) * 60) };
+    bucket.tokens = Math.min(perMinute, bucket.tokens + 1);
   }
 
   #refill(key: string, perMinute: number): Bucket {
@@ -150,6 +153,67 @@ export function clientAddress(c: Context): string {
   } catch {
     return 'unknown';
   }
+}
+
+/** A client-chosen request id: a short token, else the API generates one. */
+const REQUEST_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * `X-Request-Id` when it is a short token (`[A-Za-z0-9_-]{1,64}`), else a
+ * new UUID: clients never write free text into the logs.
+ */
+export function requestIdOf(c: Context): string {
+  const given = c.req.header('x-request-id');
+  return given !== undefined && REQUEST_ID.test(given) ? given : randomUUID();
+}
+
+/**
+ * A header value as text. Node reads header bytes as Latin-1 (one character
+ * per byte), so a host that sends UTF-8 ("Médico") arrives as "MÃ©dico":
+ * when the bytes are valid UTF-8 they are decoded as such, otherwise they
+ * stay Latin-1 (a browser sends "é" as the single byte 0xE9).
+ */
+export function decodeHeaderText(raw: string): string {
+  // eslint-disable-next-line no-control-regex -- every character above Latin-1
+  if (/[^\u0000-\u00ff]/.test(raw) || !/[\u0080-\u00ff]/.test(raw)) {
+    return raw;
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(
+      Uint8Array.from(raw, (char) => char.charCodeAt(0)),
+    );
+  } catch {
+    return raw;
+  }
+}
+
+/** Longest `X-FollowUp-User`, in characters. */
+export const MAX_USER_LENGTH = 120;
+/** Letters, marks, digits, punctuation, symbols and plain spaces: no controls, no invisible characters. */
+const PRINTABLE = /^[\p{L}\p{M}\p{N}\p{P}\p{S}\p{Zs}]+$/u;
+
+/**
+ * The clinic user acting, for the audit trail: `X-FollowUp-User`, decoded
+ * as UTF-8, trimmed, at most {@link MAX_USER_LENGTH} printable characters
+ * (400 otherwise); `undefined` when absent or blank.
+ */
+export function followUpUser(c: Context): string | undefined {
+  const raw = c.req.header('x-followup-user');
+  if (raw === undefined) {
+    return undefined;
+  }
+  const user = decodeHeaderText(raw).trim();
+  if (user === '') {
+    return undefined;
+  }
+  if (Array.from(user).length > MAX_USER_LENGTH || !PRINTABLE.test(user)) {
+    throw new HttpError(
+      400,
+      'invalid_request',
+      `El usuario (X-FollowUp-User) debe tener hasta ${String(MAX_USER_LENGTH)} caracteres visibles, sin caracteres de control.`,
+    );
+  }
+  return user;
 }
 
 /** Content-Security-Policy of the JSON and FHIR API: nothing to load, not framable. */

@@ -9,8 +9,10 @@
 --   * Every engine table gets RLS (found in the catalog, not listed by hand).
 --     With no policy, a table is invisible to API roles (internal tables:
 --     jobs, outbox, backfill progress, migrations, API keys). A test
---     (src/rls.test.ts, runs in CI) fails on any table without RLS or with a
---     policy that is not a clinic-scoped read.
+--     (src/rls.test.ts, runs in CI) fails on any table without RLS, on any
+--     policy that is not a read for `authenticated`, and on any table where a
+--     clinic's JWT reads a row of another clinic (checked by actually reading
+--     synthetic rows of two clinics, with broad grants).
 --   * Clinic users read their clinic's rows only: `clinic_id` must equal the
 --     `clinic_id` claim of their JWT (set it with a custom access token hook).
 --   * API roles never write. Writes go through the engine API, which applies

@@ -11,17 +11,47 @@ import type { ClinicId } from '@follow-up-engine/core';
  * - `inbox:read`: read the inbox JSON API (`GET /api/inbox/*`).
  * - `inbox:act`: act from the inbox (`POST /api/inbox/*`: case actions,
  *   feedback, condition review).
- * - `demo`: the demo controls (`POST /api/demo/*`): moving the shared fake
- *   clock affects every clinic of the process, so only the demo operator's
- *   keys get it.
+ * - `demo:clock`: move the shared fake clock (`POST /api/demo/clock/advance`)
+ *   and read the demo webhook feed. The clock is the whole process's: it
+ *   sweeps every clinic, so only the demo operator's keys get it.
+ * - `demo:ingest`: save a demo consultation (`POST /api/demo/consultations`),
+ *   only into the demo clinic and only on a fake clock.
+ *
+ * `demo:*` scopes exist only on a fake clock: with a real clock they are
+ * dropped when a key authenticates.
  */
-export const API_KEY_SCOPES = ['fhir:write', 'inbox:read', 'inbox:act', 'demo'] as const;
+export const API_KEY_SCOPES = [
+  'fhir:write',
+  'inbox:read',
+  'inbox:act',
+  'demo:clock',
+  'demo:ingest',
+] as const;
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];
 
 /** Scopes of a clinic's original key (`clinics.api_key_hash`): the host integration. */
 export const INTEGRATION_SCOPES: readonly ApiKeyScope[] = ['fhir:write', 'inbox:read', 'inbox:act'];
 /** Scopes of a key for the inbox: never `fhir:write`. */
 export const INBOX_SCOPES: readonly ApiKeyScope[] = ['inbox:read', 'inbox:act'];
+/** The demo controls, for the demo clinic's keys on a fake clock. */
+export const DEMO_SCOPES: readonly ApiKeyScope[] = ['demo:clock', 'demo:ingest'];
+
+export function isDemoScope(scope: ApiKeyScope): boolean {
+  return scope.startsWith('demo:');
+}
+
+/**
+ * An API key value that another clinic already holds (as a scoped key,
+ * even revoked, or as its integration key). Key values are unique across
+ * clinics: issuing one never changes another clinic's key.
+ */
+export class ApiKeyConflictError extends Error {
+  override readonly name = 'ApiKeyConflictError';
+
+  constructor() {
+    super('This API key value already belongs to another clinic; use a new random key');
+  }
+}
 
 export function isApiKeyScope(value: string): value is ApiKeyScope {
   return (API_KEY_SCOPES as readonly string[]).includes(value);
@@ -47,10 +77,16 @@ export interface ApiKeyRecord {
 
 /** Scoped API keys (`api_keys`), stored as sha256 hashes. */
 export interface ApiKeyStore {
-  /** Adds a key, or replaces the label and scopes of the same key. */
+  /**
+   * Adds a key, or replaces the label and scopes of the same clinic's key
+   * (and makes it live again). Throws {@link ApiKeyConflictError} when
+   * another clinic holds the hash, revoked or not, and changes nothing.
+   */
   issue(input: ApiKeyRecord & { readonly keyHash: string }): Promise<void>;
   /** The live (not revoked) key with this hash. */
   findByHash(keyHash: string): Promise<ApiKeyRecord | undefined>;
+  /** The clinic that holds this hash, revoked or not. */
+  holderOf(keyHash: string): Promise<ClinicId | undefined>;
   /** Revokes every key of the clinic with this label; returns how many. */
   revoke(clinicId: ClinicId, label: string, at: Date): Promise<number>;
 }
@@ -65,8 +101,22 @@ export class MemoryApiKeyStore implements ApiKeyStore {
 
   issue(input: ApiKeyRecord & { readonly keyHash: string }): Promise<void> {
     const { keyHash, ...record } = input;
-    this.#keys.set(keyHash.toLowerCase(), { ...record, scopes: [...record.scopes] });
+    const hash = keyHash.toLowerCase();
+    const existing = this.#keys.get(hash);
+    if (existing !== undefined && existing.clinicId !== record.clinicId) {
+      return Promise.reject(new ApiKeyConflictError());
+    }
+    // Like the Postgres upsert: the original creation time stays.
+    this.#keys.set(hash, {
+      ...record,
+      createdAt: existing?.createdAt ?? record.createdAt,
+      scopes: [...record.scopes],
+    });
     return Promise.resolve();
+  }
+
+  holderOf(keyHash: string): Promise<ClinicId | undefined> {
+    return Promise.resolve(this.#keys.get(keyHash.toLowerCase())?.clinicId);
   }
 
   findByHash(keyHash: string): Promise<ApiKeyRecord | undefined> {
@@ -110,13 +160,26 @@ export class PostgresApiKeyStore implements ApiKeyStore {
   }
 
   async issue(input: ApiKeyRecord & { readonly keyHash: string }): Promise<void> {
-    await this.#db().query(
-      `INSERT INTO ${this.#table} (key_hash, clinic_id, label, scopes, created_at)
+    // Only the same clinic's key is updated; another clinic's hash is a conflict.
+    const { rowCount } = await this.#db().query(
+      `INSERT INTO ${this.#table} AS k (key_hash, clinic_id, label, scopes, created_at)
        VALUES ($1, $2, $3, $4::text[], $5)
        ON CONFLICT (key_hash) DO UPDATE SET
-         label = EXCLUDED.label, scopes = EXCLUDED.scopes, revoked_at = NULL`,
+         label = EXCLUDED.label, scopes = EXCLUDED.scopes, revoked_at = NULL
+       WHERE k.clinic_id = EXCLUDED.clinic_id`,
       [input.keyHash.toLowerCase(), input.clinicId, input.label, input.scopes, input.createdAt],
     );
+    if (rowCount === 0) {
+      throw new ApiKeyConflictError();
+    }
+  }
+
+  async holderOf(keyHash: string): Promise<ClinicId | undefined> {
+    const { rows } = await this.#db().query<{ clinic_id: string }>(
+      `SELECT clinic_id FROM ${this.#table} WHERE key_hash = $1`,
+      [keyHash.toLowerCase()],
+    );
+    return rows[0]?.clinic_id as ClinicId | undefined;
   }
 
   async findByHash(keyHash: string): Promise<ApiKeyRecord | undefined> {

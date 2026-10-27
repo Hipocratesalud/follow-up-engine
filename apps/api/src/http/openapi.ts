@@ -338,7 +338,8 @@ const OPERATIONS: readonly Operation[] = [
     method: 'post',
     path: '/api/demo/clock/advance',
     tag: 'Demo',
-    summary: 'Advance the fake clock day by day, running the sweeps and delivering webhooks',
+    summary:
+      'Advance the fake clock day by day, running the sweeps and delivering webhooks (demo:clock)',
     body: 'AdvanceClockRequest',
     response: 'DemoClock',
     errors: [404, 422],
@@ -347,7 +348,9 @@ const OPERATIONS: readonly Operation[] = [
     method: 'post',
     path: '/api/demo/consultations',
     tag: 'Demo',
-    summary: 'Build a consultation Bundle, ingest it synchronously, return the extraction',
+    summary:
+      'Build a consultation Bundle, ingest it synchronously, return the extraction ' +
+      '(demo:ingest; demo clinic only)',
     body: 'DemoConsultationRequest',
     response: 'DemoConsultationResponse',
     status: 201,
@@ -357,7 +360,7 @@ const OPERATIONS: readonly Operation[] = [
     method: 'get',
     path: '/api/demo/webhooks',
     tag: 'Demo',
-    summary: 'Webhooks the sink received for this clinic',
+    summary: 'Webhooks the sink received for this clinic (demo:clock)',
     params: [
       { name: 'limit', in: 'query' },
       { name: 'type', in: 'query' },
@@ -368,14 +371,14 @@ const OPERATIONS: readonly Operation[] = [
 ];
 
 const ERROR_DESCRIPTIONS: Readonly<Record<number, string>> = {
-  400: 'Bad request: invalid JSON or Bundle, invalid cursor, control characters in the URL, unsupported or repeated search parameter with handling=strict',
+  400: 'Bad request: invalid JSON or Bundle, invalid cursor, control characters in the URL, invalid X-FollowUp-User, unsupported or repeated search parameter with handling=strict',
   401: 'Missing or invalid API key',
   403: 'The API key lacks the scope this operation needs',
   404: 'Not found',
   409: 'Invalid case transition',
   413: 'Body larger than 5 MB',
   415: 'Unsupported media type',
-  422: 'Validation error',
+  422: 'Validation error: code invalid_request, Spanish message and fields (one per invalid field)',
   429: 'Too many requests for this key (Retry-After)',
   502: 'Upstream (LLM provider or webhook sink) failed',
   503: 'Not ready',
@@ -476,7 +479,13 @@ export function openApiDocument(options: { readonly demo: boolean }): Record<str
     tags: [
       { name: 'FHIR', description: 'HL7 FHIR R4 (application/fhir+json)' },
       { name: 'Inbox', description: 'JSON API of the clinic inbox (Spanish labels)' },
-      { name: 'Demo', description: 'Only when the engine runs on a fake clock' },
+      {
+        name: 'Demo',
+        description:
+          'Only when the engine runs on a fake clock. Scopes: inbox:read reads the clock, ' +
+          'demo:clock moves it and reads the webhook feed, demo:ingest saves demo consultations ' +
+          '(demo clinic only)',
+      },
       { name: 'Jobs', description: 'Asynchronous work the clinic started' },
       { name: 'Health' },
     ],

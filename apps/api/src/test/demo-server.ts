@@ -39,8 +39,8 @@ const server = createApiServer(runtime, { ...loadApiConfig(), embeddedWorker: tr
 const port = await server.listen();
 process.stdout.write(
   `\nDemo clinic keys (synthetic, demo only; refused on a real clock):\n` +
-    `  host integration (fhir:write, inbox, demo): ${apiKey}\n` +
-    `  inbox (inbox:read, inbox:act, demo; no fhir:write): ${inboxApiKey}\n` +
+    `  host integration (fhir:write, inbox, demo:clock, demo:ingest): ${apiKey}\n` +
+    `  inbox (inbox:read, inbox:act, demo:clock, demo:ingest; no fhir:write): ${inboxApiKey}\n` +
     `  VITE_API_URL=http://localhost:${String(port)} VITE_API_KEY=${inboxApiKey} pnpm inbox\n\n`,
 );
 

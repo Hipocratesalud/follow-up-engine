@@ -34,11 +34,14 @@ export {
 } from './runtime.ts';
 export {
   API_KEY_SCOPES,
+  ApiKeyConflictError,
+  DEMO_SCOPES,
   generateApiKey,
   hashApiKey,
   INBOX_SCOPES,
   INTEGRATION_SCOPES,
   isApiKeyScope,
+  isDemoScope,
   type ApiKeyRecord,
   type ApiKeyScope,
   type ApiKeyStore,

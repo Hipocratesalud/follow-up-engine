@@ -575,7 +575,15 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
   app.get('/fhir/Task', async (c) => {
     const ignored = unknownParams(c, TASK_SEARCH_PARAMS);
     const repeated = repeatedParams(c, TASK_SEARCH_PARAMS);
-    const query = TaskPagingSchema.parse(c.req.query());
+    const paging = TaskPagingSchema.safeParse(c.req.query());
+    if (!paging.success) {
+      throw new HttpError(
+        400,
+        'invalid_search',
+        paging.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; '),
+      );
+    }
+    const query = paging.data;
     const patients = searchedPatients(c, ['patient', 'subject']);
     const expectations = (
       await Promise.all(
