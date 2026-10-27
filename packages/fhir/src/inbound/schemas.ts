@@ -239,6 +239,8 @@ export const MedicationRequestSchema = z
       .array(
         z.object({
           text: fhirString.optional(),
+          asNeededBoolean: z.boolean().optional(),
+          asNeededCodeableConcept: CodeableConceptSchema.optional(),
           timing: z
             .object({
               repeat: z
@@ -255,6 +257,7 @@ export const MedicationRequestSchema = z
     dispenseRequest: z
       .object({
         validityPeriod: PeriodSchema.optional(),
+        numberOfRepeatsAllowed: z.number().int().nonnegative().optional(),
         expectedSupplyDuration: DurationSchema.optional(),
       })
       .optional(),
