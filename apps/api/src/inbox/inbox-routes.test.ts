@@ -178,6 +178,15 @@ describe('inbox API on a seeded clinic', () => {
           item.patient.name.toLowerCase().includes(surname.toLowerCase()),
         ),
       ).toBe(true);
+      // The whole name, in any case and without accents, finds it too.
+      const plain = name
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toUpperCase();
+      const byFullName = await h.call<CasePage>(
+        `/api/inbox/cases?view=active&q=${encodeURIComponent(plain)}`,
+      );
+      expect(byFullName.body.items.map((item) => item.patient.id)).toContain(first?.patient.id);
       const byPatient = await h.call<CasePage>(
         `/api/inbox/cases?view=all&patient=${encodeURIComponent(first?.patient.id ?? '')}`,
       );

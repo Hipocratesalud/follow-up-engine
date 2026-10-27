@@ -15,7 +15,7 @@ import {
 import type { EngineRuntime } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { conditionView, InboxPresenter } from '../inbox/presenter.ts';
-import { patientSummary } from '../inbox/fhir-display.ts';
+import { humanName, patientSummary } from '../inbox/fhir-display.ts';
 import { invalidTransitionMessage } from '../inbox/labels.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
@@ -96,6 +96,16 @@ export function latestVerdicts(feedback: readonly CaseFeedback[]): CaseFeedback[
   return [...byCase.values()];
 }
 
+function normalized(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+}
+
+/** Upper bound of patients a name search scans when the store's own match finds nothing. */
+const SEARCH_SCAN_LIMIT = 2_000;
+
 /** Case order of the inbox: priority (highest first), then oldest first. */
 function byPriority(left: FollowUpCase, right: FollowUpCase): number {
   return (
@@ -150,7 +160,24 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     search: string,
     page: { readonly limit: number; readonly cursor?: string | undefined },
   ): Promise<{ items: FollowUpCase[]; total: number; nextCursor?: string }> {
-    const patients = await readModel.searchPatients(clinicId, { query: search, limit: 200 });
+    // Every word must appear in the name or id, ignoring case and accents
+    // ("maria lopez" finds "María de los Ángeles López"). The store narrows
+    // by the longest word; when its own match (accent sensitive in
+    // Postgres) finds nothing, a bounded scan decides.
+    const words = normalized(search).split(/\s+/).filter(Boolean);
+    const longest = [...search.split(/\s+/)].sort((a, b) => b.length - a.length)[0] ?? search;
+    const matches = (record: { id: string; resource: Parameters<typeof humanName>[0] }) => {
+      const haystack = normalized(`${record.id} ${humanName(record.resource) ?? ''}`);
+      return words.every((word) => haystack.includes(word));
+    };
+    let patients = (
+      await readModel.searchPatients(clinicId, { query: longest, limit: SEARCH_SCAN_LIMIT })
+    ).filter(matches);
+    if (patients.length === 0) {
+      patients = (await readModel.searchPatients(clinicId, { limit: SEARCH_SCAN_LIMIT })).filter(
+        matches,
+      );
+    }
     const ids = patients
       .map((record) => toPatientId(record.id))
       .filter((id) => base.patientId === undefined || id === base.patientId);

@@ -103,12 +103,9 @@ export const CaseViewSchema = z
     escalationStep: z.number().int(),
     escalation: EscalationViewSchema,
     assignee: z.string().optional().meta({ description: 'Display name of the owner' }),
-    assigneeId: z
-      .string()
-      .optional()
-      .meta({
-        description: 'Owner id (a practitioner id or a role), as the assignee filter takes it',
-      }),
+    assigneeId: z.string().optional().meta({
+      description: 'Owner id (a practitioner id or a role), as the assignee filter takes it',
+    }),
     origin: OriginSchema,
     openedAt: isoDate,
     nextActionAt: isoDate.optional(),
