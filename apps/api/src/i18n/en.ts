@@ -62,7 +62,7 @@ const RULES: Readonly<Record<string, RuleText>> = {
     action: 'Order an oral glucose tolerance test',
   },
   protocol_pregnancy_postpartum_visit: {
-    reason: 'Postpartum visit due (6 weeks)',
+    reason: 'Postpartum visit due (weeks 3 to 8)',
     action: 'Schedule a postpartum visit',
   },
   protocol_treatment_followup: { reason: 'Treatment follow-up' },

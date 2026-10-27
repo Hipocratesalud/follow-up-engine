@@ -120,7 +120,7 @@ export const EventCorrelationSchema = z.strictObject({
   /**
    * The event counts only from this many days before the expectation's due
    * date (for a booking, its scheduled date): the comprehensive postpartum
-   * visit is due at 6 weeks and counts from week 3, so the early puerperal
+   * visit is due at 8 weeks and counts from week 3, so the early puerperal
    * check a week after the delivery does not fulfill it. Any time after the
    * trigger when absent.
    */

@@ -64,7 +64,7 @@ const RULES: Readonly<Record<string, RuleText>> = {
     action: 'Indicar prueba de tolerancia oral a la glucosa',
   },
   protocol_pregnancy_postpartum_visit: {
-    reason: 'Control posparto pendiente (6 semanas)',
+    reason: 'Control posparto pendiente (semanas 3 a 8)',
     action: 'Agendar control posparto',
   },
   protocol_treatment_followup: { reason: 'Seguimiento de tratamiento' },

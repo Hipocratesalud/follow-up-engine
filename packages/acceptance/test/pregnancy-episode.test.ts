@@ -180,9 +180,11 @@ function pregnancyEpisode(makeHarness: (options: HarnessOptions) => Promise<Engi
       }),
       datedObservation('edd', 0, '11778-8', dayToDate(weekDay(40))),
     ]);
-    for (const week of [14, 18, 22, 26, 28, 30, 32, 34, 36, 38]) {
+    // The last prenatal control is the day of the delivery, 45 minutes
+    // after the noon the note's "12 días" dates it at (pat-0106).
+    for (const week of [14, 18, 22, 26, 28, 30, 32, 34, 36, 38, 39.0045]) {
       await day(harness, weekDay(week), [
-        visit(`prenatal-${String(week)}`, weekDay(week), {
+        visit(`prenatal-${String(Math.floor(week))}`, weekDay(week), {
           specialty: 'gynecology',
           diagnoses: PREGNANCY,
           ...(week === 32
@@ -260,7 +262,7 @@ function pregnancyEpisode(makeHarness: (options: HarnessOptions) => Promise<Engi
     let snapshot = await snapshotPatient(harness, patient);
     const postpartum = live(ofRule(snapshot, POSTPARTUM));
     expect(postpartum.map((expectation) => Math.round(dayOf(expectation.dueAt)))).toEqual([
-      delivery + 42,
+      delivery + 56,
     ]);
     // A visit 5 weeks after the delivery is the postpartum visit.
     await day(harness, delivery + 35, [

@@ -4,7 +4,12 @@ import type { PatientCondition } from '../../domain/condition.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import { closeExpectation } from '../case-manager/reconcile.ts';
 import type { PatientState } from '../patient-state.ts';
-import { itemApplies, protocolEpisode, startsAfter } from '../protocols/episodes.ts';
+import {
+  itemApplies,
+  NEW_EPISODE_MIN_DAYS,
+  protocolEpisode,
+  startsAfter,
+} from '../protocols/episodes.ts';
 import { datingOf } from '../protocols/gestational-age.ts';
 import { encounterOf } from '../timeline.ts';
 import { enrollingConditions, icd10Matches } from './conditions.ts';
@@ -187,7 +192,7 @@ export async function endEpisodes(
     const discharge = episode.outcome === 'discharge';
     if (!discharge) {
       for (const condition of enrollingConditions(protocol, conditions)) {
-        if (startsAfter(condition, closure, state.timeline)) {
+        if (startsAfter(condition, closure, state.timeline, NEW_EPISODE_MIN_DAYS)) {
           continue;
         }
         const next: PatientCondition = { ...condition, status: 'resolved', updatedAt: context.now };
