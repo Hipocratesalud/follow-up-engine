@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, RotateCw, SearchX } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { isApiError } from '../api/client.ts';
+import { messages, useT } from '../i18n/index.ts';
 import { cx } from '../lib/cx.ts';
 import { Button } from './ui.tsx';
 
@@ -10,36 +11,38 @@ import { Button } from './ui.tsx';
  * What the team reads for API errors whose server message is meant for an
  * integrator (a scope name, a byte limit, a pagination cursor).
  */
-const ERROR_COPY: Readonly<Record<string, string>> = {
-  insufficient_scope:
-    'Tu acceso no permite esta acción. Pide a quien administra el consultorio una clave con ese permiso.',
-  rate_limited: 'Demasiadas solicitudes seguidas. Espera unos segundos e intenta de nuevo.',
-  payload_too_large: 'El texto es demasiado largo. Acórtalo e intenta de nuevo.',
-  invalid_cursor: 'La lista cambió mientras la recorrías. Vuelve a la primera página.',
-};
+function errorCopy(code: string): string | undefined {
+  const t = messages();
+  const copy: Readonly<Record<string, string>> = {
+    insufficient_scope: t.errors.insufficientScope,
+    rate_limited: t.errors.rateLimited,
+    payload_too_large: t.errors.payloadTooLarge,
+    invalid_cursor: t.errors.invalidCursor,
+  };
+  return copy[code];
+}
 
-/** 422 codes for an invalid input (`invalid_request` carries Spanish per-field messages). */
+/** 422 codes for an invalid input (`invalid_request` carries localized per-field messages). */
 const VALIDATION_CODES: ReadonlySet<string> = new Set(['invalid_request', 'validation_error']);
-
-/** Shown for an invalid input when the API gave no Spanish message for it. */
-const VALIDATION_FALLBACK = 'Revisa los datos ingresados e intenta de nuevo.';
 
 function isValidationError(error: unknown): boolean {
   return isApiError(error) && VALIDATION_CODES.has(error.code);
 }
 
 export function errorMessage(error: unknown): string {
-  if (!isApiError(error)) return 'Algo salió mal. Intenta de nuevo.';
+  if (!isApiError(error)) return messages().errors.generic;
   if (isValidationError(error)) {
-    // Never the validator's own text (English, field paths): the per-field
-    // Spanish messages, or a generic Spanish line.
-    const messages = error.fields.map((field) => field.message);
-    return messages.length > 0 ? messages.join(' ') : VALIDATION_FALLBACK;
+    // Never the validator's own text (field paths): the API's per-field
+    // messages (in the request's language), or a generic line.
+    const fieldMessages = error.fields.map((field) => field.message);
+    return fieldMessages.length > 0
+      ? fieldMessages.join(' ')
+      : messages().errors.validationFallback;
   }
-  return ERROR_COPY[error.code] ?? error.message;
+  return errorCopy(error.code) ?? error.message;
 }
 
-/** The Spanish message of a 422 for one input (`note`, `q`, `patientName`), to show next to it. */
+/** The API's message of a 422 for one input (`note`, `q`, `patientName`), to show next to it. */
 export function fieldError(error: unknown, path: string): string | undefined {
   if (!isValidationError(error) || !isApiError(error)) return undefined;
   return error.fields.find((field) => field.path === path)?.message;
@@ -53,8 +56,8 @@ function isNotFound(error: unknown): boolean {
 export function NotFoundState({
   title,
   children,
-  backTo = '/bandeja',
-  backLabel = 'Ir a la bandeja',
+  backTo = '/inbox',
+  backLabel,
   heading: Heading = 'h2',
   className,
 }: {
@@ -66,6 +69,7 @@ export function NotFoundState({
   readonly heading?: 'h1' | 'h2';
   readonly className?: string | undefined;
 }): ReactNode {
+  const t = useT();
   return (
     <div
       className={cx(
@@ -85,7 +89,7 @@ export function NotFoundState({
         className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border-strong px-3 text-[13px] font-medium text-fg hover:bg-surface-2"
       >
         <ArrowLeft className="size-3.5" aria-hidden="true" />
-        {backLabel}
+        {backLabel ?? t.common.goToInbox}
       </Link>
     </div>
   );
@@ -100,7 +104,7 @@ export function NotFoundState({
 export function ErrorState({
   error,
   onRetry,
-  title = 'No pudimos cargar esta información',
+  title,
   notFoundTitle,
   notFoundHeading,
   className,
@@ -113,6 +117,7 @@ export function ErrorState({
   readonly notFoundHeading?: 'h1' | 'h2';
   readonly className?: string;
 }): ReactNode {
+  const t = useT();
   const queryClient = useQueryClient();
   function handleRetry(): void {
     onRetry();
@@ -125,7 +130,7 @@ export function ErrorState({
         className={className}
         {...(notFoundHeading ? { heading: notFoundHeading } : {})}
       >
-        Puede que el enlace esté mal o que ya no exista.
+        {t.errors.notFoundBody}
       </NotFoundState>
     );
   }
@@ -141,7 +146,7 @@ export function ErrorState({
         <AlertTriangle className="size-5" aria-hidden="true" />
       </span>
       <div>
-        <p className="font-medium text-fg">{title}</p>
+        <p className="font-medium text-fg">{title ?? t.errors.loadFailed}</p>
         <p className="mt-1 text-sm text-muted">{errorMessage(error)}</p>
       </div>
       <Button
@@ -149,7 +154,7 @@ export function ErrorState({
         icon={<RotateCw className="size-3.5" aria-hidden="true" />}
         onClick={handleRetry}
       >
-        Reintentar
+        {t.common.retry}
       </Button>
     </div>
   );

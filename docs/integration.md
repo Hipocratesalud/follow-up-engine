@@ -48,7 +48,7 @@ DATABASE_URL=... pnpm --filter @follow-up-engine/api clinic:create \
   --id clinica-ejemplo --label inbox --scopes inbox:read,inbox:act   # another key, same clinic
 ```
 
-`--id` defaults to a slug of `--name`; giving the id of an existing clinic adds a key (and updates the name when given). `--label` names the key (default `integration`); `--revoke <label>` revokes the clinic's keys with that label. Run `--help` for the rest (`--allow-patient-contact`, `--timezone`).
+`--id` defaults to a slug of `--name`; giving the id of an existing clinic adds a key (and updates the name when given). `--label` names the key (default `integration`); `--revoke <label>` revokes the clinic's keys with that label. `--locale <bcp47>` sets the clinic's locale (`ClinicSettings.locale`, default `en-US`; `--locale es-VE` for a Spanish-speaking team, also on an existing clinic): the language of the inbox labels when the user's browser asks for none the engine has, and of the clinical reviewer's findings (see [Languages](#languages)). Run `--help` for the rest (`--allow-patient-contact`, `--timezone`, `--escalation-policy`, `--protocols`).
 
 ### Scopes
 
@@ -74,7 +74,20 @@ Inbox actions (notify, snooze, resolve, feedback, confirming or rejecting a cond
 
 Each key may make 600 requests per minute (`429` with `Retry-After` beyond that, per API process). Requests with a missing or wrong key are limited per client address (60 per minute): past the limit they get `429`, and a key the API has not seen in the last 10 minutes reaches the key lookup one at a time per address, in arrival order. Only failed attempts count, and a valid key is not refused because of them: it waits for the lookups ahead of it (milliseconds each) and is served, so a client guessing keys behind the same proxy as the host never locks the host out. Only when more than 16 requests from one address already wait for a lookup is the next one refused (`429`) without reaching the database. `X-Request-Id` is echoed when it is 1 to 64 characters of `A-Z a-z 0-9 _ -`; anything else is replaced by a generated id. Request bodies are at most 5 MB (`413`, readable by the browsers in `CORS_ORIGINS`).
 
-Errors of the JSON API (`/api/*`) are `{ "error": { "code", "message" } }`, with `message` in Spanish, ready to show to the clinic team. A request that breaks the validation rules is `422` with `code: "invalid_request"` and `fields`, one entry per invalid field: `{ "path": "note", "message": "Debe tener como máximo 2000 caracteres." }`.
+Errors of the JSON API (`/api/*`) are `{ "error": { "code", "message" } }`, with `message` ready to show to the clinic team, in the language of the request (below). A request that breaks the validation rules is `422` with `code: "invalid_request"` and `fields`, one entry per invalid field: `{ "path": "note", "message": "Must have at most 2000 characters." }` (`"Debe tener como máximo 2000 caracteres."` with `Accept-Language: es`).
+
+### Languages
+
+Four languages are independent ([ADR 0007](adr/0007-language-model.md)):
+
+| Whose          | Where it comes from                                                                                                | What it decides                                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The inbox user | `Accept-Language` of each request (the inbox sends the language picked in its switch)                              | Every label and message of `/api/*`: reasons, timeline, escalation steps, contact outcomes, errors, validation messages. `en` and `es` today. Answered in `Content-Language`. |
+| The clinic     | `ClinicSettings.locale` (BCP-47, default `en-US`; `clinic:create --locale`)                                        | The fallback when the user's `Accept-Language` names no language the engine has; the language the clinical reviewer writes its findings in.                                   |
+| The patient    | `Patient.communication` (the `preferred` one first; a `urn:ietf:bcp:47` coding, e.g. `es-VE`)                      | Forwarded on every contact request (`language` of `patient_contact.requested`, `CommunicationRequest.language`): **the host writes its message in that language.**            |
+| The note       | `DocumentReference.language` (or its attachment's `language`, `Composition.language`), else detected from the text | Which lexicons the extractor's deterministic checks use (negation, discharge, timing, test names). The note is never translated: quotes stay verbatim.                        |
+
+Clinical content is never translated in any direction: note text, evidence quotes, the host's own displays (`code.text` of an order) and names are returned as written. A Spanish-speaking patient of an English-speaking clinic, seen through Spanish notes, is the normal case.
 
 ## 2. Sending a consultation
 
@@ -84,7 +97,7 @@ Errors of the JSON API (`/api/*`) are `{ "error": { "code", "message" } }`, with
 
 | Host record (Hipócrates)                 | FHIR resource                          | Notes                                                                                                                                                   |
 | ---------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Paciente                                 | `Patient`                              | Send it with the patient's first consultation, and again when demographics change. `id` = the host's patient id.                                        |
+| Paciente                                 | `Patient`                              | Send it with the patient's first consultation, and again when demographics change. `id` = the host's patient id; `communication` = preferred language.  |
 | Consulta (finalizada)                    | `Encounter` `status: finished`         | `serviceType` = specialty code (`diabetology`, `psychology`, ...), `participant` = the treating `Practitioner`, `period` = when it happened.            |
 | Nota de la consulta (evolución, informe) | `DocumentReference` (or `Composition`) | Note text in `content[0].attachment.data` (base64, `text/plain; charset=utf-8`), `context.encounter` = the consultation.                                |
 | Orden de laboratorio / imagen            | `ServiceRequest` `status: active`      | LOINC `code`, SNOMED `category` (`108252007` laboratory, `363679005` imaging), `encounter`.                                                             |
@@ -597,7 +610,7 @@ The case moved along its escalation policy. `default_v1`: notify the owner at da
 
 ### `patient_contact.requested`
 
-The engine (escalation policy) or a clinic user ("Pedir contacto" in the inbox) asks the host to message the patient: one contact attempt, a FHIR `CommunicationRequest` (`communicationRequest`, readable with `GET /fhir/CommunicationRequest/<id>`). Only sent when the clinic allows patient contact (`ClinicSettings.allowPatientContact`), the patient has not opted out and their number is not flagged as wrong; automatic messages are capped at one per patient every 14 days, whatever the number of cases. `channel` is the policy's hint (`whatsapp`, `sms`, `email`), absent when the host chooses; `attempt` counts the attempts of the case; `dueBy` is when the attempt counts as unanswered. Calls are not sent: they are tasks for the clinic team in the inbox.
+The engine (escalation policy) or a clinic user ("Ask for contact" in the inbox) asks the host to message the patient: one contact attempt, a FHIR `CommunicationRequest` (`communicationRequest`, readable with `GET /fhir/CommunicationRequest/<id>`). Only sent when the clinic allows patient contact (`ClinicSettings.allowPatientContact`), the patient has not opted out and their number is not flagged as wrong; automatic messages are capped at one per patient every 14 days, whatever the number of cases. `channel` is the policy's hint (`whatsapp`, `sms`, `email`), absent when the host chooses; `attempt` counts the attempts of the case; `dueBy` is when the attempt counts as unanswered. `language` is the patient's preferred language (BCP-47, from `Patient.communication`), or `null` when the host never stated one: **write the message in that language**, and in the clinic's own language when it is `null`. Calls are not sent: they are tasks for the clinic team in the inbox.
 
 ```json
 {
@@ -612,17 +625,18 @@ The engine (escalation policy) or a clinic user ("Pedir contacto" in the inbox) 
     "dueBy": "2026-02-11T12:00:00.000Z",
     "channel": "whatsapp",
     "attempt": 1,
+    "language": "es-VE",
     "task": "Task/8c0d6b4e-6f43-4a8e-9a55-1f0c3a2b7d10",
     "communicationRequest": "CommunicationRequest/7b0d3f52-2c1e-4f7a-9b6d-1e2f3a4b5c6d"
   }
 }
 ```
 
-`purpose` is one of `schedule_follow_up`, `complete_pending_test`, `review_results`, `medication_review`. The host turns it into its own generic message ("Hola, Ana. Tienes un control pendiente con tu equipo de salud. Responde este mensaje para agendar tu cita.") on its own channel (WhatsApp for Hipócrates). Never put clinical content in the message.
+`purpose` is one of `schedule_follow_up`, `complete_pending_test`, `review_results`, `medication_review`. The host turns it into its own generic message, in `language`, on its own channel (WhatsApp for Hipócrates): "Hola, Ana. Tienes un control pendiente con tu equipo de salud. Responde este mensaje para agendar tu cita." for `es-VE`, "Hi Ana, you have a pending check-up with your care team. Reply to this message to book your visit." for `en`. Never put clinical content in the message.
 
 ### `contact.outcome_recorded`
 
-A clinic user recorded what came of a call ("Llamar al paciente" in the inbox). Sent because the host owns the patient's contact data and its own reminders: a `wrong_number` means the phone number needs fixing (send the `Patient` again with the corrected `telecom` and the engine trusts it again), `booked` or `declined` mean the host should not keep messaging about it. Outcomes the host itself reported are not echoed back. Codes and links only; `GET /fhir/Communication/<id>` has the rest.
+A clinic user recorded what came of a call ("Call the patient" in the inbox). Sent because the host owns the patient's contact data and its own reminders: a `wrong_number` means the phone number needs fixing (send the `Patient` again with the corrected `telecom` and the engine trusts it again), `booked` or `declined` mean the host should not keep messaging about it. Outcomes the host itself reported are not echoed back. Codes and links only; `GET /fhir/Communication/<id>` has the rest.
 
 ```json
 {
@@ -675,7 +689,7 @@ The initial scan of the clinic's history finished. Counters only: how much histo
     "runId": "backfill-2026-01-05",
     "shadow": false,
     "patientsScanned": 148,
-    "eventsProcessed": 6291,
+    "eventsProcessed": 6439,
     "documentsProcessed": 867,
     "expectationsCreated": 2713,
     "expectationsFulfilled": 2055,
@@ -892,7 +906,7 @@ A `basedOn` that is not a `CommunicationRequest` of the clinic (another clinic's
 }
 ```
 
-**Wrong number.** The message could not reach the patient: a `not-done` `Communication` with the outcome in `statusReason` (or the extension). The engine flags the contact data and puts "Llamar al paciente" in the inbox at once.
+**Wrong number.** The message could not reach the patient: a `not-done` `Communication` with the outcome in `statusReason` (or the extension). The engine flags the contact data and puts "Call the patient" in the inbox at once.
 
 ```json
 {
@@ -913,7 +927,7 @@ A `basedOn` that is not a `CommunicationRequest` of the clinic (another clinic's
 }
 ```
 
-**A call the team made.** Calls are inbox tasks, never webhooks. When the team records the call ("Contestó y agendó", "Contestó, se atiende en otro lado", "No contestó", "Número equivocado", "No quiere seguimiento"), the engine stores it as a `Communication` (medium phone, `sender` the user), reacts as to any other outcome and sends [`contact.outcome_recorded`](#contactoutcome_recorded); `GET /fhir/Communication/<id>` returns it.
+**A call the team made.** Calls are inbox tasks, never webhooks. When the team records the call ("Answered and booked", "Answered, treated elsewhere", "No answer", "Wrong number", "Declined follow-up"), the engine stores it as a `Communication` (medium phone, `sender` the user), reacts as to any other outcome and sends [`contact.outcome_recorded`](#contactoutcome_recorded); `GET /fhir/Communication/<id>` returns it.
 
 What the engine does after each WhatsApp of `default_v2`, if nobody acts on the case in between:
 

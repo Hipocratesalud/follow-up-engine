@@ -34,5 +34,6 @@ export * from './engine/index.ts';
 export type * from './shared/brand.ts';
 export type * from './shared/json.ts';
 export * from './shared/duration.ts';
+export * from './shared/language.ts';
 export { SystemClock } from './clock/system-clock.ts';
 export { FakeClock, InvalidInstantError } from './clock/fake-clock.ts';

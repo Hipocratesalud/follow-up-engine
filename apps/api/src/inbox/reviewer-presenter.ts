@@ -16,7 +16,7 @@ import type {
   TrendView,
 } from '../http/reviewer-schemas.ts';
 import { patientSummary } from './fhir-display.ts';
-import { reviewerLabels } from './reviewer-labels.ts';
+import type { ApiMessages } from '../i18n/index.ts';
 import { icd10Label } from './terminology.ts';
 
 const TREND_CATEGORIES: ReadonlySet<FindingCategory> = new Set([
@@ -43,10 +43,12 @@ export class FindingPresenter {
   readonly #runtime: EngineRuntime;
   readonly #clinicId: ClinicId;
   readonly #patients = new Map<string, Promise<PatientContext>>();
+  readonly #t: ApiMessages;
 
-  constructor(runtime: EngineRuntime, clinicId: ClinicId) {
+  constructor(runtime: EngineRuntime, clinicId: ClinicId, t: ApiMessages) {
     this.#runtime = runtime;
     this.#clinicId = clinicId;
+    this.#t = t;
   }
 
   #context(patientId: PatientId): Promise<PatientContext> {
@@ -80,17 +82,21 @@ export class FindingPresenter {
         }
       }
     }
-    const dossier = buildDossier({
-      clinicId,
-      patientId,
-      now,
-      events,
-      conditions: [],
-      liveExpectations: [],
-      activeCases: [],
-      components,
-    });
-    const summary = patientSummary(patientId, patient?.resource, now);
+    const dossier = buildDossier(
+      {
+        clinicId,
+        patientId,
+        now,
+        events,
+        conditions: [],
+        liveExpectations: [],
+        activeCases: [],
+        components,
+      },
+      // Document titles and result lines in the request's language.
+      this.#t.locale,
+    );
+    const summary = patientSummary(this.#t, patientId, patient?.resource, now);
     return {
       summary: {
         id: summary.id,
@@ -100,7 +106,10 @@ export class FindingPresenter {
       },
       dossier,
       labels: new Map(
-        expectations.map((expectation) => [expectation.id, expectation.reason.label]),
+        expectations.map((expectation) => [
+          expectation.id,
+          this.#t.rules[expectation.reason.code]?.reason ?? expectation.reason.label,
+        ]),
       ),
     };
   }
@@ -119,11 +128,11 @@ export class FindingPresenter {
         title:
           citation.kind === 'condition'
             ? // The clinic's name of the diagnosis; the quote stays the host's own text.
-              icd10Label(citation.quote.split(' ')[0] ?? '', document?.title)
+              icd10Label(this.#t, citation.quote.split(' ')[0] ?? '', document?.title)
             : (document?.title ??
               (citation.kind === 'note'
-                ? reviewerLabels.noteFallbackTitle
-                : reviewerLabels.recordFallbackTitle)),
+                ? this.#t.reviewer.noteFallbackTitle
+                : this.#t.reviewer.recordFallbackTitle)),
         ...(document?.specialty === undefined ? {} : { specialty: document.specialty }),
         ...(citation.kind === 'note' && document !== undefined ? { text: document.text } : {}),
       };
@@ -131,7 +140,7 @@ export class FindingPresenter {
     const trend = TREND_CATEGORIES.has(finding.category)
       ? this.#trend(finding, context)
       : undefined;
-    const copy = reviewerLabels.categories[finding.category];
+    const copy = this.#t.reviewer.categories[finding.category];
     return {
       id: finding.id,
       patient: context.summary,
@@ -149,7 +158,7 @@ export class FindingPresenter {
         label:
           coverage.kind === 'expectation'
             ? (context.labels.get(coverage.id) ?? coverage.code)
-            : reviewerLabels.activeCase,
+            : this.#t.reviewer.activeCase,
       })),
       citations,
       ...(trend === undefined ? {} : { trend }),

@@ -13,7 +13,12 @@ import {
   writtenDays,
   type OutcomeMention,
 } from './pregnancy-signals.ts';
-import { readNoteDateFromMessages, readNoteFromMessages } from './prompt.ts';
+import { detectNoteLanguage, lexiconLanguage, type LexiconLanguage } from './language.ts';
+import {
+  readNoteDateFromMessages,
+  readNoteFromMessages,
+  readNoteLanguageFromMessages,
+} from './prompt.ts';
 import { createQuoteIndex } from './quote.ts';
 import type {
   ModelCondition,
@@ -29,14 +34,18 @@ import {
   UNIT_WORDS,
   clauseBoundsAround,
   conditionContext,
+  englishKindPattern,
   findDischarge,
   isConditional,
+  isForwardEnglishInterval,
   isNegatedMention,
   looksLikeMeasurement,
+  numberWords,
   parseAmount,
   segmentAround,
   statedTiming,
   statesSuspension,
+  unitOf,
 } from './signals.ts';
 
 /**
@@ -235,9 +244,191 @@ const VISIT_DESCRIPTION =
   /\b(?:acude|acudio|asiste|asistio|viene|vino|consulta por|motivo)\b|\b(?:sesion|consulta|cita|control) de\b|\bde (?:control|seguimiento|sesion)\b/;
 
 /** Whether a frequency word in this list item is a dosing schedule or describes today's visit. */
-function notAPlanFrequency(segment: string): boolean {
-  return DOSE.test(segment) || VISIT_DESCRIPTION.test(segment);
+function notAPlanFrequency(segment: string, lang: LexiconLanguage): boolean {
+  return lang === 'en'
+    ? EN_DOSE.test(segment) || EN_VISIT_DESCRIPTION.test(segment)
+    : DOSE.test(segment) || VISIT_DESCRIPTION.test(segment);
 }
+// ---------------------------------------------------------------- English notes
+
+const EN_CONDITION_PATTERNS: readonly ConditionPattern[] = [
+  {
+    pattern: /\b(prediabetes|pre-diabetes|pre diabetes|prediabetic|impaired fasting glucose)\b/,
+    icd10: 'R73.03',
+    display: 'prediabetes',
+  },
+  { pattern: /\b(gestational diabetes|gdm)\b/, icd10: 'O24', display: 'gestational diabetes' },
+  {
+    pattern:
+      /\b(t2dm|t2d|dm ?2|dm ?ii|type 2 diabetes mellitus|type 2 diabetes|type ii diabetes|diabetes mellitus type 2|diabetes type 2|diabetes|dm)\b/,
+    icd10: 'E11',
+    display: 'type 2 diabetes mellitus',
+  },
+  { pattern: /\b(htn|hypertension)\b/, icd10: 'I10', display: 'essential hypertension' },
+  { pattern: /\b(hypothyroidism|hypothyroid)\b/, icd10: 'E03', display: 'hypothyroidism' },
+  {
+    pattern: /\b(hyperlipidemia|hld|dyslipidemia|hypercholesterolemia|high cholesterol)\b/,
+    icd10: 'E78',
+    display: 'hyperlipidemia',
+  },
+  { pattern: /\b(asthma)\b/, icd10: 'J45', display: 'asthma' },
+  { pattern: /\b(copd)\b/, icd10: 'J44', display: 'COPD' },
+  { pattern: /\b(ckd|chronic kidney disease)\b/, icd10: 'N18', display: 'chronic kidney disease' },
+  { pattern: /\b(atrial fibrillation|afib|a-fib)\b/, icd10: 'I48', display: 'atrial fibrillation' },
+  { pattern: /\b(heart failure|chf|hfref|hfpef)\b/, icd10: 'I50', display: 'heart failure' },
+  {
+    pattern:
+      /\b(mdd,? recurrent|recurrent major depressive disorder|major depressive disorder,? recurrent|recurrent depression)\b/,
+    icd10: 'F33',
+    display: 'recurrent depressive disorder',
+  },
+  {
+    pattern: /\b(major depressive disorder(?!,? recurrent)|mdd(?!,? recurrent)|depression)\b/,
+    icd10: 'F32',
+    display: 'depressive episode',
+  },
+  {
+    pattern: /\b(generalized anxiety disorder|gad|anxiety disorder)\b/,
+    icd10: 'F41',
+    display: 'anxiety disorder',
+  },
+  { pattern: /\b(obesity)\b/, icd10: 'E66', display: 'obesity' },
+  { pattern: /\b(low back pain|lbp)\b/, icd10: 'M54', display: 'low back pain' },
+  { pattern: /\b(knee osteoarthritis|knee oa)\b/, icd10: 'M17', display: 'knee osteoarthritis' },
+  {
+    pattern: /\b(bph|benign prostatic hyperplasia)\b/,
+    icd10: 'N40',
+    display: 'benign prostatic hyperplasia',
+  },
+  {
+    pattern: /\b(iron deficiency anemia|iron deficiency)\b/,
+    icd10: 'D50',
+    display: 'iron deficiency anemia',
+  },
+  { pattern: /(?<!deficiency )\b(anemia)\b/, icd10: 'D64', display: 'anemia' },
+  {
+    pattern: /\b(uti|urinary tract infection)\b/,
+    icd10: 'N39',
+    display: 'urinary tract infection',
+  },
+  { pattern: /\b(migraine|migraines)\b/, icd10: 'G43', display: 'migraine' },
+  { pattern: /\b(gerd|acid reflux)\b/, icd10: 'K21', display: 'GERD' },
+  { pattern: /\b(osteoporosis)\b/, icd10: 'M81', display: 'osteoporosis' },
+  { pattern: /\b(adjustment disorder)\b/, icd10: 'F43', display: 'adjustment disorder' },
+  {
+    pattern: /\b(upper respiratory infection|upper respiratory tract infection|uri)\b/,
+    icd10: 'J06',
+    display: 'acute upper respiratory infection',
+  },
+  {
+    pattern: /\b(uterine fibroids?|fibroids?|leiomyoma)\b/,
+    icd10: 'D25',
+    display: 'uterine leiomyoma',
+  },
+  {
+    pattern: /\b(menorrhagia|heavy menstrual bleeding)\b/,
+    icd10: 'N92',
+    display: 'excessive menstruation',
+  },
+  { pattern: /\b(pregnancy|pregnant)\b/, icd10: 'Z34', display: 'pregnancy supervision' },
+  { pattern: /\b(postpartum)\b/, icd10: 'Z39', display: 'postpartum care' },
+  {
+    pattern: /\b(miscarriage|spontaneous abortion|pregnancy loss)\b/,
+    icd10: 'O03',
+    display: 'spontaneous abortion',
+  },
+];
+
+const EN_KIND_PATTERNS: readonly (readonly [PlanItemKind, RegExp])[] = (
+  ['lab', 'imaging', 'session', 'follow_up_visit', 'other'] as const
+).map((kind) => [kind, englishKindPattern(kind)] as const);
+
+/** "every 6 months", "q3 months", "in 2 weeks", "3 months" (bare, unless a duration or the past). */
+const EN_TIMING_UNIT = String.raw`(days|day|weeks|week|wks|wk|months|month|mos|mo|years|year|yrs|yr)`;
+const EN_RELATIVE_TIMING = new RegExp(
+  String.raw`\b(?:(?:in|within|every|q|after)\s?)?(\d+|${numberWords('en').join('|')})\s?-?\s?${EN_TIMING_UNIT}\b`,
+  'g',
+);
+const EN_NEXT_TIMING = /\bnext (month|week|year)\b/g;
+const EN_PERIODIC_TIMING =
+  /\b(weekly|biweekly|monthly|bimonthly|quarterly|semiannually|semiannual|biannually|annually|annual|yearly)\b/g;
+const EN_PERIODIC_INTERVALS: Readonly<Record<string, { amount: number; unit: TimeUnit }>> = {
+  weekly: { amount: 1, unit: 'week' },
+  biweekly: { amount: 2, unit: 'week' },
+  monthly: { amount: 1, unit: 'month' },
+  bimonthly: { amount: 2, unit: 'month' },
+  quarterly: { amount: 3, unit: 'month' },
+  semiannual: { amount: 6, unit: 'month' },
+  semiannually: { amount: 6, unit: 'month' },
+  biannually: { amount: 6, unit: 'month' },
+  annual: { amount: 1, unit: 'year' },
+  annually: { amount: 1, unit: 'year' },
+  yearly: { amount: 1, unit: 'year' },
+};
+const EN_MONTH = String.raw`(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)`;
+const EN_NAMED_DATE = new RegExp(
+  String.raw`\b(?:${EN_MONTH}\.? \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?|\d{1,2}(?:st|nd|rd|th)? (?:of )?${EN_MONTH}(?:,? \d{4})?)\b`,
+  'g',
+);
+/** "before the next visit", "at next appt": due with the next visit. */
+const EN_WITH_NEXT_VISIT =
+  /\b(?:before|by|at|for|prior to|with) (?:the |her |his |their )?next (?:visit|appointment|appt|f\/u|follow-up|follow up|followup|office visit)\b/g;
+const EN_SEGMENT_BREAK = /(?<!\d),|,(?!\d)|\b(?:and|but|although)\b/g;
+const EN_DOSE = /\d ?(?:mg|mcg|ug|g|iu|units?|ml|drops?|puffs?|tabs?|tablets?|caps?|capsules?)\b/;
+/** Today's visit, not the next one: "here for annual physical", "presents for f/u". */
+const EN_VISIT_DESCRIPTION =
+  /\b(?:presents?|presented|here|comes?|came|seen|returns?|returned)\s+(?:for|today|with)\b|\b(?:cc|chief complaint|reason for visit)\b|\b(?:visit|exam|physical|wellness visit) today\b|\btoday'?s? (?:visit|exam)\b/;
+const EN_MEDICATION =
+  /\b([a-z]{4,}) (\d+(?:\.\d+)?) ?(mg|mcg|ug|g|iu|units|ml|puffs?)\b(?!\s*\/\s*(?:dl|l|ul|mm3))(?:.*?)(?= and |[;,\n]|\.(?!\d)|$)/g;
+const EN_DURATION = new RegExp(
+  String.raw`\b(?:for|x) (\d+|${numberWords('en').join('|')}) (days|day|weeks|week|wks|months|month)\b`,
+);
+const EN_NOT_DRUGS = new Set([
+  'dose',
+  'glucose',
+  'sugar',
+  'cholesterol',
+  'triglycerides',
+  'hemoglobin',
+  'hematocrit',
+  'creatinine',
+  'ferritin',
+  'fasting',
+  'prior',
+  'current',
+  'weight',
+  'potassium',
+  'sodium',
+]);
+const EN_HAS_PLAN = /\b(plan|a\/p|follow[- ]?up|f\/u|rtc|return|recheck)\b/;
+
+/** How a timing phrase was written, for {@link timingPhrases}. */
+interface TimingLexicon {
+  readonly relative: RegExp;
+  readonly next: RegExp;
+  readonly periodic: RegExp;
+  readonly periodicIntervals: Readonly<Record<string, { amount: number; unit: TimeUnit }>>;
+  readonly namedDate: RegExp;
+  readonly withNextVisit: RegExp;
+}
+
+const ES_TIMING: TimingLexicon = {
+  relative: RELATIVE_TIMING,
+  next: NEXT_TIMING,
+  periodic: PERIODIC_TIMING,
+  periodicIntervals: PERIODIC_INTERVALS,
+  namedDate: NAMED_DATE,
+  withNextVisit: WITH_NEXT_VISIT,
+};
+const EN_TIMING: TimingLexicon = {
+  relative: EN_RELATIVE_TIMING,
+  next: EN_NEXT_TIMING,
+  periodic: EN_PERIODIC_TIMING,
+  periodicIntervals: EN_PERIODIC_INTERVALS,
+  namedDate: EN_NAMED_DATE,
+  withNextVisit: EN_WITH_NEXT_VISIT,
+};
+
 /** Fewest letters and digits a plan quote needs (the post-checks reject shorter ones). */
 const MIN_QUOTE_ALNUM = 4;
 
@@ -252,20 +443,32 @@ function sentences(normalized: string): { text: string; start: number }[] {
 
 /**
  * Runs the rule-based extraction on a note. `noteDay` (`YYYY-MM-DD`) dates
- * a written day without a year ("el 15 de julio"). Linear in the note length.
+ * a written day without a year ("el 15 de julio"). `language` (BCP-47)
+ * picks the lexicons; absent, the note's language is detected. English
+ * notes are read with the English lexicons; any other language with the
+ * Spanish ones. Linear in the note length.
  */
-export function heuristicExtraction(note: string, noteDay?: string): ModelExtraction {
+export function heuristicExtraction(
+  note: string,
+  noteDay?: string,
+  language?: string,
+): ModelExtraction {
+  const lang = lexiconLanguage(language ?? detectNoteLanguage(note));
   const index = createQuoteIndex(note);
   const normalized = index.normalized.text;
   const quoteOf = (start: number, end: number): string => index.spanOf(start, end)?.text ?? '';
 
   const conditions: ModelCondition[] = [];
-  for (const { pattern, icd10, display } of CONDITION_PATTERNS) {
+  for (const { pattern, icd10, display } of lang === 'en'
+    ? EN_CONDITION_PATTERNS
+    : CONDITION_PATTERNS) {
     const global = new RegExp(pattern.source, 'g');
     for (const match of normalized.matchAll(global)) {
       const end = match.index + match[0].length;
-      if (isNegatedMention(normalized, match.index, end)) continue;
-      if (conditionContext(normalized, match.index, end, icd10.slice(0, 3)) !== undefined) continue;
+      if (isNegatedMention(normalized, match.index, end, lang)) continue;
+      if (conditionContext(normalized, match.index, end, icd10.slice(0, 3), lang) !== undefined) {
+        continue;
+      }
       conditions.push({
         icd10,
         display,
@@ -277,16 +480,22 @@ export function heuristicExtraction(note: string, noteDay?: string): ModelExtrac
   }
 
   const medications: ModelMedication[] = [];
-  for (const match of normalized.matchAll(MEDICATION)) {
+  const medication = lang === 'en' ? EN_MEDICATION : MEDICATION;
+  const notDrugs = lang === 'en' ? EN_NOT_DRUGS : NOT_DRUGS;
+  const durationPattern = lang === 'en' ? EN_DURATION : DURATION;
+  for (const match of normalized.matchAll(medication)) {
     const drug = match[1] ?? '';
-    if (NOT_DRUGS.has(drug) || looksLikeMeasurement(match[0])) continue;
+    if (notDrugs.has(drug) || looksLikeMeasurement(match[0], lang)) continue;
     const quote = quoteOf(match.index, match.index + match[0].length).trim();
-    const duration = DURATION.exec(match[0]);
+    const duration = durationPattern.exec(match[0]);
     medications.push({
       text: quote,
       duration:
         duration?.[1] && duration[2]
-          ? { amount: parseAmount(duration[1]), unit: UNIT_WORDS[duration[2]] ?? 'day' }
+          ? {
+              amount: parseAmount(duration[1], lang),
+              unit: (lang === 'en' ? unitOf(duration[2], 'en') : UNIT_WORDS[duration[2]]) ?? 'day',
+            }
           : null,
       evidenceQuote: quote,
     });
@@ -294,15 +503,17 @@ export function heuristicExtraction(note: string, noteDay?: string): ModelExtrac
 
   const planItems: ModelPlanItem[] = [];
   for (const sentence of sentences(normalized)) {
-    planItems.push(...sentencePlanItems(sentence, noteDay, quoteOf));
+    planItems.push(...sentencePlanItems(sentence, noteDay, quoteOf, lang));
   }
 
-  const pregnancy = noteDay === undefined ? null : readPregnancy(normalized, noteDay, quoteOf);
-  const discharge = findDischarge(normalized);
+  // Pregnancy dating and outcomes are read in Spanish notes only (their lexicon is Spanish).
+  const pregnancy =
+    noteDay === undefined || lang === 'en' ? null : readPregnancy(normalized, noteDay, quoteOf);
+  const discharge = findDischarge(normalized, lang);
   const hasPlan =
     planItems.length > 0 ||
     discharge !== undefined ||
-    /\b(plan|indicaciones|ctrl|control)\b/.test(normalized);
+    (lang === 'en' ? EN_HAS_PLAN : /\b(plan|indicaciones|ctrl|control)\b/).test(normalized);
   return {
     hasPlan,
     discharge: discharge ? { evidenceQuote: quoteOf(discharge.start, discharge.end) } : null,
@@ -407,28 +618,49 @@ interface TimingPhrase {
   readonly periodic: boolean;
 }
 
-function timingPhrases(text: string, noteDay: string | undefined): TimingPhrase[] {
+function timingPhrases(
+  text: string,
+  noteDay: string | undefined,
+  lang: LexiconLanguage,
+): TimingPhrase[] {
+  const lexicon = lang === 'en' ? EN_TIMING : ES_TIMING;
   const found: TimingPhrase[] = [];
   const push = (match: RegExpExecArray, timing: ModelPlanItem['timing'], periodic = false) => {
     found.push({ start: match.index, end: match.index + match[0].length, timing, periodic });
   };
-  for (const match of text.matchAll(RELATIVE_TIMING)) {
+  for (const match of text.matchAll(lexicon.relative)) {
     const [, amount = '', unit = ''] = match;
-    push(match, { amount: parseAmount(amount), unit: UNIT_WORDS[unit] ?? 'day', date: null });
+    // English intervals may be bare ("f/u 3 months"); a bare one must look forward.
+    const anchored = /^(?:in|within|every|q|after)/.test(match[0]);
+    if (
+      lang === 'en' &&
+      !anchored &&
+      !isForwardEnglishInterval(text, match.index, match.index + match[0].length)
+    ) {
+      continue;
+    }
+    push(match, {
+      amount: parseAmount(amount, lang),
+      unit: (lang === 'en' ? unitOf(unit, 'en') : UNIT_WORDS[unit]) ?? 'day',
+      date: null,
+    });
   }
-  for (const match of text.matchAll(NEXT_TIMING)) {
+  for (const match of text.matchAll(lexicon.next)) {
     const phrase = match[1] ?? '';
-    const unit: TimeUnit = phrase.includes('semana')
-      ? 'week'
-      : phrase.includes('ano')
-        ? 'year'
-        : 'month';
+    const unit: TimeUnit =
+      phrase.includes('semana') || phrase.includes('week')
+        ? 'week'
+        : phrase.includes('ano') || phrase.includes('year')
+          ? 'year'
+          : 'month';
     push(match, { amount: 1, unit, date: null });
   }
   for (const match of text.matchAll(ABSOLUTE_DATE)) {
     // "FUM 03/04/2026", "FPP 10/01/2027": the pregnancy's dates, not a follow-up's.
-    if (isDatingDate(text, match.index)) continue;
-    const [, d = '', m = '', y = ''] = match;
+    if (lang === 'es' && isDatingDate(text, match.index)) continue;
+    const [, first = '', second = '', y = ''] = match;
+    // Spanish notes write dd/mm/yyyy; English (US) notes mm/dd/yyyy.
+    const [d, m] = lang === 'en' ? [second, first] : [first, second];
     push(match, {
       amount: null,
       unit: null,
@@ -436,14 +668,14 @@ function timingPhrases(text: string, noteDay: string | undefined): TimingPhrase[
     });
   }
   if (noteDay !== undefined) {
-    for (const match of text.matchAll(NAMED_DATE)) {
-      const date = statedTiming(match[0], noteDay).dates[0];
+    for (const match of text.matchAll(lexicon.namedDate)) {
+      const date = statedTiming(match[0], noteDay, lang).dates[0];
       push(match, date === undefined ? null : { amount: null, unit: null, date });
     }
   }
-  for (const match of text.matchAll(WITH_NEXT_VISIT)) push(match, null);
-  for (const match of text.matchAll(PERIODIC_TIMING)) {
-    const interval = PERIODIC_INTERVALS[match[1] ?? ''];
+  for (const match of text.matchAll(lexicon.withNextVisit)) push(match, null);
+  for (const match of text.matchAll(lexicon.periodic)) {
+    const interval = lexicon.periodicIntervals[match[1] ?? ''];
     if (interval) push(match, { ...interval, date: null }, true);
   }
   // Earliest first; a phrase inside another one ("en 3 meses" in a date) is dropped.
@@ -452,9 +684,11 @@ function timingPhrases(text: string, noteDay: string | undefined): TimingPhrase[
 }
 
 /** Where each list item of a sentence starts (split at commas, "y", "pero", "aunque"). */
-function segmentStarts(text: string): number[] {
+function segmentStarts(text: string, lang: LexiconLanguage): number[] {
   const starts = [0];
-  for (const match of text.matchAll(SEGMENT_BREAK)) starts.push(match.index + match[0].length);
+  for (const match of text.matchAll(lang === 'en' ? EN_SEGMENT_BREAK : SEGMENT_BREAK)) {
+    starts.push(match.index + match[0].length);
+  }
   return starts;
 }
 
@@ -477,11 +711,12 @@ function sentencePlanItems(
   sentence: { text: string; start: number },
   noteDay: string | undefined,
   quoteOf: (start: number, end: number) => string,
+  lang: LexiconLanguage,
 ): ModelPlanItem[] {
   const text = sentence.text;
-  const phrases = timingPhrases(text, noteDay);
+  const phrases = timingPhrases(text, noteDay, lang);
   if (phrases.length === 0) return [];
-  const starts = segmentStarts(text);
+  const starts = segmentStarts(text, lang);
   const segmentOf = (at: number): number => {
     let segment = 0;
     for (let i = 0; i < starts.length; i += 1) if ((starts[i] ?? 0) <= at) segment = i;
@@ -496,7 +731,7 @@ function sentencePlanItems(
     const own = phrases.filter(
       (phrase) =>
         segmentOf(phrase.start) === segment &&
-        !(phrase.periodic && notAPlanFrequency(segmentText(phrase.start))),
+        !(phrase.periodic && notAPlanFrequency(segmentText(phrase.start), lang)),
     );
     if (own.length > 0) {
       return own.reduce((best, phrase) =>
@@ -521,11 +756,11 @@ function sentencePlanItems(
       : quoteOf(sentence.start + start, sentence.start + end);
   };
   const excluded = (start: number, phrase: TimingPhrase): boolean => {
-    const timingSegment = segmentAround(text, phrase.start, phrase.end);
+    const timingSegment = segmentAround(text, phrase.start, phrase.end, lang);
     return (
-      isConditional(timingSegment, text) ||
-      isConditional(segmentText(start)) ||
-      statesSuspension(segmentText(start))
+      isConditional(timingSegment, text, lang) ||
+      isConditional(segmentText(start), undefined, lang) ||
+      statesSuspension(segmentText(start), lang)
     );
   };
 
@@ -557,7 +792,7 @@ function sentencePlanItems(
 
   const tests = namedTests(text);
   let anyKeyword = tests.length > 0;
-  for (const [kind, pattern] of KIND_PATTERNS) {
+  for (const [kind, pattern] of lang === 'en' ? EN_KIND_PATTERNS : KIND_PATTERNS) {
     const testsOfKind = tests.filter((test) => test.group.kind === kind);
     const keywords = [...text.matchAll(new RegExp(pattern.source, 'g'))];
     if (keywords.length > 0) anyKeyword = true;
@@ -601,5 +836,9 @@ export const heuristicResponder: FakeResponder = (request) => {
   const note = readNoteFromMessages(request.messages);
   return note === undefined
     ? undefined
-    : heuristicExtraction(note, readNoteDateFromMessages(request.messages));
+    : heuristicExtraction(
+        note,
+        readNoteDateFromMessages(request.messages),
+        readNoteLanguageFromMessages(request.messages),
+      );
 };

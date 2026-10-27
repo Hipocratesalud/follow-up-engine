@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { FakeClock, NoteExtraction } from '@follow-up-engine/core';
 import { buildConsultationBundle } from '@follow-up-engine/fhir';
 import { DEMO_CLINIC, type EngineRuntime, Worker } from '@follow-up-engine/runtime';
+import type { ApiMessages } from '../i18n/index.ts';
 import { InboxPresenter } from '../inbox/presenter.ts';
 import { icd10Label } from '../inbox/terminology.ts';
 import type { App } from './context.ts';
@@ -15,21 +16,21 @@ import {
   type WebhookDelivery,
 } from './schemas.ts';
 
-const DEFAULT_PATIENT_NAME = 'Paciente de demostración';
-
 function extractionView(
+  t: ApiMessages,
   extraction: NoteExtraction,
   latencyMs: number,
 ): DemoConsultationResponse['extraction'] {
   return {
     model: extraction.model,
     hasPlan: extraction.hasPlan,
+    ...(extraction.noteLanguage === undefined ? {} : { noteLanguage: extraction.noteLanguage }),
     conditions: extraction.conditions.map((condition) => ({
       code: {
         system: condition.code.system,
         code: condition.code.code,
-        // The model writes standard (English) displays: the clinic reads Spanish names.
-        display: icd10Label(condition.code.code, condition.code.display),
+        // The clinic reads the code's name in its language; the quote stays verbatim.
+        display: icd10Label(t, condition.code.code, condition.code.display),
       },
       confidence: condition.confidence,
       evidenceQuote: condition.evidenceQuote,
@@ -52,6 +53,7 @@ function extractionView(
 }
 
 async function remoteDeliveries(
+  t: ApiMessages,
   sinkUrl: string,
   clinicId: string,
   limit: number,
@@ -65,7 +67,7 @@ async function remoteDeliveries(
   }
   const response = await fetch(url, { signal: AbortSignal.timeout(5_000) });
   if (!response.ok) {
-    throw new HttpError(502, 'webhook_sink_unavailable', 'El receptor de webhooks no respondió.');
+    throw new HttpError(502, 'webhook_sink_unavailable', t.errors.webhookSinkUnavailable);
   }
   const body = (await response.json()) as { items?: WebhookDelivery[] };
   return body.items ?? [];
@@ -103,11 +105,7 @@ export function registerDemoRoutes(
   app.post('/api/demo/consultations', async (c) => {
     // Clinical data for synthetic patients only: never another clinic's record.
     if (c.var.clinicId !== DEMO_CLINIC.id) {
-      throw new HttpError(
-        403,
-        'insufficient_scope',
-        'Las consultas de demostración solo se guardan en la clínica de demostración.',
-      );
+      throw new HttpError(403, 'insufficient_scope', c.var.t.errors.demoClinicOnly);
     }
     const body = await readJson(c, DemoConsultationRequestSchema);
     const isNewPatient = body.patientId === undefined;
@@ -116,7 +114,7 @@ export function registerDemoRoutes(
       consultationId: `demo-${randomUUID()}`,
       patient: {
         id: patientId,
-        ...(isNewPatient ? { name: body.patientName ?? DEFAULT_PATIENT_NAME } : {}),
+        ...(isNewPatient ? { name: body.patientName ?? c.var.t.people.demoPatient } : {}),
       },
       specialty: body.specialty,
       occurredAt: clock.now(),
@@ -125,11 +123,7 @@ export function registerDemoRoutes(
     });
     const acceptance = await runtime.ingestion.accept(c.var.clinicId, bundle, 'sync');
     if (!acceptance.ok) {
-      throw new HttpError(
-        422,
-        'invalid_consultation',
-        'No pudimos armar la consulta con esos datos.',
-      );
+      throw new HttpError(422, 'invalid_consultation', c.var.t.errors.invalidConsultation);
     }
     const reports = acceptance.reports ?? [];
     const note = reports.flatMap((report) => report.notes)[0];
@@ -141,15 +135,16 @@ export function registerDemoRoutes(
       throw new HttpError(
         502,
         'llm_unavailable',
-        `El modelo (${runtime.extractor.provider}/${runtime.extractor.model}) no pudo leer la nota: ` +
-          `${note?.error ?? 'sin respuesta'}. La consulta quedó guardada y la lectura del plan ` +
-          'se reintentará automáticamente.',
+        c.var.t.errors.noteNotRead(
+          `${runtime.extractor.provider}/${runtime.extractor.model}`,
+          note?.error,
+        ),
       );
     }
-    const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
+    const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
     const response: DemoConsultationResponse = {
       bundle,
-      extraction: extractionView(note.extraction, note.latencyMs ?? 0),
+      extraction: extractionView(c.var.t, note.extraction, note.latencyMs ?? 0),
       expectationsCreated: reports
         .flatMap((report) => report.expectationsCreated)
         .map((expectation) => {
@@ -184,7 +179,7 @@ export function registerDemoRoutes(
             }))
         : sinkUrl === undefined
           ? []
-          : await remoteDeliveries(sinkUrl, c.var.clinicId, limit, type);
+          : await remoteDeliveries(c.var.t, sinkUrl, c.var.clinicId, limit, type);
     return c.json({ items });
   });
 }

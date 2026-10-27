@@ -115,7 +115,7 @@ export function renderReport(run: EvalRun, notes?: string): string {
     '| Metric | Value |',
     '| --- | ---: |',
     `| hasPlan accuracy | ${pct(overall.hasPlanAccuracy)} |`,
-    `| Discharge accuracy ("se da de alta") | ${pct(overall.dischargeAccuracy)} |`,
+    `| Discharge accuracy ("se da de alta", "d/c'd from therapy") | ${pct(overall.dischargeAccuracy)} |`,
     `| Hallucinated-quote rate (items dropped by the verbatim check) | ${pct(overall.hallucinatedQuoteRate)} (${String(overall.quoteRejected)} / ${String(overall.modelItems)}) |`,
     `| Items dropped by the evidence checks (quote in the note but not backing the item) | ${String(overall.evidenceRejected)} / ${String(overall.modelItems)} |`,
     `| Input tokens per note | ${summary.tokens.inputPerNote.toFixed(0)} |`,
@@ -135,13 +135,29 @@ export function renderReport(run: EvalRun, notes?: string): string {
         `| ${s.specialty} | ${String(s.notes)} | ${pct(s.scores.conditions.f1)} | ${pct(s.scores.medications.f1)} | ${pct(s.scores.planItems.f1)} | ${pct(s.hasPlanAccuracy)} | ${String(s.errors)} |`,
     ),
     '',
+    ...(summary.byLanguage === undefined
+      ? []
+      : [
+          '## By note language',
+          '',
+          "The language each gold note is written in. The eval never tells the extractor: it detects the language (a stopword count, `language.ts`), reads the note with that language's lexicons, and the detection is scored here.",
+          '',
+          '| Language | Notes | Detected right | Conditions F1 | Medications F1 | Plan items F1 | hasPlan acc. | Discharge acc. | Errors |',
+          '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+          ...summary.byLanguage.map(
+            (l) =>
+              `| ${l.language} | ${String(l.notes)} | ${pct(l.detectionAccuracy)} | ${pct(l.scores.conditions.f1)} | ${pct(l.scores.medications.f1)} | ${pct(l.scores.planItems.f1)} | ${pct(l.hasPlanAccuracy)} | ${pct(l.dischargeAccuracy)} | ${String(l.errors)} |`,
+          ),
+          '',
+          ...summary.byLanguage.flatMap((l) => [`### ${l.language}`, '', ...fieldTable(l), '']),
+        ]),
     '## Per note',
     '',
-    '| Note | Specialty | Conditions TP/FP/FN | Medications TP/FP/FN | Plan TP/FP/FN | hasPlan | Quotes dropped | Tokens in/out | Cost | Latency | Error |',
-    '| --- | --- | ---: | ---: | ---: | :---: | ---: | ---: | ---: | ---: | --- |',
+    '| Note | Specialty | Language (read as) | Conditions TP/FP/FN | Medications TP/FP/FN | Plan TP/FP/FN | hasPlan | Quotes dropped | Tokens in/out | Cost | Latency | Error |',
+    '| --- | --- | --- | ---: | ---: | ---: | :---: | ---: | ---: | ---: | ---: | --- |',
     ...run.results.map(
       (r) =>
-        `| ${r.id} | ${r.specialty} | ${tally(r.counts.conditions)} | ${tally(r.counts.medications)} | ${tally(r.counts.planItems)} | ${r.hasPlanCorrect ? 'ok' : 'wrong'} | ${String(r.quoteRejected)} | ${String(r.inputTokens)}/${String(r.outputTokens)} | ${usd(r.costUsd)} | ${String(r.latencyMs)} ms | ${r.error ?? ''} |`,
+        `| ${r.id} | ${r.specialty} | ${r.language ?? 'es'} (${r.detectedLanguage ?? '?'}) | ${tally(r.counts.conditions)} | ${tally(r.counts.medications)} | ${tally(r.counts.planItems)} | ${r.hasPlanCorrect ? 'ok' : 'wrong'} | ${String(r.quoteRejected)} | ${String(r.inputTokens)}/${String(r.outputTokens)} | ${usd(r.costUsd)} | ${String(r.latencyMs)} ms | ${r.error ?? ''} |`,
     ),
     '',
     '## How to read this',

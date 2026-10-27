@@ -204,6 +204,19 @@ describe('gold notes', () => {
     goldNotes.filter((note) => note.specialty === specialty);
   const items = (note: GoldNote) => note.expected.planItems;
 
+  it('has at least 15 English notes in US clinical style, every specialty included', () => {
+    const english = goldNotes.filter((note) => note.language === 'en');
+    expect(english.length).toBeGreaterThanOrEqual(15);
+    expect(new Set(english.map((note) => note.specialty))).toEqual(new Set(SPECIALTIES));
+    const texts = english.map((note) => note.text);
+    for (const style of [/\bf\/u\b/i, /\bRTC\b/, /\bdenies\b/i, /d\/c'd/, /\bPRN\b/, /\bA1c\b/]) {
+      expect(
+        texts.some((text) => style.test(text)),
+        String(style),
+      ).toBe(true);
+    }
+  });
+
   it('has at least 40 notes, 10 per specialty, unique ids', () => {
     expect(goldNotes.length).toBeGreaterThanOrEqual(40);
     for (const specialty of SPECIALTIES)
@@ -280,7 +293,9 @@ describe('gold notes', () => {
       for (const item of items(note)) {
         const match = /(\d{2})\/(\d{2})\/(\d{4})/.exec(item.evidenceQuote);
         if (!match) continue;
-        const [, day, month, year] = match;
+        // Spanish notes write dd/mm/yyyy, English (US) ones mm/dd/yyyy.
+        const [, first, second, year] = match;
+        const [day, month] = note.language === 'en' ? [second, first] : [first, second];
         const due = Date.UTC(Number(year), Number(month) - 1, Number(day));
         expect((due - Date.parse(`${note.authoredAt}T00:00:00Z`)) / MS_PER_DAY, note.id).toBe(
           item.dueInDays,

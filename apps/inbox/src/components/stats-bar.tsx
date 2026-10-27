@@ -2,8 +2,9 @@ import { Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { LAYERS, type InboxStats } from '../api/contract.ts';
 import { useStats } from '../api/queries.ts';
+import { useT } from '../i18n/index.ts';
 import { formatPercent, formatUsd } from '../lib/format.ts';
-import { LAYER_LABELS, noteReader } from '../lib/labels.ts';
+import { noteReader } from '../lib/labels.ts';
 import { LAYER_DOT } from './case-badges.tsx';
 import { ErrorState } from './states.tsx';
 import { Skeleton } from './ui.tsx';
@@ -27,26 +28,24 @@ function Tile({
   );
 }
 
-function plural(count: number, one: string, many: string): string {
-  return `${String(count)} ${count === 1 ? one : many}`;
-}
-
 function StatsTiles({ stats }: { readonly stats: InboxStats }): ReactNode {
-  const reader = noteReader(stats.llm);
+  const t = useT();
+  const reader = noteReader(t, stats.llm);
   const escalated = stats.byStatus['escalated'] ?? 0;
   const snoozed = stats.byStatus['snoozed'] ?? 0;
   return (
     <dl className="grid grid-cols-2 gap-3 xl:grid-cols-[0.9fr_1.5fr_1fr_1.3fr]">
-      <Tile label="Casos activos">
+      <Tile label={t.stats.activeCases}>
         <p className="text-xl font-semibold tracking-tight text-fg tabular-nums">
           {stats.activeCases}
         </p>
         <p className="mt-0.5 text-xs text-muted">
-          {plural(escalated, 'escalado', 'escalados')} ·{' '}
-          {plural(snoozed, 'pospuesto', 'pospuestos')}
+          {t.stats.escalated(escalated)}
+          {t.common.separator}
+          {t.stats.snoozed(snoozed)}
         </p>
       </Tile>
-      <Tile label="Por capa" className="order-last col-span-2 xl:order-none xl:col-span-1">
+      <Tile label={t.stats.byLayer} className="order-last col-span-2 xl:order-none xl:col-span-1">
         <ul className="grid grid-cols-2 gap-x-4 gap-y-1">
           {LAYERS.map((layer) => (
             <li key={layer} className="flex items-center gap-2 text-xs">
@@ -54,27 +53,25 @@ function StatsTiles({ stats }: { readonly stats: InboxStats }): ReactNode {
                 aria-hidden="true"
                 className={`size-2 shrink-0 rounded-full ${LAYER_DOT[layer]}`}
               />
-              <span className="min-w-0 flex-1 truncate text-muted">{LAYER_LABELS[layer]}</span>
+              <span className="min-w-0 flex-1 truncate text-muted">{t.labels.layers[layer]}</span>
               <span className="font-semibold text-fg tabular-nums">{stats.byLayer[layer]}</span>
             </li>
           ))}
         </ul>
       </Tile>
-      <Tile label="Utilidad según el equipo">
+      <Tile label={t.stats.usefulness}>
         <p className="text-xl font-semibold tracking-tight text-fg tabular-nums">
-          {stats.feedback.total === 0 ? '—' : formatPercent(stats.feedback.usefulRate)}
+          {stats.feedback.total === 0 ? t.common.noValue : formatPercent(stats.feedback.usefulRate)}
         </p>
         <p className="mt-0.5 text-xs text-muted">
-          {stats.feedback.total === 0
-            ? 'Aún no hay casos calificados'
-            : `útiles, de ${plural(stats.feedback.total, 'caso calificado', 'casos calificados')}`}
+          {stats.feedback.total === 0 ? t.stats.noFeedback : t.stats.usefulOf(stats.feedback.total)}
         </p>
       </Tile>
       <Tile
         className="col-span-2 xl:col-span-1"
         label={
           <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            {reader.simulated ? 'Costo de lectura del mes' : 'Costo de IA del mes'}
+            {reader.simulated ? t.stats.readingCost : t.stats.aiCost}
             <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-layer-plan-soft px-1.5 py-0.5 text-[11px] font-medium text-layer-plan">
               <Sparkles className="size-3" aria-hidden="true" />
               {reader.label}
@@ -86,8 +83,9 @@ function StatsTiles({ stats }: { readonly stats: InboxStats }): ReactNode {
           {formatUsd(stats.llm.monthCostUsd)}
         </p>
         <p className="mt-0.5 text-xs text-muted">
-          {plural(stats.llm.calls, 'nota leída', 'notas leídas')} ·{' '}
-          {formatUsd(stats.llm.avgCostPerNoteUsd)} por nota
+          {t.stats.notesRead(stats.llm.calls)}
+          {t.common.separator}
+          {t.stats.perNote(formatUsd(stats.llm.avgCostPerNoteUsd))}
         </p>
       </Tile>
     </dl>
@@ -95,6 +93,7 @@ function StatsTiles({ stats }: { readonly stats: InboxStats }): ReactNode {
 }
 
 export function StatsBar(): ReactNode {
+  const t = useT();
   const stats = useStats();
   function handleRetry(): void {
     void stats.refetch();
@@ -104,7 +103,7 @@ export function StatsBar(): ReactNode {
       <div
         className="grid grid-cols-2 gap-3 xl:grid-cols-4"
         aria-busy="true"
-        aria-label="Cargando resumen"
+        aria-label={t.stats.loading}
       >
         {[0, 1, 2, 3].map((key) => (
           <Skeleton key={key} className="h-[84px] rounded-xl" />
@@ -113,12 +112,10 @@ export function StatsBar(): ReactNode {
     );
   }
   if (stats.isError) {
-    return (
-      <ErrorState error={stats.error} onRetry={handleRetry} title="No pudimos cargar el resumen" />
-    );
+    return <ErrorState error={stats.error} onRetry={handleRetry} title={t.stats.error} />;
   }
   return (
-    <section aria-label="Resumen">
+    <section aria-label={t.stats.region}>
       <StatsTiles stats={stats.data} />
     </section>
   );

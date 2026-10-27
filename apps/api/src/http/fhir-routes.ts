@@ -689,7 +689,7 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
     }
     const expectation = await stores.expectations.get(c.var.clinicId, id as ExpectationId);
     if (expectation === undefined) {
-      throw notFound(`Task/${id} not found`);
+      throw notFound(c.var.t, `Task/${id} not found`);
     }
     return fhirJson(c, expectationToTask(expectation));
   });
@@ -825,7 +825,7 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
     const id = c.req.param('id');
     const request = await runtime.engine.contacts.getRequest(c.var.clinicId, contactRequestId(id));
     if (request === undefined) {
-      throw notFound(`CommunicationRequest/${id} not found`);
+      throw notFound(c.var.t, `CommunicationRequest/${id} not found`);
     }
     const { communications } = await runtime.engine.contacts.forPatient(
       c.var.clinicId,
@@ -861,7 +861,7 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
     const id = c.req.param('id');
     const communication = await runtime.engine.contacts.getCommunication(c.var.clinicId, id);
     if (communication === undefined) {
-      throw notFound(`Communication/${id} not found`);
+      throw notFound(c.var.t, `Communication/${id} not found`);
     }
     return fhirJson(c, communicationToFhir(communication));
   });
@@ -890,7 +890,7 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
     const id = c.req.param('id');
     const suppression = await stores.suppressions.get(c.var.clinicId, id as SuppressionId);
     if (suppression === undefined) {
-      throw notFound(`Flag/${id} not found`);
+      throw notFound(c.var.t, `Flag/${id} not found`);
     }
     return fhirJson(c, suppressionToFlag(suppression));
   });

@@ -111,7 +111,21 @@ export {
   prepareNote,
   type PreparedNote,
 } from './extraction/prepare.ts';
-export { DEFAULT_CONDITION_TERMS, type ConditionTermTable } from './extraction/condition-terms.ts';
+export {
+  DEFAULT_CONDITION_TERMS,
+  ENGLISH_CONDITION_TERMS,
+  conditionTermsFor,
+  type ConditionTermTable,
+} from './extraction/condition-terms.ts';
+export {
+  DETECTABLE_NOTE_LANGUAGES,
+  LEXICON_LANGUAGES,
+  detectNoteLanguage,
+  lexiconLanguage,
+  resolveNoteLanguage,
+  type DetectedNoteLanguage,
+  type LexiconLanguage,
+} from './extraction/language.ts';
 export {
   EXTRACTION_OUTPUT_NAME,
   ModelExtractionSchema,

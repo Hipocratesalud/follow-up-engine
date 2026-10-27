@@ -11,6 +11,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
+import { useT } from '../i18n/index.ts';
 import { noteReader, type NoteReader } from '../lib/labels.ts';
 import { type ApiClient, isApiError } from './client.ts';
 import type {
@@ -147,7 +148,8 @@ export function useStats(): UseQueryResult<InboxStats> {
 
 /** Who reads the notes (provider and model the API runs), from the stats. */
 export function useNoteReader(): NoteReader {
-  return noteReader(useStats().data?.llm);
+  const t = useT();
+  return noteReader(t, useStats().data?.llm);
 }
 
 /** The API's clock. `data` is `undefined` when the clock is real (no demo endpoints). */

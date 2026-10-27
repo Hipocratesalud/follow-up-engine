@@ -24,24 +24,42 @@ const KEY = 'protocol-reasons-key';
 /** Words that would let the front desk infer a mental-health condition. */
 const MENTAL_HEALTH = /depres|ansie|anxi|antidep|psiq|mental|ánimo|animo/i;
 
-const PROTOCOL_NAMES: Readonly<Record<string, string>> = {
-  diabetes: 'Control de diabetes',
-  hypertension: 'Control de hipertensión',
-  pregnancy: 'Embarazo y puerperio',
-  treatment_followup: 'Seguimiento de tratamiento',
-  hypothyroidism: 'Control de hipotiroidismo',
-  dyslipidemia: 'Control de dislipidemia',
-  chronic_kidney_disease: 'Control de enfermedad renal crónica',
+/** Protocol names per language (HIP-138: English by default, Spanish with Accept-Language). */
+const PROTOCOL_NAMES: Readonly<Record<'en' | 'es', Readonly<Record<string, string>>>> = {
+  en: {
+    diabetes: 'Diabetes follow-up',
+    hypertension: 'Hypertension follow-up',
+    pregnancy: 'Pregnancy and postpartum',
+    treatment_followup: 'Treatment follow-up',
+    hypothyroidism: 'Hypothyroidism follow-up',
+    dyslipidemia: 'Dyslipidemia follow-up',
+    chronic_kidney_disease: 'Chronic kidney disease follow-up',
+  },
+  es: {
+    diabetes: 'Control de diabetes',
+    hypertension: 'Control de hipertensión',
+    pregnancy: 'Embarazo y puerperio',
+    treatment_followup: 'Seguimiento de tratamiento',
+    hypothyroidism: 'Control de hipotiroidismo',
+    dyslipidemia: 'Control de dislipidemia',
+    chronic_kidney_disease: 'Control de enfermedad renal crónica',
+  },
 };
 
 describe('protocol reasons in the inbox API', () => {
   let runtime: EngineRuntime;
   let app: App;
   let reasons: CaseReasonView[] = [];
+  let spanishReasons: CaseReasonView[] = [];
   let expectations: PatientExpectationView[] = [];
 
-  async function get<T>(path: string): Promise<T> {
-    const response = await app.request(path, { headers: { authorization: `Bearer ${KEY}` } });
+  async function get<T>(path: string, language?: string): Promise<T> {
+    const response = await app.request(path, {
+      headers: {
+        authorization: `Bearer ${KEY}`,
+        ...(language === undefined ? {} : { 'accept-language': language }),
+      },
+    });
     expect(response.status).toBe(200);
     return (await response.json()) as T;
   }
@@ -60,6 +78,8 @@ describe('protocol reasons in the inbox API', () => {
     app = createApp(runtime, { corsOrigins: [] });
     const page = await get<{ items: CaseView[] }>('/api/inbox/cases?view=all&limit=200');
     reasons = page.items.flatMap((item) => item.reasons);
+    const spanish = await get<{ items: CaseView[] }>('/api/inbox/cases?view=all&limit=200', 'es');
+    spanishReasons = spanish.items.flatMap((item) => item.reasons);
     expectations = await allExpectations();
   }, 60_000);
 
@@ -75,8 +95,19 @@ describe('protocol reasons in the inbox API', () => {
       expect(protocol, reason.ruleId).toBeDefined();
       expect(reason.ruleId.startsWith(`protocol_${protocol?.id ?? ''}_`)).toBe(true);
       expect(protocol?.status).toBe('draft');
-      expect(protocol?.name).toBe(PROTOCOL_NAMES[protocol?.id ?? '']);
+      expect(protocol?.name).toBe(PROTOCOL_NAMES.en[protocol?.id ?? '']);
       expect(protocol?.version).toMatch(/^\d+\.\d+\.\d+$/);
+    }
+  });
+
+  it('names protocols and their reasons in Spanish when the user asks for it', () => {
+    const fromProtocols = spanishReasons.filter((reason) => reason.layer === 'protocol');
+    expect(fromProtocols.length).toBeGreaterThan(0);
+    for (const reason of fromProtocols) {
+      expect(reason.protocol?.name).toBe(PROTOCOL_NAMES.es[reason.protocol?.id ?? '']);
+      const english = reasons.find((item) => item.expectationId === reason.expectationId);
+      // Same reason, other words: the catalog has a Spanish text for every protocol item.
+      expect(reason.label).not.toBe(english?.label);
     }
   });
 
@@ -89,7 +120,7 @@ describe('protocol reasons in the inbox API', () => {
     }
   });
 
-  it("names the protocol on the patient's expectations, with Spanish labels", () => {
+  it("names the protocol on the patient's expectations, with catalog labels", () => {
     const fromProtocols = expectations.filter((item) => item.layer === 'protocol');
     const ids = new Set(fromProtocols.map((item) => item.protocol?.id));
     // The synthetic clinic has patients under several protocols, pregnancy included.
@@ -97,8 +128,8 @@ describe('protocol reasons in the inbox API', () => {
     expect(ids).toContain('pregnancy');
     for (const expectation of fromProtocols) {
       expect(expectation.protocol?.status).toBe('draft');
-      expect(expectation.protocol?.name).toBe(PROTOCOL_NAMES[expectation.protocol?.id ?? '']);
-      // Labels come from the catalog: Spanish copy, never a rule id.
+      expect(expectation.protocol?.name).toBe(PROTOCOL_NAMES.en[expectation.protocol?.id ?? '']);
+      // Labels come from the catalog: copy, never a rule id.
       expect(expectation.label).not.toMatch(/_|protocol/);
     }
   });
@@ -119,7 +150,7 @@ describe('protocol reasons in the inbox API', () => {
     ];
     expect(followUp.length).toBeGreaterThan(0);
     for (const item of followUp) {
-      expect(item.protocol?.name).toBe('Seguimiento de tratamiento');
+      expect(item.protocol?.name).toBe('Treatment follow-up');
       expect(`${item.label} ${item.protocol?.name ?? ''}`).not.toMatch(MENTAL_HEALTH);
     }
   });

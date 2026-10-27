@@ -111,6 +111,23 @@ export async function hasOptedOut(
   return events.length > 0;
 }
 
+/**
+ * The patient's preferred language (BCP-47) from the latest
+ * `patient.language_recorded` event; `undefined` when the host never stated
+ * one or its latest Patient no longer does.
+ */
+export async function patientLanguage(
+  stores: TransactionalStores,
+  clinicId: ClinicId,
+  patientId: PatientId,
+): Promise<string | undefined> {
+  const events = await stores.clinicalRecords.listEventsForPatient(clinicId, patientId, {
+    types: ['patient.language_recorded'],
+  });
+  const latest = events.at(-1);
+  return latest?.type === 'patient.language_recorded' ? latest.language : undefined;
+}
+
 /** Whether the patient's contact data is flagged (a wrong number) and not cleared since. */
 export async function hasInvalidContactData(
   stores: TransactionalStores,

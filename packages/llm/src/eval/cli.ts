@@ -45,7 +45,7 @@ import {
   createOpenAiCompatibleProvider,
 } from '../providers/openai-compatible.ts';
 import { InMemoryLlmUsageLog } from '../usage-log.ts';
-import { loadGoldNotes, type GoldNote } from './gold.ts';
+import { goldLanguage, loadGoldNotes, type GoldNote } from './gold.ts';
 import { renderReport, reportFileName, reportSidecar } from './report.ts';
 import { openSnapshotFile } from './snapshot-file.ts';
 import { runExtractionEval } from './run.ts';
@@ -62,6 +62,8 @@ const HELP = `Usage: eval:extraction --provider <${PROVIDERS.join('|')}> [option
                            openai-compatible (any endpoint, see --base-url), fake (offline, default)
   --model <id>             model id (defaults: meta ${META_DEFAULT_MODEL}, baseten ${BASETEN_MUSE_SPARK_OPEN_MODEL})
   --limit <n>              only the first n gold notes
+  --ids <a,b>              only these gold notes (ids, comma-separated)
+  --language <tag>         only the gold notes written in this language (es, en; unlabeled notes are es)
   --concurrency <n>        parallel extractions (default 4)
   --gold <dir>             gold-note directory (default: testkit fixtures, else packages/llm/test/fixtures)
   --out <dir>              report directory (default docs/evals)
@@ -118,6 +120,8 @@ async function main(argv: readonly string[]): Promise<void> {
       provider: { type: 'string', default: 'fake' },
       model: { type: 'string' },
       limit: { type: 'string' },
+      ids: { type: 'string' },
+      language: { type: 'string' },
       concurrency: { type: 'string' },
       gold: { type: 'string' },
       out: { type: 'string' },
@@ -149,7 +153,20 @@ async function main(argv: readonly string[]): Promise<void> {
   const limit = positiveInt(values.limit, '--limit');
   const concurrency = positiveInt(values.concurrency, '--concurrency') ?? 4;
   const allNotes = await loadGoldNotes(goldDir);
-  const notes: GoldNote[] = limit === undefined ? allNotes : allNotes.slice(0, limit);
+  const ids = values.ids
+    ?.split(',')
+    .map((id) => id.trim())
+    .filter((id) => id !== '');
+  const selected = allNotes.filter(
+    (note) =>
+      (ids === undefined || ids.includes(note.id)) &&
+      (values.language === undefined || goldLanguage(note) === values.language),
+  );
+  const notes: GoldNote[] = limit === undefined ? selected : selected.slice(0, limit);
+  const selection = [
+    ...(ids === undefined ? [] : [`--ids ${ids.join(',')}`]),
+    ...(values.language === undefined ? [] : [`--language ${values.language}`]),
+  ].join(' ');
   const mode = outputMode(values['output-mode']);
   const snapshotPath = values.snapshot === undefined ? undefined : resolve(values.snapshot);
   if (values.offline && snapshotPath === undefined) {
@@ -296,12 +313,24 @@ async function main(argv: readonly string[]): Promise<void> {
       `p50 ${String(run.summary.latencyMs.p50)} ms`,
     ].join(' | ') + '\n',
   );
+  for (const language of run.summary.byLanguage ?? []) {
+    process.stdout.write(
+      [
+        `  ${language.language} (${String(language.notes)} notes, detected ${(language.detectionAccuracy * 100).toFixed(1)}%)`,
+        `conditions F1 ${(language.scores.conditions.f1 * 100).toFixed(1)}%`,
+        `medications F1 ${(language.scores.medications.f1 * 100).toFixed(1)}%`,
+        `plan items F1 ${(language.scores.planItems.f1 * 100).toFixed(1)}%`,
+        `hasPlan ${(language.hasPlanAccuracy * 100).toFixed(1)}%`,
+        `discharge ${(language.dischargeAccuracy * 100).toFixed(1)}%`,
+      ].join(' | ') + '\n',
+    );
+  }
 
   if (!values['no-report']) {
     const outDir = values.out ? resolve(values.out) : join(REPO_ROOT, 'docs/evals');
     await mkdir(outDir, { recursive: true });
     const file = join(outDir, reportFileName(run));
-    const dataset = `${relative(REPO_ROOT, goldDir)} (${String(notes.length)} of ${String(allNotes.length)} notes)`;
+    const dataset = `${relative(REPO_ROOT, goldDir)} (${String(notes.length)} of ${String(allNotes.length)} notes${selection === '' ? '' : `: ${selection}`})`;
     const header = [`- Gold set: \`${dataset}\``, ...(runNote ? ['', runNote] : [])].join('\n');
     await writeFile(file, renderReport(run, header), 'utf8');
     await writeFile(

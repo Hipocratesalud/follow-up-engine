@@ -17,8 +17,9 @@ import {
   useStats,
 } from '../api/queries.ts';
 import { cx } from '../lib/cx.ts';
-import { formatDate } from '../lib/format.ts';
-import { REVIEW_COPY } from '../features/reviewer/copy.ts';
+import { useT } from '../i18n/index.ts';
+import { formatDate, formatShortDate } from '../lib/format.ts';
+import { LanguageSwitch } from './language-switch.tsx';
 import { ThemeToggle } from './theme.tsx';
 
 interface NavItem {
@@ -74,6 +75,7 @@ function NavLinks({
 }
 
 function Brand(): ReactNode {
+  const t = useT();
   const clinic = useClinic();
   return (
     <div className="flex items-center gap-2.5">
@@ -81,10 +83,10 @@ function Brand(): ReactNode {
         <HeartPulse className="size-4.5" aria-hidden="true" />
       </span>
       <div className="leading-tight">
-        <p className="text-sm font-semibold text-fg">Seguimiento</p>
+        <p className="text-sm font-semibold whitespace-nowrap text-fg">{t.common.appName}</p>
         {clinic.data || clinic.isError ? (
           <p className="hidden max-w-[150px] truncate text-xs text-muted sm:block">
-            {clinic.data?.name ?? 'Consultorio'}
+            {clinic.data?.name ?? t.common.clinicFallback}
           </p>
         ) : (
           <span aria-hidden="true" className="skeleton mt-1 hidden h-3 w-28 rounded sm:block" />
@@ -95,14 +97,18 @@ function Brand(): ReactNode {
 }
 
 function SimulatedDate({ now }: { readonly now: string }): ReactNode {
+  const t = useT();
   return (
     <span
       className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-warning/30 bg-warning-soft px-2.5 py-1 text-xs font-medium text-warning"
-      title="La API usa un reloj simulado para la demostración"
+      title={t.nav.simulatedDateTitle}
     >
       <CalendarClock className="size-3.5" aria-hidden="true" />
-      <span className="hidden sm:inline">Fecha simulada:</span>
-      <time dateTime={now}>{formatDate(now)}</time>
+      <span className="hidden sm:inline">{t.nav.simulatedDate}</span>
+      <time dateTime={now}>
+        <span className="sm:hidden">{formatShortDate(now)}</span>
+        <span className="max-sm:hidden">{formatDate(now)}</span>
+      </time>
     </span>
   );
 }
@@ -112,6 +118,7 @@ function SimulatedDate({ now }: { readonly now: string }): ReactNode {
  * screen may still scroll it).
  */
 function MobileNav({ items }: { readonly items: readonly NavItem[] }): ReactNode {
+  const t = useT();
   const nav = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
   useEffect(() => {
@@ -121,7 +128,7 @@ function MobileNav({ items }: { readonly items: readonly NavItem[] }): ReactNode
   return (
     <nav
       ref={nav}
-      aria-label="Principal"
+      aria-label={t.common.mainNav}
       className="flex gap-1 overflow-x-auto border-t border-border px-3 py-2 lg:hidden"
     >
       <NavLinks items={items} compact />
@@ -130,36 +137,37 @@ function MobileNav({ items }: { readonly items: readonly NavItem[] }): ReactNode
 }
 
 export function Shell(): ReactNode {
+  const t = useT();
   const stats = useStats();
   const recovery = useRecovery();
   const clock = useDemoClock();
   const findings = useOpenShadowFindings();
 
   const items: NavItem[] = [
-    { to: '/bandeja', label: 'Bandeja', icon: Inbox, count: stats.data?.activeCases },
+    { to: '/inbox', label: t.nav.inbox, icon: Inbox, count: stats.data?.activeCases },
     {
-      to: '/por-recuperar',
-      label: 'Por recuperar',
+      to: '/recovery',
+      label: t.nav.recovery,
       icon: UserRoundSearch,
       count: recovery.data?.total,
     },
     {
-      to: '/revision-clinica',
-      label: REVIEW_COPY.nav.label,
-      shortLabel: REVIEW_COPY.nav.shortLabel,
+      to: '/clinical-review',
+      label: t.nav.review,
+      shortLabel: t.nav.reviewShort,
       icon: Stethoscope,
       count: findings.data?.counts.byStatus.open,
     },
   ];
-  if (clock.data) items.push({ to: '/demo', label: 'Demo', icon: FlaskConical });
+  if (clock.data) items.push({ to: '/demo', label: t.nav.demo, icon: FlaskConical });
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[232px_1fr]">
       <a
-        href="#contenido"
+        href="#content"
         className="sr-only z-50 rounded-lg bg-primary px-3 py-2 text-primary-fg focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
       >
-        Saltar al contenido
+        {t.common.skipToContent}
       </a>
 
       {/*
@@ -169,7 +177,7 @@ export function Shell(): ReactNode {
       <aside className="hidden border-r border-border bg-surface lg:block">
         <div className="sticky top-0 flex h-dvh flex-col gap-6 overflow-y-auto px-4 py-5">
           <Brand />
-          <nav aria-label="Principal" className="flex flex-col gap-1">
+          <nav aria-label={t.common.mainNav} className="flex flex-col gap-1">
             <NavLinks items={items} />
           </nav>
           <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-4">
@@ -178,9 +186,9 @@ export function Shell(): ReactNode {
                 <UsersRound className="size-4" aria-hidden="true" />
               </span>
               <div className="min-w-0 leading-tight">
-                <p className="truncate text-sm font-medium text-fg">Tu equipo</p>
+                <p className="truncate text-sm font-medium text-fg">{t.common.yourTeam}</p>
                 <p className="truncate text-xs text-muted">
-                  {clock.data ? 'Demostración' : 'Consultorio'}
+                  {clock.data ? t.common.demoSubtitle : t.common.clinicSubtitle}
                 </p>
               </div>
             </div>
@@ -197,6 +205,7 @@ export function Shell(): ReactNode {
             </div>
             <div className="ml-auto flex items-center gap-2">
               {clock.data ? <SimulatedDate now={clock.data.now} /> : null}
+              <LanguageSwitch compact />
               <div className="lg:hidden">
                 <ThemeToggle />
               </div>
@@ -204,7 +213,7 @@ export function Shell(): ReactNode {
           </div>
           <MobileNav items={items} />
         </header>
-        <main id="contenido" className="px-4 py-5 lg:px-8 lg:py-6">
+        <main id="content" className="px-4 py-5 lg:px-8 lg:py-6">
           <Outlet />
         </main>
       </div>

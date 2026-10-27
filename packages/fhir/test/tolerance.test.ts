@@ -76,7 +76,7 @@ function addUnknown(bundle: Json, random: () => number): Json {
       ...((resource['extension'] as unknown[] | undefined) ?? []),
       { url: 'https://ehr.example.org/fhir/ext/source-system', valueString: 'ehr-x' },
     ];
-    resource['language'] = 'es';
+    resource['implicitRules'] = 'https://ehr.example.org/fhir/rules';
     resource['_status'] = { extension: [{ url: 'https://ehr.example.org/x', valueInteger: 1 }] };
     if (random() < 0.5) {
       resource['contained'] = [{ resourceType: 'Basic', id: 'local', code: { text: 'x' } }];

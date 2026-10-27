@@ -2,7 +2,7 @@ import type { ClinicId } from '@follow-up-engine/core';
 import { describeError } from '../errors.ts';
 import type { DetailedNoteExtractor } from '../extraction/note-extractor.ts';
 import type { RejectionReason } from '../extraction/types.ts';
-import { goldAuthoredAt, type GoldNote } from './gold.ts';
+import { goldAuthoredAt, goldLanguage, type GoldNote } from './gold.ts';
 import {
   ZERO_COUNTS,
   addCounts,
@@ -28,6 +28,10 @@ const EVIDENCE_REASONS: ReadonlySet<RejectionReason> = new Set<RejectionReason>(
 export interface NoteResult {
   readonly id: string;
   readonly specialty: string;
+  /** The language the gold note is written in (`es` when unlabeled). Optional in older summaries. */
+  readonly language?: string;
+  /** The language the extractor read the note as (`noteLanguage`); absent when it could not tell. */
+  readonly detectedLanguage?: string;
   /** Present when the extraction threw (budget, provider down, unrepairable output). */
   readonly error?: string;
   readonly counts: FieldCounts;
@@ -78,9 +82,17 @@ export interface Aggregate {
   readonly rejectedByReason?: Readonly<Record<string, number>>;
 }
 
+export interface LanguageAggregate extends Aggregate {
+  readonly language: string;
+  /** Share of notes whose detected language has the gold primary language. */
+  readonly detectionAccuracy: number;
+}
+
 export interface EvalSummary {
   readonly overall: Aggregate;
   readonly bySpecialty: readonly (Aggregate & { readonly specialty: string })[];
+  /** Per note language (gold label). Optional in older summaries. */
+  readonly byLanguage?: readonly LanguageAggregate[];
   readonly tokens: { readonly inputPerNote: number; readonly outputPerNote: number };
   readonly cost: { readonly totalUsd: number; readonly perNoteUsd: number };
   readonly latencyMs: { readonly p50: number; readonly p95: number };
@@ -154,8 +166,11 @@ export function aggregate(results: readonly NoteResult[]): Aggregate {
   };
 }
 
+const primary = (tag: string | undefined): string | undefined => tag?.split('-')[0]?.toLowerCase();
+
 export function summarize(results: readonly NoteResult[]): EvalSummary {
   const specialties = [...new Set(results.map((r) => r.specialty))].sort();
+  const languages = [...new Set(results.map((r) => r.language ?? 'es'))].sort();
   const ok = results.filter((r) => r.error === undefined);
   const n = Math.max(1, ok.length);
   const totalUsd = results.reduce((s, r) => s + r.costUsd, 0);
@@ -165,6 +180,15 @@ export function summarize(results: readonly NoteResult[]): EvalSummary {
       specialty,
       ...aggregate(results.filter((r) => r.specialty === specialty)),
     })),
+    byLanguage: languages.map((language) => {
+      const of = results.filter((r) => (r.language ?? 'es') === language);
+      const detected = of.filter((r) => primary(r.detectedLanguage) === primary(language));
+      return {
+        language,
+        ...aggregate(of),
+        detectionAccuracy: of.length === 0 ? 0 : detected.length / of.length,
+      };
+    }),
     tokens: {
       inputPerNote: ok.reduce((s, r) => s + r.inputTokens, 0) / n,
       outputPerNote: ok.reduce((s, r) => s + r.outputTokens, 0) / n,
@@ -249,6 +273,10 @@ export async function runExtractionEval(options: RunEvalOptions): Promise<EvalRu
         result = {
           id: note.id,
           specialty: note.specialty,
+          language: goldLanguage(note),
+          ...(extraction.noteLanguage === undefined
+            ? {}
+            : { detectedLanguage: extraction.noteLanguage }),
           counts: compared,
           hasPlanCorrect: compared.hasPlanCorrect,
           dischargeCorrect: compared.dischargeCorrect,
@@ -268,6 +296,7 @@ export async function runExtractionEval(options: RunEvalOptions): Promise<EvalRu
         result = {
           id: note.id,
           specialty: note.specialty,
+          language: goldLanguage(note),
           error: describeError(error),
           counts: {
             conditions: missed(note.expected.conditions),

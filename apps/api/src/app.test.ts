@@ -160,7 +160,7 @@ describe('API over the memory runtime', () => {
     const caseId = planCase?.id ?? '';
     const detail = await h.call<CaseDetail>(`/api/inbox/cases/${caseId}`);
     expect(detail.body.reasons[0]?.evidence?.noteExcerpt).toContain('Plan:');
-    expect(detail.body.timeline[0]?.label).toMatch(/^Caso abierto/);
+    expect(detail.body.timeline[0]?.label).toMatch(/^Case opened: /);
 
     const snoozed = await h.call<CaseDetail>(`/api/inbox/cases/${caseId}/actions`, {
       body: { action: 'snooze', snoozeDays: 3 },

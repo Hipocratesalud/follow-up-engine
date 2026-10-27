@@ -11,9 +11,10 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
  engine (core)                 this package                                  vendors
  ─────────────                 ────────────                                  ───────
  NoteExtractor.extract ──▶ createNoteExtractor
-   (clinicId, note,          │ prepareNote: mask patient names/ids (redactTerms), neutralize
-    redactTerms)             │   delimiter-like tags, past 20,000 chars keep head + tail
-                             │ prompt note-extraction@4 (metadata and note fenced as data)
+   (clinicId, note,          │ note language: the host's (DocumentReference.language), else detected
+    redactTerms, language)   │ prepareNote: mask patient names/ids (redactTerms), neutralize
+                             │   delimiter-like tags, past 20,000 chars keep head + tail
+                             │ prompt note-extraction@5 (metadata and note fenced as data)
                              │ output schema: ModelExtractionSchema (zod)
                              ▼
                         createLlmGateway ── budget check (usage log, UTC month)
@@ -30,7 +31,7 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
                                  POST {baseUrl}/chat/completions
                                        │
                              ▼ back in the extractor
-                        postProcessExtraction: verbatim and meaningful evidence, negation,
+                        postProcessExtraction (note's lexicons): verbatim and meaningful evidence, negation,
                         ICD-10 and LOINC validation, due dates computed from authoredAt,
                         confidence capped by what the note backs, discharge, pregnancy
                         dating and outcome (postProcessPregnancy), dedupe
@@ -45,18 +46,18 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
 
 ## Exported API
 
-| Area       | Exports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Gateway    | `createLlmGateway(config)`, `LlmGatewayConfig`, `TaskConfig`, `RouteTarget`, `GatewayResult`, `DEFAULT_RETRY_POLICY`, `backoffDelayMs`, `startOfUtcMonth`, `repairInstruction`                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Providers  | `createMetaProvider`, `createBasetenProvider`, `createOpenAiCompatibleProvider`, `createChatCompletionsProvider`, `createFakeProvider`, `fakeRequestKey`, `isContributorModel`, `META_API_BASE_URL`, `META_DEFAULT_MODEL`, `BASETEN_BASE_URL`, `BASETEN_MUSE_SPARK_OPEN_MODEL`, `STRUCTURED_OUTPUT_MODES`                                                                                                                                                                                                                                                                                                                  |
-| Pricing    | `DEFAULT_PRICING`, `priceFor`, `costOf`, `ModelPrice`, `PricingTable`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Usage log  | `LlmUsageLog`, `LlmCallRecord` (structural copies of the core port), `InMemoryLlmUsageLog`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Errors     | `LlmProviderError` (status, code, retryable, retryAfterMs), `LlmTimeoutError`, `LlmSchemaError` (raw output, issues, usage, repairable), `LlmUnavailableError`, `LlmConfigError`; core's `LlmBudgetExceededError` and `LlmOutputError` are thrown as is                                                                                                                                                                                                                                                                                                                                                                    |
-| Extraction | `createNoteExtractor`, `NOTE_EXTRACTION_PROMPT_VERSION`, `NOTE_EXTRACTION_TASK`, `buildExtractionMessages`, `sanitizeSpecialty`, `ModelExtractionSchema`, `ModelPregnancySchema`, `PREGNANCY_OUTCOME_KINDS`, `postProcessExtraction`, `postProcessPregnancy`, `MAX_ITEM_CONFIDENCE`, `prepareNote`, `MAX_NOTE_CHARS`, `REDACTION_PLACEHOLDER`, `DEFAULT_CONDITION_TERMS`, `resolveDueAt`, `addInterval`, `createQuoteIndex`, `locateQuote`, `isValidLoinc`, port types (`NoteExtractor`, `NoteExtraction`, `ExtractedPregnancy`, ...) and `DetailedNoteExtraction` (with `rejected`, `warnings`, `dischargeEvidenceQuote`) |
-| Snapshots  | `createSnapshotProvider` (replays recorded replies, records misses from a live provider), `snapshotKey`, `emptySnapshot`, `parseSnapshot`, `serializeSnapshot`, `mergeSnapshots`, `LlmSnapshot`, `LlmSnapshotEntry`, `SnapshotProvider`                                                                                                                                                                                                                                                                                                                                                                                  |
-| Fixtures   | `createNoteFixtureResponder`, `chainResponders`, `ExpectedPregnancySchema`, `modelOutputFromExpected` (gold `expected`), `modelOutputFromExtraction` (scenario `llmFixture`), `heuristicExtraction` / `heuristicResponder` (rule-based baseline)                                                                                                                                                                                                                                                                                                                                                                           |
-| Reviewer   | `createReviewAgent` (the `ClinicalReviewAgent` port: a bounded tool-calling loop on the gateway), `CLINICAL_REVIEW_TASK`, `CLINICAL_REVIEW_PROMPT_VERSION`, `ReviewerActionSchema`, `reviewerSystemPrompt`, `scriptedReviewerResponder` + `FAKE_REVIEWER_MODEL` (deterministic agent for CI and the demo), `quoteFromOriginal`, `inertJson`, `maskStrings`; the `eval:reviewer` harness                                                                                                                                                                                                                                    |
-| Evals      | `loadGoldNotes`, `runExtractionEval`, `compareExtraction`, `pregnancyOutcomeCounts`, `pregnancyDatingCounts`, `scores`, `renderReport`, `renderComparison`                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Area       | Exports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Gateway    | `createLlmGateway(config)`, `LlmGatewayConfig`, `TaskConfig`, `RouteTarget`, `GatewayResult`, `DEFAULT_RETRY_POLICY`, `backoffDelayMs`, `startOfUtcMonth`, `repairInstruction`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Providers  | `createMetaProvider`, `createBasetenProvider`, `createOpenAiCompatibleProvider`, `createChatCompletionsProvider`, `createFakeProvider`, `fakeRequestKey`, `isContributorModel`, `META_API_BASE_URL`, `META_DEFAULT_MODEL`, `BASETEN_BASE_URL`, `BASETEN_MUSE_SPARK_OPEN_MODEL`, `STRUCTURED_OUTPUT_MODES`                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Pricing    | `DEFAULT_PRICING`, `priceFor`, `costOf`, `ModelPrice`, `PricingTable`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Usage log  | `LlmUsageLog`, `LlmCallRecord` (structural copies of the core port), `InMemoryLlmUsageLog`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Errors     | `LlmProviderError` (status, code, retryable, retryAfterMs), `LlmTimeoutError`, `LlmSchemaError` (raw output, issues, usage, repairable), `LlmUnavailableError`, `LlmConfigError`; core's `LlmBudgetExceededError` and `LlmOutputError` are thrown as is                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Extraction | `createNoteExtractor`, `NOTE_EXTRACTION_PROMPT_VERSION`, `NOTE_EXTRACTION_TASK`, `buildExtractionMessages`, `sanitizeSpecialty`, `ModelExtractionSchema`, `ModelPregnancySchema`, `PREGNANCY_OUTCOME_KINDS`, `postProcessExtraction`, `postProcessPregnancy`, `MAX_ITEM_CONFIDENCE`, `prepareNote`, `MAX_NOTE_CHARS`, `REDACTION_PLACEHOLDER`, `DEFAULT_CONDITION_TERMS`, `ENGLISH_CONDITION_TERMS`, `conditionTermsFor`, `detectNoteLanguage`, `resolveNoteLanguage`, `lexiconLanguage`, `resolveDueAt`, `addInterval`, `createQuoteIndex`, `locateQuote`, `isValidLoinc`, port types (`NoteExtractor`, `NoteExtraction`, `ExtractedPregnancy`, ...) and `DetailedNoteExtraction` (with `rejected`, `warnings`, `dischargeEvidenceQuote`) |
+| Snapshots  | `createSnapshotProvider` (replays recorded replies, records misses from a live provider), `snapshotKey`, `emptySnapshot`, `parseSnapshot`, `serializeSnapshot`, `mergeSnapshots`, `LlmSnapshot`, `LlmSnapshotEntry`, `SnapshotProvider`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Fixtures   | `createNoteFixtureResponder`, `chainResponders`, `ExpectedPregnancySchema`, `modelOutputFromExpected` (gold `expected`), `modelOutputFromExtraction` (scenario `llmFixture`), `heuristicExtraction` / `heuristicResponder` (rule-based baseline)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Reviewer   | `createReviewAgent` (the `ClinicalReviewAgent` port: a bounded tool-calling loop on the gateway), `CLINICAL_REVIEW_TASK`, `CLINICAL_REVIEW_PROMPT_VERSION`, `ReviewerActionSchema`, `reviewerSystemPrompt`, `scriptedReviewerResponder` + `FAKE_REVIEWER_MODEL` (deterministic agent for CI and the demo), `quoteFromOriginal`, `inertJson`, `maskStrings`; the `eval:reviewer` harness                                                                                                                                                                                                                                                                                                                                                    |
+| Evals      | `loadGoldNotes`, `runExtractionEval`, `compareExtraction`, `pregnancyOutcomeCounts`, `pregnancyDatingCounts`, `scores`, `renderReport`, `renderComparison`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ### Wiring example (in an app)
 
@@ -217,7 +218,7 @@ the real gateway, validation and post-checks.
   with an elision marker between them, since the plan is usually at the end. The result carries the
   `note_truncated` warning in `DetailedNoteExtraction.warnings` (also `names_masked`,
   `tags_neutralized`) and `truncated: true` on the engine's `NoteExtraction`: the engine records a
-  `note_truncated` quality finding (inbox "Nota leída en parte", FHIR `DetectedIssue`
+  `note_truncated` quality finding (inbox "Note read in part", FHIR `DetectedIssue`
   `note-truncated`), because the middle of the note was not read. Quote matching is linear in the note length and works on UTF-16
   offsets that emoji and other astral characters cannot shift.
 - **Log-safe errors.** Error messages never contain model output (a reply can quote the note): an
@@ -225,6 +226,45 @@ the real gateway, validation and post-checks.
   (`LlmSchemaError.summary`); refusal text is dropped. The raw reply and the full zod issues stay on
   the error object for the repair round trip only. These messages are what `llm_calls.error`,
   `jobs.error` and the logs store.
+
+## Note language
+
+Notes are not always Spanish: the language model of the engine (docs/adr/0007) has four independent
+sources, and this package owns one of them, the language each note is written in.
+
+- **Which language.** The host's when it says (`DocumentReference.language` or its attachment's
+  `language`, `Composition.language`, travelling as `NoteExtractionInput.language`); otherwise
+  `detectNoteLanguage` (`language.ts`): a count of words frequent in one of Spanish, English and
+  Portuguese and rare in the other two ("el", "niega", "pcte"; "the", "denies", "f/u"; "com", "nao",
+  "nega"), plus letters only one of them writes (ñ; ã, ç). At least 3 hits and 1.5 times the
+  runner-up, else `undefined`. Deterministic, linear, no model. The result is `noteLanguage` on the
+  extraction (and on the engine's `plan.extracted` event), BCP-47: `en-US` when the host said so,
+  `en` when detected.
+- **What it changes.** The model is told (`Note language:` in the fenced metadata; prompt
+  `note-extraction@5`) and keeps quotes verbatim in that language. Every deterministic check reads the
+  note with the lexicons of its language (`signals.ts`, `lab-tests.ts`, `condition-terms.ts`, the
+  rule-based reader): English notes with English ones, any other language with the Spanish ones
+  (Portuguese has no lexicon of its own yet). The Spanish patterns are the original ones, unchanged:
+  on the 84 Spanish gold notes the baseline scores exactly as before, note by note.
+- **English lexicons** (US-style writing): negation ("denies DM/HTN", "no history of", "negative for",
+  a "no"/"not" in the same list item), hedging ("possible", "r/o", "concern for"), family history
+  ("FHx: mother with T2DM", "DM2 (father)"), risk and gestational diabetes; discharge ("d/c'd from
+  therapy", "discharged from PT", "no further follow-up needed", "therapy completed"; never
+  "discharged from the hospital 5 days ago" nor "d/c metformin"); conditional returns ("return if
+  worse", "RTC in 1 week only if symptoms persist", "PRN", "call if"; "f/u in 1 month or sooner if
+  worse" stays scheduled); cancelled follow-ups ("cancel the 1-month f/u"); timing ("f/u in 3 months",
+  "RTC 6 wks", "q3 months", "3-month follow-up", "next month", "annually", "before the next visit",
+  "May 4, 2026", US dates `mm/dd/yyyy`; not "for 10 days", "x 4 days", "45 years old", "2 weeks
+  ago"); plan wording ("f/u", "RTC", "recheck", "A1c", "BMP", "CMP", "LFTs", "UA", "CXR", "echo",
+  "DEXA", "CBT", "refer"); condition terms ("T2DM", "HTN", "HLD", "CKD 3a", "GERD", "MDD, recurrent")
+  and measurements ("A1c 7.4%", "Hgb 10.2"). Test names share one bilingual table (a test is the same
+  test in both languages and the English shorthand never occurs in Spanish notes).
+- **Outside the extractor.** The engine's short-treatment rule (`config/rules/universal.json`) also
+  reads English as-needed and conditional-return phrases ("as needed", "if pain", "return if",
+  "only if"), and the ATC name table (`packages/core/src/engine/terminology/atc.ts`) matches English
+  INN names ("metformin", "glipizide").
+- **Not yet in English.** Pregnancy dating and outcomes (`pregnancy-signals.ts`) are read in Spanish
+  notes only; patient-name masking keeps its Spanish everyday-word list.
 
 ## Running evals
 
@@ -244,6 +284,11 @@ pnpm --filter @follow-up-engine/llm eval:extraction --provider openai-compatible
   --base-url https://api.together.xyz/v1 --api-key-env TOGETHER_API_KEY \
   --model meta-models/muse-spark-open --price-in 1.25 --price-out 4.25
 
+# One language, or a reproducible subset (the Muse Spark run below).
+pnpm --filter @follow-up-engine/llm eval:extraction --provider fake --language en
+pnpm --filter @follow-up-engine/llm eval:extraction --provider meta --concurrency 3 \
+  --ids gold-001,gold-026,gold-047,gold-062,gold-071,gold-101,gold-102,gold-103,gold-104,gold-105,gold-106,gold-107,gold-108,gold-109,gold-110,gold-111,gold-112,gold-113,gold-114,gold-115,gold-116,gold-117
+
 # Side-by-side table of every run in docs/evals.
 pnpm --filter @follow-up-engine/llm eval:compare
 pnpm format   # reports are Markdown; let Prettier align the tables before committing
@@ -257,7 +302,9 @@ Metrics: precision, recall and F1 per field (conditions by ICD-10 category, plan
 date within ±20%, medications by fuzzy drug name, pregnancy outcome by kind, pregnancy dating with
 weeks, last period and delivery date one item each, matched exactly), `hasPlan` accuracy, discharge accuracy,
 hallucinated-quote rate, items dropped by the evidence checks, results per specialty, tokens and cost
-per note, latency p50/p95. Extraction errors count as misses.
+per note, latency p50/p95, and everything again per note language (with the share of notes whose
+language was detected right: the eval never tells the extractor the language). Extraction errors
+count as misses.
 
 The gold set includes adversarial notes from QA round 1: discharge ("se da de alta", gold-026, 045,
 046), negation (047, 048), as-needed and conditional phrasing (048, 049, 054), a lab value in a note
@@ -301,6 +348,32 @@ conditions F1 goes 80.0% → 80.9% (puerperium and loss terms), the rest is unch
 notes: conditions 80.3%, medications 80.7% (two-word drug names, "ácido fólico"), plan items 94.1%,
 hasPlan 95.2%, discharge 98.8%. The oracle scores 100% on every field, pregnancy included (tested
 on the shared set).
+
+HIP-138 added 17 English gold notes, gold-101 to 117 (`"language": "en"`), written the way US
+clinicians write: "f/u in 3 months", "RTC 6 wks", "denies DM/HTN", "FHx: mother with T2DM", "d/c'd from
+therapy", "no further follow-up needed", "PRN", "A1c q3 months", "Labs (A1c, lipid panel, UACR)
+before next visit", "RTC on 06/15/2026", "Follow-up visit on May 4, 2026", a cancelled f/u, a hospital
+discharge that is not one, a conditional return with a time ("Return in 1 week only if symptoms
+persist"), and a telephone note without plan. Prompt `note-extraction@5` (the note language in the
+metadata). On the 101 notes ([report](../../docs/evals/2026-10-27-fake-fake-extractor.md)), the
+heuristic baseline:
+
+| Language | Notes | Detected | Conditions F1 | Medications F1 | Plan items F1 | hasPlan | Discharge |
+| -------- | ----: | -------: | ------------: | -------------: | ------------: | ------: | --------: |
+| es       |    84 |    98.8% |         80.3% |          80.7% |         94.1% |   95.2% |     98.8% |
+| en       |    17 |   100.0% |        100.0% |          82.8% |        100.0% |  100.0% |    100.0% |
+
+Spanish is unchanged, note by note, from before HIP-138 (the one undetected Spanish note, gold-074,
+is read with the Spanish lexicons anyway). The English rules were written while looking at the
+English notes, so the English column overstates how well they generalize. The oracle scores 100% in
+both languages.
+
+First real Muse Spark run (`muse-spark-1.3`, reasoning `low`, 2026-10-27,
+[report](../../docs/evals/2026-10-27-meta-muse-spark-1.3.md)), on the 17 English notes plus five
+Spanish ones (gold-001, 026, 047, 062, 071): conditions F1 100% (25/0/0), medications 95.2%, plan items
+97.1%, hasPlan and discharge 100%, no hallucinated quote, language detected right on all 22; English
+alone: medications 93.3%, plan items 96.6%, the rest 100%. About 3,850 input and 350 to 1,600 output
+tokens per note (reasoning included), $0.0049 per note, $0.11 for the run, p50 3.3 s, p95 6.2 s.
 
 Every Muse Spark number in `docs/evals` can be reproduced offline: the eval CLIs take
 `--snapshot <file>` (replay the replies recorded in it, record the rest live into it) and

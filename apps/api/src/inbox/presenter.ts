@@ -44,23 +44,13 @@ import type {
   SuppressionView,
 } from '../http/schemas.ts';
 import { excerptAround, humanName, patientSummary, sourceDisplay } from './fhir-display.ts';
+import type { ApiMessages, AttemptStatus } from '../i18n/index.ts';
 import {
-  ATTEMPT_STATUS_LABELS,
-  type AttemptStatus,
-  CALL_OUTCOME_LABELS,
   channelLabel,
   closedReasonLabel,
-  CONTACT_FLAG_LABEL,
-  COORDINATOR_LABEL,
-  DISMISS_REASON_LABELS,
-  OUTCOME_LABELS,
-  DEFAULT_SUGGESTED_ACTION,
   escalationStepLabel,
   eventNote,
-  FRONT_DESK_LABEL,
-  LAYER_FALLBACK_LABELS,
   planItemLabel,
-  QUALITY_FINDING_LABELS,
   timelineLabel,
 } from './labels.ts';
 import { icd10Label, loincLabel } from './terminology.ts';
@@ -109,6 +99,7 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * MS_PER_DAY);
 }
 
+/** Priority bands (codes of the contract, not labels: the inbox names them). */
 const PRIORITY_LABELS = {
   stat: 'urgente',
   asap: 'alta',
@@ -117,10 +108,16 @@ const PRIORITY_LABELS = {
 } as const;
 
 /** Owner ids the engine uses when no practitioner is known (`EngineSettings`). */
-const ROLE_LABELS: Readonly<Record<string, string>> = {
-  front_desk: FRONT_DESK_LABEL,
-  coordinator: COORDINATOR_LABEL,
-};
+function roleLabel(t: ApiMessages, id: string): string | undefined {
+  switch (id) {
+    case 'front_desk':
+      return t.people.frontDesk;
+    case 'coordinator':
+      return t.people.coordinator;
+    default:
+      return undefined;
+  }
+}
 
 function memo<TKey, TValue>(load: (key: TKey) => Promise<TValue>): (key: TKey) => Promise<TValue> {
   const cache = new Map<TKey, Promise<TValue>>();
@@ -134,16 +131,17 @@ function memo<TKey, TValue>(load: (key: TKey) => Promise<TValue>): (key: TKey) =
   };
 }
 
-function flagView(flag: PatientContactFlag): ContactFlagView {
+function flagView(t: ApiMessages, flag: PatientContactFlag): ContactFlagView {
   return {
     issue: flag.issue,
-    label: CONTACT_FLAG_LABEL,
+    label: t.contactFlag,
     raisedAt: flag.raisedAt.toISOString(),
     ...(flag.channel === undefined ? {} : { channel: flag.channel }),
   };
 }
 
 function contactView(
+  t: ApiMessages,
   status: PatientContactStatus,
   flags: readonly PatientContactFlag[] = [],
 ): PatientContact {
@@ -155,7 +153,7 @@ function contactView(
       ? {}
       : { lastContactAt: status.lastContactAt.toISOString() }),
     contactDataInvalid: status.contactDataInvalid,
-    ...(standing === undefined ? {} : { contactFlag: flagView(standing) }),
+    ...(standing === undefined ? {} : { contactFlag: flagView(t, standing) }),
   };
 }
 
@@ -166,11 +164,11 @@ interface PatientContacts {
   readonly flags: readonly PatientContactFlag[];
 }
 
-export function conditionView(condition: PatientCondition): ConditionView {
+export function conditionView(t: ApiMessages, condition: PatientCondition): ConditionView {
   return {
     id: conditionId(condition),
     code: condition.code.code,
-    display: icd10Label(condition.code.code, condition.code.display),
+    display: icd10Label(t, condition.code.code, condition.code.display),
     status: condition.status,
     ...(condition.status === 'rejected'
       ? { rejectedBy: condition.confirmedBy === undefined ? 'host' : 'clinician' }
@@ -288,11 +286,13 @@ export function projectedSchedule(
 }
 
 /**
- * Turns engine objects into the inbox contract (Spanish labels, display
- * names, evidence with the surrounding note). One presenter per request:
- * it caches what several cases of the same patient share.
+ * Turns engine objects into the inbox contract (labels in the request's
+ * language, display names, evidence with the surrounding note). One
+ * presenter per request: it caches what several cases of the same patient
+ * share.
  */
 export class InboxPresenter {
+  readonly t: ApiMessages;
   readonly #runtime: EngineRuntime;
   readonly #clinicId: ClinicId;
   readonly #catalog: Catalog;
@@ -309,7 +309,9 @@ export class InboxPresenter {
     clinicId: ClinicId,
     catalog: Catalog,
     timeZone: string,
+    t: ApiMessages,
   ) {
+    this.t = t;
     this.#runtime = runtime;
     this.#clinicId = clinicId;
     this.#catalog = catalog;
@@ -336,12 +338,16 @@ export class InboxPresenter {
     );
   }
 
-  static async create(runtime: EngineRuntime, clinicId: ClinicId): Promise<InboxPresenter> {
+  static async create(
+    runtime: EngineRuntime,
+    clinicId: ClinicId,
+    t: ApiMessages,
+  ): Promise<InboxPresenter> {
     const [catalog, clinic] = await Promise.all([
       runtime.engine.catalog(clinicId),
       runtime.storage.clinics.get(clinicId),
     ]);
-    return new InboxPresenter(runtime, clinicId, catalog, clinic?.settings.timezone ?? 'UTC');
+    return new InboxPresenter(runtime, clinicId, catalog, clinic?.settings.timezone ?? 'UTC', t);
   }
 
   /** Loads the expectations behind every reason of these cases in one query. */
@@ -375,7 +381,7 @@ export class InboxPresenter {
 
   /**
    * The protocol behind a protocol layer expectation: the version that
-   * created it, with the Spanish name and the validation status of the
+   * created it, with its name and the validation status of the
    * protocol the clinic runs today. A protocol no longer enabled for the
    * clinic only keeps its id and version (no name, no status: the inbox
    * shows neither).
@@ -392,33 +398,47 @@ export class InboxPresenter {
     return {
       id,
       version: expectation.protocolVersion ?? expectation.ruleVersion,
-      ...(protocol === undefined ? {} : { name: protocol.reason.label, status: protocol.status }),
+      ...(protocol === undefined
+        ? {}
+        : {
+            name: this.ruleText(protocol.reason.code, protocol.reason.label),
+            status: protocol.status,
+          }),
     };
   }
 
-  /** Spanish reason label of a rule, from the catalog. Never contains a day count. */
+  /**
+   * The display text of a reason code in the request's language (the
+   * message catalog, keyed by reason code), else `source`: the English
+   * source label the config and the stored expectation carry.
+   */
+  ruleText(code: string, source: string): string {
+    return this.t.rules[code]?.reason ?? source;
+  }
+
+  /** Reason label of a rule, in the request's language. Never contains a day count. */
   reasonLabel(ruleId: string | undefined, fallback?: Expectation): string {
     if (fallback?.layer === 'doctor_plan') {
-      return planItemLabel(fallback.matchKey, loincLabel);
+      return planItemLabel(this.t, fallback.matchKey, (code) => loincLabel(this.t, code));
     }
     const definition = ruleId === undefined ? undefined : this.#catalog.definition(ruleId);
-    return (
-      definition?.reason.label ??
-      fallback?.reason.label ??
-      (fallback === undefined ? 'Seguimiento pendiente' : LAYER_FALLBACK_LABELS[fallback.layer])
-    );
+    const reason = definition?.reason ?? fallback?.reason;
+    if (reason !== undefined) {
+      return this.ruleText(reason.code, reason.label);
+    }
+    return fallback === undefined ? this.t.pendingFollowUp : this.t.layerFallbacks[fallback.layer];
   }
 
   async personName(id: string | undefined): Promise<string> {
     if (id === undefined) {
-      return FRONT_DESK_LABEL;
+      return this.t.people.frontDesk;
     }
-    const role = ROLE_LABELS[id];
+    const role = roleLabel(this.t, id);
     if (role !== undefined) {
       return role;
     }
     const practitioner = await this.resource(`Practitioner/${practitionerId(id)}`);
-    return humanName(practitioner) ?? FRONT_DESK_LABEL;
+    return humanName(practitioner) ?? this.t.people.frontDesk;
   }
 
   async caseViews(cases: readonly FollowUpCase[]): Promise<CaseView[]> {
@@ -436,7 +456,7 @@ export class InboxPresenter {
       this.personName(followUpCase.assignee),
       Promise.all(expectations.map((item) => this.reasonView(item, withExcerpts))),
     ]);
-    const patient = patientSummary(followUpCase.patientId, patientResource, this.now);
+    const patient = patientSummary(this.t, followUpCase.patientId, patientResource, this.now);
     return {
       id: followUpCase.id,
       patient: {
@@ -466,7 +486,7 @@ export class InboxPresenter {
         : { snoozedUntil: followUpCase.snoozedUntil.toISOString() }),
       reasons,
       suggestedAction: this.#suggestedAction(expectations),
-      patientContact: contactView(contact, contacts.flags),
+      patientContact: contactView(this.t, contact, contacts.flags),
     };
   }
 
@@ -506,7 +526,7 @@ export class InboxPresenter {
       followUpCase.status !== 'snoozed'
         ? {
             action: nextStep.action,
-            label: escalationStepLabel(nextStep),
+            label: escalationStepLabel(this.t, nextStep),
             at: followUpCase.nextActionAt.toISOString(),
           }
         : undefined;
@@ -519,7 +539,7 @@ export class InboxPresenter {
         const scheduledAt = scheduled.get(index);
         return {
           action: step.action,
-          label: escalationStepLabel(step),
+          label: escalationStepLabel(this.t, step),
           afterDays: step.afterDays,
           ...(events === undefined || index >= passed
             ? {}
@@ -558,6 +578,7 @@ export class InboxPresenter {
           ...(event.actor.id === undefined ? {} : { id: event.actor.id }),
         },
         label: timelineLabel(
+          this.t,
           event,
           ({ expectationId, ruleId }) => {
             // The same label as the reason card: the expectation decides it
@@ -566,7 +587,7 @@ export class InboxPresenter {
               expectationId === undefined ? undefined : this.#expectations.get(expectationId);
             return this.reasonLabel(expectation?.ruleId ?? ruleId, expectation);
           },
-          (id) => (id === undefined ? FRONT_DESK_LABEL : (names.get(id) ?? id)),
+          (id) => (id === undefined ? this.t.people.frontDesk : (names.get(id) ?? id)),
         ),
         ...(note === undefined ? {} : { note }),
       };
@@ -602,7 +623,7 @@ export class InboxPresenter {
 
   /** A host user (or practitioner) by id: the practitioner's name when the host sent it, else the id. */
   async userName(id: string): Promise<string> {
-    const role = ROLE_LABELS[id];
+    const role = roleLabel(this.t, id);
     if (role !== undefined) {
       return role;
     }
@@ -641,7 +662,7 @@ export class InboxPresenter {
           ? {}
           : {
               outcome: communication.outcome,
-              outcomeLabel: OUTCOME_LABELS[communication.outcome],
+              outcomeLabel: this.t.outcomes[communication.outcome],
             }),
         sender: communication.sender.type,
         ...(communication.sender.id === undefined
@@ -653,7 +674,7 @@ export class InboxPresenter {
       id: request.id,
       attempt: request.attempt,
       ...(request.channel === undefined ? {} : { channel: request.channel }),
-      channelLabel: channelLabel(request.channel),
+      channelLabel: channelLabel(this.t, request.channel),
       trigger: request.trigger,
       requestedAt: request.requestedAt.toISOString(),
       dueBy: request.dueBy.toISOString(),
@@ -661,10 +682,10 @@ export class InboxPresenter {
         ? {}
         : { requestedBy: await this.userName(request.requestedBy) }),
       status,
-      statusLabel: ATTEMPT_STATUS_LABELS[status],
+      statusLabel: this.t.attemptStatuses[status],
       ...(summary.outcome === undefined
         ? {}
-        : { outcome: summary.outcome, outcomeLabel: OUTCOME_LABELS[summary.outcome] }),
+        : { outcome: summary.outcome, outcomeLabel: this.t.outcomes[summary.outcome] }),
       ...(summary.outcomeAt === undefined ? {} : { outcomeAt: summary.outcomeAt.toISOString() }),
       communications: reports,
     };
@@ -689,7 +710,10 @@ export class InboxPresenter {
       dueBy: request.dueBy.toISOString(),
       overdue: request.dueBy.getTime() < this.now.getTime(),
       trigger: request.trigger,
-      outcomes: CALL_OUTCOMES.map((outcome) => ({ outcome, label: CALL_OUTCOME_LABELS[outcome] })),
+      outcomes: CALL_OUTCOMES.map((outcome) => ({
+        outcome,
+        label: this.t.callOutcomes[outcome],
+      })),
     };
   }
 
@@ -698,9 +722,12 @@ export class InboxPresenter {
     return {
       id: suppression.id,
       ruleId: suppression.ruleId,
-      label: definition?.reason.label ?? suppression.reason.label,
+      label: this.ruleText(
+        (definition?.reason ?? suppression.reason).code,
+        (definition?.reason ?? suppression.reason).label,
+      ),
       dismissReason: suppression.dismissReason,
-      dismissReasonLabel: DISMISS_REASON_LABELS[suppression.dismissReason],
+      dismissReasonLabel: this.t.dismissReasons[suppression.dismissReason],
       ...(suppression.note === undefined ? {} : { note: suppression.note }),
       ...(suppression.caseId === undefined ? {} : { caseId: suppression.caseId }),
       createdAt: suppression.createdAt.toISOString(),
@@ -737,7 +764,7 @@ export class InboxPresenter {
     );
     return {
       reason: resolution.dismissReason,
-      reasonLabel: DISMISS_REASON_LABELS[resolution.dismissReason],
+      reasonLabel: this.t.dismissReasons[resolution.dismissReason],
       ...(resolution.note === undefined ? {} : { note: resolution.note }),
       ...(resolution.resolvedBy === undefined
         ? {}
@@ -779,7 +806,7 @@ export class InboxPresenter {
       source: {
         resourceType: expectation.source.resourceType,
         id: expectation.source.id,
-        display: sourceDisplay(expectation.source.resourceType, source),
+        display: sourceDisplay(this.t, expectation.source.resourceType, source),
       },
       ...(evidence === undefined ? {} : { evidence }),
     };
@@ -811,11 +838,14 @@ export class InboxPresenter {
     const definition = expectations
       .map((expectation) => this.#catalog.definition(expectation.ruleId))
       .find((item) => item !== undefined);
-    return definition?.suggestedAction.label ?? DEFAULT_SUGGESTED_ACTION;
+    if (definition === undefined) {
+      return this.t.defaultSuggestedAction;
+    }
+    return this.t.rules[definition.reason.code]?.action ?? definition.suggestedAction.label;
   }
 
   expectationView(expectation: Expectation): PatientExpectationView {
-    const closedLabel = closedReasonLabel(expectation.closedReason);
+    const closedLabel = closedReasonLabel(this.t, expectation.closedReason);
     const protocol = this.protocolRef(expectation);
     return {
       id: expectation.id,
@@ -840,7 +870,7 @@ export class InboxPresenter {
   /** `undefined` when the clinic has nothing at all for this patient. */
   async patientDetail(patientId: PatientId): Promise<PatientDetail | undefined> {
     const { stores } = this.#runtime.storage;
-    const [resource, conditions, ascending, findings, contact, contacts, suppressions] =
+    const [resource, conditions, ascending, findings, contact, contacts, suppressions, languages] =
       await Promise.all([
         this.resource(`Patient/${patientId}`),
         stores.conditions.listByPatient(this.#clinicId, patientId),
@@ -849,7 +879,14 @@ export class InboxPresenter {
         this.#contact(patientId),
         this.#contacts(patientId),
         this.#suppressions(patientId),
+        stores.clinicalRecords.listEventsForPatient(this.#clinicId, patientId, {
+          types: ['patient.language_recorded'],
+        }),
       ]);
+    // The latest Patient the host sent decides (it may have cleared it).
+    const latestLanguage = languages.at(-1);
+    const language =
+      latestLanguage?.type === 'patient.language_recorded' ? latestLanguage.language : undefined;
     // Newest deadline first.
     const expectations = [...ascending].reverse();
     if (resource === undefined && expectations.length === 0 && conditions.length === 0) {
@@ -858,22 +895,23 @@ export class InboxPresenter {
         return undefined;
       }
     }
-    const summary = patientSummary(patientId, resource, this.now);
-    const contactInfo = contactView(contact, contacts.flags);
+    const summary = patientSummary(this.t, patientId, resource, this.now);
+    const contactInfo = contactView(this.t, contact, contacts.flags);
     return {
       patient: { ...summary, contact: contactInfo },
       contact: contactInfo,
+      ...(language === undefined ? {} : { language }),
       // A condition entered in error (or moved to another patient) was never the patient's.
       conditions: withoutConfirmedDuplicates(conditions)
         .filter((condition) => condition.status !== 'entered_in_error')
-        .map(conditionView),
+        .map((condition) => conditionView(this.t, condition)),
       expectations: expectations.map((expectation) => this.expectationView(expectation)),
       qualityFindings: findings.map((finding) => ({
         id: finding.id,
         code: finding.kind,
         documentId: finding.source.id,
         at: finding.detectedAt.toISOString(),
-        label: QUALITY_FINDING_LABELS[finding.kind],
+        label: this.t.qualityFindings[finding.kind],
       })),
       suppressions: await Promise.all(
         suppressions.map((suppression) => this.suppressionView(suppression)),

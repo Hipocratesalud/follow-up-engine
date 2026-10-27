@@ -10,6 +10,8 @@ export const GoldNoteSchema = z.object({
   specialty: z.string().min(1),
   /** `YYYY-MM-DD` (read as noon UTC) or a full ISO instant. */
   authoredAt: z.string().min(1),
+  /** BCP-47 language of the note; absent: Spanish (`es`). Scored against the extractor's detection. */
+  language: z.string().min(1).optional(),
   text: z.string().min(1),
   expected: ExpectedExtractionSchema,
 });
@@ -37,4 +39,9 @@ export async function loadGoldNotes(dir: string): Promise<GoldNote[]> {
     notes.push(parsed.data);
   }
   return notes;
+}
+
+/** The language a gold note is written in (`es` when the note does not say). */
+export function goldLanguage(note: Pick<GoldNote, 'language'>): string {
+  return note.language ?? 'es';
 }

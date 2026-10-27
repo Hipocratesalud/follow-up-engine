@@ -1,5 +1,6 @@
 import type { Expectation, ExpectationLayer, PatientCondition } from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
+import { messagesFor } from '../i18n/index.ts';
 import { sourceDisplay } from './fhir-display.ts';
 import { byActionability, withoutConfirmedDuplicates } from './presenter.ts';
 import { icd10Label } from './terminology.ts';
@@ -37,35 +38,49 @@ describe('case reasons', () => {
   });
 });
 
-describe('Spanish displays', () => {
-  it('name known LOINC codes in Spanish when the host sent no text', () => {
-    expect(
-      sourceDisplay('Observation', {
-        resourceType: 'Observation',
-        id: 'obs-1',
-        code: {
-          coding: [
-            {
-              system: 'http://loinc.org',
-              code: '4548-4',
-              display: 'Hemoglobin A1c/Hemoglobin.total in Blood',
-            },
-          ],
-        },
-      }),
-    ).toBe('Hemoglobina glicosilada (HbA1c)');
+const EN = messagesFor('en');
+const ES = messagesFor('es');
+
+const HBA1C_OBSERVATION = {
+  resourceType: 'Observation',
+  id: 'obs-1',
+  code: {
+    coding: [
+      {
+        system: 'http://loinc.org',
+        code: '4548-4',
+        display: 'Hemoglobin A1c/Hemoglobin.total in Blood',
+      },
+    ],
+  },
+};
+
+describe('displays in the request language', () => {
+  it('name known LOINC codes in the catalog language when the host sent no text', () => {
+    expect(sourceDisplay(EN, 'Observation', HBA1C_OBSERVATION)).toBe('Hemoglobin A1c (HbA1c)');
+    expect(sourceDisplay(ES, 'Observation', HBA1C_OBSERVATION)).toBe(
+      'Hemoglobina glicosilada (HbA1c)',
+    );
+  });
+
+  it('date a source without a name in the catalog language', () => {
+    const note = { resourceType: 'DocumentReference', id: 'n-1', date: '2026-01-05T10:00:00Z' };
+    expect(sourceDisplay(EN, 'DocumentReference', note)).toBe('Clinical note of January 5, 2026');
+    expect(sourceDisplay(ES, 'DocumentReference', note)).toBe(
+      'Nota clínica del 5 de enero de 2026',
+    );
   });
 
   it("keep the host's own text, and fall back to the coding display for unknown codes", () => {
     expect(
-      sourceDisplay('ServiceRequest', {
+      sourceDisplay(EN, 'ServiceRequest', {
         resourceType: 'ServiceRequest',
         id: 'sr-1',
         code: { text: 'HbA1c de control', coding: [{ code: '4548-4' }] },
       }),
     ).toBe('HbA1c de control');
     expect(
-      sourceDisplay('ServiceRequest', {
+      sourceDisplay(EN, 'ServiceRequest', {
         resourceType: 'ServiceRequest',
         id: 'sr-2',
         code: { coding: [{ code: '99999-9', display: 'Something else' }] },
@@ -73,12 +88,13 @@ describe('Spanish displays', () => {
     ).toBe('Something else');
   });
 
-  it('name ICD-10 conditions in Spanish before the English display', () => {
-    expect(icd10Label('E11.9', 'Type 2 diabetes mellitus without complications')).toBe(
+  it("name ICD-10 conditions from the catalog before the host's display", () => {
+    expect(icd10Label(ES, 'E11.9', 'Type 2 diabetes mellitus without complications')).toBe(
       'Diabetes mellitus tipo 2',
     );
-    expect(icd10Label('F41.0', 'Panic disorder')).toBe('Trastorno de pánico');
-    expect(icd10Label('Q99.9', 'Unknown thing')).toBe('Unknown thing');
+    expect(icd10Label(EN, 'E11.9', 'T2DM w/o complications')).toBe('Type 2 diabetes mellitus');
+    expect(icd10Label(ES, 'F41.0', 'Panic disorder')).toBe('Trastorno de pánico');
+    expect(icd10Label(EN, 'Q99.9', 'Unknown thing')).toBe('Unknown thing');
   });
 });
 

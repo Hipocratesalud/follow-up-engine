@@ -14,32 +14,35 @@ import { useFindingPages, useReviewMetrics } from '../../api/queries.ts';
 import { EmptyState, ErrorState, InlineError } from '../../components/states.tsx';
 import { Button, INPUT_CLASS, Skeleton } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
-import { formatPercent, formatUsd } from '../../lib/format.ts';
-import { CATEGORY_LABELS, REVIEW_COPY, SEVERITY_LABELS, SEVERITY_ORDER } from './copy.ts';
-
-const COPY = REVIEW_COPY;
+import { type Messages, useT } from '../../i18n/index.ts';
+import { formatDecimal, formatNumber, formatPercent, formatUsd } from '../../lib/format.ts';
+import { SEVERITY_ORDER } from './describe.ts';
 import { FindingRow, FindingRowSkeleton } from './finding-row.tsx';
 
 type Tab = 'open' | 'reviewed';
 
-const TABS: readonly { value: Tab; label: string }[] = [
-  { value: 'open', label: REVIEW_COPY.list.tabOpen },
-  { value: 'reviewed', label: REVIEW_COPY.list.tabReviewed },
-];
+function tabs(t: Messages): readonly { value: Tab; label: string }[] {
+  return [
+    { value: 'open', label: t.review.list.tabOpen },
+    { value: 'reviewed', label: t.review.list.tabReviewed },
+  ];
+}
 
-const MODES: readonly { value: FindingMode; label: string }[] = [
-  { value: 'shadow', label: REVIEW_COPY.list.modeShadow },
-  { value: 'live', label: REVIEW_COPY.list.modeLive },
-];
+function modes(t: Messages): readonly { value: FindingMode; label: string }[] {
+  return [
+    { value: 'shadow', label: t.review.list.modeShadow },
+    { value: 'live', label: t.review.list.modeLive },
+  ];
+}
 
 const PAGE_SIZE = 50;
 
 function parseTab(value: string | null): Tab {
-  return value === 'revisados' ? 'reviewed' : 'open';
+  return value === 'reviewed' ? 'reviewed' : 'open';
 }
 
 function parseMode(value: string | null): FindingMode {
-  return value === 'en-vivo' ? 'live' : 'shadow';
+  return value === 'live' ? 'live' : 'shadow';
 }
 
 function parseCategory(value: string | null): FindingCategory | undefined {
@@ -117,27 +120,29 @@ function Tile({
 }
 
 function MetricsTiles({ metrics }: { readonly metrics: ReviewMetrics }): ReactNode {
+  const t = useT();
+  const COPY = t.review;
   return (
     <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       <Tile
         label={COPY.metrics.patients}
-        value={String(metrics.patientsReviewed)}
+        value={formatNumber(metrics.patientsReviewed)}
         hint={COPY.metrics.patientsHint(metrics.runs)}
       />
       <Tile
         label={COPY.metrics.per100}
-        value={metrics.findingsPer100Patients.toLocaleString('es')}
+        value={formatDecimal(metrics.findingsPer100Patients)}
         hint={COPY.metrics.per100Hint(metrics.discarded)}
       />
       <Tile
         label={COPY.metrics.cost}
         value={formatUsd(metrics.avgCostUsd)}
-        hint={COPY.metrics.costHint(metrics.avgToolCalls.toLocaleString('es'))}
+        hint={COPY.metrics.costHint(formatDecimal(metrics.avgToolCalls))}
       />
       <Tile
         label={COPY.metrics.precision}
         value={
-          metrics.precision === undefined ? COPY.metrics.empty : formatPercent(metrics.precision)
+          metrics.precision === undefined ? t.common.noValue : formatPercent(metrics.precision)
         }
         hint={
           metrics.reviewed === 0
@@ -150,6 +155,8 @@ function MetricsTiles({ metrics }: { readonly metrics: ReviewMetrics }): ReactNo
 }
 
 function Metrics(): ReactNode {
+  const t = useT();
+  const COPY = t.review;
   const metrics = useReviewMetrics();
   function handleRetry(): void {
     void metrics.refetch();
@@ -178,6 +185,7 @@ function Metrics(): ReactNode {
 }
 
 function LiveBanner(): ReactNode {
+  const COPY = useT().review;
   return (
     <div
       role="note"
@@ -192,6 +200,7 @@ function LiveBanner(): ReactNode {
 }
 
 export function ShadowBanner(): ReactNode {
+  const COPY = useT().review;
   return (
     <div
       role="note"
@@ -207,12 +216,14 @@ export function ShadowBanner(): ReactNode {
 }
 
 function FindingList(): ReactNode {
+  const t = useT();
+  const COPY = t.review;
   const { findingId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = parseTab(searchParams.get('estado'));
-  const mode = parseMode(searchParams.get('modo'));
-  const category = parseCategory(searchParams.get('categoria'));
-  const severity = parseSeverity(searchParams.get('severidad'));
+  const tab = parseTab(searchParams.get('status'));
+  const mode = parseMode(searchParams.get('mode'));
+  const category = parseCategory(searchParams.get('category'));
+  const severity = parseSeverity(searchParams.get('severity'));
   const findings = useFindingPages({
     mode,
     status: tab === 'open' ? 'open' : 'reviewed',
@@ -237,16 +248,16 @@ function FindingList(): ReactNode {
   );
 
   function handleTab(value: string): void {
-    updateParam('estado', value === 'reviewed' ? 'revisados' : 'por-revisar', 'por-revisar');
+    updateParam('status', value === 'reviewed' ? 'reviewed' : 'open', 'open');
   }
   function handleMode(value: string): void {
-    updateParam('modo', value === 'live' ? 'en-vivo' : 'sombra', 'sombra');
+    updateParam('mode', value === 'live' ? 'live' : 'shadow', 'shadow');
   }
   function handleCategory(event: ChangeEvent<HTMLSelectElement>): void {
-    updateParam('categoria', event.target.value, '');
+    updateParam('category', event.target.value, '');
   }
   function handleSeverity(event: ChangeEvent<HTMLSelectElement>): void {
-    updateParam('severidad', event.target.value, '');
+    updateParam('severity', event.target.value, '');
   }
   function handleRetry(): void {
     void findings.refetch();
@@ -280,12 +291,17 @@ function FindingList(): ReactNode {
           </h2>
           <Segmented
             label={COPY.list.modeGroup}
-            options={MODES}
+            options={modes(t)}
             value={mode}
             onChange={handleMode}
           />
         </div>
-        <Segmented label={COPY.list.statusGroup} options={TABS} value={tab} onChange={handleTab} />
+        <Segmented
+          label={COPY.list.statusGroup}
+          options={tabs(t)}
+          value={tab}
+          onChange={handleTab}
+        />
         <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
           <div>
             <label className="sr-only" htmlFor="finding-category">
@@ -300,7 +316,7 @@ function FindingList(): ReactNode {
               <option value="">{COPY.list.allCategories}</option>
               {FINDING_CATEGORIES.filter((item) => item !== 'similar_patients').map((item) => (
                 <option key={item} value={item}>
-                  {COPY.list.optionWithCount(CATEGORY_LABELS[item], counts?.byCategory[item] ?? 0)}
+                  {COPY.list.optionWithCount(COPY.categories[item], counts?.byCategory[item] ?? 0)}
                 </option>
               ))}
             </select>
@@ -318,7 +334,7 @@ function FindingList(): ReactNode {
               <option value="">{COPY.list.allSeverities}</option>
               {FINDING_SEVERITIES.map((item) => (
                 <option key={item} value={item}>
-                  {COPY.list.optionWithCount(SEVERITY_LABELS[item], counts?.bySeverity[item] ?? 0)}
+                  {COPY.list.optionWithCount(COPY.severities[item], counts?.bySeverity[item] ?? 0)}
                 </option>
               ))}
             </select>
@@ -353,7 +369,7 @@ function FindingList(): ReactNode {
               <li key={item.id} className="min-w-0">
                 <FindingRow
                   item={item}
-                  to={`/revision-clinica/${item.id}${suffix}`}
+                  to={`/clinical-review/${item.id}${suffix}`}
                   selected={item.id === findingId}
                 />
               </li>
@@ -379,9 +395,10 @@ function FindingList(): ReactNode {
 }
 
 export function ReviewPage(): ReactNode {
+  const COPY = useT().review;
   const { findingId } = useParams();
   const [searchParams] = useSearchParams();
-  const live = parseMode(searchParams.get('modo')) === 'live';
+  const live = parseMode(searchParams.get('mode')) === 'live';
   const hasSelection = findingId !== undefined;
   return (
     <div className="flex flex-col gap-4">
@@ -396,7 +413,7 @@ export function ReviewPage(): ReactNode {
           <p className="text-sm text-muted">{COPY.page.intro}</p>
         </div>
         <Link
-          to="/revision-clinica/categorias"
+          to="/clinical-review/categories"
           className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border-strong px-3 text-[13px] font-medium text-fg hover:bg-surface-2"
         >
           <SlidersHorizontal className="size-3.5" aria-hidden="true" />

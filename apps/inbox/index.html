@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="description" content="Bandeja de seguimiento clínico" />
-    <title>Seguimiento clínico</title>
+    <meta name="description" content="Clinical follow-up inbox" />
+    <title>Clinical follow-up</title>
     <script>
       // Resolve the theme before first paint to avoid a light flash in dark mode.
       (function () {
@@ -18,6 +18,13 @@
           // Storage can be blocked; the system preference still applies.
         }
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        // The remembered UI language (src/i18n/locale.ts), before first paint.
+        try {
+          var locale = window.localStorage.getItem('inbox-locale');
+          if (locale === 'en' || locale === 'es') document.documentElement.lang = locale;
+        } catch (error) {
+          // Storage can be blocked; English stays.
+        }
       })();
     </script>
   </head>

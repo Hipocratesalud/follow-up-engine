@@ -14,9 +14,8 @@ import { fieldError, InlineError } from '../../components/states.tsx';
 import { Button, Field, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatLimit, INPUT_LIMITS } from '../../lib/limits.ts';
+import { type Messages, useT } from '../../i18n/index.ts';
 import { firstName, formatDate } from '../../lib/format.ts';
-import { DISMISS_COPY, DISMISS_REASON_HINTS, VALIDATION_COPY } from '../../lib/copy.ts';
-import { DISMISS_REASON_LABELS } from '../../lib/labels.ts';
 
 const SNOOZE_PRESETS = [3, 7, 14, 30] as const;
 const MAX_SNOOZE_DAYS = 90;
@@ -26,16 +25,22 @@ export const CASE_TITLE_ID = 'case-title';
 /** Where the keyboard lands when the dialog closes and its button is gone (the case closed). */
 export const CASE_CLOSED_NOTICE_ID = 'case-closed-notice';
 
-const DIALOG_COPY: Record<CaseAction, { title: string; confirm: string; done: string }> = {
-  notify: {
-    title: 'Pedir contacto con el paciente',
-    confirm: 'Pedir contacto',
-    done: 'Listo: le pedimos al sistema del consultorio que contacte al paciente.',
-  },
-  snooze: { title: 'Posponer el caso', confirm: 'Posponer', done: 'Caso pospuesto.' },
-  resolve: { title: 'Resolver el caso', confirm: 'Resolver caso', done: 'Caso resuelto.' },
-  dismiss: { title: 'Descartar el caso', confirm: 'Descartar caso', done: 'Caso descartado.' },
-};
+function dialogCopy(
+  t: Messages,
+  action: CaseAction,
+): { title: string; confirm: string; done: string } {
+  const copy = t.caseActions;
+  switch (action) {
+    case 'notify':
+      return { title: copy.notifyTitle, confirm: copy.notifyConfirm, done: copy.notifyDone };
+    case 'snooze':
+      return { title: copy.snoozeTitle, confirm: copy.snoozeConfirm, done: copy.snoozeDone };
+    case 'resolve':
+      return { title: copy.resolveTitle, confirm: copy.resolveConfirm, done: copy.resolveDone };
+    case 'dismiss':
+      return { title: copy.dismissTitle, confirm: copy.dismissConfirm, done: copy.dismissDone };
+  }
+}
 
 const ACTIONS: readonly CaseAction[] = ['notify', 'snooze', 'resolve', 'dismiss'];
 
@@ -44,11 +49,12 @@ function parseAction(value: string): CaseAction | undefined {
 }
 
 /** The patient-facing message. Generic on purpose: no diagnosis, result or test name. */
-export function patientMessagePreview(name: string): string {
-  return `Hola, ${firstName(name)}. Tienes un control pendiente con tu equipo de salud. Responde este mensaje para agendar tu cita.`;
+export function patientMessagePreview(t: Messages, name: string): string {
+  return t.caseActions.patientMessage(firstName(name));
 }
 
 export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactNode {
+  const t = useT();
   const mutation = useCaseAction(detail.id);
   const refreshAfterConflict = useRefreshAfterConflict(detail.id);
   const now = useNow();
@@ -145,9 +151,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
   function handleConfirm(): void {
     if (!action || mutation.isPending) return;
     if (note.trim().length > INPUT_LIMITS.note) {
-      setNoteError(
-        `La nota puede tener hasta ${formatLimit(INPUT_LIMITS.note)} caracteres. Acórtala e intenta de nuevo.`,
-      );
+      setNoteError(t.validation.noteTooLong(formatLimit(INPUT_LIMITS.note)));
       return;
     }
     const request: CaseActionRequest = { action, ...(note.trim() ? { note: note.trim() } : {}) };
@@ -155,8 +159,8 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
       // Validated on click, never by disabling the button: every missing input gets its message.
       const missingReason = dismissReason === undefined;
       const missingNote = dismissReason === 'other' && !note.trim();
-      if (missingReason) setReasonError(VALIDATION_COPY.dismissReasonRequired);
-      if (missingNote) setNoteError(VALIDATION_COPY.dismissNoteRequired);
+      if (missingReason) setReasonError(t.validation.dismissReasonRequired);
+      if (missingNote) setNoteError(t.validation.dismissNoteRequired);
       if (missingReason || missingNote) return;
       request.reason = dismissReason;
       if (dismissReason === 'not_applicable_to_patient' && suppress && canSuppress) {
@@ -169,12 +173,12 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
         effectiveSnoozeDays < 1 ||
         effectiveSnoozeDays > MAX_SNOOZE_DAYS
       ) {
-        setValidationError(`Indica un número de días entre 1 y ${String(MAX_SNOOZE_DAYS)}.`);
+        setValidationError(t.validation.snoozeDays(MAX_SNOOZE_DAYS));
         return;
       }
       request.snoozeDays = effectiveSnoozeDays;
     }
-    const done = DIALOG_COPY[action].done;
+    const done = dialogCopy(t, action).done;
     mutation.mutate(request, {
       onSuccess: () => {
         setAction(null);
@@ -183,7 +187,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
     });
   }
 
-  const copy = action ? DIALOG_COPY[action] : undefined;
+  const copy = action ? dialogCopy(t, action) : undefined;
   const showConfirm = !(action === 'notify' && contactBlocked);
   const snoozeUntil = new Date(now.getTime() + (effectiveSnoozeDays || 0) * DAY_MS).toISOString();
   const noteMessage = noteError ?? fieldError(mutation.error, 'note');
@@ -209,14 +213,14 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
           onClick={handleOpen}
           icon={<BellRing className="size-4" aria-hidden="true" />}
         >
-          Pedir contacto
+          {t.caseActions.notify}
         </Button>
         <Button
           value="snooze"
           onClick={handleOpen}
           icon={<Clock className="size-4" aria-hidden="true" />}
         >
-          Posponer
+          {t.caseActions.snooze}
         </Button>
         <Button
           variant="success"
@@ -224,7 +228,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
           onClick={handleOpen}
           icon={<CheckCircle2 className="size-4" aria-hidden="true" />}
         >
-          Resolver
+          {t.caseActions.resolve}
         </Button>
         <Button
           variant="ghost"
@@ -232,7 +236,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
           onClick={handleOpen}
           icon={<XCircle className="size-4" aria-hidden="true" />}
         >
-          Descartar
+          {t.caseActions.dismiss}
         </Button>
       </div>
       <p aria-live="polite" className={cx('text-sm text-success', !doneMessage && 'sr-only')}>
@@ -247,7 +251,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
         footer={
           <>
             <Button variant="secondary" onClick={handleClose}>
-              {showConfirm ? 'Cancelar' : 'Entendido'}
+              {showConfirm ? t.common.cancel : t.common.gotIt}
             </Button>
             {showConfirm ? (
               <Button
@@ -267,23 +271,19 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
           contactBlocked ? (
             <p className="flex gap-2 rounded-lg bg-warning-soft px-3 py-2.5 text-sm text-warning">
               <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {detail.patient.name} no acepta mensajes del consultorio. Contáctalo por otra vía y
-              luego resuelve el caso.
+              {t.caseActions.noMessages(detail.patient.name)}
             </p>
           ) : (
             <>
-              <p className="text-sm text-muted">
-                Enviaremos un aviso al sistema del consultorio para que contacte a{' '}
-                {detail.patient.name} por su canal habitual.
-              </p>
+              <p className="text-sm text-muted">{t.caseActions.notifyBody(detail.patient.name)}</p>
               <div className="rounded-lg border border-border bg-surface-2 p-3">
-                <p className="text-xs font-medium text-muted">Mensaje que recibirá el paciente</p>
+                <p className="text-xs font-medium text-muted">{t.caseActions.messagePreview}</p>
                 <p className="mt-1.5 text-sm text-fg">
-                  {patientMessagePreview(detail.patient.name)}
+                  {patientMessagePreview(t, detail.patient.name)}
                 </p>
                 <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
                   <Lock className="size-3" aria-hidden="true" />
-                  Sin diagnósticos, resultados ni nombres de exámenes.
+                  {t.caseActions.messagePrivacy}
                 </p>
               </div>
             </>
@@ -292,7 +292,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
 
         {action === 'snooze' ? (
           <div className="flex flex-col gap-3">
-            <div role="group" aria-label="Posponer por" className="flex flex-wrap gap-2">
+            <div role="group" aria-label={t.caseActions.snoozeFor} className="flex flex-wrap gap-2">
               {SNOOZE_PRESETS.map((days) => (
                 <button
                   key={days}
@@ -307,15 +307,15 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
                       : 'border-border-strong text-fg hover:bg-surface-2',
                   )}
                 >
-                  {days} días
+                  {t.time.days(days)}
                 </button>
               ))}
             </div>
             <Field
-              label="Otro plazo (días)"
+              label={t.caseActions.snoozeOther}
               htmlFor={`${ids}-days`}
               error={daysMessage}
-              hint={`Volverá a la bandeja el ${formatDate(snoozeUntil)}.`}
+              hint={t.caseActions.snoozeBack(formatDate(snoozeUntil))}
             >
               <input
                 id={`${ids}-days`}
@@ -328,7 +328,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
                 aria-invalid={daysMessage ? true : undefined}
                 aria-describedby={daysMessage ? `${ids}-days-error` : `${ids}-days-hint`}
                 className={INPUT_CLASS}
-                placeholder="Por ejemplo, 10"
+                placeholder={t.caseActions.snoozePlaceholder}
               />
             </Field>
           </div>
@@ -336,14 +336,12 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
 
         {action === 'dismiss' ? (
           <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted">{DISMISS_COPY.intro}</p>
+            <p className="text-sm text-muted">{t.dismiss.intro}</p>
             <fieldset
               className="flex flex-col gap-2"
               aria-describedby={reasonMessage ? `${ids}-reason-error` : undefined}
             >
-              <legend className="mb-1 text-sm font-medium text-fg">
-                {DISMISS_COPY.reasonLegend}
-              </legend>
+              <legend className="mb-1 text-sm font-medium text-fg">{t.dismiss.reasonLegend}</legend>
               {DISMISS_REASONS.map((reason) => (
                 <label
                   key={reason}
@@ -364,9 +362,11 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
                   />
                   <span className="min-w-0">
                     <span className="block text-sm font-medium text-fg">
-                      {DISMISS_REASON_LABELS[reason]}
+                      {t.labels.dismissReasons[reason]}
                     </span>
-                    <span className="block text-xs text-muted">{DISMISS_REASON_HINTS[reason]}</span>
+                    <span className="block text-xs text-muted">
+                      {t.dismiss.reasonHints[reason]}
+                    </span>
                   </span>
                 </label>
               ))}
@@ -389,29 +389,29 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
                     />
                     <span className="min-w-0">
                       <span className="block text-sm font-medium text-fg">
-                        {DISMISS_COPY.suppressLabel}
+                        {t.dismiss.suppressLabel}
                       </span>
                       <span className="block text-xs text-muted">
-                        {DISMISS_COPY.suppressHint(detail.patient.name)}
+                        {t.dismiss.suppressHint(detail.patient.name)}
                       </span>
                     </span>
                   </label>
                   <div id={`${ids}-suppress-list`} className="pl-6.5 text-xs text-muted">
-                    <p className="font-medium text-fg">{DISMISS_COPY.suppressListTitle}</p>
+                    <p className="font-medium text-fg">{t.dismiss.suppressListTitle}</p>
                     <ul className="mt-0.5 list-disc pl-4">
                       {suppressible.map((label) => (
                         <li key={label}>{label}</li>
                       ))}
                     </ul>
                     {kept.length > 0 ? (
-                      <p className="mt-1.5">{DISMISS_COPY.suppressKept(kept)}</p>
+                      <p className="mt-1.5">{t.dismiss.suppressKept(kept)}</p>
                     ) : null}
                   </div>
                 </div>
               ) : (
                 <p className="flex gap-2 rounded-lg bg-surface-2 px-3 py-2.5 text-sm text-muted">
                   <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                  {DISMISS_COPY.nothingSuppressible}
+                  {t.dismiss.nothingSuppressible}
                 </p>
               )
             ) : null}
@@ -419,14 +419,14 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
               <p className="flex gap-2 rounded-lg bg-info-soft px-3 py-2.5 text-sm text-fg">
                 <Info className="mt-0.5 size-4 shrink-0 text-info" aria-hidden="true" />
                 <span>
-                  {DISMISS_COPY.wrongDiagnosisBefore}{' '}
+                  {t.dismiss.wrongDiagnosisBefore}{' '}
                   <Link
-                    to={`/pacientes/${detail.patient.id}`}
+                    to={`/patients/${detail.patient.id}`}
                     className="font-medium text-primary underline underline-offset-2"
                   >
-                    {DISMISS_COPY.wrongDiagnosisLink}
+                    {t.dismiss.wrongDiagnosisLink}
                   </Link>
-                  {DISMISS_COPY.wrongDiagnosisAfter}
+                  {t.dismiss.wrongDiagnosisAfter}
                 </span>
               </p>
             ) : null}
@@ -435,10 +435,10 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
 
         {action && showConfirm ? (
           <Field
-            label={noteRequired ? DISMISS_COPY.noteLabelRequired : 'Nota interna (opcional)'}
+            label={noteRequired ? t.dismiss.noteLabelRequired : t.caseActions.noteOptional}
             htmlFor={`${ids}-note`}
             error={noteMessage}
-            hint={`Solo la ve el equipo. Hasta ${formatLimit(INPUT_LIMITS.note)} caracteres.`}
+            hint={t.caseActions.noteHint(formatLimit(INPUT_LIMITS.note))}
           >
             <textarea
               id={`${ids}-note`}
@@ -449,11 +449,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
               aria-invalid={noteMessage ? true : undefined}
               aria-describedby={noteMessage ? `${ids}-note-error` : `${ids}-note-hint`}
               className={INPUT_CLASS}
-              placeholder={
-                action === 'resolve'
-                  ? 'Por ejemplo: trajo el resultado, ya está cargado'
-                  : undefined
-              }
+              placeholder={action === 'resolve' ? t.caseActions.resolvePlaceholder : undefined}
             />
           </Field>
         ) : null}

@@ -1,6 +1,7 @@
 import { ICD10_SYSTEM, type PlanItem, type PlanItemKind } from '@follow-up-engine/core';
-import { DEFAULT_CONDITION_TERMS, type ConditionTermTable } from './condition-terms.ts';
+import { conditionTermsFor, type ConditionTermTable } from './condition-terms.ts';
 import { daysBetween, durationInDays, parseIsoDate, resolveDueAt } from './due-date.ts';
+import { lexiconLanguage, type LexiconLanguage } from './language.ts';
 import { namedTests, testGroup, testGroupOfLoinc, testGroupsIn } from './lab-tests.ts';
 import { postProcessPregnancy } from './pregnancy.ts';
 import { gestationalAges, statesCurrentPregnancy } from './pregnancy-signals.ts';
@@ -143,8 +144,17 @@ function firstMatch(pattern: RegExp | undefined, text: string): RegExpExecArray 
 }
 
 export interface PostProcessOptions {
-  /** Terms that can back each ICD-10 category. Defaults to {@link DEFAULT_CONDITION_TERMS}. */
+  /**
+   * Terms that can back each ICD-10 category, for every language. Defaults to
+   * the table of the note's language (`conditionTermsFor`).
+   */
   readonly conditionTerms?: ConditionTermTable;
+  /**
+   * BCP-47 language of the note (`en`, `es-VE`): picks the lexicons of every
+   * check (negation, discharge, conditional returns, timing, plan wording).
+   * Absent: Spanish, the engine's original lexicons.
+   */
+  readonly language?: string;
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -182,7 +192,10 @@ function gestationalTargetDue(
   clause: string,
   noteText: string,
   authoredAt: Date,
+  lang: LexiconLanguage,
 ): Date | undefined {
+  // The gestational readers are Spanish ("a las 20 semanas", "embarazo de 12 sem").
+  if (lang !== 'es') return undefined;
   const target = TARGET_WEEKS.exec(clause);
   if (target?.[1] === undefined || !statesCurrentPregnancy(noteText)) return undefined;
   const ages = gestationalAges(noteText);
@@ -192,7 +205,8 @@ function gestationalTargetDue(
   return days > 0 ? new Date(authoredAt.getTime() + days * MS_PER_DAY) : undefined;
 }
 
-const SESSION_WORD = /(?<![a-z])sesion(?:es)?(?![a-z])/;
+/** "sesión" / "session": the next session of a series. */
+const SESSION_WORD = /(?<![a-z])(?:sesion(?:es)?|sessions?)(?![a-z])/;
 
 /**
  * Whether `quote` (normalized) names the kind of plan item it supports: the
@@ -200,8 +214,8 @@ const SESSION_WORD = /(?<![a-z])sesion(?:es)?(?![a-z])/;
  * lexicon (`lab-tests.ts`), so a test the model quotes by a name the plan
  * wording lacks ("curva de tolerancia glucosada") is read as a test.
  */
-function namesKind(kind: ModelPlanItem['kind'], quote: string): boolean {
-  if (hasKindKeyword(kind, quote)) return true;
+function namesKind(kind: ModelPlanItem['kind'], quote: string, lang: LexiconLanguage): boolean {
+  if (hasKindKeyword(kind, quote, lang)) return true;
   return (kind === 'lab' || kind === 'imaging') && testGroupsIn(quote, kind).size > 0;
 }
 
@@ -211,7 +225,7 @@ function namesKind(kind: ModelPlanItem['kind'], quote: string): boolean {
  * bare abbreviation ("K+", "HIV", "ECG" in "Se solicita: creatinina, K+,
  * ECG"). Its timing is still read from the sentence around it.
  */
-function isWholeTerm(kind: ModelPlanItem['kind'], quote: string): boolean {
+function isWholeTerm(kind: ModelPlanItem['kind'], quote: string, lang: LexiconLanguage): boolean {
   const term = quote.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}+]+$/gu, '');
   if (alnumCount(term) === 0) return false;
   if (kind === 'lab' || kind === 'imaging') {
@@ -219,7 +233,7 @@ function isWholeTerm(kind: ModelPlanItem['kind'], quote: string): boolean {
       (test) => test.group.kind === kind && test.start === 0 && test.end === term.length,
     );
   }
-  const match = findKindKeyword(kind, term);
+  const match = findKindKeyword(kind, term, lang);
   return match !== null && match.index === 0 && match[0].length === term.length;
 }
 
@@ -235,7 +249,7 @@ function isWholeTerm(kind: ModelPlanItem['kind'], quote: string): boolean {
  * - a LOINC code is kept only on lab items, only when well formed and only
  *   when its test is one the quote names.
  */
-function readPlanItem(item: ModelPlanItem, quote: string): PlanReading {
+function readPlanItem(item: ModelPlanItem, quote: string, lang: LexiconLanguage): PlanReading {
   const description = item.description.trim();
   const visit: PlanReading = {
     kind: 'follow_up_visit',
@@ -244,7 +258,7 @@ function readPlanItem(item: ModelPlanItem, quote: string): PlanReading {
     downgraded: true,
   };
   if (item.kind === 'lab' || item.kind === 'imaging') {
-    if (!namesKind(item.kind, quote)) return visit;
+    if (!namesKind(item.kind, quote, lang)) return visit;
     const named = testGroupsIn(quote, item.kind);
     const described = testGroupsIn(normalizeForMatch(description), item.kind);
     if (named.size === 0) {
@@ -272,7 +286,7 @@ function readPlanItem(item: ModelPlanItem, quote: string): PlanReading {
       downgraded: false,
     };
   }
-  if (item.kind === 'other' && findKindKeyword('other', quote) === null) return visit;
+  if (item.kind === 'other' && findKindKeyword('other', quote, lang) === null) return visit;
   if (item.kind === 'follow_up_visit') {
     // "Próx. sesión en 1 semana": the next session of a series, whatever the model called it.
     const kind = SESSION_WORD.test(quote) ? 'session' : item.kind;
@@ -342,7 +356,8 @@ export function postProcessExtraction(
 ): PostProcessed {
   const prepared =
     'prepared' in note ? note.prepared : prepareNote(note.text, { maxChars: Infinity });
-  const terms = options.conditionTerms ?? DEFAULT_CONDITION_TERMS;
+  const lang = lexiconLanguage(options.language);
+  const terms = options.conditionTerms ?? conditionTermsFor(lang);
   const index = createQuoteIndex(prepared.text);
   const noteText = index.normalized.text;
   const rejected: RejectedItem[] = [];
@@ -391,9 +406,9 @@ export function postProcessExtraction(
       }
       const termStart = span.normalizedStart + term.index;
       const termEnd = termStart + term[0].length;
-      const reason = isNegatedMention(noteText, termStart, termEnd)
+      const reason = isNegatedMention(noteText, termStart, termEnd, lang)
         ? 'negated'
-        : conditionContext(noteText, termStart, termEnd, code.slice(0, 3));
+        : conditionContext(noteText, termStart, termEnd, code.slice(0, 3), lang);
       if (reason === undefined) {
         backing = { span, termStart, termEnd };
         break;
@@ -404,7 +419,7 @@ export function postProcessExtraction(
       reject('condition', firstReason ?? 'quote_unrelated', item.evidenceQuote);
       continue;
     }
-    const cap = isHedgedMention(noteText, backing.termStart, backing.termEnd)
+    const cap = isHedgedMention(noteText, backing.termStart, backing.termEnd, lang)
       ? HEDGED_CONDITION_CONFIDENCE
       : MAX_ITEM_CONFIDENCE;
     const display = item.display.trim();
@@ -442,7 +457,7 @@ export function postProcessExtraction(
       continue;
     }
     const key = normalizeForMatch(text);
-    if (looksLikeMeasurement(key) || looksLikeMeasurement(quote)) {
+    if (looksLikeMeasurement(key, lang) || looksLikeMeasurement(quote, lang)) {
       reject('medication', 'not_a_medication', item.evidenceQuote);
       continue;
     }
@@ -474,8 +489,13 @@ export function postProcessExtraction(
     if (span === undefined) {
       reject('discharge', 'quote_not_found', raw.discharge.evidenceQuote);
     } else {
-      const [from, to] = clauseBoundsAround(noteText, span.normalizedStart, span.normalizedEnd);
-      const found = findDischarge(noteText.slice(from, to));
+      const [from, to] = clauseBoundsAround(
+        noteText,
+        span.normalizedStart,
+        span.normalizedEnd,
+        lang,
+      );
+      const found = findDischarge(noteText.slice(from, to), lang);
       const overlaps =
         found !== undefined &&
         from + found.start < span.normalizedEnd &&
@@ -495,7 +515,7 @@ export function postProcessExtraction(
     dueAt?: Date;
   }
   const noteDay = utcDay(note.authoredAt);
-  const noteTiming = statedTiming(noteText, noteDay);
+  const noteTiming = statedTiming(noteText, noteDay, lang);
   const supports = (timing: StatedTiming, dueAt: Date, fromDate: boolean): boolean => {
     const days = daysBetween(note.authoredAt, dueAt);
     const near = (expected: number): boolean =>
@@ -521,26 +541,37 @@ export function postProcessExtraction(
       continue;
     }
     const quote = quoteText(span);
-    if (alnumCount(quote) < MIN_PLAN_QUOTE_ALNUM && !isWholeTerm(item.kind, quote)) {
+    if (alnumCount(quote) < MIN_PLAN_QUOTE_ALNUM && !isWholeTerm(item.kind, quote, lang)) {
       reject('planItem', 'quote_too_short', item.evidenceQuote);
       continue;
     }
-    if (!namesKind(item.kind, quote) && !hasTimeExpression(quote)) {
+    if (!namesKind(item.kind, quote, lang) && !hasTimeExpression(quote, lang)) {
       reject('planItem', 'quote_unrelated', item.evidenceQuote);
       continue;
     }
-    const clause = clauseAround(noteText, span.normalizedStart, span.normalizedEnd);
-    if (isConditional(segmentAround(noteText, span.normalizedStart, span.normalizedEnd), clause)) {
+    const clause = clauseAround(noteText, span.normalizedStart, span.normalizedEnd, lang);
+    if (
+      isConditional(
+        segmentAround(noteText, span.normalizedStart, span.normalizedEnd, lang),
+        clause,
+        lang,
+      )
+    ) {
       reject('planItem', 'conditional', item.evidenceQuote);
       continue;
     }
     // The list item the quote ends in: "se suspende metformina, control en 3 meses" keeps the control.
-    if (statesSuspension(segmentAround(noteText, span.normalizedEnd - 1, span.normalizedEnd))) {
+    if (
+      statesSuspension(
+        segmentAround(noteText, span.normalizedEnd - 1, span.normalizedEnd, lang),
+        lang,
+      )
+    ) {
       reject('planItem', 'cancelled', item.evidenceQuote);
       continue;
     }
-    const reading = readPlanItem(item, quote);
-    const targetDue = gestationalTargetDue(clause, noteText, note.authoredAt);
+    const reading = readPlanItem(item, quote, lang);
+    const targetDue = gestationalTargetDue(clause, noteText, note.authoredAt, lang);
     if (targetDue !== undefined) {
       // "Eco morfológico a las 20 semanas" in a note at week 12: due in 8 weeks, computed here.
       candidates.push({
@@ -577,7 +608,7 @@ export function postProcessExtraction(
     };
     // The timing written where the item is quoted decides; an explicit date
     // must be written there too (or follow from the interval written there).
-    const clauseTiming = statedTiming(clause, noteDay);
+    const clauseTiming = statedTiming(clause, noteDay, lang);
     if (isVerifiable(clauseTiming)) {
       if (supports(clauseTiming, resolution.dueAt, fromDate)) {
         candidates.push(timed(MAX_ITEM_CONFIDENCE));
