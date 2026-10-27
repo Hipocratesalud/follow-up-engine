@@ -21,6 +21,7 @@ import {
   type Origin,
 } from '../api/contract.ts';
 import { MOCK_API_KEY } from '../config.ts';
+import { VALIDATION_COPY } from '../lib/copy.ts';
 import { INPUT_LIMITS } from '../lib/limits.ts';
 import { MockHttpError, type MockStore } from './store.ts';
 
@@ -85,7 +86,7 @@ function parseAction(body: Record<string, unknown>): CaseActionRequest {
 function parseCallOutcome(body: Record<string, unknown>): CallOutcomeRequest {
   const outcome = CALL_OUTCOMES.find((candidate) => candidate === body['outcome']);
   if (!outcome) {
-    const message = 'Elige qué pasó con la llamada.';
+    const message = VALIDATION_COPY.callOutcomeRequired;
     throw new MockHttpError(422, 'invalid_request', message, [{ path: 'outcome', message }]);
   }
   const requestId = body['requestId'];

@@ -15,6 +15,7 @@ import { Button, Field, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatLimit, INPUT_LIMITS } from '../../lib/limits.ts';
 import { firstName, formatDate } from '../../lib/format.ts';
+import { DISMISS_COPY, DISMISS_REASON_HINTS, VALIDATION_COPY } from '../../lib/copy.ts';
 import { DISMISS_REASON_LABELS } from '../../lib/labels.ts';
 
 const SNOOZE_PRESETS = [3, 7, 14, 30] as const;
@@ -34,16 +35,6 @@ const DIALOG_COPY: Record<CaseAction, { title: string; confirm: string; done: st
   snooze: { title: 'Posponer el caso', confirm: 'Posponer', done: 'Caso pospuesto.' },
   resolve: { title: 'Resolver el caso', confirm: 'Resolver caso', done: 'Caso resuelto.' },
   dismiss: { title: 'Descartar el caso', confirm: 'Descartar caso', done: 'Caso descartado.' },
-};
-
-/** What each dismissal reason does, under its option. */
-const DISMISS_REASON_HINTS: Record<DismissReason, string> = {
-  handled_elsewhere: 'El paciente ya lo resolvió en otro centro.',
-  already_done: 'Ocurrió, pero el sistema del consultorio no lo registró.',
-  not_applicable_to_patient: 'Por su situación, este recordatorio no corresponde a este paciente.',
-  wrong_diagnosis: 'El caso se apoya en un diagnóstico que el paciente no tiene.',
-  wrong_interval: 'Se pidió antes de tiempo o con un plazo que no corresponde.',
-  other: 'Cuéntanos en la nota por qué lo descartas.',
 };
 
 const ACTIONS: readonly CaseAction[] = ['notify', 'snooze', 'resolve', 'dismiss'];
@@ -75,6 +66,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
   const trigger = useRef<HTMLButtonElement | null>(null);
 
   const contactBlocked = !detail.patientContact.allowed || detail.patientContact.optedOut;
+  const canSuppress = detail.reasons.some((reason) => reason.suppressible);
   const effectiveSnoozeDays = customDays ? Number(customDays) : snoozeDays;
 
   function reset(): void {
@@ -163,11 +155,13 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
       // Validated on click, never by disabling the button: every missing input gets its message.
       const missingReason = dismissReason === undefined;
       const missingNote = dismissReason === 'other' && !note.trim();
-      if (missingReason) setReasonError('Elige por qué descartas el caso.');
-      if (missingNote) setNoteError('Cuéntanos el motivo en la nota.');
+      if (missingReason) setReasonError(VALIDATION_COPY.dismissReasonRequired);
+      if (missingNote) setNoteError(VALIDATION_COPY.dismissNoteRequired);
       if (missingReason || missingNote) return;
       request.reason = dismissReason;
-      if (dismissReason === 'not_applicable_to_patient' && suppress) request.suppress = true;
+      if (dismissReason === 'not_applicable_to_patient' && suppress && canSuppress) {
+        request.suppress = true;
+      }
     }
     if (action === 'snooze') {
       if (
@@ -197,12 +191,20 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
   const reasonMessage =
     reasonError ?? fieldError(mutation.error, 'reason') ?? fieldError(mutation.error, 'suppress');
   const noteRequired = action === 'dismiss' && dismissReason === 'other';
+  // Only protocol items and the visit pattern can be stopped for the patient.
+  const suppressible = [
+    ...new Set(detail.reasons.filter((reason) => reason.suppressible).map((r) => r.label)),
+  ];
+  const kept = [
+    ...new Set(detail.reasons.filter((reason) => !reason.suppressible).map((r) => r.label)),
+  ];
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-2">
         <Button
-          variant="primary"
+          // A pending call is the case's primary action: asking for contact steps back.
+          variant={detail.callTask ? 'secondary' : 'primary'}
           value="notify"
           onClick={handleOpen}
           icon={<BellRing className="size-4" aria-hidden="true" />}
@@ -334,15 +336,14 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
 
         {action === 'dismiss' ? (
           <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted">
-              Descarta el caso si no corresponde hacer seguimiento. El motivo también queda como tu
-              opinión sobre el caso: así ajustamos la regla.
-            </p>
+            <p className="text-sm text-muted">{DISMISS_COPY.intro}</p>
             <fieldset
               className="flex flex-col gap-2"
               aria-describedby={reasonMessage ? `${ids}-reason-error` : undefined}
             >
-              <legend className="mb-1 text-sm font-medium text-fg">¿Por qué lo descartas?</legend>
+              <legend className="mb-1 text-sm font-medium text-fg">
+                {DISMISS_COPY.reasonLegend}
+              </legend>
               {DISMISS_REASONS.map((reason) => (
                 <label
                   key={reason}
@@ -376,36 +377,56 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
               ) : null}
             </fieldset>
             {dismissReason === 'not_applicable_to_patient' ? (
-              <label className="flex cursor-pointer gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  checked={suppress}
-                  onChange={handleSuppressChange}
-                  className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium text-fg">
-                    Dejar de recordarlo para este paciente
-                  </span>
-                  <span className="block text-xs text-muted">
-                    El motor no volverá a abrir este recordatorio para {detail.patient.name}; los
-                    demás pacientes no cambian. Puedes volver a activarlo desde su ficha.
-                  </span>
-                </span>
-              </label>
+              suppressible.length > 0 ? (
+                <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
+                  <label className="flex cursor-pointer gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={suppress}
+                      onChange={handleSuppressChange}
+                      aria-describedby={`${ids}-suppress-list`}
+                      className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-fg">
+                        {DISMISS_COPY.suppressLabel}
+                      </span>
+                      <span className="block text-xs text-muted">
+                        {DISMISS_COPY.suppressHint(detail.patient.name)}
+                      </span>
+                    </span>
+                  </label>
+                  <div id={`${ids}-suppress-list`} className="pl-6.5 text-xs text-muted">
+                    <p className="font-medium text-fg">{DISMISS_COPY.suppressListTitle}</p>
+                    <ul className="mt-0.5 list-disc pl-4">
+                      {suppressible.map((label) => (
+                        <li key={label}>{label}</li>
+                      ))}
+                    </ul>
+                    {kept.length > 0 ? (
+                      <p className="mt-1.5">{DISMISS_COPY.suppressKept(kept)}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <p className="flex gap-2 rounded-lg bg-surface-2 px-3 py-2.5 text-sm text-muted">
+                  <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  {DISMISS_COPY.nothingSuppressible}
+                </p>
+              )
             ) : null}
             {dismissReason === 'wrong_diagnosis' ? (
               <p className="flex gap-2 rounded-lg bg-info-soft px-3 py-2.5 text-sm text-fg">
                 <Info className="mt-0.5 size-4 shrink-0 text-info" aria-hidden="true" />
                 <span>
-                  Si el diagnóstico no corresponde, recházalo en la{' '}
+                  {DISMISS_COPY.wrongDiagnosisBefore}{' '}
                   <Link
                     to={`/pacientes/${detail.patient.id}`}
                     className="font-medium text-primary underline underline-offset-2"
                   >
-                    ficha del paciente
+                    {DISMISS_COPY.wrongDiagnosisLink}
                   </Link>
-                  : así se cancelan todos los recordatorios que dependen de él.
+                  {DISMISS_COPY.wrongDiagnosisAfter}
                 </span>
               </p>
             ) : null}
@@ -414,7 +435,7 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
 
         {action && showConfirm ? (
           <Field
-            label={noteRequired ? 'Nota interna' : 'Nota interna (opcional)'}
+            label={noteRequired ? DISMISS_COPY.noteLabelRequired : 'Nota interna (opcional)'}
             htmlFor={`${ids}-note`}
             error={noteMessage}
             hint={`Solo la ve el equipo. Hasta ${formatLimit(INPUT_LIMITS.note)} caracteres.`}

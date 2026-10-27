@@ -220,6 +220,11 @@ export interface CaseReasonView {
   label: string;
   dueAt: string;
   overdueDays: number;
+  /**
+   * A protocol item or the visit pattern: "Dejar de recordarlo para este
+   * paciente" can stop it. What a clinician asked for never is.
+   */
+  suppressible: boolean;
   source: ResourceSource;
   evidence?: ReasonEvidence;
 }

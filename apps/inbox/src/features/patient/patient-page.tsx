@@ -29,6 +29,7 @@ import { InlineQuote } from '../../components/evidence.tsx';
 import { ErrorState, InlineError, NotFoundState } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, Skeleton, type Tone } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
+import { SUPPRESSIONS_COPY } from '../../lib/copy.ts';
 import { ContactFlagNotice } from '../case/contact-panel.tsx';
 import { formatDate, formatPercent, formatRelative, initials } from '../../lib/format.ts';
 import {
@@ -232,15 +233,17 @@ function SuppressionItem({
                   to={`/casos/${suppression.caseId}`}
                   className="font-medium text-primary underline underline-offset-2"
                 >
-                  Ver el caso descartado
+                  {SUPPRESSIONS_COPY.caseLink}
                 </Link>
               </>
             ) : null}
           </p>
           {!suppression.active && suppression.revokedAt ? (
             <p className="mt-0.5 text-xs text-muted">
-              Reactivado{suppression.revokedBy ? ` por ${suppression.revokedBy}` : ''} el{' '}
-              {formatDate(suppression.revokedAt)}
+              {SUPPRESSIONS_COPY.reactivatedBy(
+                suppression.revokedBy,
+                formatDate(suppression.revokedAt),
+              )}
             </p>
           ) : null}
         </div>
@@ -251,10 +254,10 @@ function SuppressionItem({
             onClick={handleReactivate}
             icon={<BellRing className="size-3.5" aria-hidden="true" />}
           >
-            Volver a activar
+            {SUPPRESSIONS_COPY.reactivate}
           </Button>
         ) : (
-          <Badge tone="neutral">Reactivado</Badge>
+          <Badge tone="neutral">{SUPPRESSIONS_COPY.reactivatedBadge}</Badge>
         )}
       </div>
       {suppression.note ? (
@@ -262,7 +265,7 @@ function SuppressionItem({
       ) : null}
       <InlineError error={reactivate.error} />
       <p aria-live="polite" className={cx('text-xs text-success', !done && 'sr-only')}>
-        {done ? 'Listo: el motor vuelve a recordarlo para este paciente.' : ''}
+        {done ? SUPPRESSIONS_COPY.reactivatedDone : ''}
       </p>
     </li>
   );
@@ -280,16 +283,13 @@ function SuppressionsSection({
   return (
     <Card className="flex flex-col p-5" aria-labelledby="suppressions-title">
       <SectionTitle id="suppressions-title" count={active.length}>
-        Recordatorios desactivados
+        {SUPPRESSIONS_COPY.title}
       </SectionTitle>
-      <p className="mt-1 text-xs text-muted">
-        Recordatorios que el equipo marcó como «No aplica a este paciente». El motor no los vuelve a
-        abrir para este paciente; al resto de los pacientes les siguen aplicando.
-      </p>
+      <p className="mt-1 text-xs text-muted">{SUPPRESSIONS_COPY.intro}</p>
       {active.length === 0 ? (
         <p className="mt-3 flex items-center gap-1.5 text-sm text-muted">
           <ShieldOff className="size-4" aria-hidden="true" />
-          Ningún recordatorio desactivado.
+          {SUPPRESSIONS_COPY.empty}
         </p>
       ) : (
         <ul className="mt-1">
@@ -301,7 +301,7 @@ function SuppressionsSection({
       {history.length > 0 ? (
         <details className="mt-2 rounded-lg border border-border">
           <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-muted hover:text-fg">
-            Reactivados ({history.length})
+            {SUPPRESSIONS_COPY.history(history.length)}
           </summary>
           <ul className="px-3">
             {history.map((suppression) => (

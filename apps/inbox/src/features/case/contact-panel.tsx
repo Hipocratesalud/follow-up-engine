@@ -27,6 +27,7 @@ import { InlineError } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, type Tone } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatDate, formatDateTime, formatRelative } from '../../lib/format.ts';
+import { CALL_TASK_COPY, CONTACT_COPY, CONTACT_FLAG_COPY, DISMISSAL_COPY } from '../../lib/copy.ts';
 import { CALL_OUTCOME_LABELS } from '../../lib/labels.ts';
 
 const CHANNEL_ICONS: Record<ContactChannel | 'host', typeof Phone> = {
@@ -46,11 +47,7 @@ const ATTEMPT_TONES: Record<ContactAttemptStatus, Tone> = {
   closed: 'neutral',
 };
 
-const TRIGGER_LABELS: Record<ContactAttemptView['trigger'], string> = {
-  policy: 'Según la política del caso',
-  user: 'Pedido por el equipo',
-  wrong_number: 'Adelantada por un número equivocado',
-};
+const TRIGGER_LABELS: Record<ContactAttemptView['trigger'], string> = CONTACT_COPY.triggers;
 
 /** The outcomes of a call, as buttons: what the team picks after calling. */
 const CALL_OUTCOME_ICONS: Record<CallOutcome, typeof Phone> = {
@@ -74,9 +71,7 @@ export function ContactFlagNotice({
       <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
       <span>
         <span className="font-semibold text-warning">{flag.label}</span>{' '}
-        {formatRelative(flag.raisedAt, now)}: el teléfono registrado no es del paciente. No enviamos
-        más mensajes hasta que el sistema del consultorio lo actualice; las llamadas del equipo
-        siguen.
+        {CONTACT_FLAG_COPY.body(formatRelative(flag.raisedAt, now))}
       </span>
     </p>
   );
@@ -99,7 +94,7 @@ function AttemptItem({
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-sm font-semibold text-fg">
-            Intento {attempt.attempt} · {attempt.channelLabel}
+            {CONTACT_COPY.attemptTitle(attempt.attempt, attempt.channelLabel)}
           </span>
           <Badge tone={ATTEMPT_TONES[attempt.status]}>{attempt.statusLabel}</Badge>
         </div>
@@ -108,12 +103,12 @@ function AttemptItem({
           {attempt.requestedBy ? ` (${attempt.requestedBy})` : ''} ·{' '}
           <time dateTime={attempt.requestedAt}>{formatDateTime(attempt.requestedAt)}</time> ·{' '}
           {attempt.status === 'waiting' || attempt.status === 'pending_call'
-            ? `espera respuesta hasta el ${formatDate(attempt.dueBy)}`
-            : `plazo de respuesta: ${formatDate(attempt.dueBy)}`}
+            ? CONTACT_COPY.waitsUntil(formatDate(attempt.dueBy))
+            : CONTACT_COPY.answerWindow(formatDate(attempt.dueBy))}
         </p>
         {attempt.outcomeLabel && attempt.outcomeAt ? (
           <p className="text-sm text-fg">
-            Resultado: <span className="font-medium">{attempt.outcomeLabel}</span>{' '}
+            {CONTACT_COPY.outcomePrefix} <span className="font-medium">{attempt.outcomeLabel}</span>{' '}
             <span className="text-xs text-muted">({formatRelative(attempt.outcomeAt, now)})</span>
           </p>
         ) : null}
@@ -124,8 +119,8 @@ function AttemptItem({
                 <time dateTime={communication.at}>{formatDateTime(communication.at)}</time>:{' '}
                 {communication.outcomeLabel}
                 {communication.sender === 'user'
-                  ? ` · ${communication.senderName ?? 'el equipo'}`
-                  : ' · sistema del consultorio'}
+                  ? ` · ${communication.senderName ?? CONTACT_COPY.senderTeam}`
+                  : ` · ${CONTACT_COPY.senderHost}`}
               </li>
             ))}
           </ol>
@@ -146,13 +141,10 @@ export function ContactTimeline({
   return (
     <Card className="flex flex-col gap-4 p-5" aria-labelledby="contact-title">
       <SectionTitle id="contact-title" count={attempts.length}>
-        Contacto con el paciente
+        {CONTACT_COPY.title}
       </SectionTitle>
       {attempts.length === 0 ? (
-        <p className="text-sm text-muted">
-          Aún no se intentó contactar al paciente por este caso. El motor lo pide según la política
-          de escalamiento.
-        </p>
+        <p className="text-sm text-muted">{CONTACT_COPY.empty}</p>
       ) : (
         <ol className="flex flex-col gap-4">
           {attempts.map((attempt) => (
@@ -192,21 +184,21 @@ export function CallTask({
         </span>
         <div className="min-w-0">
           <h3 id="call-task-title" className="text-sm font-semibold text-fg">
-            Llamar al paciente
+            {CALL_TASK_COPY.title}
           </h3>
           <p className="mt-1 text-sm text-muted">
             {task.trigger === 'wrong_number'
-              ? `El mensaje le llegó a otra persona: llama a ${patientName} y confirma su teléfono.`
-              : `Los mensajes no tuvieron respuesta: llama a ${patientName} y cuéntanos qué pasó.`}{' '}
+              ? CALL_TASK_COPY.wrongNumber(patientName)
+              : CALL_TASK_COPY.unanswered(patientName)}{' '}
             <span className={cx(task.overdue && 'font-medium text-warning')}>
               {task.overdue
-                ? `Debía hacerse antes del ${formatDate(task.dueBy)}.`
-                : `Hazla antes del ${formatDate(task.dueBy)}.`}
+                ? CALL_TASK_COPY.overdue(formatDate(task.dueBy))
+                : CALL_TASK_COPY.due(formatDate(task.dueBy))}
             </span>
           </p>
         </div>
       </div>
-      <div role="group" aria-label="¿Qué pasó con la llamada?" className="flex flex-wrap gap-2">
+      <div role="group" aria-label={CALL_TASK_COPY.outcomesGroup} className="flex flex-wrap gap-2">
         {task.outcomes.map(({ outcome, label }) => {
           const Icon = CALL_OUTCOME_ICONS[outcome];
           return (
@@ -240,7 +232,7 @@ export function DismissalSummary({
 }): ReactNode {
   return (
     <Card className="flex flex-col gap-3 p-5" aria-labelledby="dismissal-title">
-      <SectionTitle id="dismissal-title">Por qué se descartó</SectionTitle>
+      <SectionTitle id="dismissal-title">{DISMISSAL_COPY.title}</SectionTitle>
       <p className="text-sm text-fg">
         <span className="font-medium">{dismissal.reasonLabel}</span>
         <span className="text-muted">
@@ -252,20 +244,18 @@ export function DismissalSummary({
       {dismissal.note ? (
         <p className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm text-fg">{dismissal.note}</p>
       ) : null}
-      <p className="text-xs text-muted">
-        El motivo cuenta como tu opinión sobre el caso: así ajustamos la regla.
-      </p>
+      <p className="text-xs text-muted">{DISMISSAL_COPY.feedbackNote}</p>
       {dismissal.suppressions.length > 0 ? (
         <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
           <p className="flex items-center gap-1.5 text-sm font-medium text-fg">
             <ShieldOff className="size-4 text-muted" aria-hidden="true" />
-            Dejó de recordarse para este paciente
+            {DISMISSAL_COPY.suppressedTitle}
           </p>
           <ul className="flex flex-col gap-0.5 text-sm text-fg">
             {dismissal.suppressions.map((suppression) => (
               <li key={suppression.id}>
                 {suppression.label}
-                {suppression.active ? '' : ' (reactivado)'}
+                {suppression.active ? '' : DISMISSAL_COPY.reactivatedSuffix}
               </li>
             ))}
           </ul>
@@ -273,7 +263,7 @@ export function DismissalSummary({
             to={`/pacientes/${patientId}`}
             className="w-fit text-xs font-medium text-primary underline underline-offset-2"
           >
-            Ver o reactivar en la ficha del paciente
+            {DISMISSAL_COPY.patientLink}
           </Link>
         </div>
       ) : null}

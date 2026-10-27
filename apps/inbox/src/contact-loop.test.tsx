@@ -62,14 +62,19 @@ describe('dismiss dialog', () => {
     expect(screen.queryByText('¿Te sirvió este caso?')).not.toBeInTheDocument();
   });
 
-  it('"No aplica a este paciente" can stop the reminder for this patient only', async () => {
-    const caseId = caseOf('José Luis Méndez');
+  it('"No aplica a este paciente" can stop the protocol and visit-pattern reminders for this patient only', async () => {
+    const caseId = caseOf('Luis Alberto Herrera');
     const { user, dialog, store } = await openDismissDialog(caseId);
     expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('radio', { name: /No aplica a este paciente/ }));
-    await user.click(
-      within(dialog).getByRole('checkbox', { name: /Dejar de recordarlo para este paciente/ }),
+    const checkbox = within(dialog).getByRole('checkbox', {
+      name: /Dejar de recordarlo para este paciente/,
+    });
+    // The checkbox names which reminders it stops.
+    expect(checkbox).toHaveAccessibleDescription(
+      /Deja de recordar:.*Sin consulta de diabetología en 5 meses.*Examen de pie diabético anual vencido/,
     );
+    await user.click(checkbox);
     await user.click(within(dialog).getByRole('button', { name: 'Descartar caso' }));
 
     const summary = await screen.findByRole('region', { name: 'Por qué se descartó' });
@@ -77,10 +82,38 @@ describe('dismiss dialog', () => {
     const patientId = store.getCase(caseId).patient.id;
     const suppressions = store.getPatient(patientId).suppressions;
     expect(suppressions.map((item) => item.ruleId).sort()).toEqual([
-      'doctor_plan_follow_up_visit',
-      'procedure_result_pending',
+      'cadence_diabetology_visit',
+      'protocol_diabetic_foot_annual',
     ]);
     expect(suppressions.every((item) => item.active)).toBe(true);
+  });
+
+  it('what a clinician asked for is never stopped for the patient: no checkbox, only this case', async () => {
+    const { user, dialog } = await openDismissDialog(caseOf('José Luis Méndez'));
+    await user.click(within(dialog).getByRole('radio', { name: /No aplica a este paciente/ }));
+    expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /no se puede desactivar para el paciente: solo se descarta este caso/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('a case with both kinds says which reminders stay active', async () => {
+    const store = createMockStore();
+    const mixed = store
+      .listCases({ view: 'active', limit: 200 })
+      .items.find(
+        (item) =>
+          item.reasons.some((reason) => reason.suppressible) &&
+          item.reasons.some((reason) => !reason.suppressible),
+      );
+    if (!mixed) throw new Error('expected a seeded case with both kinds of reasons');
+    const { user, dialog } = await openDismissDialog(mixed.id);
+    await user.click(within(dialog).getByRole('radio', { name: /No aplica a este paciente/ }));
+    expect(within(dialog).getByRole('checkbox')).toHaveAccessibleDescription(
+      /sigue activo para el paciente/,
+    );
   });
 
   it('"El diagnóstico no es correcto" points to the patient page to reject the condition', async () => {
@@ -99,6 +132,8 @@ describe('dismiss dialog', () => {
       [{ action: 'dismiss' }, 'reason'],
       [{ action: 'dismiss', reason: 'other' }, 'note'],
       [{ action: 'dismiss', reason: 'already_done', suppress: true }, 'suppress'],
+      // Nothing of this case can be stopped for the patient (a plan and a result).
+      [{ action: 'dismiss', reason: 'not_applicable_to_patient', suppress: true }, 'suppress'],
     ] as const) {
       try {
         store.act(caseId, request);

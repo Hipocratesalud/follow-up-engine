@@ -333,8 +333,18 @@ function CaseDetailView({
         <ContactStatus detail={detail} now={now} />
       </Card>
 
+      {/* One primary action per view: a pending call comes first. */}
+      {active && detail.callTask ? (
+        <CallTask caseId={detail.id} task={detail.callTask} patientName={detail.patient.name} />
+      ) : null}
+
       {active ? (
-        <Card className="flex flex-col gap-4 border-primary/30 p-5">
+        <Card
+          className={cx(
+            'flex flex-col gap-4 p-5',
+            detail.callTask === undefined && 'border-primary/30',
+          )}
+        >
           <div className="flex gap-3">
             <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
               <Lightbulb className="size-4" aria-hidden="true" />
@@ -367,10 +377,6 @@ function CaseDetailView({
           </div>
         </Card>
       )}
-
-      {active && detail.callTask ? (
-        <CallTask caseId={detail.id} task={detail.callTask} patientName={detail.patient.name} />
-      ) : null}
 
       <section aria-labelledby="reasons-title" className="flex flex-col gap-3">
         <SectionTitle id="reasons-title" count={detail.reasons.length}>

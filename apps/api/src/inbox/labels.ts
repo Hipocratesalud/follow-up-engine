@@ -183,6 +183,7 @@ const CLOSED_REASON_LABELS: Readonly<Record<string, string>> = {
   covered_by_plan: 'Ya lo cubre el plan del médico',
   covered_by_later_request: 'Ya se pidió en una orden o un plan posterior',
   condition_rejected: 'El equipo descartó el diagnóstico',
+  suppressed_for_patient: 'El equipo dejó de recordarlo para este paciente',
 };
 
 /** Spanish reason an expectation closed, or `undefined` for a code without copy. */
@@ -198,6 +199,19 @@ export const ESCALATION_STEP_LABELS: Record<EscalationAction, string> = {
   escalate_to_coordinator: 'Paso a coordinación',
   mark_lost_to_follow_up: 'Cierre como perdido en seguimiento',
 };
+
+/** A step's label, naming the channel of a contact attempt ("Pedido de contacto al paciente: WhatsApp"). */
+export function escalationStepLabel(step: {
+  readonly action: EscalationAction;
+  readonly channel?: ContactChannel | undefined;
+}): string {
+  if (step.action !== 'request_patient_contact' || step.channel === undefined) {
+    return ESCALATION_STEP_LABELS[step.action];
+  }
+  return step.channel === 'phone_call'
+    ? 'Llamada del equipo al paciente'
+    : `${ESCALATION_STEP_LABELS[step.action]}: ${CHANNEL_LABELS[step.channel]}`;
+}
 
 /** Where a case stands, for error messages ("ya está resuelto"). */
 const STATUS_PHRASES: Record<CaseStatus, string> = {

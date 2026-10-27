@@ -54,7 +54,7 @@ import {
   DISMISS_REASON_LABELS,
   OUTCOME_LABELS,
   DEFAULT_SUGGESTED_ACTION,
-  ESCALATION_STEP_LABELS,
+  escalationStepLabel,
   eventNote,
   FRONT_DESK_LABEL,
   LAYER_FALLBACK_LABELS,
@@ -482,7 +482,7 @@ export class InboxPresenter {
       followUpCase.status !== 'snoozed'
         ? {
             action: nextStep.action,
-            label: ESCALATION_STEP_LABELS[nextStep.action],
+            label: escalationStepLabel(nextStep),
             at: followUpCase.nextActionAt.toISOString(),
           }
         : undefined;
@@ -495,7 +495,7 @@ export class InboxPresenter {
         const scheduledAt = scheduled.get(index);
         return {
           action: step.action,
-          label: ESCALATION_STEP_LABELS[step.action],
+          label: escalationStepLabel(step),
           afterDays: step.afterDays,
           ...(events === undefined || index >= passed
             ? {}

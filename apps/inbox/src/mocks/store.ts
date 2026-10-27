@@ -45,6 +45,7 @@ import {
   type SuppressionView,
   type WebhookDelivery,
 } from '../api/contract.ts';
+import { MOCK_TIMELINE_COPY, VALIDATION_COPY } from '../lib/copy.ts';
 import {
   ATTEMPT_STATUS_LABELS,
   CALL_OUTCOME_LABELS,
@@ -192,6 +193,11 @@ const OUTCOME_RANK: Record<ContactOutcome, number> = {
   declined: 6,
   treated_elsewhere: 6,
 };
+/** Only protocol items and the visit pattern can be stopped for one patient (as the API decides). */
+function isSuppressible(layer: Layer): boolean {
+  return layer === 'protocol' || layer === 'cadence';
+}
+
 const ANSWERED: readonly ContactOutcome[] = ['replied', 'booked', 'declined', 'treated_elsewhere'];
 const UNREACHED: readonly ContactOutcome[] = ['wrong_number', 'no_answer'];
 
@@ -590,7 +596,9 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           caseSeed.status === 'resolved'
             ? 'Resuelto: el paciente asistió y se cargó el resultado'
             : caseSeed.status === 'dismissed'
-              ? `Descartado: ${DISMISS_REASON_LABELS[caseSeed.dismissal?.reason ?? 'already_done']}`
+              ? MOCK_TIMELINE_COPY.dismissed(
+                  DISMISS_REASON_LABELS[caseSeed.dismissal?.reason ?? 'already_done'],
+                )
               : 'Sin respuesta tras todos los escalamientos: perdido en seguimiento',
       });
     }
@@ -615,8 +623,10 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
             : { type: 'system', id: 'default_v2' },
         label:
           seedAttempt.channel === 'phone_call'
-            ? 'Llamada al paciente asignada al equipo'
-            : `Se pidió contactar al paciente (${seedAttempt.channel ? CHANNEL_LABELS[seedAttempt.channel] : HOST_CHANNEL_LABEL})`,
+            ? MOCK_TIMELINE_COPY.callAssigned
+            : MOCK_TIMELINE_COPY.contactRequested(
+                seedAttempt.channel ? CHANNEL_LABELS[seedAttempt.channel] : HOST_CHANNEL_LABEL,
+              ),
       });
       return {
         id: nextId('attempt', 'cr'),
@@ -632,7 +642,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
             at,
             type: 'contact_outcome_recorded',
             actor: { type: 'patient' },
-            label: `Resultado del contacto: ${CONTACT_OUTCOME_LABELS[reported.outcome]}`,
+            label: MOCK_TIMELINE_COPY.contactOutcome(CONTACT_OUTCOME_LABELS[reported.outcome]),
           });
           return {
             id: nextId('comm', 'comm'),
@@ -652,7 +662,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       if (caseSeed.dismissal.suppress) {
         for (const expectationId of expectationIds) {
           const expectation = expectations.get(expectationId);
-          if (!expectation) continue;
+          if (!expectation || !isSuppressible(expectation.layer)) continue;
           const id = nextId('sup', 'sup');
           suppressions.set(id, {
             id,
@@ -727,6 +737,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       label: expectation.label,
       dueAt: expectation.dueAt.toISOString(),
       overdueDays: Math.max(0, daysBetween(expectation.dueAt, now)),
+      suppressible: isSuppressible(expectation.layer),
       source: { ...expectation.source },
       ...(expectation.evidence && document
         ? {
@@ -1219,7 +1230,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         break;
       }
       case 'dismiss': {
-        const reason = validateDismissal(request, note);
+        const reason = validateDismissal(followUpCase, request, note);
         followUpCase.status = 'dismissed';
         delete followUpCase.nextActionAt;
         delete followUpCase.snoozedUntil;
@@ -1228,7 +1239,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           const expectation = expectations.get(expectationId);
           if (!expectation) continue;
           expectation.status = 'cancelled';
-          if (!request.suppress) continue;
+          if (!request.suppress || !isSuppressible(expectation.layer)) continue;
           const active = [...suppressions.values()].find(
             (candidate) =>
               candidate.patientId === followUpCase.patientId &&
@@ -1258,7 +1269,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           at: now,
           type: 'dismissed',
           actor: { type: 'user', id: actorId },
-          label: `Descartado: ${DISMISS_REASON_LABELS[reason]}`,
+          label: MOCK_TIMELINE_COPY.dismissed(DISMISS_REASON_LABELS[reason]),
           ...withNote,
         });
         emit('case.dismissed', webhookCasePayload(followUpCase));
@@ -1287,19 +1298,32 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   }
 
   /** The API's 422 for a dismissal: a reason always, a note for "Otro motivo". */
-  function validateDismissal(request: CaseActionRequest, note: string | undefined): DismissReason {
+  function validateDismissal(
+    followUpCase: MockCase,
+    request: CaseActionRequest,
+    note: string | undefined,
+  ): DismissReason {
     const reason = DISMISS_REASONS.find((candidate) => candidate === request.reason);
     if (!reason) {
-      const message = 'Elige por qué descartas el caso.';
+      const message = VALIDATION_COPY.dismissReasonRequired;
       throw new MockHttpError(422, 'invalid_request', message, [{ path: 'reason', message }]);
     }
     if (reason === 'other' && !note) {
-      const message = 'Cuéntanos el motivo en la nota.';
+      const message = VALIDATION_COPY.dismissNoteRequired;
       throw new MockHttpError(422, 'invalid_request', message, [{ path: 'note', message }]);
     }
     if (request.suppress && reason !== 'not_applicable_to_patient') {
-      const message = 'Solo puedes dejar de recordarlo si no aplica a este paciente.';
+      const message = VALIDATION_COPY.suppressOnlyNotApplicable;
       throw new MockHttpError(422, 'invalid_request', message, [{ path: 'suppress', message }]);
+    }
+    const suppressible = followUpCase.expectationIds.some((id) => {
+      const expectation = expectations.get(id);
+      return expectation !== undefined && isSuppressible(expectation.layer);
+    });
+    if (request.suppress && !suppressible) {
+      throw new MockHttpError(422, 'invalid_request', VALIDATION_COPY.nothingToSuppress, [
+        { path: 'suppress', message: VALIDATION_COPY.nothingToSuppress },
+      ]);
     }
     return reason;
   }
@@ -1311,7 +1335,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   ): CaseDetail {
     const followUpCase = getCaseOrThrow(id);
     if (!ACTIVE.includes(followUpCase.status)) {
-      throw new MockHttpError(409, 'invalid_transition', 'Este caso ya está cerrado.');
+      throw new MockHttpError(409, 'invalid_transition', VALIDATION_COPY.caseClosed);
     }
     const call = request.requestId
       ? followUpCase.contactAttempts.find(
@@ -1319,7 +1343,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         )
       : pendingCall(followUpCase);
     if (!call) {
-      throw new MockHttpError(404, 'not_found', 'Este caso no tiene una llamada pendiente.');
+      throw new MockHttpError(404, 'not_found', VALIDATION_COPY.noPendingCall);
     }
     const outcome: CallOutcome = request.outcome;
     call.communications.push({
@@ -1334,7 +1358,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       at: now,
       type: 'contact_outcome_recorded',
       actor: { type: 'user', id: actorId },
-      label: `Llamada: ${CALL_OUTCOME_LABELS[outcome]}`,
+      label: MOCK_TIMELINE_COPY.callOutcome(CALL_OUTCOME_LABELS[outcome]),
     });
     const patient = patients.get(followUpCase.patientId);
     if (patient && ANSWERED.includes(outcome)) {
@@ -1360,8 +1384,8 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
         actor: { type: 'user', id: actorId },
         label:
           outcome === 'declined'
-            ? 'Resuelto: el paciente no quiere seguimiento'
-            : 'Resuelto: el paciente se atiende en otro lugar',
+            ? MOCK_TIMELINE_COPY.resolvedDeclined
+            : MOCK_TIMELINE_COPY.resolvedTreatedElsewhere,
       });
       emit('case.resolved', webhookCasePayload(followUpCase));
     }
@@ -1378,7 +1402,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
   function reactivateSuppression(id: string, actorId = 'Dra. Lucía Paredes'): SuppressionView {
     const suppression = suppressions.get(id);
     if (!suppression || suppression.revokedAt) {
-      throw new MockHttpError(404, 'not_found', 'Ese recordatorio ya está activo.');
+      throw new MockHttpError(404, 'not_found', VALIDATION_COPY.suppressionAlreadyActive);
     }
     suppression.revokedAt = now;
     suppression.revokedBy = actorId;
