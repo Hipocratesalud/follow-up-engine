@@ -7,6 +7,7 @@ import {
   type CaseStatus,
   type ClinicId,
   ConflictError,
+  InvalidCursorError,
   type FollowUpCase,
   NotFoundError,
   TenantMismatchError,
@@ -110,6 +111,9 @@ export class MemoryCaseRepository implements CaseRepository {
               followUpCase.releaseAt.getTime() > query.unreleasedAsOf.getTime())),
       )
       .sort(comparator(query.orderBy));
+    if (query.cursor !== undefined && !/^\d{1,9}$/.test(query.cursor)) {
+      throw new InvalidCursorError();
+    }
     const offset = query.cursor === undefined ? 0 : Number(query.cursor);
     const items = matching.slice(offset, offset + query.limit);
     const next = offset + items.length;

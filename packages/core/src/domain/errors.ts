@@ -58,3 +58,15 @@ export class ValidationError extends Error {
     this.field = field;
   }
 }
+
+/**
+ * A list cursor that the repository did not produce for the same query
+ * (garbage, tampered with, or taken from another ordering).
+ */
+export class InvalidCursorError extends Error {
+  override readonly name = 'InvalidCursorError';
+
+  constructor() {
+    super('Invalid case list cursor');
+  }
+}

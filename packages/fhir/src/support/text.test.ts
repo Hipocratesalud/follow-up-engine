@@ -15,6 +15,10 @@ describe('xhtmlToText', () => {
     expect(xhtmlToText('<div><style>p{}</style><script>alert(1)</script>ok</div>')).toBe('ok');
   });
 
+  it('drops control characters and references to no character', () => {
+    expect(xhtmlToText('<p>a&#0;b &#99999999; &#x1F600;</p>')).toBe('ab &#99999999; 😀');
+  });
+
   it('leaves unknown entities untouched', () => {
     expect(xhtmlToText('<p>&bogus; &amp;</p>')).toBe('&bogus; &');
   });
@@ -24,6 +28,10 @@ describe('base64', () => {
   it('round-trips UTF-8 text', () => {
     const text = 'Ácido tranexámico 500 mg c/8h — ñandú';
     expect(decodeBase64Utf8(encodeBase64Utf8(text))).toBe(text);
+  });
+
+  it('drops a NUL from the decoded text', () => {
+    expect(decodeBase64Utf8(encodeBase64Utf8('DM2.\u0000\nPlan'))).toBe('DM2.\nPlan');
   });
 
   it('tolerates whitespace in the encoded data', () => {

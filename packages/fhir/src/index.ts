@@ -77,3 +77,9 @@ export {
   type MappingIssue,
 } from './support/operation-outcome.ts';
 export { toFhirId } from './support/hash.ts';
+export {
+  MAX_FHIR_STRING_LENGTH,
+  sanitizeFhirJson,
+  stripControlCharacters,
+  type SanitizedJson,
+} from './support/sanitize.ts';

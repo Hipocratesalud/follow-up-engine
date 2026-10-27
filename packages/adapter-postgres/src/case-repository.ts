@@ -1,5 +1,6 @@
 import {
   ConflictError,
+  InvalidCursorError,
   NotFoundError,
   TenantMismatchError,
   type CaseId,
@@ -97,13 +98,7 @@ function toParams(value: FollowUpCase): unknown[] {
 }
 
 /** Raised when a `CaseListQuery.cursor` was not produced by this repository for the same ordering. */
-export class InvalidCursorError extends Error {
-  override readonly name = 'InvalidCursorError';
-
-  constructor() {
-    super('Invalid case list cursor');
-  }
-}
+export { InvalidCursorError };
 
 type CaseOrder = NonNullable<CaseListQuery['orderBy']>;
 
@@ -141,6 +136,22 @@ function encodeCursor(order: CaseOrder, values: readonly (string | number)[]): s
   return Buffer.from(JSON.stringify([order, ...values])).toString('base64url');
 }
 
+/** Whether a decoded cursor value parses as the SQL type it is cast to. */
+function fitsCast(value: unknown, cast: string): boolean {
+  switch (cast) {
+    case 'integer':
+      return typeof value === 'number' && Number.isSafeInteger(value);
+    case 'timestamptz':
+      return (
+        typeof value === 'string' &&
+        (value === 'infinity' ||
+          (/^\d{4}-\d{2}-\d{2}T/.test(value) && !Number.isNaN(Date.parse(value))))
+      );
+    default:
+      return typeof value === 'string' && !value.includes('\u0000');
+  }
+}
+
 function decodeCursor(order: CaseOrder, cursor: string): readonly (string | number)[] {
   let decoded: unknown;
   try {
@@ -153,11 +164,11 @@ function decodeCursor(order: CaseOrder, cursor: string): readonly (string | numb
     !Array.isArray(decoded) ||
     decoded[0] !== order ||
     decoded.length !== spec.keys.length + 1 ||
-    !decoded.every((value) => typeof value === 'string' || typeof value === 'number')
+    !decoded.slice(1).every((value, index) => fitsCast(value, spec.casts[index] ?? 'text'))
   ) {
     throw new InvalidCursorError();
   }
-  return decoded.slice(1);
+  return decoded.slice(1) as (string | number)[];
 }
 
 export class PostgresCaseRepository implements CaseRepository {

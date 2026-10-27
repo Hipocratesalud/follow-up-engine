@@ -90,7 +90,7 @@ export class IngestionService {
 
   async accept(clinicId: ClinicId, bundle: unknown, mode: IngestMode): Promise<BundleAcceptance> {
     const receivedAt = this.#deps.clock.now();
-    const mapping = mapBundleToBatches(bundle, { clinicId, receivedAt });
+    const mapping = mapBundleToBatches(bundle, { clinicId, receivedAt, checkFutureDates: true });
     const outcome = mapping.issues;
     if (hasErrors(outcome) && mapping.batches.length === 0 && mapping.resources.length === 0) {
       return { ok: false, ...(outcome === undefined ? {} : { outcome }), stored: [], batches: 0 };
@@ -103,7 +103,11 @@ export class IngestionService {
           mode === 'async' && mapping.batches.length > 0
             ? await stores.jobs.enqueue(clinicId, {
                 type: INGEST_BUNDLE_JOB,
-                payload: { bundle: bundle as JsonObject, receivedAt: receivedAt.toISOString() },
+                // The Bundle as mapped: control characters already removed.
+                payload: {
+                  bundle: mapping.bundle as JsonObject,
+                  receivedAt: receivedAt.toISOString(),
+                },
                 maxAttempts: 10,
               })
             : undefined;
@@ -161,7 +165,12 @@ export class IngestionService {
     if (typeof receivedAt !== 'string' || bundle === undefined) {
       throw new ValidationError('payload', `Invalid ${INGEST_BUNDLE_JOB} payload`);
     }
-    const mapping = mapBundleToBatches(bundle, { clinicId, receivedAt: new Date(receivedAt) });
+    // Mapped exactly as when it was accepted, so the same entries count.
+    const mapping = mapBundleToBatches(bundle, {
+      clinicId,
+      receivedAt: new Date(receivedAt),
+      checkFutureDates: true,
+    });
     return this.#ingestBatches(mapping.batches);
   }
 

@@ -18,7 +18,7 @@ export interface CaseListQuery {
   /** Default `priority` (descending, then `createdAt` ascending). */
   readonly orderBy?: 'priority' | 'created_at' | 'next_action_at';
   readonly limit: number;
-  /** Opaque cursor from a previous page. */
+  /** Opaque cursor from a previous page of the same query; anything else throws `InvalidCursorError`. */
   readonly cursor?: string;
 }
 

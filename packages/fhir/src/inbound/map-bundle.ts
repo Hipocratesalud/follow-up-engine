@@ -8,6 +8,8 @@ import {
 } from '@follow-up-engine/core';
 import type { OperationOutcome } from '../fhir-types.ts';
 import { hasErrors, toOperationOutcome, type MappingIssue } from '../support/operation-outcome.ts';
+import { sanitizeFhirJson } from '../support/sanitize.ts';
+import { checkEventDates } from './date-window.ts';
 import { indexBundle, type BundleIndex, type IndexedEntry } from './bundle-index.ts';
 import {
   createEntryContext,
@@ -27,6 +29,13 @@ export interface MapBundleOptions {
   readonly clinicId: ClinicId | string;
   /** When the engine received the bundle; fallback for missing clinical times. */
   readonly receivedAt: Date;
+  /**
+   * `receivedAt` is the real time the host sent the Bundle (live ingestion):
+   * events dated more than a year after it are rejected, more than a day
+   * after it get a warning. Leave unset for history or validation. Dates
+   * before 1900 or after 2200 are rejected either way.
+   */
+  readonly checkFutureDates?: boolean;
 }
 
 /** A resource to store for a patient, with its id filled in and bundle references resolved. */
@@ -48,6 +57,11 @@ export interface BundleMappingResult {
   readonly contextResources: readonly FhirResourceJson[];
   /** Errors, warnings and notes; `undefined` when the bundle mapped cleanly. */
   readonly issues: OperationOutcome | undefined;
+  /**
+   * The Bundle as mapped: the input with control characters removed from
+   * every string (see `issues`). What to keep or re-map later (job payloads).
+   */
+  readonly bundle: unknown;
 }
 
 /** Resource types that only give context (resolved by reference) and are never reported. */
@@ -159,17 +173,24 @@ export function mapBundleToBatches(
   options: MapBundleOptions,
 ): BundleMappingResult {
   const clinic = toClinicId(options.clinicId);
-  const indexed = indexBundle(bundle);
+  const sanitized = sanitizeFhirJson(bundle);
+  const indexed = indexBundle(sanitized.value);
   if (!indexed.ok) {
     return {
       batches: [],
       resources: [],
       contextResources: [],
-      issues: toOperationOutcome(indexed.issues),
+      issues: toOperationOutcome([...sanitized.issues, ...indexed.issues]),
+      bundle: sanitized.value,
     };
   }
   const { index } = indexed;
-  const issues: MappingIssue[] = [...indexed.issues];
+  const issues: MappingIssue[] = [...sanitized.issues, ...indexed.issues];
+  const oversized = new Set(
+    sanitized.issues
+      .filter((issue) => issue.severity === 'error')
+      .map((issue) => /^Bundle\.entry\[(\d+)\]/.exec(issue.expression)?.[1]),
+  );
 
   const mappedEntries: MappedEntry[] = [];
   for (const entry of index.entries) {
@@ -188,12 +209,13 @@ export function mapBundleToBatches(
       continue;
     }
     const entryIssues: MappingIssue[] = [];
-    const mapped = mapParsed(
-      entry.parsed,
-      createEntryContext(entry, index, options.receivedAt, entryIssues),
-    );
+    const ctx = createEntryContext(entry, index, options.receivedAt, entryIssues);
+    const mapped = mapParsed(entry.parsed, ctx);
+    if (mapped !== undefined) {
+      checkEventDates(mapped.events, ctx, options.checkFutureDates === true);
+    }
     issues.push(...entryIssues);
-    if (!hasErrors(entryIssues) && mapped !== undefined) {
+    if (!hasErrors(entryIssues) && !oversized.has(String(entry.index)) && mapped !== undefined) {
       mappedEntries.push({ entry, mapped });
     }
   }
@@ -206,7 +228,13 @@ export function mapBundleToBatches(
       message: 'transaction rejected: fix the errors above; nothing was processed',
       expression: 'Bundle',
     });
-    return { batches: [], resources: [], contextResources: [], issues: toOperationOutcome(issues) };
+    return {
+      batches: [],
+      resources: [],
+      contextResources: [],
+      issues: toOperationOutcome(issues),
+      bundle: sanitized.value,
+    };
   }
 
   const byPatient = new Map<string, MappedEntry[]>();
@@ -254,9 +282,20 @@ export function mapBundleToBatches(
     }
   }
   const contextResources = index.entries
-    .filter((entry) => !entry.invalid && CONTEXT_TYPES.includes(entry.ref.resourceType))
+    .filter(
+      (entry) =>
+        !entry.invalid &&
+        !oversized.has(String(entry.index)) &&
+        CONTEXT_TYPES.includes(entry.ref.resourceType),
+    )
     .map((entry) => entry.stored);
-  return { batches, resources, contextResources, issues: toOperationOutcome(issues) };
+  return {
+    batches,
+    resources,
+    contextResources,
+    issues: toOperationOutcome(issues),
+    bundle: sanitized.value,
+  };
 }
 
 export interface BundleValidationResult {

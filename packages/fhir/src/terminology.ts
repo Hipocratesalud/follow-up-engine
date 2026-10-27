@@ -131,3 +131,52 @@ export const SNOMED_SERVICE_CATEGORY = {
   laboratory: '108252007',
   imaging: '363679005',
 } as const;
+
+/**
+ * Common LOINC laboratory tests: an order coded with one of these is a
+ * laboratory order even when the host sent no `category`. Deliberately
+ * short (chemistry, hematology, lipids, renal, thyroid, urine): a code not
+ * listed is never guessed.
+ */
+export const LABORATORY_LOINC_CODES: ReadonlySet<string> = new Set([
+  '4548-4', // Hemoglobin A1c
+  '17856-6', // Hemoglobin A1c (HPLC)
+  '2345-7', // Glucose, serum or plasma
+  '2339-0', // Glucose, blood
+  '1558-6', // Fasting glucose
+  '2093-3', // Cholesterol
+  '2085-9', // HDL cholesterol
+  '13457-7', // LDL cholesterol (calculated)
+  '18262-6', // LDL cholesterol (direct)
+  '2571-8', // Triglycerides
+  '24331-1', // Lipid panel
+  '57698-3', // Lipid panel with direct LDL
+  '2160-0', // Creatinine
+  '33914-3', // eGFR
+  '62238-1', // eGFR (CKD-EPI)
+  '3094-0', // Urea nitrogen
+  '2951-2', // Sodium
+  '2823-3', // Potassium
+  '17861-6', // Calcium
+  '1742-6', // ALT
+  '1920-8', // AST
+  '3016-3', // TSH
+  '3024-7', // Free T4
+  '718-7', // Hemoglobin
+  '4544-3', // Hematocrit
+  '6690-2', // Leukocytes
+  '777-3', // Platelets
+  '58410-2', // CBC panel
+  '57021-8', // CBC with differential
+  '24323-8', // Comprehensive metabolic panel
+  '51990-0', // Basic metabolic panel
+  '14959-1', // Microalbumin/creatinine ratio, urine
+  '9318-7', // Albumin/creatinine ratio, urine
+  '24356-8', // Urinalysis complete
+  '5902-2', // Prothrombin time
+  '6301-6', // INR
+  '2276-4', // Ferritin
+  '1989-3', // 25-hydroxyvitamin D
+  '2132-9', // Vitamin B12
+  '2857-1', // PSA
+]);

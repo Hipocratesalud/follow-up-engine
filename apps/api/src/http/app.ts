@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { type EngineRuntime, hashApiKey, type Worker } from '@follow-up-engine/runtime';
 import { Hono, type MiddlewareHandler } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { routePath } from 'hono/route';
 import type { App, AppEnv } from './context.ts';
@@ -18,6 +19,42 @@ export interface AppOptions {
    * process jobs and deliver webhooks right after time moves.
    */
   readonly worker?: Worker;
+  /** Largest request body accepted, in bytes. Default {@link MAX_BODY_BYTES}. */
+  readonly maxBodyBytes?: number;
+}
+
+/**
+ * Largest request body: a consultation Bundle is a few KB (a long note with
+ * attachments, a few hundred). Larger bodies get 413 before they are parsed.
+ */
+export const MAX_BODY_BYTES = 5 * 1024 * 1024;
+
+/** C0 controls and DEL: never part of an id, a search value or a path. */
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
+const CONTROL_CHARACTER = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+
+/**
+ * 400 for a path or query value with control characters (`%00`) or broken
+ * percent-encoding, before any route or database sees it.
+ */
+function rejectControlCharacters(): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    const url = new URL(c.req.url);
+    let values: string[];
+    try {
+      values = [decodeURIComponent(url.pathname), ...[...url.searchParams].flat()];
+    } catch {
+      throw new HttpError(400, 'invalid_request', 'La dirección de la petición no es válida.');
+    }
+    if (values.some((value) => CONTROL_CHARACTER.test(value))) {
+      throw new HttpError(
+        400,
+        'invalid_request',
+        'La petición tiene caracteres de control en la dirección o los parámetros.',
+      );
+    }
+    await next();
+  };
 }
 
 const BEARER = /^Bearer\s+(\S+)$/i;
@@ -73,6 +110,20 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   const app = new Hono<AppEnv>();
 
   app.use('*', accessLog(runtime));
+  app.use('*', rejectControlCharacters());
+  app.use(
+    '*',
+    bodyLimit({
+      maxSize: options.maxBodyBytes ?? MAX_BODY_BYTES,
+      onError: () => {
+        throw new HttpError(
+          413,
+          'payload_too_large',
+          `El cuerpo supera el máximo de ${String(Math.floor((options.maxBodyBytes ?? MAX_BODY_BYTES) / 1024))} KB.`,
+        );
+      },
+    }),
+  );
   app.use(
     '*',
     cors({

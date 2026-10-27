@@ -47,9 +47,12 @@ const ISSUE_CODES: Readonly<Record<number, string>> = {
   400: 'invalid',
   401: 'login',
   404: 'not-found',
+  403: 'forbidden',
   409: 'conflict',
+  413: 'too-costly',
   415: 'not-supported',
   422: 'processing',
+  429: 'throttled',
 };
 
 function fhirJson(c: Context, body: FhirResource, status: 200 | 201 | 202 | 400 = 200): Response {

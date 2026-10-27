@@ -47,6 +47,17 @@ Validation is tolerant (unknown elements are accepted and kept in the stored res
 
 Missing clinical times fall back to the `receivedAt` the caller passes. `Medication`, `Practitioner`, `PractitionerRole`, `Organization`, `Location`, `Device`, `Specimen`, `RelatedPerson` and `HealthcareService` are context: resolved by reference, never reported, and returned as `contextResources` (references resolved) so the API can keep the host's directory of practitioners and organizations. Other resource types are ignored with an `information` issue.
 
+### Robustness
+
+One bad field never costs the host the rest of the consultation:
+
+- Control characters (NUL, BEL, ...) and invalid Unicode in any string are removed, with a `warning` at the string's path; the same goes for text decoded from a base64 attachment. Postgres would refuse them, and they are never part of clinical text.
+- A string over 1 MB (FHIR's limit; attachment `data` excepted) is an `error` for its entry.
+- Clinical dates must fall between 1900 and 2200 (`error` otherwise: a year-9999 typo would give due dates that are not valid FHIR). On live ingestion (`receivedAt` is the real receipt time) an event dated more than a year after receipt is an `error`, more than a day after it a `warning`; scheduled dates (an appointment) may be up to five years ahead.
+- A `ServiceRequest` without a recognizable `category` takes `laboratory` from a well-known LOINC laboratory code (HbA1c, glucose, lipids, creatinine, TSH, CBC, ...; the list is `LABORATORY_LOINC_CODES`) or `imaging` from a LOINC imaging study name (`XR`, `CT`, `MR`, `US`, ...), with a `warning`; otherwise it stays `other` (no result expectation), also with a `warning` that says so.
+
+The API also caps request bodies at 5 MB (`413`, an `OperationOutcome` with code `too-costly`).
+
 ### Idempotency
 
 Every event carries `idempotencyKey = <resourceType>/<id>/<version>#<event type>`, where `<version>` is `meta.versionId`, else `meta.lastUpdated`, else a 64-bit FNV-1a hash of the canonical JSON of the resource (keys sorted, `meta` excluded, references already rewritten). Re-sending the same Bundle yields the same keys; changing a resource changes only its own key.
@@ -85,11 +96,11 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 }
 ```
 
-| Severity      | Meaning                                                                                           |
-| ------------- | ------------------------------------------------------------------------------------------------- |
-| `error`       | The entry cannot be mapped (rejects a `transaction`).                                             |
-| `warning`     | Mapped with a stated assumption (uncoded order, Condition without ICD-10, unreadable attachment). |
-| `information` | No event by design (status, unsupported type, entry without resource).                            |
+| Severity      | Meaning                                                                                                                                                                    |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `error`       | The entry cannot be mapped (rejects a `transaction`).                                                                                                                      |
+| `warning`     | Mapped with a stated assumption (uncoded order, Condition without ICD-10, unreadable attachment, control characters removed, order category inferred, date in the future). |
+| `information` | No event by design (status, unsupported type, entry without resource).                                                                                                     |
 
 ## Outbound
 
