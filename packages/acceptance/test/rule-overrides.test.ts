@@ -1,6 +1,7 @@
 import { loadConfigDirectory } from '@follow-up-engine/adapter-memory';
 import { clinicId, type Expectation, patientId } from '@follow-up-engine/core';
-import { BASE_DATE, dayToDate } from '@follow-up-engine/testkit';
+import { expectationToTask } from '@follow-up-engine/fhir';
+import { BASE_DATE, dayToDate, validateFhirR4 } from '@follow-up-engine/testkit';
 import { describe, expect, it } from 'vitest';
 import {
   encounterResource,
@@ -107,6 +108,13 @@ function describeRuleOverrides(name: string, make: MakeHarness): void {
     const after = await labExpectation(harness, 'pat-3', 'after');
     expect(dueInDays(after, 2)).toBe(10);
     expect(after?.ruleVersion).toBe(`${LAB_VERSION}+clinic.1`);
+    // The FHIR Task the host reads carries it, and is still valid R4.
+    if (after === undefined) {
+      throw new Error('the lab expectation created after the change is missing');
+    }
+    const task = expectationToTask(after);
+    expect(JSON.stringify(task.extension)).toContain(`${LAB_VERSION}+clinic.1`);
+    expect(validateFhirR4(task).issues).toEqual([]);
     expect(dueInDays(await labExpectation(harness, 'pat-2', 'other'), 2)).toBe(10);
     // The expectation created before the change keeps its deadline and version.
     expect(await labExpectation(harness, 'pat-1', 'before')).toEqual(before);
