@@ -1,0 +1,23 @@
+{
+  "id": "gold-058",
+  "specialty": "internal_medicine",
+  "authoredAt": "2025-10-06",
+  "text": "Antecedentes familiares: madre con DM2, padre hipertenso. Paciente sano, acude a chequeo anual. Examen físico normal, PA 118/76.\nPlan: control en 1 año.",
+  "expected": {
+    "hasPlan": true,
+    "conditions": [
+      {
+        "icd10": "Z00",
+        "evidenceQuote": "chequeo anual"
+      }
+    ],
+    "medications": [],
+    "planItems": [
+      {
+        "kind": "follow_up_visit",
+        "dueInDays": 365,
+        "evidenceQuote": "control en 1 año"
+      }
+    ]
+  }
+}
