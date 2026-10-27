@@ -5,7 +5,12 @@
  *
  * @type {import('dependency-cruiser').IConfiguration}
  */
-const TEST_FILE = '\\.test\\.ts$';
+const TEST_FILE = '\\.test\\.tsx?$';
+/** Test helpers and tool configs (vite, vitest, eslint) are not shipped code. */
+const NON_PRODUCTION = [
+  '^apps/[^/]+/src/test/',
+  '^(packages|apps)/[^/]+/[^/]+\\.config\\.(ts|js|cjs|mjs)$',
+];
 
 module.exports = {
   forbidden: [
@@ -65,7 +70,10 @@ module.exports = {
       name: 'testkit-only-from-tests',
       severity: 'error',
       comment: 'packages/testkit is test-only. Production code must not import it.',
-      from: { path: '^(packages|apps)/', pathNot: ['^packages/testkit/', TEST_FILE] },
+      from: {
+        path: '^(packages|apps)/',
+        pathNot: ['^packages/testkit/', TEST_FILE, NON_PRODUCTION[0]],
+      },
       to: { path: '^packages/testkit/' },
     },
     {
@@ -88,6 +96,15 @@ module.exports = {
         path: '^(packages|apps)/',
         pathNot: '^(packages|apps)/$2/',
       },
+    },
+    {
+      name: 'inbox-talks-http-only',
+      severity: 'error',
+      comment:
+        'apps/inbox is a browser app deployed on its own: it reaches the engine through the HTTP API ' +
+        '(apps/inbox/src/api) and never imports workspace packages (core, adapters, llm).',
+      from: { path: '^apps/inbox/' },
+      to: { path: '^packages/' },
     },
     {
       name: 'no-circular',
@@ -114,7 +131,10 @@ module.exports = {
       name: 'production-not-to-dev-deps',
       severity: 'error',
       comment: 'Production code must not import devDependencies.',
-      from: { path: '^(packages|apps)/', pathNot: ['^packages/testkit/', TEST_FILE] },
+      from: {
+        path: '^(packages|apps)/',
+        pathNot: ['^packages/testkit/', TEST_FILE, ...NON_PRODUCTION],
+      },
       to: { dependencyTypes: ['npm-dev'] },
     },
   ],
