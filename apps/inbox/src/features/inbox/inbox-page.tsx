@@ -74,7 +74,7 @@ function CaseList(): ReactNode {
   const [searchParams, setSearchParams] = useSearchParams();
   const view = parseView(searchParams.get('vista'));
   const assignee = searchParams.get('responsable') ?? '';
-  const cases = useCases({ view, ...(assignee ? { assignee } : {}), limit: 100 });
+  const cases = useCases({ view, ...(assignee ? { assignee } : {}), limit: 200 });
   const everyone = useCases({ view: 'all', limit: 200 });
 
   const assignees = useMemo(

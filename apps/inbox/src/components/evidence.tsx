@@ -1,6 +1,7 @@
 import { Quote, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { ReasonEvidence } from '../api/contract.ts';
+import { useNoteReader } from '../api/queries.ts';
 import { formatDate } from '../lib/format.ts';
 import { findQuote } from '../lib/highlight.ts';
 
@@ -9,6 +10,7 @@ import { findQuote } from '../lib/highlight.ts';
  * clinician sees exactly where the doctor wrote what the engine relies on.
  */
 export function EvidenceExcerpt({ evidence }: { readonly evidence: ReasonEvidence }): ReactNode {
+  const reader = useNoteReader();
   const excerpt = evidence.noteExcerpt;
   const match = excerpt ? findQuote(excerpt, evidence.quote) : undefined;
   return (
@@ -20,7 +22,8 @@ export function EvidenceExcerpt({ evidence }: { readonly evidence: ReasonEvidenc
         </span>
         <span className="inline-flex items-center gap-1.5">
           <Sparkles className="size-3.5 text-layer-plan" aria-hidden="true" />
-          Leída por Muse Spark · nota del {formatDate(evidence.authoredAt)}
+          {reader.simulated ? reader.label : `Leída por ${reader.name}`} · nota del{' '}
+          {formatDate(evidence.authoredAt)}
         </span>
       </figcaption>
       <blockquote className="px-3 py-3 text-sm leading-relaxed text-fg">

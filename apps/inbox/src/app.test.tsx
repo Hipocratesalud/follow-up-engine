@@ -21,6 +21,8 @@ describe('inbox', () => {
     expect(screen.getAllByText('Plan del médico').length).toBeGreaterThan(0);
     expect(await screen.findByText('Costo de IA del mes')).toBeInTheDocument();
     expect(screen.getByText(/Muse Spark · Meta/)).toBeInTheDocument();
+    // The clinic name comes from GET /api/inbox/clinic, not from the bundle.
+    expect((await screen.findAllByText('Centro Médico Los Álamos')).length).toBeGreaterThan(0);
   });
 
   it('cites the doctor verbatim: the quote is highlighted inside the note excerpt', async () => {
@@ -65,7 +67,7 @@ describe('inbox', () => {
 
     await user.click(within(dialog).getByRole('button', { name: 'Pedir contacto' }));
     expect(await screen.findByText(/le pedimos al sistema del consultorio/)).toBeInTheDocument();
-    expect(screen.getAllByText('Contacto solicitado').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Avisado').length).toBeGreaterThan(0);
   });
 
   it('explains instead of contacting a patient who opted out', async () => {

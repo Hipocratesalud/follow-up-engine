@@ -31,6 +31,12 @@ export type PriorityLabel = 'baja' | 'media' | 'alta' | 'urgente';
 export type Sex = 'female' | 'male' | 'other' | 'unknown';
 export type Origin = 'live' | 'backfill';
 
+/** The authenticated clinic (`GET /api/inbox/clinic`). */
+export interface ClinicInfo {
+  id: string;
+  name: string;
+}
+
 export interface PatientSummary {
   id: string;
   name: string;

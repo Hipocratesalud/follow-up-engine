@@ -144,6 +144,10 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
 
   return [
     http.get(
+      '*/api/inbox/clinic',
+      route(() => store.clinic()),
+    ),
+    http.get(
       '*/api/inbox/cases',
       route(({ request }) => {
         const url = new URL(request.url);
@@ -230,8 +234,9 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     http.get(
       '*/api/demo/webhooks',
       route(({ request }) => {
-        const limit = numberParam(new URL(request.url).searchParams.get('limit'));
-        return store.listWebhooks(limit);
+        const url = new URL(request.url);
+        const limit = numberParam(url.searchParams.get('limit'));
+        return store.listWebhooks(limit, url.searchParams.get('type') ?? undefined);
       }),
     ),
   ];

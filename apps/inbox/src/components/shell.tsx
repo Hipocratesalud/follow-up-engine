@@ -1,7 +1,14 @@
-import { CalendarClock, FlaskConical, HeartPulse, Inbox, UserRoundSearch } from 'lucide-react';
+import {
+  CalendarClock,
+  FlaskConical,
+  HeartPulse,
+  Inbox,
+  UserRoundSearch,
+  UsersRound,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
-import { useDemoClock, useRecovery, useStats } from '../api/queries.ts';
+import { useClinic, useDemoClock, useRecovery, useStats } from '../api/queries.ts';
 import { cx } from '../lib/cx.ts';
 import { formatDate } from '../lib/format.ts';
 import { ThemeToggle } from './theme.tsx';
@@ -39,6 +46,7 @@ function NavLinks({ items }: { readonly items: readonly NavItem[] }): ReactNode 
 }
 
 function Brand(): ReactNode {
+  const clinic = useClinic();
   return (
     <div className="flex items-center gap-2.5">
       <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-fg">
@@ -46,7 +54,13 @@ function Brand(): ReactNode {
       </span>
       <div className="leading-tight">
         <p className="text-sm font-semibold text-fg">Seguimiento</p>
-        <p className="hidden text-xs text-muted sm:block">Centro Médico Los Álamos</p>
+        {clinic.data ? (
+          <p className="hidden max-w-[150px] truncate text-xs text-muted sm:block">
+            {clinic.data.name}
+          </p>
+        ) : (
+          <span aria-hidden="true" className="skeleton mt-1 hidden h-3 w-28 rounded sm:block" />
+        )}
       </div>
     </div>
   );
@@ -90,22 +104,30 @@ export function Shell(): ReactNode {
         Saltar al contenido
       </a>
 
-      <aside className="hidden border-r border-border bg-surface lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-6 lg:px-4 lg:py-5">
-        <Brand />
-        <nav aria-label="Principal" className="flex flex-col gap-1">
-          <NavLinks items={items} />
-        </nav>
-        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-3 text-xs font-semibold text-fg">
-              LP
-            </span>
-            <div className="min-w-0 leading-tight">
-              <p className="truncate text-sm font-medium text-fg">Dra. Lucía Paredes</p>
-              <p className="truncate text-xs text-muted">Diabetología</p>
+      {/*
+        The column spans the whole page height (border and background never
+        end mid-page); only its content sticks to the viewport.
+      */}
+      <aside className="hidden border-r border-border bg-surface lg:block">
+        <div className="sticky top-0 flex h-dvh flex-col gap-6 overflow-y-auto px-4 py-5">
+          <Brand />
+          <nav aria-label="Principal" className="flex flex-col gap-1">
+            <NavLinks items={items} />
+          </nav>
+          <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-3 text-fg">
+                <UsersRound className="size-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 leading-tight">
+                <p className="truncate text-sm font-medium text-fg">Tu equipo</p>
+                <p className="truncate text-xs text-muted">
+                  {clock.data ? 'Demostración' : 'Consultorio'}
+                </p>
+              </div>
             </div>
+            <ThemeToggle />
           </div>
-          <ThemeToggle />
         </div>
       </aside>
 

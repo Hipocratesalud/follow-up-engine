@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { LAYERS, type InboxStats } from '../api/contract.ts';
 import { useStats } from '../api/queries.ts';
 import { formatPercent, formatUsd } from '../lib/format.ts';
-import { LAYER_LABELS } from '../lib/labels.ts';
+import { LAYER_LABELS, noteReader } from '../lib/labels.ts';
 import { LAYER_DOT } from './case-badges.tsx';
 import { ErrorState } from './states.tsx';
 import { Skeleton } from './ui.tsx';
@@ -25,16 +25,6 @@ function Tile({
       <dd className="min-w-0">{children}</dd>
     </div>
   );
-}
-
-/** Pretty name for the model the API reports ("muse-spark" → "Muse Spark"). */
-export function modelDisplayName(model: string): string {
-  if (/muse[-_ ]?spark/i.test(model)) return 'Muse Spark';
-  return model;
-}
-
-function providerDisplayName(provider: string): string {
-  return /meta|baseten/i.test(provider) ? 'Meta' : provider;
 }
 
 function plural(count: number, one: string, many: string): string {
@@ -80,11 +70,11 @@ function StatsTiles({ stats }: { readonly stats: InboxStats }): ReactNode {
       <Tile
         className="col-span-2 xl:col-span-1"
         label={
-          <span className="flex items-center justify-between gap-2">
+          <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             Costo de IA del mes
-            <span className="inline-flex items-center gap-1 rounded-md bg-layer-plan-soft px-1.5 py-0.5 text-[11px] font-medium text-layer-plan">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-layer-plan-soft px-1.5 py-0.5 text-[11px] font-medium text-layer-plan">
               <Sparkles className="size-3" aria-hidden="true" />
-              {modelDisplayName(stats.llm.model)} · {providerDisplayName(stats.llm.provider)}
+              {noteReader(stats.llm).label}
             </span>
           </span>
         }

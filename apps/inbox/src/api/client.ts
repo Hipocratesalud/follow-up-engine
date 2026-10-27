@@ -5,6 +5,7 @@ import type {
   CaseDetail,
   CaseListQuery,
   CaseView,
+  ClinicInfo,
   ConditionView,
   DemoClock,
   DemoConsultationRequest,
@@ -67,6 +68,7 @@ async function readErrorBody(response: Response): Promise<ApiError> {
 }
 
 export interface ApiClient {
+  getClinic(): Promise<ClinicInfo>;
   listCases(query: CaseListQuery): Promise<Page<CaseView>>;
   getCase(id: string): Promise<CaseDetail>;
   actOnCase(id: string, body: CaseActionRequest): Promise<CaseDetail>;
@@ -80,7 +82,7 @@ export interface ApiClient {
   getDemoClock(): Promise<DemoClock | undefined>;
   advanceClock(days: number): Promise<{ now: string }>;
   createDemoConsultation(body: DemoConsultationRequest): Promise<DemoConsultationResponse>;
-  listWebhooks(limit: number): Promise<{ items: WebhookDelivery[] }>;
+  listWebhooks(limit: number, type?: string): Promise<{ items: WebhookDelivery[] }>;
 }
 
 export function createApiClient(config: ApiConfig): ApiClient {
@@ -122,6 +124,7 @@ export function createApiClient(config: ApiConfig): ApiClient {
   }
 
   return {
+    getClinic: () => request('GET', '/inbox/clinic'),
     listCases: (query) => request('GET', '/inbox/cases', { query: { ...query } }),
     getCase: (id) => request('GET', `/inbox/cases/${encodeURIComponent(id)}`),
     actOnCase: (id, body) =>
@@ -144,6 +147,6 @@ export function createApiClient(config: ApiConfig): ApiClient {
     },
     advanceClock: (days) => request('POST', '/demo/clock/advance', { body: { days } }),
     createDemoConsultation: (body) => request('POST', '/demo/consultations', { body }),
-    listWebhooks: (limit) => request('GET', '/demo/webhooks', { query: { limit } }),
+    listWebhooks: (limit, type) => request('GET', '/demo/webhooks', { query: { limit, type } }),
   };
 }

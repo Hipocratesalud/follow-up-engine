@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   XCircle,
 } from 'lucide-react';
-import { type MouseEvent, type ReactNode, useState } from 'react';
+import { type ChangeEvent, type MouseEvent, type ReactNode, useState } from 'react';
 import { Link } from 'react-router';
 import type { DemoConsultationResponse, InboxStats, WebhookDelivery } from '../../api/contract.ts';
 import {
@@ -21,7 +21,7 @@ import {
   useWebhooks,
 } from '../../api/queries.ts';
 import { EmptyState, ErrorState, InlineError } from '../../components/states.tsx';
-import { Badge, Button, Card, SectionTitle, Skeleton } from '../../components/ui.tsx';
+import { Badge, Button, Card, INPUT_CLASS, SectionTitle, Skeleton } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatDateTime, formatLongDate } from '../../lib/format.ts';
 import { WEBHOOK_LABELS } from '../../lib/labels.ts';
@@ -179,21 +179,52 @@ function WebhookItem({
   );
 }
 
+/** Event types a demo viewer filters by (escalations of the backfill cases outnumber the rest). */
+const WEBHOOK_FILTERS = [
+  { value: '', label: 'Todos los eventos' },
+  { value: 'case.opened', label: 'Casos abiertos' },
+  { value: 'case.escalated', label: 'Casos escalados' },
+  { value: 'patient_contact.requested', label: 'Pedidos de contacto' },
+  { value: 'case.resolved', label: 'Casos cerrados' },
+  { value: 'backfill.completed', label: 'Revisión del historial' },
+] as const;
+
 function WebhookFeed({ newSince }: { readonly newSince: string | undefined }): ReactNode {
-  const webhooks = useWebhooks(true);
+  const [type, setType] = useState('');
+  const webhooks = useWebhooks(true, type === '' ? undefined : type);
   function handleRetry(): void {
     void webhooks.refetch();
   }
+  function handleTypeChange(event: ChangeEvent<HTMLSelectElement>): void {
+    setType(event.target.value);
+  }
   return (
     <Card className="flex flex-col" aria-labelledby="webhooks-title">
-      <div className="border-b border-border px-4 py-3">
-        <SectionTitle id="webhooks-title" count={webhooks.data?.items.length}>
-          Eventos enviados al sistema del consultorio
-        </SectionTitle>
-        <p className="mt-1 text-xs text-muted">
-          Webhooks firmados: así el sistema del consultorio se entera de cada caso y decide cómo
-          contactar al paciente.
-        </p>
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <SectionTitle id="webhooks-title" count={webhooks.data?.items.length}>
+            Eventos enviados al sistema del consultorio
+          </SectionTitle>
+          <p className="mt-1 text-xs text-muted">
+            Webhooks firmados: así el sistema del consultorio se entera de cada caso y decide cómo
+            contactar al paciente. Se muestran los últimos 30.
+          </p>
+        </div>
+        <label className="sr-only" htmlFor="webhook-type">
+          Tipo de evento
+        </label>
+        <select
+          id="webhook-type"
+          value={type}
+          onChange={handleTypeChange}
+          className={cx(INPUT_CLASS, 'h-9 shrink-0 py-0 sm:w-56')}
+        >
+          {WEBHOOK_FILTERS.map((filter) => (
+            <option key={filter.value} value={filter.value}>
+              {filter.label}
+            </option>
+          ))}
+        </select>
       </div>
       {webhooks.isPending ? (
         <div className="flex flex-col gap-2 p-4" aria-busy="true" aria-label="Cargando eventos">

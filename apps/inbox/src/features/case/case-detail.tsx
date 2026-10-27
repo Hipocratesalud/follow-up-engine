@@ -38,7 +38,18 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   PlanDefinition: 'Protocolo',
   Encounter: 'Consulta',
   MedicationRequest: 'Receta',
+  DiagnosticReport: 'Resultado',
+  Observation: 'Resultado',
+  Condition: 'Diagnóstico',
+  Appointment: 'Cita',
+  Composition: 'Nota clínica',
 };
+
+/** "Resultado — HbA1c"; just the display when it already names the type ("Nota clínica del ..."). */
+function sourceLabel(source: CaseReasonView['source']): string {
+  const type = SOURCE_TYPE_LABELS[source.resourceType] ?? 'Registro clínico';
+  return source.display.startsWith(type) ? source.display : `${type} — ${source.display}`;
+}
 
 function ReasonCard({ reason }: { readonly reason: CaseReasonView }): ReactNode {
   return (
@@ -52,9 +63,7 @@ function ReasonCard({ reason }: { readonly reason: CaseReasonView }): ReactNode 
       <div>
         <h3 className="text-[15px] font-semibold text-fg">{reason.label}</h3>
         <p className="mt-1 text-xs text-muted">
-          Debía ocurrir antes del {formatDate(reason.dueAt)} · Origen:{' '}
-          {SOURCE_TYPE_LABELS[reason.source.resourceType] ?? reason.source.resourceType} —{' '}
-          {reason.source.display}
+          Debía ocurrir antes del {formatDate(reason.dueAt)} · Origen: {sourceLabel(reason.source)}
         </p>
       </div>
       {reason.evidence ? <EvidenceExcerpt evidence={reason.evidence} /> : null}

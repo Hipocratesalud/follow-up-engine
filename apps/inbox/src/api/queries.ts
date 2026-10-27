@@ -8,12 +8,14 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
+import { noteReader, type NoteReader } from '../lib/labels.ts';
 import type { ApiClient } from './client.ts';
 import type {
   CaseActionRequest,
   CaseDetail,
   CaseListQuery,
   CaseView,
+  ClinicInfo,
   ConditionView,
   DemoClock,
   DemoConsultationRequest,
@@ -35,6 +37,7 @@ export function useApi(): ApiClient {
 }
 
 export const queryKeys = {
+  clinic: ['clinic'] as const,
   cases: (query: CaseListQuery) => ['cases', query] as const,
   allCases: ['cases'] as const,
   case: (id: string) => ['case', id] as const,
@@ -44,6 +47,16 @@ export const queryKeys = {
   clock: ['clock'] as const,
   webhooks: ['webhooks'] as const,
 };
+
+/** The clinic the API key belongs to (its name titles the inbox). */
+export function useClinic(): UseQueryResult<ClinicInfo> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.clinic,
+    queryFn: () => api.getClinic(),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+}
 
 export function useCases(query: CaseListQuery): UseQueryResult<Page<CaseView>> {
   const api = useApi();
@@ -77,6 +90,11 @@ export function useStats(): UseQueryResult<InboxStats> {
   return useQuery({ queryKey: queryKeys.stats, queryFn: () => api.getStats() });
 }
 
+/** Who reads the notes (provider and model the API runs), from the stats. */
+export function useNoteReader(): NoteReader {
+  return noteReader(useStats().data?.llm);
+}
+
 /** The API's clock. `data` is `undefined` when the clock is real (no demo endpoints). */
 export function useDemoClock(): UseQueryResult<DemoClock | null> {
   const api = useApi();
@@ -94,11 +112,15 @@ export function useNow(): Date {
   return clock.data ? new Date(clock.data.now) : new Date();
 }
 
-export function useWebhooks(enabled: boolean): UseQueryResult<{ items: WebhookDelivery[] }> {
+/** The last webhooks the host received; only one event type when `type` is set. */
+export function useWebhooks(
+  enabled: boolean,
+  type?: string,
+): UseQueryResult<{ items: WebhookDelivery[] }> {
   const api = useApi();
   return useQuery({
-    queryKey: queryKeys.webhooks,
-    queryFn: () => api.listWebhooks(30),
+    queryKey: [...queryKeys.webhooks, type ?? 'all'],
+    queryFn: () => api.listWebhooks(30, type),
     enabled,
     refetchInterval: 5000,
   });

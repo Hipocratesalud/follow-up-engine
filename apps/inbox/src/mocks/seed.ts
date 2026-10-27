@@ -6,7 +6,7 @@ import type { CaseStatus, FeedbackReason, Layer, Sex } from '../api/contract.ts'
  * data always looks fresh.
  */
 
-export type Specialty = 'diabetology' | 'hypertension' | 'psychology' | 'gynecology';
+export type Specialty = 'diabetology' | 'internal_medicine' | 'psychology' | 'gynecology';
 
 export interface SeedReason {
   readonly ruleId: string;
@@ -73,9 +73,9 @@ export const ASSIGNEES = {
 
 export const SPECIALTY_LABELS: Record<Specialty, string> = {
   diabetology: 'Diabetología',
-  hypertension: 'Hipertensión arterial',
+  internal_medicine: 'Medicina interna',
   psychology: 'Psicología',
-  gynecology: 'Ginecología',
+  gynecology: 'Ginecología y obstetricia',
 };
 
 const DM2: SeedCondition = {
@@ -148,7 +148,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     name: 'José Luis Méndez',
     age: 64,
     sex: 'male',
-    specialty: 'hypertension',
+    specialty: 'internal_medicine',
     assignee: ASSIGNEES.rivas,
     note: {
       daysAgo: 75,
@@ -314,12 +314,12 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     name: 'Pedro Antonio Lugo',
     age: 55,
     sex: 'male',
-    specialty: 'hypertension',
+    specialty: 'internal_medicine',
     assignee: ASSIGNEES.rivas,
     contact: { lastContactDaysAgo: 3 },
     reasons: [
       {
-        ruleId: 'cadence_hypertension_visit',
+        ruleId: 'cadence_internal_medicine_visit',
         layer: 'cadence',
         label: 'Sin control de presión arterial en 7 meses',
         overdueDays: 30,
@@ -380,7 +380,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     name: 'Rosa Inés Montilla',
     age: 68,
     sex: 'female',
-    specialty: 'hypertension',
+    specialty: 'internal_medicine',
     assignee: ASSIGNEES.rivas,
     contact: { lastContactDaysAgo: 21 },
     note: {
@@ -476,7 +476,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     name: 'Fernando Ríos',
     age: 49,
     sex: 'male',
-    specialty: 'hypertension',
+    specialty: 'internal_medicine',
     assignee: ASSIGNEES.rivas,
     reasons: [
       {
@@ -561,7 +561,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     name: 'Lucía Fernández',
     age: 45,
     sex: 'female',
-    specialty: 'hypertension',
+    specialty: 'internal_medicine',
     assignee: ASSIGNEES.rivas,
     reasons: [
       {
@@ -641,7 +641,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     name: 'Samuel Ochoa',
     age: 50,
     sex: 'male',
-    specialty: 'hypertension',
+    specialty: 'internal_medicine',
     assignee: ASSIGNEES.rivas,
     reasons: [
       {
@@ -685,11 +685,11 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     name: 'Héctor Villalobos',
     age: 69,
     sex: 'male',
-    specialty: 'hypertension',
+    specialty: 'internal_medicine',
     assignee: ASSIGNEES.rivas,
     reasons: [
       {
-        ruleId: 'cadence_hypertension_visit',
+        ruleId: 'cadence_internal_medicine_visit',
         layer: 'cadence',
         label: 'Sin control de presión arterial en 13 meses',
         overdueDays: 300,
@@ -755,7 +755,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     name: 'Óscar Paz',
     age: 63,
     sex: 'male',
-    specialty: 'hypertension',
+    specialty: 'internal_medicine',
     assignee: ASSIGNEES.rivas,
     reasons: [
       {
@@ -816,7 +816,7 @@ export const SEED_PATIENTS: readonly SeedPatient[] = [
     name: 'Manuel Arias',
     age: 70,
     sex: 'male',
-    specialty: 'hypertension',
+    specialty: 'internal_medicine',
     assignee: ASSIGNEES.rivas,
     reasons: [
       {
@@ -862,7 +862,7 @@ export const SUGGESTED_ACTIONS: Record<string, string> = {
   doctor_plan_referral:
     'Confirma si el paciente ya asistió a la referencia. Si no, ayúdalo a conseguir la cita con el especialista.',
   cadence_annual_gynecology: 'Ofrécele a la paciente su control ginecológico anual.',
-  cadence_hypertension_visit:
+  cadence_internal_medicine_visit:
     'Agenda un control de presión arterial y pide al paciente que traiga su registro en casa.',
   cadence_diabetology_visit:
     'Agenda una consulta de control de diabetes; si toca, ordena la HbA1c antes de la cita.',

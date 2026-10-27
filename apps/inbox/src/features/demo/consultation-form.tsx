@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 import type { DemoConsultationRequest, DemoConsultationResponse } from '../../api/contract.ts';
-import { useCases, useDemoConsultation } from '../../api/queries.ts';
+import { useCases, useDemoConsultation, useNoteReader } from '../../api/queries.ts';
 import { InlineError } from '../../components/states.tsx';
 import { Button, Card, Field, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
@@ -31,6 +31,7 @@ export function ConsultationForm({
 }): ReactNode {
   const ids = useId();
   const mutation = useDemoConsultation();
+  const reader = useNoteReader();
   const everyone = useCases({ view: 'all', limit: 200 });
   const [patientId, setPatientId] = useState<string>(NEW_PATIENT);
   const [patientName, setPatientName] = useState('');
@@ -121,7 +122,11 @@ export function ConsultationForm({
         <h2 className="text-base font-semibold text-fg">Nueva consulta</h2>
         <p className="mt-1 text-sm text-muted">
           Simula que el médico guarda una consulta en el sistema del consultorio. El motor la recibe
-          como FHIR y Muse Spark lee la nota.
+          como FHIR y{' '}
+          {reader.simulated
+            ? 'la lee con reglas (lectura simulada, sin modelo)'
+            : `${reader.name} lee la nota`}
+          .
         </p>
       </div>
 
@@ -251,7 +256,7 @@ export function ConsultationForm({
             loading={mutation.isPending}
             icon={<Sparkles className="size-4" aria-hidden="true" />}
           >
-            {mutation.isPending ? 'Muse Spark está leyendo la nota…' : 'Guardar consulta'}
+            {mutation.isPending ? 'Leyendo la nota…' : 'Guardar consulta'}
           </Button>
         </div>
       </form>

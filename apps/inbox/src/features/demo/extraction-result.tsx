@@ -2,12 +2,11 @@ import { FileWarning, Pill, Sparkles, Stethoscope, Timer, Wallet } from 'lucide-
 import type { ReactNode } from 'react';
 import type { DemoConsultationResponse } from '../../api/contract.ts';
 import { LayerChip } from '../../components/case-badges.tsx';
-import { modelDisplayName } from '../../components/stats-bar.tsx';
 import { Badge, Card, SectionTitle } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatDate, formatMs, formatPercent, formatUsd } from '../../lib/format.ts';
 import { segmentByQuotes } from '../../lib/highlight.ts';
-import { PLAN_KIND_LABELS } from '../../lib/labels.ts';
+import { modelDisplayName, PLAN_KIND_LABELS, SIMULATED_READER_LABEL } from '../../lib/labels.ts';
 
 type QuoteKind = 'plan' | 'condition' | 'medication';
 
@@ -57,7 +56,7 @@ function AnnotatedNote({
   return (
     <figure className="rounded-lg border border-border bg-surface-2">
       <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border px-3 py-2 text-xs text-muted">
-        <span className="font-medium text-fg">Nota con las citas de la IA</span>
+        <span className="font-medium text-fg">Nota con las citas marcadas</span>
         {(Object.keys(QUOTE_LEGEND) as QuoteKind[]).map((kind) => (
           <span key={kind} className="inline-flex items-center gap-1.5">
             <span
@@ -95,6 +94,8 @@ export function ExtractionResult({
   readonly noteText: string;
 }): ReactNode {
   const { extraction, expectationsCreated } = result;
+  // The fake provider (`fake-*` models) reads with rules, not with a model.
+  const simulated = /^fake/i.test(extraction.model);
   return (
     <Card className="flex flex-col gap-5 p-5" aria-labelledby="extraction-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -104,10 +105,14 @@ export function ExtractionResult({
             className="flex items-center gap-2 text-base font-semibold text-fg"
           >
             <Sparkles className="size-4 text-layer-plan" aria-hidden="true" />
-            Lectura de {modelDisplayName(extraction.model)}
+            {simulated
+              ? SIMULATED_READER_LABEL
+              : `Lectura de ${modelDisplayName(extraction.model)}`}
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Lo que el modelo entendió de la nota, con la cita exacta de cada dato.
+            {simulated
+              ? 'Lo que las reglas de la demostración entendieron de la nota (ningún modelo de IA la leyó), con la cita exacta de cada dato.'
+              : 'Lo que el modelo entendió de la nota, con la cita exacta de cada dato.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -154,8 +159,8 @@ export function ExtractionResult({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="flex items-center gap-2 text-sm font-medium text-fg">
                     <Stethoscope className="size-4 text-layer-plan" aria-hidden="true" />
-                    {item.description}
-                    <Badge tone="neutral">{PLAN_KIND_LABELS[item.kind]}</Badge>
+                    {/* The model's own description is a short English phrase (prompt): the kind reads in Spanish. */}
+                    {PLAN_KIND_LABELS[item.kind]}
                   </span>
                   <span className="text-xs text-muted">
                     Antes del {formatDate(item.dueAt)} · {formatPercent(item.confidence)} de
@@ -260,15 +265,15 @@ export function ExtractionPlaceholder({ pending }: { readonly pending: boolean }
         Lectura de la nota
       </h2>
       {pending ? (
-        <div className="flex flex-col gap-3" aria-label="Muse Spark está leyendo la nota">
+        <div className="flex flex-col gap-3" aria-label="Leyendo la nota">
           <div className="skeleton h-28 w-full" />
           <div className="skeleton h-14 w-full" />
           <div className="skeleton h-14 w-4/5" />
         </div>
       ) : (
         <p className="text-sm text-muted">
-          Guarda una consulta para ver qué entiende Muse Spark de la nota: el plan del médico con su
-          cita textual, las condiciones probables y las expectativas que crea el motor.
+          Guarda una consulta para ver qué se entiende de la nota: el plan del médico con su cita
+          textual, las condiciones probables y las expectativas que crea el motor.
         </p>
       )}
     </Card>

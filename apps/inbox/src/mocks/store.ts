@@ -10,6 +10,7 @@ import {
   type CaseReasonView,
   type CaseStatus,
   type CaseView,
+  type ClinicInfo,
   type ConditionView,
   type CreatedExpectation,
   type DemoConsultationRequest,
@@ -196,14 +197,14 @@ export interface MockStoreOptions {
 
 const SPECIALTY_ASSIGNEES: Record<Specialty, string> = {
   diabetology: ASSIGNEES.paredes,
-  hypertension: ASSIGNEES.rivas,
+  internal_medicine: ASSIGNEES.rivas,
   psychology: ASSIGNEES.medina,
   gynecology: ASSIGNEES.ibarra,
 };
 
 const CADENCE_DAYS: Record<Specialty, number> = {
   diabetology: 90,
-  hypertension: 90,
+  internal_medicine: 90,
   psychology: 14,
   gynecology: 365,
 };
@@ -215,6 +216,7 @@ function isSpecialty(value: string): value is Specialty {
 /** The mock API surface: one method per contract endpoint. */
 export interface MockStore {
   now(): Date;
+  clinic(): ClinicInfo;
   listCases(query: CaseListQuery): Page<CaseView>;
   getCase(id: string): CaseDetail;
   act(id: string, request: CaseActionRequest, actorId?: string): CaseDetail;
@@ -226,7 +228,7 @@ export interface MockStore {
   clock(): { now: string; fake: boolean };
   advance(days: number): { now: string };
   createConsultation(request: DemoConsultationRequest): DemoConsultationResponse;
-  listWebhooks(limit?: number): { items: WebhookDelivery[] };
+  listWebhooks(limit?: number, type?: string): { items: WebhookDelivery[] };
 }
 
 export function createMockStore(options: MockStoreOptions = {}): MockStore {
@@ -1182,6 +1184,10 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       return { ...paginate(items, query.cursor, query.limit), total: items.length };
     },
 
+    clinic(): ClinicInfo {
+      return { id: 'clinic-mock', name: CLINIC_NAME };
+    },
+
     stats(): InboxStats {
       const active = [...cases.values()].filter(
         (followUpCase) => isReleased(followUpCase) && ACTIVE.includes(followUpCase.status),
@@ -1241,8 +1247,13 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
 
     createConsultation,
 
-    listWebhooks(limit = 30): { items: WebhookDelivery[] } {
-      return { items: [...webhooks].sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit) };
+    listWebhooks(limit = 30, type?: string): { items: WebhookDelivery[] } {
+      return {
+        items: webhooks
+          .filter((item) => type === undefined || item.type === type)
+          .sort((a, b) => b.at.localeCompare(a.at))
+          .slice(0, limit),
+      };
     },
   };
 }

@@ -25,7 +25,7 @@ export const LAYER_DESCRIPTIONS: Record<Layer, string> = {
 
 export const STATUS_LABELS: Record<CaseStatus, string> = {
   open: 'Abierto',
-  notified: 'Contacto solicitado',
+  notified: 'Avisado',
   snoozed: 'Pospuesto',
   escalated: 'Escalado',
   resolved: 'Resuelto',
@@ -97,12 +97,51 @@ export const SEX_LABELS: Record<Sex, string> = {
   unknown: 'Sin dato',
 };
 
+/** The specialties of the synthetic clinic (codes the engine's cadence and rules use). */
 export const SPECIALTY_OPTIONS = [
   { value: 'diabetology', label: 'Diabetología' },
-  { value: 'hypertension', label: 'Hipertensión arterial' },
+  { value: 'internal_medicine', label: 'Medicina interna' },
   { value: 'psychology', label: 'Psicología' },
-  { value: 'gynecology', label: 'Ginecología' },
+  { value: 'gynecology', label: 'Ginecología y obstetricia' },
 ] as const;
+
+/** Display name of the model the API reports ("muse-spark-1.3" → "Muse Spark"). */
+export function modelDisplayName(model: string): string {
+  if (/muse[-_ ]?spark[-_ ]?open/i.test(model)) return 'Muse Spark Open';
+  if (/muse[-_ ]?spark/i.test(model)) return 'Muse Spark';
+  return model;
+}
+
+const PROVIDER_NAMES: Record<string, string> = {
+  meta: 'Meta',
+  baseten: 'Baseten',
+  'openai-compatible': 'API compatible con OpenAI',
+};
+
+/** Who reads the notes, as the API reports it (`llm.provider` / `llm.model` of the stats). */
+export interface NoteReader {
+  /** No model at all: the fake provider's rule-based reading (demos, tests). */
+  readonly simulated: boolean;
+  /** "Muse Spark · Meta", or "Lectura simulada (sin modelo)". */
+  readonly label: string;
+  /** Short name for sentences: "Muse Spark", or "la lectura simulada". */
+  readonly name: string;
+}
+
+export const SIMULATED_READER_LABEL = 'Lectura simulada (sin modelo)';
+
+export function noteReader(llm: { provider: string; model: string } | undefined): NoteReader {
+  if (llm === undefined) return { simulated: false, label: 'IA', name: 'la IA' };
+  if (llm.provider === 'fake') {
+    return { simulated: true, label: SIMULATED_READER_LABEL, name: 'la lectura simulada' };
+  }
+  const name = modelDisplayName(llm.model);
+  return {
+    simulated: false,
+    label: `${name} · ${PROVIDER_NAMES[llm.provider] ?? llm.provider}`,
+    name,
+  };
+}
 
 export const WEBHOOK_LABELS: Record<string, string> = {
   'case.opened': 'Caso abierto',
@@ -114,6 +153,9 @@ export const WEBHOOK_LABELS: Record<string, string> = {
   'case.dismissed': 'Caso descartado',
   'case.lost_to_follow_up': 'Paciente perdido en seguimiento',
   'consultation.processed': 'Consulta procesada',
+  'patient_contact.requested': 'Contactar al paciente',
+  'backfill.completed': 'Revisión del historial terminada',
+  'backfill.paused': 'Revisión del historial en pausa',
 };
 
 /** Spanish label for an actor in the timeline. */
@@ -129,6 +171,9 @@ export function actorLabel(actor: {
     case 'patient':
       return 'Paciente';
     case 'user':
-      return actor.id ?? 'Equipo del consultorio';
+      // `inbox-user` is the API's default when the host sends no user.
+      return actor.id === undefined || actor.id === 'inbox-user'
+        ? 'Equipo del consultorio'
+        : actor.id;
   }
 }
