@@ -161,7 +161,7 @@ export class PostgresReconciliationStore implements ReconciliationStore {
   ): Promise<readonly ReconciliationRun[]> {
     const { rows } = await this.#ctx.db().query<RunRow>(
       `SELECT ${RUN_COLUMNS} FROM ${this.#ctx.tables.reconciliation_runs}
-       WHERE clinic_id = $1 ORDER BY started_at DESC, run_id DESC LIMIT $2`,
+       WHERE clinic_id = $1 ORDER BY started_at DESC, seq DESC LIMIT $2`,
       [clinicId, query.limit],
     );
     return rows.map(toRun);
@@ -262,7 +262,7 @@ export class PostgresReconciliationStore implements ReconciliationStore {
   async #first(where: string, values: readonly unknown[]): Promise<ReconciliationRun | undefined> {
     const { rows } = await this.#ctx.db().query<RunRow>(
       `SELECT ${RUN_COLUMNS} FROM ${this.#ctx.tables.reconciliation_runs}
-       WHERE ${where} ORDER BY started_at DESC, run_id DESC LIMIT 1`,
+       WHERE ${where} ORDER BY started_at DESC, seq DESC LIMIT 1`,
       values,
     );
     const [row] = rows;

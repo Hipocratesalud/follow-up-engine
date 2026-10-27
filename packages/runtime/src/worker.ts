@@ -350,7 +350,11 @@ export class Worker {
           break;
         }
         case RECONCILIATION_JOB: {
-          const { run } = await engine.reconciliation.runJob(job.clinicId, job.payload);
+          const { run, idle } = await engine.reconciliation.runJob(job.clinicId, job.payload);
+          if (idle === true) {
+            logger.info({ ...context, since: run.runId }, 'reconciliation: nothing new');
+            break;
+          }
           // Counts only: repairs are audited in the engine, never logged with PHI.
           const counts = {
             ...context,

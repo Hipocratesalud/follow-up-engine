@@ -166,6 +166,17 @@ export function describeReconciliationStoreContract(
       expect((await store().list(a, { limit: 1 })).map((run) => run.runId)).toEqual([third]);
       expect((await store().lastCompleted(a))?.watermark).toBe('20');
       expect((await store().get(a, third))?.lastError).toBe('boom');
+      // Started at the same instant (a fake clock): the later start is the latest.
+      const sameInstant = ['zz-first', 'aa-second'].map((suffix) => `${uniqueId('run')}-${suffix}`);
+      for (const [index, runId] of sameInstant.entries()) {
+        await store().start(a, runId, { scope: 'all', watermark: String(30 + index), now: at(5) });
+        await store().finish(a, runId, { status: 'completed', now: at(5) });
+      }
+      expect((await store().lastCompleted(a))?.runId).toBe(sameInstant[1]);
+      expect((await store().list(a, { limit: 2 })).map((run) => run.runId)).toEqual([
+        sameInstant[1],
+        sameInstant[0],
+      ]);
     });
 
     it('appends repairs and lists them in order, by run and by patient', async () => {

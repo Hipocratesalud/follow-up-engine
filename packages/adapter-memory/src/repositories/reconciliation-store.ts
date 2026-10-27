@@ -17,12 +17,6 @@ function countsOf(run: ReconciliationRun): ReconciliationCounts {
   return addReconciliationCounts(ZERO_RECONCILIATION_COUNTS, run);
 }
 
-function newestFirst(left: ReconciliationRun, right: ReconciliationRun): number {
-  return (
-    right.startedAt.getTime() - left.startedAt.getTime() || (left.runId < right.runId ? 1 : -1)
-  );
-}
-
 /** In-memory {@link ReconciliationStore}, rolled back with the rest of the database. */
 export class MemoryReconciliationStore implements ReconciliationStore {
   readonly #db: MemoryDatabase;
@@ -139,10 +133,16 @@ export class MemoryReconciliationStore implements ReconciliationStore {
     );
   }
 
+  /** Most recently started first; runs started at the same instant, the later start first. */
   #runs(clinicId: ClinicId): ReconciliationRun[] {
     return [...this.#db.state.reconciliationRuns.values()]
-      .filter((run) => run.clinicId === clinicId)
-      .sort(newestFirst);
+      .map((run, order) => ({ run, order }))
+      .filter(({ run }) => run.clinicId === clinicId)
+      .sort(
+        (left, right) =>
+          right.run.startedAt.getTime() - left.run.startedAt.getTime() || right.order - left.order,
+      )
+      .map(({ run }) => run);
   }
 
   #change(

@@ -57,6 +57,8 @@ CREATE TABLE rule_override_history (
 CREATE INDEX rule_override_history_clinic_idx ON rule_override_history (clinic_id, seq DESC);
 
 CREATE TABLE reconciliation_runs (
+  -- Start order, so runs started at the same instant (a fake clock) still have a latest.
+  seq bigint GENERATED ALWAYS AS IDENTITY,
   clinic_id text NOT NULL,
   run_id text NOT NULL,
   scope text NOT NULL CHECK (scope IN ('recent', 'all')),
@@ -79,7 +81,7 @@ CREATE TABLE reconciliation_runs (
 -- At most one unfinished run per clinic.
 CREATE UNIQUE INDEX reconciliation_runs_one_running ON reconciliation_runs (clinic_id)
   WHERE status = 'running';
-CREATE INDEX reconciliation_runs_started_idx ON reconciliation_runs (clinic_id, started_at DESC, run_id DESC);
+CREATE INDEX reconciliation_runs_started_idx ON reconciliation_runs (clinic_id, started_at DESC, seq DESC);
 
 CREATE TABLE reconciliation_repairs (
   seq bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

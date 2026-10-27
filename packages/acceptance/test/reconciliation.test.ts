@@ -350,8 +350,46 @@ function describeReconciliation(name: string, make: MakeHarness): void {
         'expectation_created cadence_break',
         'expectation_created lab_order_result_pending',
       ]);
+      // Nothing stored since: an idle night records no run of its own.
       const third = await harness.engine.reconciliation.run(harness.clinicId);
-      expect(third.run).toMatchObject({ patientsScanned: 0, repairs: 0 });
+      expect(third.idle).toBe(true);
+      expect(third.run.runId).toBe(second.run.runId);
+      expect(await harness.engine.reconciliation.runs(harness.clinicId)).toHaveLength(2);
+    },
+    TIMEOUT,
+  );
+
+  it(
+    'brings an old lost event back as backfill history: held, then released, never contacting the patient',
+    async () => {
+      const harness = await make(options('old-history'));
+      // An order of day 0 that was stored but never annotated, found on day 200.
+      harness.clock.set(dayToDate(0));
+      await storeWithoutAnnotating(
+        harness,
+        labConsultation(PATIENTS.control, 'old', 0),
+        dayToDate(0),
+      );
+      harness.clock.set(dayToDate(200));
+      const report = await harness.engine.reconciliation.run(harness.clinicId, { scope: 'all' });
+      expect(report.repairs.map((repair) => `${repair.kind} ${repair.detail ?? ''}`)).toEqual([
+        'expectation_created ',
+        'case_opened backfill',
+      ]);
+      const [created] = await expectationsOf(harness, PATIENTS.control);
+      expect(created).toMatchObject({ origin: 'backfill', status: 'expired' });
+      const caseId = report.repairs[1]?.entityId as never;
+      const held = await harness.read((stores) => stores.cases.get(harness.clinicId, caseId));
+      expect(held).toMatchObject({ origin: 'backfill' });
+      expect(held?.releaseAt?.getTime()).toBeLessThanOrEqual(dayToDate(200).getTime());
+      // The watcher releases it like any backfill case; nobody is asked to contact the patient.
+      await day(harness, 200);
+      await day(harness, 230);
+      const events = await harness.pendingEvents();
+      expect(eventsOf(events, 'case.opened').map((event) => event.payload.origin)).toEqual([
+        'backfill',
+      ]);
+      expect(eventsOf(events, 'patient_contact.requested')).toEqual([]);
     },
     TIMEOUT,
   );

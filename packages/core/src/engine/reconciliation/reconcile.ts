@@ -63,9 +63,15 @@ export interface ReconciliationOptions {
 
 /** What one call to {@link runReconciliation} did. */
 export interface ReconciliationReport {
+  /** The run made (or, when `idle`, the previous one). */
   readonly run: ReconciliationRun;
   /** True when an unfinished (crashed) run was continued. */
   readonly resumed: boolean;
+  /**
+   * A `recent` run with no event stored since the previous run: nothing to
+   * look at, so no run was recorded and nothing was sent.
+   */
+  readonly idle?: true;
   /** The repairs this call made, in order. */
   readonly repairs: readonly ReconciliationRepair[];
 }
@@ -598,6 +604,27 @@ async function startOrResume(
   });
 }
 
+/**
+ * The previous completed run when no event was stored since it (and no run
+ * is unfinished): a quiet night needs no run of its own.
+ */
+async function idleSince(
+  deps: ReconciliationDeps,
+  clinicId: ClinicId,
+): Promise<ReconciliationRun | undefined> {
+  return deps.unitOfWork.withTransaction(clinicId, async (stores) => {
+    if ((await stores.reconciliation.findRunning(clinicId)) !== undefined) {
+      return undefined;
+    }
+    const previous = await stores.reconciliation.lastCompleted(clinicId);
+    if (previous?.watermark === undefined) {
+      return undefined;
+    }
+    const watermark = await stores.clinicalRecords.eventWatermark(clinicId);
+    return watermark === previous.watermark ? previous : undefined;
+  });
+}
+
 /** The counters of a run, without its identity. */
 function runCounts(run: ReconciliationRun): ReconciliationCounts {
   return addReconciliationCounts(ZERO_RECONCILIATION_COUNTS, run);
@@ -625,13 +652,21 @@ function runCounts(run: ReconciliationRun): ReconciliationCounts {
  * Resumable: one transaction per patient carries its repairs and the
  * cursor; calling it again continues an unfinished run. Emits
  * `reconciliation.completed` with the counts (unless it had nobody to look
- * at) and, when it repaired anything, the `reconciliation.repairs_found` alert.
+ * at) and, when it repaired anything, the `reconciliation.repairs_found`
+ * alert. A `recent` run with no event stored since the previous run is idle:
+ * it records nothing and returns the previous run.
  */
 export async function runReconciliation(
   deps: ReconciliationDeps,
   clinicId: ClinicId,
   options: ReconciliationOptions = {},
 ): Promise<ReconciliationReport> {
+  if ((options.scope ?? 'recent') === 'recent') {
+    const previous = await idleSince(deps, clinicId);
+    if (previous !== undefined) {
+      return { run: previous, resumed: false, repairs: [], idle: true };
+    }
+  }
   const catalog = await deps.loadCatalog(clinicId);
   const pageSize = options.pageSize ?? deps.settings.backfillPageSize;
   const started = await startOrResume(deps, clinicId, options);
@@ -673,7 +708,7 @@ export async function runReconciliation(
     });
     const writer = new CaseWriter(stores, deps.ids, clinicId);
     const payload = { runId: done.runId, scope: done.scope, ...runCounts(done) };
-    // A night with nothing new to look at completes quietly (the run is still recorded).
+    // A run that looked at nobody (stored events, but none of a patient in scope) completes quietly.
     if (done.patientsScanned > 0) {
       await writer.emit('reconciliation.completed', now, payload);
     }

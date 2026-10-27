@@ -14,7 +14,7 @@ All tables live in their own schema, `follow_up`, so the engine can share a data
 | Table                       | Holds                                                                                                                                                                |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `clinics`                   | Tenants: name, `active`, `settings` (jsonb, partial `ClinicSettings`, `locale` included), `api_key_hash` (sha256 hex of the original integration key; never the key) |
-| `api_keys`                  | Scoped API keys of each clinic: sha256 hex, `label`, `scopes` (`fhir:write`, `inbox:read`, `inbox:act`, `demo:clock`, `demo:ingest`), `revoked_at`                   |
+| `api_keys`                  | Scoped API keys of each clinic: sha256 hex, `label`, `scopes` (`fhir:write`, `inbox:read`, `inbox:act`, `demo:clock`, `demo:ingest`, `admin:rules`), `revoked_at`    |
 | `clinical_resources`        | Latest version of every FHIR resource pushed by the host (jsonb), unique per clinic + type + id. `version` increments only when the content changes                  |
 | `clinical_events`           | Append-only log of normalized clinical events, unique per clinic + `idempotency_key`                                                                                 |
 | `patient_conditions`        | Conditions per patient, unique per clinic + patient + code                                                                                                           |
@@ -31,6 +31,10 @@ All tables live in their own schema, `follow_up`, so the engine can share a data
 | `outbox`                    | Domain events waiting for delivery to the host                                                                                                                       |
 | `jobs`                      | Background jobs, claimed with `FOR UPDATE SKIP LOCKED`; a `dedup_key` is unique among unfinished (`pending`, `running`) jobs                                         |
 | `backfill_progress`         | Resumable cursor and counters of the initial backfill; one unfinished (running or budget-paused) backfill per clinic                                                 |
+| `rule_overrides`            | Per-clinic rule overrides in force (`due_in_days`, `enabled`), with their version, who, when and why                                                                 |
+| `rule_override_history`     | Append-only history of every override change (old → new as jsonb, actor, reason, time); its row count per clinic is the revision caches check                        |
+| `reconciliation_runs`       | Resumable nightly reconciliation runs: scope, event watermark, cursor, counters and repairs by kind; one running run per clinic                                      |
+| `reconciliation_repairs`    | Append-only audit of every repair a run made (patient, entity, rule, status before and after; actor `system`, reason `reconciliation`)                               |
 
 Design rules, all enforced by tests:
 
@@ -96,7 +100,7 @@ Hipócrates hosts the engine on Supabase. The engine is a regular Postgres clien
 
    [`packages/adapter-postgres/supabase/rls.sql`](../packages/adapter-postgres/supabase/rls.sql):
 
-   - enables RLS on **every** `follow_up` table, found in the catalog (not a hand-kept list), and revokes table privileges and default privileges from `anon` and `authenticated`; tables without a policy (`jobs`, `outbox`, `backfill_progress`, `schema_migrations`, `api_keys`) are invisible to API roles;
+   - enables RLS on **every** `follow_up` table, found in the catalog (not a hand-kept list), and revokes table privileges and default privileges from `anon` and `authenticated`; tables without a policy (`jobs`, `outbox`, `backfill_progress`, `schema_migrations`, `api_keys`, the rule override and reconciliation tables) are invisible to API roles;
    - lets `authenticated` users `SELECT` rows whose `clinic_id` equals the `clinic_id` claim of their JWT (add the claim with a custom access token hook); their own `clinics` row is readable without `api_key_hash` (column privileges);
    - grants no writes and nothing to `anon`. Writes go through the engine API, which applies the business rules and the audit trail;
    - finally add `follow_up` to _Settings → Data API → Exposed schemas_. **Do not** run the `GRANT ALL ON ALL TABLES IN SCHEMA ... TO anon, authenticated` (and `ALTER DEFAULT PRIVILEGES ... GRANT ALL`) that Supabase's guide to custom schemas suggests: RLS would still deny rows, but the grants are the only other line of defense. Re-run `applySupabaseRowLevelSecurity` after upgrading the engine (it is idempotent); new tables already arrive with RLS on.
@@ -163,7 +167,33 @@ pnpm --filter @follow-up-engine/api clinic:create --id clinica-ejemplo --revoke 
 pnpm --filter @follow-up-engine/api clinic:create --id clinica-ejemplo --locale es-VE   # Spanish labels and findings
 ```
 
-Scopes: `fhir:write` (the host integration: `/fhir`, `/jobs`), `inbox:read`, `inbox:act` (the inbox API), `demo:clock` and `demo:ingest` (the demo controls, fake clock only; refused for any clinic but `clinic-demo` unless `--allow-demo`). Key values are unique across clinics: issuing or registering a value another clinic holds (even revoked) fails and changes nothing. Give the host server one `fhir:write` key and the inbox its own key without `fhir:write`; rotate a key by issuing a new one under another label, switching, then `--revoke` the old label. New clinics start with patient contact disabled (`--allow-patient-contact` turns it on once the clinical team has validated it) and with the `en-US` locale: `--locale <bcp47>` (new or existing clinic) sets the language of the inbox labels when the user's `Accept-Language` names none the engine has (`en`, `es`), and of the clinical reviewer's findings. Patients and notes carry their own languages ([ADR 0007](adr/0007-language-model.md)).
+Scopes: `fhir:write` (the host integration: `/fhir`, `/jobs`), `inbox:read`, `inbox:act` (the inbox API), `admin:rules` (the clinic's rule configuration, `/api/admin/rules`: an operator's key, never the integration's or the inbox's), `demo:clock` and `demo:ingest` (the demo controls, fake clock only; refused for any clinic but `clinic-demo` unless `--allow-demo`). Key values are unique across clinics: issuing or registering a value another clinic holds (even revoked) fails and changes nothing. Give the host server one `fhir:write` key and the inbox its own key without `fhir:write`; rotate a key by issuing a new one under another label, switching, then `--revoke` the old label. New clinics start with patient contact disabled (`--allow-patient-contact` turns it on once the clinical team has validated it) and with the `en-US` locale: `--locale <bcp47>` (new or existing clinic) sets the language of the inbox labels when the user's `Accept-Language` names none the engine has (`en`, `es`), and of the clinical reviewer's findings. Patients and notes carry their own languages ([ADR 0007](adr/0007-language-model.md)).
+
+## Rule overrides
+
+A clinic's rules run with other deadlines, or switched off, without a new rule version ([integration.md](integration.md#per-clinic-rule-overrides)): through `PUT /api/admin/rules` with an `admin:rules` key, or from a terminal:
+
+```sh
+pnpm --filter @follow-up-engine/api clinic:rules --clinic clinica-ejemplo --list
+pnpm --filter @follow-up-engine/api clinic:rules --clinic clinica-ejemplo \
+  --set lab_order_result_pending.dueInDays=10 --reason "Our lab answers in a week"
+pnpm --filter @follow-up-engine/api clinic:rules --clinic clinica-ejemplo \
+  --disable imaging_order_result_pending --reason "No imaging in this clinic"
+pnpm --filter @follow-up-engine/api clinic:rules --clinic clinica-ejemplo \
+  --reset lab_order_result_pending --reason "Back to the protocol"
+pnpm --filter @follow-up-engine/api clinic:rules --clinic clinica-ejemplo --history
+```
+
+Every change is validated (known rules and fields only, whole days from 1 to 3650, a reason), versioned per rule and kept in `rule_override_history` with who (`--actor`, default the operating system user), when, old → new and why. It applies to expectations created afterwards, which carry the rule version with the override (`1.1.0+clinic.2`); existing ones keep theirs. API and worker processes see a change at once (each catalog read checks the clinic's override revision).
+
+## Nightly reconciliation
+
+The worker queues one `reconciliation.run` job per clinic and night, at `settings.reconciliation.hour` (default 3) in the clinic's time zone, and runs it with the other jobs ([integration.md](integration.md#nightly-reconciliation)): patients with events stored since the previous run, and every patient on `fullSweepWeekday` (default Sunday; `null` turns the weekly sweep off; `enabled: false` turns the nightly run off). Each patient is planned in a rolled-back transaction and repaired in its own transaction, which also moves the run's cursor: a crash or a deploy resumes after the last patient done, and a retry of the job continues the same run. The initial backfill records a completed full run, so the first night does not replay the clinic again.
+
+- **Alerting.** A run that repaired anything logs `alert: "reconciliation_repairs"` (counts only, no patient data) and emits `reconciliation.repairs_found`; a clean run logs `reconciliation` at info. Repairs mean something stored events without their effect: look at the repair log.
+- **By hand.** `clinic:reconcile --clinic <id>` runs (or resumes) a run now, `--all` sweeps every patient, `--runs` lists the latest runs and `--repairs <runId>` what a run repaired.
+- **Cost.** No LLM call: notes are not read again (a note whose plan was never read is retried by its own `note.extract_plan` job). Each patient's stored events are replayed once, in the rolled-back plan; only a patient with differences gets a writing transaction, and a clean patient writes nothing but the run's cursor, and a night with no event stored since the previous run records nothing at all. The demo's 168 patients take a few seconds in memory.
+- **Edge.** "Since the previous run" follows the event log's sequence: an event inserted by a transaction still open when a run starts and committed after it can be missed by the next nightly run; the weekly full sweep covers it.
 
 ## Security checklist (production)
 

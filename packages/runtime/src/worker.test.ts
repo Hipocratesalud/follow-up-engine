@@ -95,12 +95,13 @@ describe('worker over the memory runtime', () => {
     expect(rt.sink?.list().map((delivery) => delivery.type)).not.toContain(
       'reconciliation.repairs_found',
     );
-    // The next night is queued; nothing new happened, so it looks at nobody.
+    // The next night is queued and runs, but nothing new was stored: no run, no webhook.
+    const sent = rt.sink?.list().length;
     await worker.advanceFakeClock(1, [clinicId]);
-    expect((await rt.engine.reconciliation.runs(clinicId))[0]).toMatchObject({
-      runId: 'reconciliation-2026-01-07T07:00:00.000Z',
-      patientsScanned: 0,
-    });
+    expect((await rt.engine.reconciliation.runs(clinicId)).map((each) => each.runId)).toEqual([
+      'reconciliation-2026-01-06T07:00:00.000Z',
+    ]);
+    expect(rt.sink?.list().length).toBe(sent);
   });
 
   it('runs an asynchronously accepted Bundle, then opens and announces a case', async () => {
