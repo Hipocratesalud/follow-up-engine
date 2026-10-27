@@ -75,6 +75,10 @@ export const EscalationStepViewSchema = z
         'Case detail only, for steps already passed: done, or skipped when it could not happen (for example no automatic patient contact for a backfill case)',
     }),
     at: isoDate.optional().meta({ description: 'Case detail only: when a done step ran' }),
+    scheduledAt: isoDate.optional().meta({
+      description:
+        'Pending steps of an active case: when the step runs if nobody acts, counted the way the engine does (from the next scheduled step, the end of a snooze, or the release day of a held case)',
+    }),
   })
   .meta({ id: 'EscalationStepView' });
 
