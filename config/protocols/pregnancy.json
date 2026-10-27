@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "status": "draft",
   "description": "Pregnancy and postpartum follow-up: prenatal visits by gestational age (every 4 weeks up to week 28, every 2 weeks up to 36, weekly after), an oral glucose tolerance test between weeks 24 and 28, and a postpartum visit within 6 weeks of a delivery. The episode ends on a delivery or a loss: nothing prenatal is expected after it. Fills only what the doctor's plan did not cover.",
-  "reason": { "code": "protocol_pregnancy", "label": "Embarazo y puerperio" },
+  "reason": {
+    "code": "protocol_pregnancy",
+    "label": "Embarazo y puerperio"
+  },
   "sources": [
     {
       "title": "Guidelines for Perinatal Care, 8th edition",
@@ -61,7 +64,11 @@
             "code": "11525-3",
             "display": "US Pelvis Fetus for pregnancy"
           },
-          { "system": "http://loinc.org", "code": "11778-8", "display": "Delivery date Estimated" },
+          {
+            "system": "http://loinc.org",
+            "code": "11778-8",
+            "display": "Delivery date Estimated"
+          },
           {
             "system": "http://loinc.org",
             "code": "11884-4",
@@ -76,23 +83,12 @@
     "outcomes": [
       {
         "outcome": "delivery",
-        "conditionCodes": [
-          "O80",
-          "O81",
-          "O82",
-          "O83",
-          "O84",
-          "O85",
-          "O86",
-          "O87",
-          "O88",
-          "O89",
-          "O90",
-          "O91",
-          "O92",
-          "Z37",
-          "Z39"
-        ]
+        "conditionCodes": ["O80", "O81", "O82", "O83", "O84", "Z37"]
+      },
+      {
+        "outcome": "delivery",
+        "conditionCodes": ["O85", "O86", "O87", "O88", "O89", "O90", "O91", "O92", "Z39"],
+        "recordedAtFollowUp": true
       },
       {
         "outcome": "loss",
@@ -112,14 +108,26 @@
       "schedule": {
         "type": "gestational_age",
         "intervals": [
-          { "untilWeek": 28, "everyDays": 28 },
-          { "untilWeek": 36, "everyDays": 14 },
-          { "untilWeek": 43, "everyDays": 7 }
+          {
+            "untilWeek": 28,
+            "everyDays": 28
+          },
+          {
+            "untilWeek": 36,
+            "everyDays": 14
+          },
+          {
+            "untilWeek": 43,
+            "everyDays": 7
+          }
         ],
         "undatedEveryDays": 28
       },
       "fulfilledBy": [
-        { "event": "encounter.finished", "match": "any" },
+        {
+          "event": "encounter.finished",
+          "match": "any"
+        },
         {
           "event": "appointment.booked",
           "match": "any",
@@ -146,11 +154,17 @@
         "code": "protocol_pregnancy_glucose_tolerance",
         "label": "Prueba de tolerancia a la glucosa pendiente (semanas 24 a 28)"
       },
-      "schedule": { "type": "gestational_window", "fromWeek": 24, "toWeek": 28 },
+      "schedule": {
+        "type": "gestational_window",
+        "fromWeek": 24,
+        "toWeek": 28
+      },
       "fulfilledBy": [
         {
           "event": "result.received",
-          "filter": { "code.code": ["1504-0", "1518-0", "20436-2"] },
+          "filter": {
+            "code.code": ["1504-0", "1518-0", "20436-2"]
+          },
           "match": "any"
         }
       ],
@@ -181,10 +195,20 @@
         "code": "protocol_pregnancy_postpartum_visit",
         "label": "Control posparto pendiente (6 semanas)"
       },
-      "schedule": { "type": "after_outcome", "outcome": "delivery", "withinDays": 42 },
+      "schedule": {
+        "type": "after_outcome",
+        "outcome": "delivery",
+        "withinDays": 42
+      },
       "fulfilledBy": [
-        { "event": "encounter.finished", "match": "any" },
-        { "event": "appointment.booked", "match": "any" }
+        {
+          "event": "encounter.finished",
+          "match": "any"
+        },
+        {
+          "event": "appointment.booked",
+          "match": "any"
+        }
       ],
       "priority": 40,
       "suggestedAction": {

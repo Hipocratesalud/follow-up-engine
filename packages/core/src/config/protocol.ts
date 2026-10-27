@@ -295,6 +295,13 @@ export const ProtocolSchema = z
             z.strictObject({
               outcome: z.enum(PROTOCOL_OUTCOMES),
               conditionCodes: z.array(z.string().min(1)).min(1),
+              /**
+               * These codes are recorded at a visit after the outcome (the
+               * puerperal visit codes Z39 postpartum care), so that visit
+               * is itself the `after_outcome` visit. A delivery code is
+               * recorded at the delivery, which is not one.
+               */
+              recordedAtFollowUp: z.boolean().optional(),
             }),
           )
           .min(1),

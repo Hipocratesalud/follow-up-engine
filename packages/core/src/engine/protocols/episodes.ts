@@ -41,6 +41,8 @@ export interface EndedEpisode {
   readonly outcome: ProtocolOutcome;
   /** The diagnosis that ended it (the delivery, the loss). */
   readonly endedBy: ConditionRecordedEvent;
+  /** The diagnosis was recorded at a visit after the outcome (a puerperal visit), which counts as one. */
+  readonly endedAtFollowUp: boolean;
   /** End of the episode before this one, if any. */
   readonly since?: Date;
 }
@@ -49,9 +51,16 @@ export interface EndedEpisode {
 export function latestClosure(
   protocol: Protocol,
   events: readonly ClinicalEvent[],
-): { readonly event: ConditionRecordedEvent; readonly outcome: ProtocolOutcome } | undefined {
+):
+  | {
+      readonly event: ConditionRecordedEvent;
+      readonly outcome: ProtocolOutcome;
+      readonly atFollowUp: boolean;
+    }
+  | undefined {
   const outcomes = protocol.closing?.outcomes ?? [];
-  let latest: { event: ConditionRecordedEvent; outcome: ProtocolOutcome } | undefined;
+  let latest:
+    { event: ConditionRecordedEvent; outcome: ProtocolOutcome; atFollowUp: boolean } | undefined;
   for (const event of events) {
     if (event.type !== 'condition.recorded') {
       continue;
@@ -63,7 +72,11 @@ export function latestClosure(
       outcome !== undefined &&
       (latest === undefined || event.occurredAt.getTime() >= latest.event.occurredAt.getTime())
     ) {
-      latest = { event, outcome: outcome.outcome };
+      latest = {
+        event,
+        outcome: outcome.outcome,
+        atFollowUp: outcome.recordedAtFollowUp === true,
+      };
     }
   }
   return latest;
@@ -136,6 +149,7 @@ export function protocolEpisode(
     status: 'ended',
     outcome: closure.outcome,
     endedBy: closure.event,
+    endedAtFollowUp: closure.atFollowUp,
     ...(since === undefined ? {} : { since }),
   };
 }

@@ -199,13 +199,13 @@ function afterOutcomeSchedule(
   const closure = episode.endedBy;
   const closedAt = closure.occurredAt.getTime();
   const encounter = encounterOf(closure);
-  // The visit where the outcome was recorded (the puerperal visit that
-  // codes Z39) is itself the visit after it.
-  const done = fulfillingEvents(input.definition, input.timeline).some(
-    (event) =>
-      eventInstant(event).getTime() >= closedAt ||
-      (encounter !== undefined && encounterOf(event) === encounter),
-  );
+  // A visit after the outcome; the visit that recorded it counts only when
+  // it is itself such a visit (a puerperal visit coding Z39), never the
+  // delivery.
+  const done = fulfillingEvents(input.definition, input.timeline).some((event) => {
+    const sameEncounter = encounter !== undefined && encounterOf(event) === encounter;
+    return sameEncounter ? episode.endedAtFollowUp : eventInstant(event).getTime() > closedAt;
+  });
   return done
     ? undefined
     : { anchor: closure.source, dueAt: addDays(closure.occurredAt, schedule.withinDays) };

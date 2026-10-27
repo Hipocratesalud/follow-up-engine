@@ -104,14 +104,16 @@ export async function annotate(
 
   // An amended note's plan replaces the earlier version's.
   const closed = await supersedeAmendedPlans(context, state, ordered, firstDrafts);
+  // A delivery or a loss ends a pregnancy: nothing prenatal is expected
+  // after it (decided before fulfillment, so the delivery's own encounter
+  // is never read as the prenatal visit).
+  const ended = await endEpisodes(context, state, conditions.all);
+  closed.push(...ended.closed);
   closed.push(...(await applyFulfillment(context, state.timeline, state.live, ordered)));
   // What withdrawn resources triggered goes; what they fulfilled is open again.
   closed.push(...(await cancelWithdrawn(context, state, ordered)));
   const unenrolled = await withdrawConditions(context, state, ordered, conditions.all);
   closed.push(...unenrolled.closed);
-  // A delivery or a loss ends a pregnancy: nothing prenatal is expected after it.
-  const ended = await endEpisodes(context, state, conditions.all);
-  closed.push(...ended.closed);
   const reopened = await recheckTouched(context, state, ordered);
   // Information that arrives after what it decides (a discharge or a
   // conditional return in a later note, the doctor's own control, an order
