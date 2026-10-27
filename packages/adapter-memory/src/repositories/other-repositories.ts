@@ -39,9 +39,9 @@ export class MemoryFeedbackRepository implements FeedbackRepository {
 
   listForCase(clinicId: ClinicId, caseId: CaseId): Promise<readonly CaseFeedback[]> {
     return Promise.resolve(
-      this.#db.state.feedback.filter(
-        (item) => item.clinicId === clinicId && item.caseId === caseId,
-      ),
+      this.#db.state.feedback
+        .filter((item) => item.clinicId === clinicId && item.caseId === caseId)
+        .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime()),
     );
   }
 

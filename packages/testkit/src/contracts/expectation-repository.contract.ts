@@ -1,4 +1,4 @@
-import { type ExpectationRepository, patientId } from '@follow-up-engine/core';
+import { caseId, type ExpectationRepository, patientId } from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import { anExpectation } from './builders.ts';
 import {
@@ -56,6 +56,41 @@ export function describeExpectationRepositoryContract(
       expect(open.map((e) => e.id)).toEqual([early.id, late.id]);
     });
 
+    it('lists every expectation of a patient by dueAt, optionally by status', async () => {
+      const { a } = freshClinics();
+      const patient = patientId('pat-all');
+      const open = anExpectation(a, { patientId: patient, dueAt: at(30) });
+      const fulfilled = anExpectation(a, { patientId: patient, dueAt: at(5), status: 'fulfilled' });
+      const expired = anExpectation(a, { patientId: patient, dueAt: at(10), status: 'expired' });
+      const other = anExpectation(a, { dueAt: at(1) });
+      for (const e of [open, fulfilled, expired, other]) await repo().upsertByIdempotencyKey(a, e);
+      expect((await repo().listByPatient(a, patient)).map((e) => e.id)).toEqual([
+        fulfilled.id,
+        expired.id,
+        open.id,
+      ]);
+      expect(
+        (await repo().listByPatient(a, patient, ['open', 'expired'])).map((e) => e.id),
+      ).toEqual([expired.id, open.id]);
+    });
+
+    it('round-trips every optional field', async () => {
+      const { a } = freshClinics();
+      const full = anExpectation(a, {
+        layer: 'doctor_plan',
+        status: 'expired',
+        caseId: caseId('case-x'),
+        closedReason: 'superseded_by_new_order',
+        closedAt: at(3),
+        origin: 'backfill',
+        protocolId: 'diabetes',
+        protocolVersion: '1.0.0',
+        evidence: { quote: 'ctrl en 3 meses', sourceDocumentId: 'doc-1' },
+      });
+      await repo().upsertByIdempotencyKey(a, full);
+      expect(await repo().get(a, full.id)).toEqual(full);
+    });
+
     it('finds due open expectations ordered by dueAt and honours the limit', async () => {
       const { a } = freshClinics();
       const d10 = anExpectation(a, { dueAt: at(10) });
@@ -94,6 +129,17 @@ export function describeExpectationRepositoryContract(
       expect(await repo().findDue(a, at(30), 10)).toEqual([]);
     });
 
+    it('lets an expired expectation close late (fulfilled, superseded or cancelled)', async () => {
+      const { a } = freshClinics();
+      for (const status of ['fulfilled', 'superseded', 'cancelled'] as const) {
+        const expired = anExpectation(a, { status: 'expired', caseId: caseId('case-late') });
+        await repo().upsertByIdempotencyKey(a, expired);
+        const closed = { ...expired, status, closedReason: `late_${status}`, closedAt: at(20) };
+        await repo().update(a, closed);
+        expect(await repo().get(a, expired.id)).toEqual(closed);
+      }
+    });
+
     it('rejects updating an unknown expectation with NotFoundError', async () => {
       const { a } = freshClinics();
       await expectRejectsWithName(repo().update(a, anExpectation(a)), 'NotFoundError');
@@ -117,6 +163,7 @@ export function describeExpectationRepositoryContract(
 
       expect(await repo().get(b, e.id)).toBeUndefined();
       expect(await repo().findOpenByPatient(b, e.patientId)).toEqual([]);
+      expect(await repo().listByPatient(b, e.patientId)).toEqual([]);
       expect(await repo().findDue(b, at(100), 100)).toEqual([]);
       await expectRejectsWithName(repo().update(b, { ...e, clinicId: b }), 'NotFoundError');
 

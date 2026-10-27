@@ -10,6 +10,8 @@ const TEST_FILE = '\\.test\\.tsx?$';
 const NON_PRODUCTION = [
   '^apps/[^/]+/src/test/',
   '^(packages|apps)/[^/]+/[^/]+\\.config\\.(ts|js|cjs|mjs)$',
+  // Test-only package: contract suites on every adapter, end-to-end scenarios.
+  '^packages/acceptance/',
 ];
 
 module.exports = {
@@ -72,9 +74,16 @@ module.exports = {
       comment: 'packages/testkit is test-only. Production code must not import it.',
       from: {
         path: '^(packages|apps)/',
-        pathNot: ['^packages/testkit/', TEST_FILE, NON_PRODUCTION[0]],
+        pathNot: ['^packages/testkit/', TEST_FILE, NON_PRODUCTION[0], NON_PRODUCTION[2]],
       },
       to: { path: '^packages/testkit/' },
+    },
+    {
+      name: 'nothing-imports-acceptance',
+      severity: 'error',
+      comment: 'packages/acceptance is a leaf of tests: nothing imports it.',
+      from: { pathNot: '^packages/acceptance/' },
+      to: { path: '^packages/acceptance/' },
     },
     {
       name: 'nothing-imports-apps',

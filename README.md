@@ -43,6 +43,7 @@ packages/
   adapter-memory/     in-memory adapters
   llm/                llm_gateway and providers
   testkit/            contract tests every adapter must pass, synthetic fixtures
+  acceptance/         tests only: contract suites on every adapter, FHIR scenarios end to end, backfill
 config/
   rules/              versioned JSON rules
   protocols/          versioned JSON care protocols

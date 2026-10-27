@@ -1,7 +1,12 @@
 import {
+  type ClinicalEvent,
   type ClinicalRecordRepository,
+  type ClinicId,
   type FhirResourceJson,
+  ICD10_SYSTEM,
+  type PatientId,
   patientId,
+  practitionerId,
 } from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import { anEncounterEvent } from './builders.ts';
@@ -15,6 +20,100 @@ function aResource(id: string, status = 'finished'): FhirResourceJson {
     class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
     subject: { reference: 'Patient/pat-1' },
   };
+}
+
+const HBA1C = { system: 'http://loinc.org', code: '4548-4', display: 'Hemoglobin A1c' };
+
+/** One event of every type, with every optional field set. */
+function everyEventType(clinic: ClinicId, patient: PatientId): ClinicalEvent[] {
+  const base = (type: string, resourceType: string, day: number) => {
+    const id = uniqueId(resourceType.toLowerCase());
+    return {
+      clinicId: clinic,
+      patientId: patient,
+      source: { resourceType, id },
+      encounterId: 'enc-all',
+      occurredAt: at(day),
+      idempotencyKey: `${resourceType}/${id}/1#${type}`,
+    };
+  };
+  return [
+    {
+      ...base('encounter.finished', 'Encounter', 0),
+      type: 'encounter.finished',
+      practitionerId: practitionerId('prac-1'),
+      specialty: 'diabetology',
+    },
+    {
+      ...base('appointment.booked', 'Appointment', 1),
+      type: 'appointment.booked',
+      scheduledFor: at(90),
+      practitionerId: practitionerId('prac-1'),
+      specialty: 'diabetology',
+    },
+    {
+      ...base('appointment.cancelled', 'Appointment', 2),
+      type: 'appointment.cancelled',
+      scheduledFor: at(90),
+    },
+    {
+      ...base('service_request.created', 'ServiceRequest', 3),
+      type: 'service_request.created',
+      orderId: 'sr-1',
+      code: HBA1C,
+      category: 'laboratory',
+    },
+    {
+      ...base('result.received', 'Observation', 4),
+      type: 'result.received',
+      basedOnOrderId: 'sr-1',
+      code: HBA1C,
+      interpretation: 'abnormal',
+      value: { value: 8.2, unit: '%' },
+    },
+    {
+      ...base('medication.prescribed', 'MedicationRequest', 5),
+      type: 'medication.prescribed',
+      medication: {
+        text: 'amoxicilina 500 mg',
+        code: { system: 'http://www.whocc.no/atc', code: 'J01CA04' },
+      },
+      startAt: at(5),
+      durationDays: 7,
+    },
+    {
+      ...base('condition.recorded', 'DocumentReference', 6),
+      type: 'condition.recorded',
+      code: { system: ICD10_SYSTEM, code: 'E11' },
+      verification: 'provisional',
+      evidence: { quote: 'DM2', sourceDocumentId: 'doc-1' },
+    },
+    {
+      ...base('note.received', 'DocumentReference', 7),
+      type: 'note.received',
+      documentId: 'doc-1',
+      text: 'Plan: control en 3 meses.',
+      specialty: 'diabetology',
+      authoredAt: at(7),
+    },
+    {
+      ...base('plan.extracted', 'DocumentReference', 8),
+      type: 'plan.extracted',
+      sourceDocumentId: 'doc-1',
+      items: [
+        {
+          kind: 'lab',
+          description: 'repeat HbA1c',
+          dueAt: at(97),
+          evidenceQuote: 'control en 3 meses',
+          confidence: 0.9,
+          code: HBA1C,
+        },
+      ],
+      extractor: { model: 'fake', promptVersion: 'v1' },
+    },
+    { ...base('patient.opted_out', 'Consent', 9), type: 'patient.opted_out' },
+  ] as ClinicalEvent[];
 }
 
 /** Contract every {@link ClinicalRecordRepository} adapter must pass. */
@@ -70,6 +169,13 @@ export function describeClinicalRecordRepositoryContract(
         inserted: 1,
       });
       expect(await repo().listEventsForPatient(a, patient)).toHaveLength(3);
+    });
+
+    it('round-trips every event type with every optional field (dates included)', async () => {
+      const { a } = freshClinics();
+      const events = everyEventType(a, patient);
+      expect(await repo().appendEvents(a, events)).toEqual({ inserted: events.length });
+      expect(await repo().listEventsForPatient(a, patient)).toEqual(events);
     });
 
     it('lists a patient’s events chronologically, ties in insertion order', async () => {

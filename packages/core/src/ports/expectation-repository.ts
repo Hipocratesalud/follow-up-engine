@@ -1,4 +1,4 @@
-import type { Expectation } from '../domain/expectation.ts';
+import type { Expectation, ExpectationStatus } from '../domain/expectation.ts';
 import type { ClinicId, ExpectationId, PatientId } from '../domain/ids.ts';
 
 export interface UpsertExpectationResult {
@@ -22,6 +22,16 @@ export interface ExpectationRepository {
 
   /** Open expectations of a patient, by `dueAt` ascending. */
   findOpenByPatient(clinicId: ClinicId, patientId: PatientId): Promise<readonly Expectation[]>;
+
+  /**
+   * Every expectation of a patient (only `statuses` when given), by `dueAt`
+   * ascending then id: the patient view, scenario checks and the backfill.
+   */
+  listByPatient(
+    clinicId: ClinicId,
+    patientId: PatientId,
+    statuses?: readonly ExpectationStatus[],
+  ): Promise<readonly Expectation[]>;
 
   /** Open expectations with `dueAt <= now`, by `dueAt` ascending. */
   findDue(clinicId: ClinicId, now: Date, limit: number): Promise<readonly Expectation[]>;

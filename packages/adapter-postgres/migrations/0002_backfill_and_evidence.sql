@@ -27,3 +27,6 @@ ALTER TABLE backfill_progress
 DROP INDEX backfill_progress_one_running;
 CREATE UNIQUE INDEX backfill_progress_one_unfinished ON backfill_progress (clinic_id)
   WHERE status IN ('running', 'paused_budget');
+
+-- `ExpectationRepository.listByPatient`: every expectation of a patient, any status.
+CREATE INDEX expectations_patient_idx ON expectations (clinic_id, patient_id, due_at, id);

@@ -36,11 +36,14 @@ export class MemoryJobQueue implements JobQueue {
   enqueue(clinicId: ClinicId, job: JobRequest): Promise<JobId> {
     const jobs = this.#db.state.jobs;
     if (job.dedupKey !== undefined) {
+      // Like the Postgres partial unique index: a dedup key is unique among
+      // unfinished jobs only, so the same work can run again once it finished.
       const duplicate = [...jobs.values()].find(
         (existing) =>
           existing.clinicId === clinicId &&
           existing.type === job.type &&
-          existing.dedupKey === job.dedupKey,
+          existing.dedupKey === job.dedupKey &&
+          (existing.status === 'pending' || existing.status === 'running'),
       );
       if (duplicate !== undefined) {
         return Promise.resolve(duplicate.id);
@@ -160,11 +163,9 @@ export class MemoryJobQueue implements JobQueue {
     if (job.clinicId !== clinicId) {
       return new TenantMismatchError();
     }
-    const now = this.#clock.now().getTime();
-    const valid =
-      job.status === 'running' &&
-      job.leaseToken === lease.leaseToken &&
-      (job.leaseExpiresAt?.getTime() ?? 0) > now;
+    // Ownership is the token: an expired lease stays valid until another
+    // worker reclaims the job (which mints a new token), as in Postgres.
+    const valid = job.status === 'running' && job.leaseToken === lease.leaseToken;
     return valid ? job : undefined;
   }
 }
@@ -183,6 +184,15 @@ export class MemoryOutbox implements Outbox {
     }
     this.#db.state.outbox.push({ sequence: this.#db.nextSequence(), clinicId, event });
     return Promise.resolve();
+  }
+
+  /** Events of a clinic not delivered yet, in insertion order. */
+  pending(clinicId: ClinicId): Promise<readonly DomainEvent[]> {
+    return Promise.resolve(
+      this.records(clinicId)
+        .filter((record) => record.deliveredAt === undefined)
+        .map((record) => record.event),
+    );
   }
 
   /** Events in insertion order, optionally only one clinic's. */

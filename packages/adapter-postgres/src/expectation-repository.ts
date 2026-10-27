@@ -171,6 +171,21 @@ export class PostgresExpectationRepository implements ExpectationRepository {
     return rows.map(toExpectation);
   }
 
+  async listByPatient(
+    clinicId: ClinicId,
+    patientId: PatientId,
+    statuses?: readonly ExpectationStatus[],
+  ): Promise<readonly Expectation[]> {
+    const { rows } = await this.#ctx.db().query<ExpectationRow>(
+      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.expectations}
+       WHERE clinic_id = $1 AND patient_id = $2
+         AND ($3::text[] IS NULL OR status = ANY($3::text[]))
+       ORDER BY due_at, id`,
+      [clinicId, patientId, statuses ?? null],
+    );
+    return rows.map(toExpectation);
+  }
+
   async findDue(clinicId: ClinicId, now: Date, limit: number): Promise<readonly Expectation[]> {
     const { rows } = await this.#ctx.db().query<ExpectationRow>(
       `SELECT ${COLUMNS} FROM ${this.#ctx.tables.expectations}
