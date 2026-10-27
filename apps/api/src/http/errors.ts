@@ -1,6 +1,7 @@
 import {
   ConflictError,
   InvalidCaseTransitionError,
+  InvalidCursorError,
   InvalidIdentifierError,
   NotFoundError,
   type PatientContactDenial,
@@ -8,6 +9,7 @@ import {
   TenantMismatchError,
   ValidationError,
 } from '@follow-up-engine/core';
+import { sanitizeFhirJson } from '@follow-up-engine/fhir';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
@@ -73,6 +75,13 @@ export function toHttpError(error: unknown): HttpError {
   if (error instanceof NotFoundError) {
     return notFound();
   }
+  if (error instanceof InvalidCursorError) {
+    return new HttpError(
+      400,
+      'invalid_cursor',
+      'El cursor de paginación no es válido para esta lista. Vuelve a pedir la primera página.',
+    );
+  }
   if (error instanceof InvalidIdentifierError) {
     return new HttpError(400, 'invalid_identifier', 'Identificador no válido.');
   }
@@ -89,7 +98,11 @@ export function errorResponse(c: Context, error: HttpError): Response {
   return c.json({ error: { code: error.code, message: error.message } }, error.status);
 }
 
-/** Reads and validates a JSON body: 400 when it is not JSON, 422 when it breaks the schema. */
+/**
+ * Reads and validates a JSON body: 400 when it is not JSON, 422 when it
+ * breaks the schema. Control characters (a NUL) are dropped from every
+ * string first: they would never reach the clinic as text anyway.
+ */
 export async function readJson<TSchema extends z.ZodType>(
   c: Context,
   schema: TSchema,
@@ -100,7 +113,7 @@ export async function readJson<TSchema extends z.ZodType>(
   } catch {
     throw new HttpError(400, 'invalid_json', 'El cuerpo de la petición no es JSON válido.');
   }
-  return schema.parse(body);
+  return schema.parse(sanitizeFhirJson(body, 'body').value);
 }
 
 /** Validates the query string against a schema (422 on failure). */

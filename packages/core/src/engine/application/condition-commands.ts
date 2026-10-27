@@ -47,7 +47,7 @@ export interface ConditionCommands {
     userId: string,
   ): Promise<PatientCondition>;
   /**
-   * Marks the condition as not present (`resolved`, confidence 0) and
+   * Marks the condition as not present (`rejected`, confidence 0) and
    * cancels the protocol expectations that relied on it, resolving cases
    * left without reasons. Automation never re-infers a rejected condition.
    */
@@ -111,7 +111,7 @@ export function createConditionCommands(deps: ConditionCommandDeps): ConditionCo
         const existing = await find(conditions, code);
         const rejected: PatientCondition = {
           ...existing,
-          status: 'resolved',
+          status: 'rejected',
           confidence: 0,
           confirmedBy: userId,
           updatedAt: now,

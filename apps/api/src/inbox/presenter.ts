@@ -80,21 +80,12 @@ function contactView(status: PatientContactStatus): PatientContact {
   };
 }
 
-/** A condition the clinician rejected: closed with confidence 0 by a named user. */
-function isRejected(condition: PatientCondition): boolean {
-  return (
-    condition.status === 'resolved' &&
-    condition.confidence === 0 &&
-    condition.confirmedBy !== undefined
-  );
-}
-
 export function conditionView(condition: PatientCondition): ConditionView {
   return {
     id: conditionId(condition),
     code: condition.code.code,
     display: icd10Label(condition.code.code, condition.code.display),
-    status: isRejected(condition) ? 'rejected' : condition.status,
+    status: condition.status,
     confidence: condition.confidence,
     sourceType: condition.sourceType,
     ...(condition.evidence === undefined

@@ -2,7 +2,7 @@ import type { CaseId, ClinicId, DomainEvent, PatientId } from '@follow-up-engine
 import { describe, expect, it, vi } from 'vitest';
 import { toWebhookBody } from './payload.ts';
 import { buildSignedWebhook, createWebhookPublisher, WebhookDeliveryError } from './publisher.ts';
-import { signWebhookBody, verifyWebhookSignature, WEBHOOK_HEADERS } from './signature.ts';
+import { signWebhook, verifyWebhookSignature, WEBHOOK_HEADERS } from './signature.ts';
 import { createLoopbackPublisher, createWebhookSinkApp, WebhookSink } from './sink.ts';
 
 const clinic = 'clinic-a' as ClinicId;
@@ -21,14 +21,36 @@ const opened: DomainEvent = {
 };
 
 describe('webhook signature', () => {
-  it('signs the raw body with HMAC-SHA256 and verifies it in constant time', () => {
-    const signature = signWebhookBody('secret', '{"a":1}');
+  const parts = { timestamp: '1768996805', deliveryId: 'evt-1', rawBody: '{"a":1}' };
+
+  it('signs timestamp, delivery id and raw body with HMAC-SHA256, verified in constant time', () => {
+    const signature = signWebhook('secret', parts);
     expect(signature).toMatch(/^sha256=[0-9a-f]{64}$/);
-    expect(verifyWebhookSignature('secret', '{"a":1}', signature)).toBe(true);
-    expect(verifyWebhookSignature('other', '{"a":1}', signature)).toBe(false);
-    expect(verifyWebhookSignature('secret', '{"a":2}', signature)).toBe(false);
-    expect(verifyWebhookSignature('secret', '{"a":1}', undefined)).toBe(false);
-    expect(verifyWebhookSignature('secret', '{"a":1}', 'sha256=short')).toBe(false);
+    expect(verifyWebhookSignature('secret', { ...parts, signature })).toBe(true);
+    expect(verifyWebhookSignature('other', { ...parts, signature })).toBe(false);
+    expect(verifyWebhookSignature('secret', { ...parts, rawBody: '{"a":2}', signature })).toBe(
+      false,
+    );
+    expect(verifyWebhookSignature('secret', { ...parts, signature: undefined })).toBe(false);
+    expect(verifyWebhookSignature('secret', { ...parts, signature: 'sha256=short' })).toBe(false);
+  });
+
+  it('refuses a replay with a fresh timestamp or a new delivery id', () => {
+    const signature = signWebhook('secret', parts);
+    expect(verifyWebhookSignature('secret', { ...parts, timestamp: '1800000000', signature })).toBe(
+      false,
+    );
+    expect(verifyWebhookSignature('secret', { ...parts, deliveryId: 'evt-2', signature })).toBe(
+      false,
+    );
+  });
+
+  it('refuses a stale delivery when given the current time', () => {
+    const signature = signWebhook('secret', parts);
+    const sent = new Date(Number(parts.timestamp) * 1000);
+    expect(verifyWebhookSignature('secret', { ...parts, signature }, { now: sent })).toBe(true);
+    const later = new Date(sent.getTime() + 301_000);
+    expect(verifyWebhookSignature('secret', { ...parts, signature }, { now: later })).toBe(false);
   });
 });
 
@@ -101,7 +123,12 @@ describe('webhook payloads', () => {
     expect(webhook.headers[WEBHOOK_HEADERS.event]).toBe('case.opened');
     expect(webhook.headers[WEBHOOK_HEADERS.timestamp]).toBe('1768996805');
     expect(
-      verifyWebhookSignature('secret', webhook.rawBody, webhook.headers[WEBHOOK_HEADERS.signature]),
+      verifyWebhookSignature('secret', {
+        rawBody: webhook.rawBody,
+        timestamp: '1768996805',
+        deliveryId: 'evt-1',
+        signature: webhook.headers[WEBHOOK_HEADERS.signature],
+      }),
     ).toBe(true);
   });
 });
@@ -122,7 +149,14 @@ describe('HTTP webhook publisher', () => {
     expect(url).toBe('https://host.example/webhooks');
     const headers = init?.headers as Record<string, string>;
     expect(
-      verifyWebhookSignature('secret', init?.body as string, headers[WEBHOOK_HEADERS.signature]),
+      verifyWebhookSignature('secret', {
+        rawBody: init?.body as string,
+        ...(headers[WEBHOOK_HEADERS.timestamp] === undefined
+          ? {}
+          : { timestamp: headers[WEBHOOK_HEADERS.timestamp] }),
+        deliveryId: 'evt-1',
+        signature: headers[WEBHOOK_HEADERS.signature],
+      }),
     ).toBe(true);
     await expect(publisher.publish(clinic, opened)).rejects.toBeInstanceOf(WebhookDeliveryError);
   });
@@ -158,17 +192,44 @@ describe('webhook sink', () => {
     expect((await post({ ...webhook.headers })).status).toBe(204);
     expect((await post({ ...webhook.headers })).status).toBe(204);
     expect(
-      (await post({ ...webhook.headers, [WEBHOOK_HEADERS.signature]: signWebhookBody('x', 'y') }))
-        .status,
+      (
+        await post({
+          ...webhook.headers,
+          [WEBHOOK_HEADERS.signature]: signWebhook('x', {
+            timestamp: '1',
+            deliveryId: 'evt-1',
+            rawBody: 'y',
+          }),
+        })
+      ).status,
+    ).toBe(401);
+    // A captured delivery replayed later with fresh headers is refused.
+    expect(
+      (
+        await post({
+          ...webhook.headers,
+          [WEBHOOK_HEADERS.timestamp]: String(Math.floor(Date.now() / 1000) + 3_600),
+          [WEBHOOK_HEADERS.delivery]: 'evt-REPLAYED',
+        })
+      ).status,
     ).toBe(401);
     const listed = (await (await app.request('/deliveries?clinicId=clinic-a')).json()) as {
       items: { signatureValid: boolean; duplicate: boolean; type: string }[];
     };
     expect(listed.items.map((item) => [item.signatureValid, item.duplicate])).toEqual([
       [false, false],
+      [false, false],
       [true, true],
       [true, false],
     ]);
+  });
+
+  it('refuses stale deliveries when given a tolerance', () => {
+    const sink = new WebhookSink({ secret: 'secret', toleranceSeconds: 300 });
+    const stale = buildSignedWebhook(opened, 'secret', new Date(Date.now() - 600_000));
+    expect(sink.receiveSigned(stale).accepted).toBe(false);
+    const fresh = buildSignedWebhook(opened, 'secret', new Date());
+    expect(sink.receiveSigned(fresh).accepted).toBe(true);
   });
 
   it('receives in-process deliveries through the loopback publisher', async () => {

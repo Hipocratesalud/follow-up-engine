@@ -28,6 +28,12 @@ export interface WebhookSinkOptions {
   /** Deliveries kept, newest first. Default 2,000 (a seeded demo clinic sends a few hundred a month). */
   readonly capacity?: number;
   readonly now?: () => Date;
+  /**
+   * Refuse deliveries whose `X-FollowUp-Timestamp` is further than this from
+   * the wall clock (a host should use 300). Off by default: the demo sink
+   * runs next to a fake engine clock.
+   */
+  readonly toleranceSeconds?: number;
 }
 
 function header(
@@ -65,6 +71,7 @@ export class WebhookSink {
   readonly #secret: string;
   readonly #capacity: number;
   readonly #now: () => Date;
+  readonly #toleranceSeconds: number | undefined;
   readonly #deliveries: SinkDelivery[] = [];
   readonly #seen = new Set<string>();
 
@@ -72,6 +79,7 @@ export class WebhookSink {
     this.#secret = options.secret;
     this.#capacity = options.capacity ?? 2_000;
     this.#now = options.now ?? (() => new Date());
+    this.#toleranceSeconds = options.toleranceSeconds;
   }
 
   /** Receives one webhook; `accepted` is what the HTTP status should say. */
@@ -79,13 +87,21 @@ export class WebhookSink {
     readonly headers: Readonly<Record<string, string>> | Headers;
     readonly rawBody: string;
   }): { readonly accepted: boolean; readonly delivery: SinkDelivery } {
+    const deliveryId = header(request.headers, WEBHOOK_HEADERS.delivery);
+    const timestamp = header(request.headers, WEBHOOK_HEADERS.timestamp);
     const signatureValid = verifyWebhookSignature(
       this.#secret,
-      request.rawBody,
-      header(request.headers, WEBHOOK_HEADERS.signature),
+      {
+        rawBody: request.rawBody,
+        signature: header(request.headers, WEBHOOK_HEADERS.signature),
+        ...(deliveryId === undefined ? {} : { deliveryId }),
+        ...(timestamp === undefined ? {} : { timestamp }),
+      },
+      this.#toleranceSeconds === undefined
+        ? {}
+        : { now: new Date(), toleranceSeconds: this.#toleranceSeconds },
     );
     const payload = parse(request.rawBody);
-    const deliveryId = header(request.headers, WEBHOOK_HEADERS.delivery);
     const accepted = signatureValid && payload !== undefined;
     const duplicate = accepted && deliveryId !== undefined && this.#seen.has(deliveryId);
     if (accepted && deliveryId !== undefined) {

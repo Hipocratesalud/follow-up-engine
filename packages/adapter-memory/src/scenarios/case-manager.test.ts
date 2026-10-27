@@ -407,7 +407,7 @@ describe('condition review', () => {
       'dr-rivas',
     );
     expect(result.condition).toMatchObject({
-      status: 'resolved',
+      status: 'rejected',
       confidence: 0,
       confirmedBy: 'dr-rivas',
     });
@@ -425,7 +425,7 @@ describe('condition review', () => {
       world.clinicId,
       world.patientId,
     );
-    expect(conditions).toMatchObject([{ status: 'resolved' }]);
+    expect(conditions).toMatchObject([{ status: 'rejected' }]);
   });
 
   it('confirming a probable condition makes the case eligible for patient contact', async () => {

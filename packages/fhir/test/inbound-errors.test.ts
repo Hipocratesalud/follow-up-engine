@@ -68,6 +68,8 @@ describe('envelope', () => {
       resources: [],
       contextResources: [],
       issues: undefined,
+      entryRefs: [],
+      bundle: { resourceType: 'Bundle', type: 'transaction' },
     });
   });
 });
@@ -332,5 +334,69 @@ describe('validateBundle', () => {
     const validation = validateBundle(bundle);
     expect(validation.ok).toBe(false);
     expect(validation.outcome).toEqual(map(bundle).issues);
+  });
+});
+
+describe('robustness: one bad field never costs the consultation', () => {
+  const RECEIVED = new Date('2026-01-05T12:00:00Z');
+
+  function consultationAt(occurredAt: string, noteText = 'Plan: control en 1 mes.'): unknown {
+    return buildConsultationBundle({
+      consultationId: 'c-dates',
+      patient: { id: 'pat-dates', name: 'Paciente Prueba' },
+      specialty: 'diabetology',
+      occurredAt: new Date(occurredAt),
+      noteText,
+    });
+  }
+
+  it('rejects a clinical date outside 1900-2200 whatever the receipt time', () => {
+    const { batches, issues } = mapBundleToBatches(consultationAt('9999-12-25T10:00:00Z'), {
+      clinicId: 'clinic-demo',
+      receivedAt: RECEIVED,
+    });
+    expect(batches).toEqual([]);
+    expect(issues?.issue).toContainEqual(
+      expect.objectContaining({ severity: 'error', code: 'value' }),
+    );
+  });
+
+  it('checks future dates against the receipt only for live ingestion', () => {
+    const future = consultationAt('2026-03-01T10:00:00Z');
+    const live = mapBundleToBatches(future, {
+      clinicId: 'clinic-demo',
+      receivedAt: RECEIVED,
+      checkFutureDates: true,
+    });
+    expect(live.batches).toHaveLength(1);
+    expect(live.issues?.issue.map((issue) => issue.severity)).toContain('warning');
+    const history = mapBundleToBatches(future, { clinicId: 'clinic-demo', receivedAt: RECEIVED });
+    expect(history.issues).toBeUndefined();
+    const nextYear = mapBundleToBatches(consultationAt('2027-06-01T10:00:00Z'), {
+      clinicId: 'clinic-demo',
+      receivedAt: RECEIVED,
+      checkFutureDates: true,
+    });
+    expect(nextYear.batches).toEqual([]);
+  });
+
+  it('removes control characters with a warning and returns the cleaned Bundle', () => {
+    const bundle = consultationAt('2026-01-05T10:00:00Z') as {
+      entry: { resource: { name?: { text: string }[] } }[];
+    };
+    const patient = bundle.entry[0]?.resource;
+    if (patient !== undefined) {
+      patient.name = [{ text: 'Ana\u0000 Prueba' }];
+    }
+    const result = mapBundleToBatches(bundle, { clinicId: 'clinic-demo', receivedAt: RECEIVED });
+    expect(result.batches).toHaveLength(1);
+    expect(JSON.stringify(result.bundle)).not.toContain('\\u0000');
+    expect(JSON.stringify(result.resources)).not.toContain('\\u0000');
+    expect(result.issues?.issue).toEqual([
+      expect.objectContaining({
+        severity: 'warning',
+        expression: ['Bundle.entry[0].resource.name[0].text'],
+      }),
+    ]);
   });
 });

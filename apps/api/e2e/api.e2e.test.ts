@@ -79,8 +79,11 @@ async function eventually<T>(
 
 describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => {
   const schema = `follow_up_e2e_${randomBytes(5).toString('hex')}`;
-  const sink = new WebhookSink({ secret: SECRET });
+  const sink = new WebhookSink({ secret: SECRET, toleranceSeconds: 300 });
+  /** Every webhook as it went over the wire, to try replaying one. */
+  const wire: { headers: Record<string, string>; body: string }[] = [];
   let sinkServer: ServerType;
+  let sinkBase = '';
   let runtime: EngineRuntime;
   let server: ApiServer;
   let base = '';
@@ -116,10 +119,21 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
 
   beforeAll(async () => {
     const sinkPort = await new Promise<number>((resolve) => {
-      sinkServer = serve({ fetch: createWebhookSinkApp(sink).fetch, port: 0 }, (info) => {
+      const sinkApp = createWebhookSinkApp(sink);
+      const capture = async (request: Request): Promise<Response> => {
+        if (request.method === 'POST') {
+          wire.push({
+            headers: Object.fromEntries(request.headers),
+            body: await request.clone().text(),
+          });
+        }
+        return sinkApp.fetch(request);
+      };
+      sinkServer = serve({ fetch: capture, port: 0 }, (info) => {
         resolve(info.port);
       });
     });
+    sinkBase = `http://127.0.0.1:${String(sinkPort)}`;
     runtime = await createRuntime(
       loadRuntimeConfig({
         DATABASE_URL,
@@ -243,6 +257,44 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
     }, 'the case.opened webhook');
     expect(delivery.signatureValid).toBe(true);
     expect(sink.list({ clinicId: 'clinic-demo' }).every((item) => item.signatureValid)).toBe(true);
+  });
+
+  it('signs timestamp and delivery id too: a captured webhook cannot be replayed', async () => {
+    const original = wire.find((item) => item.headers['x-followup-event'] === 'case.opened');
+    expect(original).toBeDefined();
+    const replay = (headers: Record<string, string>) =>
+      fetch(`${sinkBase}${WEBHOOK_SINK_PATH}`, {
+        method: 'POST',
+        headers,
+        body: original?.body ?? '',
+      });
+    const fresh = String(Math.floor(Date.now() / 1000));
+    const replayed = await replay({
+      ...original?.headers,
+      'x-followup-timestamp': fresh,
+      'x-followup-delivery': 'evt-REPLAYED',
+    });
+    expect(replayed.status).toBe(401);
+    // The genuine redelivery still verifies (and is flagged as a duplicate).
+    const again = await replay({ ...original?.headers });
+    expect(again.status).toBe(204);
+    expect(sink.list({ limit: 1 })[0]?.duplicate).toBe(true);
+  });
+
+  it('lets an inbox-scoped key read and act, never ingest', async () => {
+    const inbox = await runtime.issueApiKey({
+      clinicId: 'clinic-demo',
+      label: 'e2e inbox',
+      scopes: ['inbox:read', 'inbox:act'],
+    });
+    expect((await call('/api/inbox/cases', { key: inbox.apiKey })).status).toBe(200);
+    const ingest = await call<{ resourceType: string }>('/fhir', {
+      body: RESULT_BUNDLE,
+      fhir: true,
+      key: inbox.apiKey,
+    });
+    expect(ingest.status).toBe(403);
+    expect(ingest.body.resourceType).toBe('OperationOutcome');
   });
 
   it('fulfills the HbA1c order when the result arrives asynchronously', async () => {

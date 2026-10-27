@@ -48,6 +48,17 @@ Validation is tolerant (unknown elements are accepted and kept in the stored res
 
 Missing clinical times fall back to the `receivedAt` the caller passes. `Medication`, `Practitioner`, `PractitionerRole`, `Organization`, `Location`, `Device`, `Specimen`, `RelatedPerson` and `HealthcareService` are context: resolved by reference, never reported, and returned as `contextResources` (references resolved) so the API can keep the host's directory of practitioners and organizations. Other resource types are ignored with an `information` issue.
 
+### Robustness
+
+One bad field never costs the host the rest of the consultation:
+
+- Control characters (NUL, BEL, ...) and invalid Unicode in any string are removed, with a `warning` at the string's path; the same goes for text decoded from a base64 attachment. Postgres would refuse them, and they are never part of clinical text.
+- A string over 1 MB (FHIR's limit; attachment `data` excepted) is an `error` for its entry.
+- Clinical dates must fall between 1900 and 2200 (`error` otherwise: a year-9999 typo would give due dates that are not valid FHIR). On live ingestion (`receivedAt` is the real receipt time) an event dated more than a year after receipt is an `error`, more than a day after it a `warning`; scheduled dates (an appointment) may be up to five years ahead.
+- A `ServiceRequest` without a recognizable `category` takes `laboratory` from a well-known LOINC laboratory code (HbA1c, glucose, lipids, creatinine, TSH, CBC, ...; the list is `LABORATORY_LOINC_CODES`) or `imaging` from a LOINC imaging study name (`XR`, `CT`, `MR`, `US`, ...), with a `warning`; otherwise it stays `other` (no result expectation), also with a `warning` that says so.
+
+The API also caps request bodies at 5 MB (`413`, an `OperationOutcome` with code `too-costly`).
+
 ### Idempotency
 
 Every event carries `idempotencyKey = <resourceType>/<id>/<version>#<event type>`, where `<version>` is `meta.versionId`, else `meta.lastUpdated`, else a 64-bit FNV-1a hash of the canonical JSON of the resource (keys sorted, `meta` excluded, references already rewritten). Re-sending the same Bundle yields the same keys; changing a resource changes only its own key.
@@ -90,11 +101,11 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 }
 ```
 
-| Severity      | Meaning                                                                                           |
-| ------------- | ------------------------------------------------------------------------------------------------- |
-| `error`       | The entry cannot be mapped (rejects a `transaction`).                                             |
-| `warning`     | Mapped with a stated assumption (uncoded order, Condition without ICD-10, unreadable attachment). |
-| `information` | No event by design (status, unsupported type, entry without resource).                            |
+| Severity      | Meaning                                                                                                                                                                    |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `error`       | The entry cannot be mapped (rejects a `transaction`).                                                                                                                      |
+| `warning`     | Mapped with a stated assumption (uncoded order, Condition without ICD-10, unreadable attachment, control characters removed, order category inferred, date in the future). |
+| `information` | No event by design (status, unsupported type, entry without resource).                                                                                                     |
 
 ## Outbound
 
@@ -138,7 +149,16 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 
 ### Patient condition → `Condition`
 
-`category` = `problem-list-item`; `code` = the ICD-10 coding; `confirmed` → verification `confirmed`, `probable` → `provisional`, `resolved` → verification `confirmed` with clinical status `resolved` (otherwise `active`); `evidence.detail` → the source resource (the `DocumentReference` for conditions extracted from a note); `meta.lastUpdated` = `updatedAt`. Extensions: confidence (`valueDecimal`), condition source, confirmed by, evidence (quote + source document). The default id is `<patientId>-<code>`.
+`category` = `problem-list-item`; `code` = the ICD-10 coding; `evidence.detail` → the source resource (the `DocumentReference` for conditions extracted from a note); `meta.lastUpdated` = `updatedAt`. Extensions: confidence (`valueDecimal`), condition source, confirmed by (or refuted by), evidence (quote + source document). The default id is `<patientId>-<code>`.
+
+| Engine status | `verificationStatus` | `clinicalStatus` | Meaning                                                                                      |
+| ------------- | -------------------- | ---------------- | -------------------------------------------------------------------------------------------- |
+| `confirmed`   | `confirmed`          | `active`         | Recorded by a clinician, or confirmed in the inbox (`follow-up-confirmed-by`)                |
+| `probable`    | `provisional`        | `active`         | Inferred or read from a note; waiting for a clinician                                        |
+| `resolved`    | `confirmed`          | `resolved`       | The patient had it and no longer does                                                        |
+| `rejected`    | `refuted`            | `inactive`       | A clinician said the patient does not have it (`follow-up-refuted-by`); never inferred again |
+
+`GET /fhir/Condition` leaves out a `provisional` ICD-10 code when a `confirmed` code of the same or a more specific concept exists (the note says "DM2" → provisional `E11`; the chart records confirmed `E11.9`): the host sees the clinician's diagnosis, not an unconfirmed duplicate. The inbox hides the same duplicates.
 
 ### Quality finding → `DetectedIssue`
 
@@ -150,7 +170,7 @@ Problems come back as one `OperationOutcome`, ordered by entry, each issue with 
 
 ### Searchset
 
-`toSearchsetBundle(resources, { baseUrl, total, selfUrl, nextUrl, timestamp })` wraps any list: `type = searchset`, `search.mode = match`, absolute `fullUrl` when `baseUrl` is given, no `entry` when empty.
+`toSearchsetBundle(resources, { baseUrl, total, selfUrl, nextUrl, previousUrl, timestamp, outcome })` wraps any list: `type = searchset`, `search.mode = match`, absolute `fullUrl` when `baseUrl` is given, an `OperationOutcome` entry with `search.mode = outcome` when the search has issues (an ignored parameter), no `entry` when empty.
 
 ## Engine terminology
 
@@ -158,7 +178,7 @@ Base: `https://hipocratesalud.com/fhir`. Every engine-defined CodeSystem, Naming
 
 | CodeSystem                                | Codes                                                                                                                                                                                            |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CodeSystem/follow-up-expectation`        | rule ids (`lab.result_pending`, ...)                                                                                                                                                             |
+| `CodeSystem/follow-up-expectation`        | rule ids (`lab_order_result_pending`, `doctor_plan_followup`, `protocol_diabetes_hba1c`, ...)                                                                                                    |
 | `CodeSystem/follow-up-task-type`          | `follow-up-case`                                                                                                                                                                                 |
 | `CodeSystem/follow-up-expectation-status` | `open`, `fulfilled`, `superseded`, `expired`, `cancelled`                                                                                                                                        |
 | `CodeSystem/follow-up-case-status`        | `open`, `notified`, `snoozed`, `escalated`, `resolved`, `dismissed`, `lost_to_follow_up`                                                                                                         |
@@ -192,6 +212,7 @@ Base: `https://hipocratesalud.com/fhir`. Every engine-defined CodeSystem, Naming
 | `follow-up-confidence`                | Condition                     | `valueDecimal` 0..1                                                                                                 |
 | `follow-up-condition-source`          | Condition                     | `valueCode`: `recorded`, `inferred_from_medication`, `inferred_from_result`, `extracted_from_note`                  |
 | `follow-up-confirmed-by`              | Condition                     | `valueString` (host user id)                                                                                        |
+| `follow-up-refuted-by`                | Condition (`refuted`)         | `valueString` (host user id of the clinician who rejected it)                                                       |
 | `follow-up-case-event-payload`        | Provenance                    | `valueString` (JSON)                                                                                                |
 
 All URLs are exported as constants (`ENGINE_CODE_SYSTEMS`, `ENGINE_EXTENSIONS`, `ENGINE_IDENTIFIER_SYSTEMS`); never hard-code them.
@@ -746,7 +767,7 @@ The engine then reads the plan out of the note (the LLM gateway), creates expect
         "coding": [
           {
             "system": "https://hipocratesalud.com/fhir/CodeSystem/follow-up-reason",
-            "code": "follow_up_visit_due"
+            "code": "doctor_plan_followup"
           }
         ]
       },
@@ -760,7 +781,7 @@ The engine then reads the plan out of the note (the LLM gateway), creates expect
         "coding": [
           {
             "system": "https://hipocratesalud.com/fhir/CodeSystem/follow-up-reason",
-            "code": "lab_result_pending"
+            "code": "lab_order_result_pending"
           }
         ]
       },
@@ -790,7 +811,7 @@ And one of its expectations, from the doctor's plan:
     },
     {
       "url": "https://hipocratesalud.com/fhir/StructureDefinition/follow-up-protocol-id",
-      "valueString": "diabetes.type2"
+      "valueString": "diabetes"
     },
     {
       "url": "https://hipocratesalud.com/fhir/StructureDefinition/follow-up-protocol-version",
@@ -824,7 +845,7 @@ And one of its expectations, from the doctor's plan:
   "identifier": [
     {
       "system": "https://hipocratesalud.com/fhir/NamingSystem/follow-up-expectation-key",
-      "value": "doctor_plan.follow_up:DocumentReference/note-1:0"
+      "value": "DocumentReference/note-1#doctor_plan_followup#specialty:diabetology@2026-04-05"
     }
   ],
   "partOf": [
@@ -856,12 +877,12 @@ And one of its expectations, from the doctor's plan:
     "coding": [
       {
         "system": "https://hipocratesalud.com/fhir/CodeSystem/follow-up-expectation",
-        "code": "doctor_plan.follow_up_visit"
+        "code": "doctor_plan_followup"
       }
     ],
-    "text": "Control médico pendiente"
+    "text": "Seguimiento indicado por el médico"
   },
-  "description": "Control médico pendiente",
+  "description": "Seguimiento indicado por el médico",
   "focus": {
     "reference": "DocumentReference/note-1",
     "type": "DocumentReference"
@@ -880,10 +901,10 @@ And one of its expectations, from the doctor's plan:
     "coding": [
       {
         "system": "https://hipocratesalud.com/fhir/CodeSystem/follow-up-reason",
-        "code": "follow_up_visit_due"
+        "code": "doctor_plan_followup"
       }
     ],
-    "text": "Control médico pendiente"
+    "text": "Seguimiento indicado por el médico"
   },
   "restriction": {
     "period": {

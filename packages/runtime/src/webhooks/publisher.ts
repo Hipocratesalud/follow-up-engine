@@ -6,7 +6,7 @@ import {
   TenantMismatchError,
 } from '@follow-up-engine/core';
 import { toWebhookBody } from './payload.ts';
-import { signWebhookBody, WEBHOOK_HEADERS } from './signature.ts';
+import { signWebhook, WEBHOOK_HEADERS } from './signature.ts';
 
 /** A signed webhook request, ready to send. */
 export interface SignedWebhook {
@@ -17,6 +17,7 @@ export interface SignedWebhook {
 /** Serializes and signs a domain event exactly as it goes on the wire. */
 export function buildSignedWebhook(event: DomainEvent, secret: string, now: Date): SignedWebhook {
   const rawBody = JSON.stringify(toWebhookBody(event));
+  const timestamp = String(Math.floor(now.getTime() / 1000));
   return {
     rawBody,
     headers: {
@@ -24,8 +25,12 @@ export function buildSignedWebhook(event: DomainEvent, secret: string, now: Date
       'user-agent': 'follow-up-engine-webhooks/1',
       [WEBHOOK_HEADERS.event]: event.type,
       [WEBHOOK_HEADERS.delivery]: event.id,
-      [WEBHOOK_HEADERS.timestamp]: String(Math.floor(now.getTime() / 1000)),
-      [WEBHOOK_HEADERS.signature]: signWebhookBody(secret, rawBody),
+      [WEBHOOK_HEADERS.timestamp]: timestamp,
+      [WEBHOOK_HEADERS.signature]: signWebhook(secret, {
+        timestamp,
+        deliveryId: event.id,
+        rawBody,
+      }),
     },
   };
 }

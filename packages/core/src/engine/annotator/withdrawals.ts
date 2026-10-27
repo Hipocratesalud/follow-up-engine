@@ -101,7 +101,8 @@ export async function withdrawConditions(
     if (
       withdrawal === undefined ||
       condition.confirmedBy !== undefined ||
-      condition.status === 'resolved'
+      condition.status === 'resolved' ||
+      condition.status === 'rejected'
     ) {
       continue;
     }

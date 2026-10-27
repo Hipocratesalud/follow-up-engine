@@ -10,23 +10,31 @@ import './schemas.ts';
 
 interface Param {
   readonly name: string;
-  readonly in: 'path' | 'query';
+  readonly in: 'path' | 'query' | 'header';
   readonly description?: string;
   readonly enum?: readonly string[];
   readonly required?: boolean;
 }
 
 interface Operation {
-  readonly method: 'get' | 'post';
+  readonly method: 'get' | 'post' | 'put';
   readonly path: string;
-  readonly tag: 'FHIR' | 'Inbox' | 'Demo' | 'Health';
+  readonly tag: 'FHIR' | 'Inbox' | 'Demo' | 'Health' | 'Jobs';
   readonly summary: string;
   readonly description?: string;
   readonly params?: readonly Param[];
   /** Component id of the JSON body, or `fhir` for a FHIR resource. */
   readonly body?: string;
   readonly response: string;
+  /** Success status (default 200). */
   readonly status?: number;
+  /** Other success statuses, with the same body. */
+  readonly alsoOk?: readonly { readonly status: number; readonly description: string }[];
+  /**
+   * Error statuses specific to the operation. Every authenticated operation
+   * also documents 400 (control characters in the URL), 401, 403 and 429;
+   * every operation with a body 413.
+   */
   readonly errors?: readonly number[];
   readonly public?: boolean;
 }
@@ -43,6 +51,26 @@ const patientParam: Param = {
   required: true,
   description: 'Patient id (or Patient/<id>)',
 };
+const preferHandling: Param = {
+  name: 'Prefer',
+  in: 'header',
+  enum: ['handling=lenient', 'handling=strict'],
+  description:
+    'Unknown search parameters: a warning in the searchset outcome entry (lenient, default) or 400 (strict)',
+};
+const preferSync: Param = {
+  name: 'Prefer',
+  in: 'header',
+  enum: ['respond-async', 'respond-sync'],
+  description: 'respond-sync runs the engine before answering (200), like ?sync=true',
+};
+const writeStatuses = [
+  { status: 200, description: 'Updated, or unchanged (same content)' },
+  {
+    status: 202,
+    description: 'Accepted for a patient whose consultation the engine processes later',
+  },
+] as const;
 
 const OPERATIONS: readonly Operation[] = [
   {
@@ -71,22 +99,40 @@ const OPERATIONS: readonly Operation[] = [
       'Validates and stores the Bundle, then runs the engine: asynchronously by default (202, the ' +
       'engine runs in the worker; `X-FollowUp-Job` has the job id), synchronously with `?sync=true` ' +
       'or `Prefer: respond-sync` (200). Invalid Bundles get a 400 OperationOutcome.',
-    params: [{ name: 'sync', in: 'query', enum: ['true'] }],
+    params: [{ name: 'sync', in: 'query', enum: ['true'] }, preferSync],
     body: 'fhir',
     response: 'fhir',
     status: 202,
-    errors: [400, 401, 415],
+    alsoOk: [{ status: 200, description: 'Processed synchronously (?sync=true)' }],
+    errors: [415],
   },
   {
     method: 'post',
     path: '/fhir/{type}',
     tag: 'FHIR',
-    summary: 'Create or update a single resource',
-    params: [{ name: 'type', in: 'path', required: true }],
+    summary: 'Create (or, with an id in the body, update) a single resource',
+    params: [{ name: 'type', in: 'path', required: true }, preferSync],
     body: 'fhir',
     response: 'fhir',
     status: 201,
-    errors: [400, 401, 404, 415],
+    alsoOk: writeStatuses,
+    errors: [404, 415],
+  },
+  {
+    method: 'put',
+    path: '/fhir/{type}/{id}',
+    tag: 'FHIR',
+    summary: 'Update (or create) a single resource; the body id must match the URL',
+    params: [
+      { name: 'type', in: 'path', required: true },
+      { name: 'id', in: 'path', required: true },
+      preferSync,
+    ],
+    body: 'fhir',
+    response: 'fhir',
+    status: 201,
+    alsoOk: writeStatuses,
+    errors: [404, 415],
   },
   {
     method: 'get',
@@ -99,12 +145,19 @@ const OPERATIONS: readonly Operation[] = [
         in: 'query',
         description: 'Expectations are returned only with a patient',
       },
+      { name: 'subject', in: 'query', description: 'Same as patient' },
       { name: 'status', in: 'query', description: 'Task.status or engine businessStatus code' },
-      { name: 'code', in: 'query', description: 'Rule id or follow-up-case' },
-      { name: '_count', in: 'query' },
+      {
+        name: 'code',
+        in: 'query',
+        description: 'Token: rule id or follow-up-case, optionally system|code',
+      },
+      { name: '_count', in: 'query', description: 'Page size, 0 to 500 (0: only the total)' },
+      { name: '_offset', in: 'query', description: 'Start of the page (link next has it)' },
+      preferHandling,
     ],
     response: 'fhir',
-    errors: [401],
+    errors: [422],
   },
   {
     method: 'get',
@@ -113,32 +166,42 @@ const OPERATIONS: readonly Operation[] = [
     summary: 'Read one Task',
     params: [id('Task id')],
     response: 'fhir',
-    errors: [401, 404],
+    errors: [404],
   },
   {
     method: 'get',
     path: '/fhir/Condition',
     tag: 'FHIR',
-    summary: 'Conditions the engine believes a patient has',
-    params: [patientParam],
+    summary: 'Conditions the engine believes a patient has (refuted ones included)',
+    params: [patientParam, preferHandling],
     response: 'fhir',
-    errors: [401, 422],
+    errors: [422],
   },
   {
     method: 'get',
     path: '/fhir/DetectedIssue',
     tag: 'FHIR',
     summary: 'Documentation-quality findings of a patient',
-    params: [patientParam],
+    params: [patientParam, preferHandling],
     response: 'fhir',
-    errors: [401, 422],
+    errors: [422],
   },
   {
     method: 'get',
     path: '/fhir/metadata',
     tag: 'FHIR',
-    summary: 'CapabilityStatement',
+    summary: 'CapabilityStatement (public)',
     response: 'fhir',
+    public: true,
+  },
+  {
+    method: 'get',
+    path: '/jobs/{id}',
+    tag: 'Jobs',
+    summary: 'Status of an asynchronous ingestion (X-FollowUp-Job, Content-Location)',
+    params: [id('Job id')],
+    response: 'JobStatus',
+    errors: [404],
   },
   {
     method: 'get',
@@ -162,6 +225,7 @@ const OPERATIONS: readonly Operation[] = [
       { name: 'limit', in: 'query' },
     ],
     response: 'CasePage',
+    errors: [422],
   },
   {
     method: 'get',
@@ -209,6 +273,7 @@ const OPERATIONS: readonly Operation[] = [
       { name: 'limit', in: 'query' },
     ],
     response: 'PatientList',
+    errors: [422],
   },
   {
     method: 'get',
@@ -247,6 +312,7 @@ const OPERATIONS: readonly Operation[] = [
       { name: 'limit', in: 'query' },
     ],
     response: 'RecoveryPage',
+    errors: [422],
   },
   {
     method: 'get',
@@ -297,12 +363,15 @@ const OPERATIONS: readonly Operation[] = [
 ];
 
 const ERROR_DESCRIPTIONS: Readonly<Record<number, string>> = {
-  400: 'Bad request',
+  400: 'Bad request: invalid JSON or Bundle, invalid cursor, control characters in the URL, unsupported search parameter with handling=strict',
   401: 'Missing or invalid API key',
+  403: 'The API key lacks the scope this operation needs',
   404: 'Not found',
   409: 'Invalid case transition',
+  413: 'Body larger than 5 MB',
   415: 'Unsupported media type',
   422: 'Validation error',
+  429: 'Too many requests for this key (Retry-After)',
   502: 'Upstream (LLM provider or webhook sink) failed',
   503: 'Not ready',
 };
@@ -326,14 +395,21 @@ function content(ref: string): Record<string, unknown> {
 }
 
 function operation(op: Operation): Record<string, unknown> {
+  const statuses = new Set([
+    ...(op.public === true ? [] : [400, 401, 403, 429]),
+    ...(op.body === undefined ? [] : [400, 413]),
+    ...(op.errors ?? []),
+  ]);
   const errors = Object.fromEntries(
-    (op.errors ?? []).map((status) => [
-      String(status),
-      {
-        description: ERROR_DESCRIPTIONS[status] ?? 'Error',
-        content: op.tag === 'FHIR' ? content('fhir') : content('Error'),
-      },
-    ]),
+    [...statuses]
+      .sort((left, right) => left - right)
+      .map((status) => [
+        String(status),
+        {
+          description: ERROR_DESCRIPTIONS[status] ?? 'Error',
+          content: op.tag === 'FHIR' ? content('fhir') : content('Error'),
+        },
+      ]),
   );
   return {
     tags: [op.tag],
@@ -356,6 +432,12 @@ function operation(op: Operation): Record<string, unknown> {
       : { requestBody: { required: true, content: content(op.body) } }),
     responses: {
       [String(op.status ?? 200)]: { description: 'OK', content: content(op.response) },
+      ...Object.fromEntries(
+        (op.alsoOk ?? []).map((ok) => [
+          String(ok.status),
+          { description: ok.description, content: content(op.response) },
+        ]),
+      ),
       ...errors,
     },
   };
@@ -390,6 +472,7 @@ export function openApiDocument(options: { readonly demo: boolean }): Record<str
       { name: 'FHIR', description: 'HL7 FHIR R4 (application/fhir+json)' },
       { name: 'Inbox', description: 'JSON API of the clinic inbox (Spanish labels)' },
       { name: 'Demo', description: 'Only when the engine runs on a fake clock' },
+      { name: 'Jobs', description: 'Asynchronous work the clinic started' },
       { name: 'Health' },
     ],
     paths,
@@ -407,7 +490,19 @@ export function openApiDocument(options: { readonly demo: boolean }): Record<str
   };
 }
 
-/** API reference UI (Scalar, from a CDN) over `/openapi.json`. */
+/**
+ * The API reference UI: Scalar, pinned to one version and loaded with
+ * Subresource Integrity, so the CDN can never serve other code on the API's
+ * origin (where people type their API key into the reference). To upgrade,
+ * change the version and recompute the hash:
+ * `curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A`.
+ */
+export const DOCS_UI_SCRIPT = {
+  url: 'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.76.0/dist/browser/standalone.js',
+  integrity: 'sha384-oH1C0RwqcwbVXkC+r8A+4qRoyEUQdtxAzOwumkxZtQBBcsy61FOoPt7B50OVJYYQ',
+} as const;
+
+/** API reference UI (Scalar, pinned with SRI) over `/openapi.json`. */
 export function docsPage(): string {
   return `<!doctype html>
 <html lang="en">
@@ -418,7 +513,11 @@ export function docsPage(): string {
   </head>
   <body>
     <script id="api-reference" data-url="/openapi.json"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1"></script>
+    <script
+      src="${DOCS_UI_SCRIPT.url}"
+      integrity="${DOCS_UI_SCRIPT.integrity}"
+      crossorigin="anonymous"
+    ></script>
   </body>
 </html>`;
 }

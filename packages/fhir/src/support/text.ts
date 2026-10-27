@@ -1,3 +1,5 @@
+import { stripControlCharacters } from './sanitize.ts';
+
 /** Plain-text helpers for FHIR narrative (XHTML) and base64 attachments. */
 
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
@@ -9,13 +11,20 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = {
   nbsp: ' ',
 };
 
+/** The character of a numeric reference; the reference itself when it names no character. */
+function fromCodePoint(codePoint: number, match: string): string {
+  return Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff
+    ? String.fromCodePoint(codePoint)
+    : match;
+}
+
 function decodeEntities(text: string): string {
   return text.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (match, entity: string) => {
     if (entity.startsWith('#x') || entity.startsWith('#X')) {
-      return String.fromCodePoint(Number.parseInt(entity.slice(2), 16));
+      return fromCodePoint(Number.parseInt(entity.slice(2), 16), match);
     }
     if (entity.startsWith('#')) {
-      return String.fromCodePoint(Number.parseInt(entity.slice(1), 10));
+      return fromCodePoint(Number.parseInt(entity.slice(1), 10), match);
     }
     const lower = entity.toLowerCase();
     return Object.hasOwn(NAMED_ENTITIES, lower) ? (NAMED_ENTITIES[lower] ?? match) : match;
@@ -45,13 +54,19 @@ export function xhtmlToText(xhtml: string): string {
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/(p|div|li|tr|h[1-6]|table|ul|ol|section|blockquote|pre)>/gi, '\n')
     .replace(/<li\b[^>]*>/gi, '- ');
-  return normalizeWhitespace(decodeEntities(withBreaks.replace(/<[^>]*>/g, '')));
+  return normalizeWhitespace(
+    stripControlCharacters(decodeEntities(withBreaks.replace(/<[^>]*>/g, ''))),
+  );
 }
 
 /** FHIR `base64Binary`: standard alphabet, optional padding, whitespace ignored. */
 const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
 
-/** Decodes a base64 attachment as UTF-8 text; `undefined` if it is not valid base64 or UTF-8. */
+/**
+ * Decodes a base64 attachment as UTF-8 text; `undefined` if it is not valid
+ * base64 or UTF-8. Control characters (a NUL from a host's editor) are
+ * dropped: the text is stored and read, never a binary.
+ */
 export function decodeBase64Utf8(data: string): string | undefined {
   const compact = data.replace(/\s+/g, '');
   if (!BASE64_PATTERN.test(compact) || compact.length % 4 === 1) {
@@ -60,7 +75,7 @@ export function decodeBase64Utf8(data: string): string | undefined {
   try {
     const binary = atob(compact);
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    return stripControlCharacters(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
   } catch {
     return undefined;
   }

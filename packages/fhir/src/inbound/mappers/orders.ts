@@ -1,5 +1,5 @@
 import type { Coding, RecordWithdrawalReason, ServiceCategory } from '@follow-up-engine/core';
-import { SNOMED_SERVICE_CATEGORY, TERMINOLOGY } from '../../terminology.ts';
+import { LABORATORY_LOINC_CODES, SNOMED_SERVICE_CATEGORY, TERMINOLOGY } from '../../terminology.ts';
 import { daysBetween, durationToDays, firstDate } from '../../support/datetime.ts';
 import {
   conceptLabel,
@@ -63,6 +63,58 @@ export function serviceCategory(categories: readonly ConceptInput[] | undefined)
   }
   if (/imag|radiol|ecograf|ultrasound|tomograf|resonan/.test(text)) {
     return 'imaging';
+  }
+  return 'other';
+}
+
+/** Imaging modalities as LOINC names them (`XR Chest 2 Views`, `CT Head W contrast`, ...). */
+const IMAGING_DISPLAY =
+  /^(XR|CT|MR|MRI|US|NM|PT|MG|RF|DXA)\b|radiograph|tomograph|ultrasound|ecograf|resonan/i;
+
+/** The category an uncategorized order's code implies, if it is unambiguous. */
+function categoryFromCode(code: Coding): ServiceCategory | undefined {
+  if (code.system !== TERMINOLOGY.loinc) {
+    return undefined;
+  }
+  if (LABORATORY_LOINC_CODES.has(code.code)) {
+    return 'laboratory';
+  }
+  return code.display !== undefined && IMAGING_DISPLAY.test(code.display) ? 'imaging' : undefined;
+}
+
+/**
+ * The category of an order. Without a recognizable `category`, an order
+ * coded with a well-known LOINC laboratory test (or a LOINC imaging study)
+ * takes that category with a warning; otherwise it stays `other`, and a
+ * warning says that it creates no result expectation.
+ */
+function orderCategory(
+  request: ParsedResourceOf<'ServiceRequest'>,
+  code: Coding,
+  ctx: EntryContext,
+): ServiceCategory {
+  const declared = serviceCategory(request.category);
+  if (declared !== 'other') {
+    return declared;
+  }
+  const inferred = categoryFromCode(code);
+  if (inferred !== undefined) {
+    ctx.report(
+      'warning',
+      'incomplete',
+      `no recognizable category; classified as ${inferred} from its LOINC code ${code.code}`,
+      'category',
+    );
+    return inferred;
+  }
+  if ((request.category ?? []).length === 0) {
+    ctx.report(
+      'warning',
+      'incomplete',
+      'no category: the order is classified as other and creates no result expectation ' +
+        '(send SNOMED CT 108252007 for laboratory or 363679005 for imaging)',
+      'category',
+    );
   }
   return 'other';
 }
@@ -135,7 +187,7 @@ export function mapServiceRequest(
         ...ctx.base('service_request.created', firstDate(request.authoredOn)),
         orderId: ctx.entry.ref.id,
         code,
-        category: serviceCategory(request.category),
+        category: orderCategory(request, code, ctx),
       },
     ],
   };

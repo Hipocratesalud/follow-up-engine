@@ -5,6 +5,7 @@ import {
   caseToTask,
   ENGINE_CODE_SYSTEMS,
   ENGINE_EXTENSIONS,
+  exportableConditions,
   expectationToTask,
   fhirToPatientCondition,
   isActiveCaseTask,
@@ -26,6 +27,7 @@ import {
   extractedCondition,
   noteWithoutPlan,
   openExpectation,
+  rejectedCondition,
   resolvedCase,
   resolvedCondition,
   snoozedCase,
@@ -48,7 +50,7 @@ describe('expectation → Task', () => {
       intent: 'plan',
       businessStatus: { coding: [{ system: ENGINE_CODE_SYSTEMS.expectationStatus, code: 'open' }] },
       code: {
-        coding: [{ system: ENGINE_CODE_SYSTEMS.expectation, code: 'lab.result_pending' }],
+        coding: [{ system: ENGINE_CODE_SYSTEMS.expectation, code: 'lab_order_result_pending' }],
         text: 'Resultado de laboratorio pendiente',
       },
       focus: { reference: 'ServiceRequest/sr-hba1c' },
@@ -77,9 +79,7 @@ describe('expectation → Task', () => {
     });
     expect(task.basedOn).toBeUndefined();
     expect(extension(task.extension, ENGINE_EXTENSIONS.origin)?.valueCode).toBe('backfill');
-    expect(extension(task.extension, ENGINE_EXTENSIONS.protocolId)?.valueString).toBe(
-      'diabetes.type2',
-    );
+    expect(extension(task.extension, ENGINE_EXTENSIONS.protocolId)?.valueString).toBe('diabetes');
     expect(extension(task.extension, ENGINE_EXTENSIONS.evidence)?.extension).toEqual([
       { url: 'quote', valueString: 'Control en 3 meses con resultados.' },
       {
@@ -124,11 +124,11 @@ describe('case → Task', () => {
       owner: { identifier: { value: 'user-reception-1' } },
       input: [
         {
-          type: { coding: [{ system: ENGINE_CODE_SYSTEMS.reason, code: 'follow_up_visit_due' }] },
+          type: { coding: [{ system: ENGINE_CODE_SYSTEMS.reason, code: 'doctor_plan_followup' }] },
           valueReference: { reference: 'Task/exp-plan-0002' },
         },
         {
-          type: { coding: [{ code: 'lab_result_pending' }] },
+          type: { coding: [{ code: 'lab_order_result_pending' }] },
           valueReference: { reference: 'Task/exp-hba1c-0001' },
         },
       ],
@@ -226,7 +226,36 @@ describe('patient condition → Condition', () => {
     );
   });
 
-  it.each([extractedCondition, confirmedCondition, resolvedCondition])(
+  it('maps a rejected condition as refuted, never confirmed, naming who refuted it', () => {
+    const condition = patientConditionToFhir(rejectedCondition);
+    expect(condition.verificationStatus?.coding?.[0]?.code).toBe('refuted');
+    expect(condition.clinicalStatus?.coding?.[0]?.code).toBe('inactive');
+    expect(extension(condition.extension, ENGINE_EXTENSIONS.confirmedBy)).toBeUndefined();
+    expect(extension(condition.extension, ENGINE_EXTENSIONS.refutedBy)?.valueString).toBe(
+      'user-doctor-7',
+    );
+  });
+
+  it('does not export a provisional code subsumed by a confirmed, more specific one', () => {
+    const icd10 = 'http://hl7.org/fhir/sid/icd-10';
+    const parent = { ...extractedCondition, code: { system: icd10, code: 'E11' } };
+    const child = { ...extractedCondition, code: { system: icd10, code: 'E11.9' } };
+    const confirmedChild = { ...child, status: 'confirmed' as const, confidence: 1 };
+    const unrelated = { ...extractedCondition, code: { system: icd10, code: 'I10' } };
+    expect(exportableConditions([parent, confirmedChild, unrelated])).toEqual([
+      confirmedChild,
+      unrelated,
+    ]);
+    // Without a confirmed child the provisional parent stays, and so does a refuted one.
+    expect(exportableConditions([parent, child])).toEqual([parent, child]);
+    const refutedParent = { ...rejectedCondition, code: { system: icd10, code: 'E11' } };
+    expect(exportableConditions([refutedParent, confirmedChild])).toEqual([
+      refutedParent,
+      confirmedChild,
+    ]);
+  });
+
+  it.each([extractedCondition, confirmedCondition, resolvedCondition, rejectedCondition])(
     'round-trips losslessly (%#)',
     (condition) => {
       const fhir = patientConditionToFhir(condition);
@@ -266,7 +295,7 @@ describe('case event → Provenance', () => {
       target: [{ reference: 'Task/case-0001' }],
       recorded: '2026-04-06T00:00:00.000Z',
       activity: { coding: [{ system: ENGINE_CODE_SYSTEMS.caseEvent, code: 'opened' }] },
-      agent: [{ who: { type: 'Device', identifier: { value: 'doctor_plan.follow_up_visit' } } }],
+      agent: [{ who: { type: 'Device', identifier: { value: 'doctor_plan_followup' } } }],
     });
     expect(extension(opened?.extension, ENGINE_EXTENSIONS.caseEventPayload)?.valueString).toBe(
       '{"expectationIds":["exp-plan-0002"]}',

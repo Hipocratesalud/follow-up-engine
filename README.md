@@ -68,7 +68,9 @@ pnpm demo                 # API on http://localhost:3000, in memory, fake clock,
 pnpm inbox                # in another terminal, with the variables below; inbox on http://localhost:5173
 ```
 
-Run the inbox against the API with `VITE_API_URL=http://localhost:3000 VITE_API_KEY=demo-clinic-key pnpm inbox`. Without those variables it opens on an in-browser mock instead.
+Run the inbox against the API with `VITE_API_URL=http://localhost:3000 VITE_API_KEY=demo-inbox-key pnpm inbox` (the demo prints both demo keys at startup). Without those variables it opens on an in-browser mock instead.
+
+The demo clinic has two keys, both synthetic and refused on a real clock: `demo-clinic-key`, the host integration key (`fhir:write`, the inbox and the demo controls), and `demo-inbox-key` for the inbox (`inbox:read`, `inbox:act`, `demo`; it cannot ingest FHIR). Set `DEMO_API_KEY` / `DEMO_INBOX_API_KEY` to change them. In production each clinic gets its own scoped keys from `pnpm --filter @follow-up-engine/api clinic:create` and the inbox runs behind the host's login ([deploy.md](docs/deploy.md#security-checklist-production)).
 
 `pnpm demo` loads the synthetic clinic (120 fictional patients, two years of history) through the initial backfill, the way a real clinic is switched on: about 1 s in memory. It ends with 104 cases with origin `backfill`: 103 released to the inbox on day 0 and 1 waiting in "Por recuperar". The Demo page saves a consultation, shows how the note was read and moves the simulated clock; signed webhooks land in an in-process sink. Notes are read by the fake provider (rules, no model) unless you set `LLM_PROVIDER=meta` and `META_API_KEY` (see `.env.example`).
 
@@ -82,7 +84,7 @@ pnpm e2e                  # end-to-end suite: API + worker against Postgres, rea
 pnpm test                 # with DATABASE_URL set, the contract and acceptance suites also run on Postgres
 ```
 
-`DEMO_API_KEY=demo-clinic-key pnpm seed` seeds without serving. The fake clock lives in the API process: restarting the demo starts again on the seed date (2026-01-05).
+`DEMO_API_KEY=demo-clinic-key pnpm seed` seeds without serving (and registers `demo-inbox-key`, or `DEMO_INBOX_API_KEY`, for the inbox). The fake clock lives in the API process: restarting the demo starts again on the seed date (2026-01-05).
 
 ### Docker
 

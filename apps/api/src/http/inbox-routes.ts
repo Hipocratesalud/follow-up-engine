@@ -8,12 +8,14 @@ import {
   EXPECTATION_LAYERS,
   type ExpectationLayer,
   type FollowUpCase,
+  InvalidCursorError,
   isActiveCaseStatus,
   parseConditionId,
   patientId as toPatientId,
 } from '@follow-up-engine/core';
 import type { EngineRuntime } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
+import { z } from 'zod';
 import { conditionView, InboxPresenter } from '../inbox/presenter.ts';
 import { humanName, patientSummary } from '../inbox/fhir-display.ts';
 import { invalidTransitionMessage } from '../inbox/labels.ts';
@@ -151,6 +153,21 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
   app.get('/api/inbox/clinic', (c) => c.json({ id: c.var.clinic.id, name: c.var.clinic.name }));
 
   /**
+   * The offset a search or recovery page cursor carries (`nextCursor` of the
+   * previous page). Anything else, a keyset cursor of another view included,
+   * is an `InvalidCursorError` (400), never silently the first page.
+   */
+  function offsetCursor(cursor: string | undefined): number {
+    if (cursor === undefined) {
+      return 0;
+    }
+    if (!/^\d{1,9}$/.test(cursor)) {
+      throw new InvalidCursorError();
+    }
+    return Number(cursor);
+  }
+
+  /**
    * Cases of a patient search (`q`): the cases of every patient whose name
    * or id matches, merged in inbox order and paged by offset.
    */
@@ -186,8 +203,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
       found.push(...(await listAll(runtime, clinicId, { ...base, patientId })));
     }
     found.sort(base.orderBy === 'created_at' ? byCreatedAt : byPriority);
-    const offset = Number(page.cursor ?? '0');
-    const start = Number.isInteger(offset) && offset > 0 ? offset : 0;
+    const start = offsetCursor(page.cursor);
     const next = start + page.limit;
     return {
       items: found.slice(start, next),
@@ -301,16 +317,20 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
   });
 
   app.post('/api/inbox/cases/:id/feedback', async (c) => {
-    const body = await readJson(c, FeedbackRequestSchema);
+    // The schema requires a reason when the case was not useful; the team
+    // reads why in Spanish, not as a schema path.
+    const body = await readJson(c, FeedbackRequestSchema).catch((error: unknown) => {
+      if (error instanceof z.ZodError && error.issues.some((issue) => issue.path[0] === 'reason')) {
+        throw new HttpError(
+          422,
+          'validation_error',
+          'Elige un motivo cuando el caso no fue útil: así podemos mejorar la regla.',
+        );
+      }
+      throw error;
+    });
     const caseId = c.req.param('id') as CaseId;
     await requireCase(runtime, c.var.clinicId, caseId);
-    if (!body.useful && body.reason === undefined) {
-      throw new HttpError(
-        422,
-        'validation_error',
-        'Elige un motivo cuando el caso no fue útil: así podemos mejorar la regla.',
-      );
-    }
     await engine.cases.recordFeedback(c.var.clinicId, caseId, {
       useful: body.useful,
       ...(body.reason === undefined ? {} : { reason: body.reason }),
@@ -376,8 +396,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
       unreleasedAsOf: now,
       orderBy: 'priority',
     });
-    const offset = Number(query.cursor ?? '0');
-    const start = Number.isInteger(offset) && offset > 0 ? offset : 0;
+    const start = offsetCursor(query.cursor);
     const slice = pending.slice(start, start + query.limit);
     const presenter = await InboxPresenter.create(runtime, c.var.clinicId);
     const next = start + query.limit;

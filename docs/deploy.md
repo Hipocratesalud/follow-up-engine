@@ -13,7 +13,8 @@ All tables live in their own schema, `follow_up`, so the engine can share a data
 
 | Table                | Holds                                                                                                                                               |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `clinics`            | Tenants: name, `active`, `settings` (jsonb, partial `ClinicSettings`), `api_key_hash` (sha256 hex; the key itself is never stored)                  |
+| `clinics`            | Tenants: name, `active`, `settings` (jsonb, partial `ClinicSettings`), `api_key_hash` (sha256 hex of the original integration key; never the key)   |
+| `api_keys`           | Scoped API keys of each clinic: sha256 hex, `label`, `scopes` (`fhir:write`, `inbox:read`, `inbox:act`, `demo`), `revoked_at`                       |
 | `clinical_resources` | Latest version of every FHIR resource pushed by the host (jsonb), unique per clinic + type + id. `version` increments only when the content changes |
 | `clinical_events`    | Append-only log of normalized clinical events, unique per clinic + `idempotency_key`                                                                |
 | `patient_conditions` | Conditions per patient, unique per clinic + patient + code                                                                                          |
@@ -29,6 +30,7 @@ All tables live in their own schema, `follow_up`, so the engine can share a data
 
 Design rules, all enforced by tests:
 
+- Every table has row-level security enabled from the migration that creates it (0004 enabled it on all earlier tables). The engine owns the tables and is not restricted; any other role sees nothing without a policy. `src/rls.test.ts` (CI) fails on a table without RLS.
 - Every table has `clinic_id NOT NULL` (in `clinics`, the `id`) and every query filters by it. Primary keys are `(clinic_id, id)`, so ids only need to be unique within a clinic.
 - Instants are `timestamptz`. Nested or FHIR-shaped values are `jsonb`, next to the relational columns queries filter and sort on.
 - Clinical resource history is not duplicated: the latest version is kept, `clinical_events` is the append-only record of what each version meant, and the host EHR stays the system of record.
@@ -90,10 +92,12 @@ Hipócrates hosts the engine on Supabase. The engine is a regular Postgres clien
 
    [`packages/adapter-postgres/supabase/rls.sql`](../packages/adapter-postgres/supabase/rls.sql):
 
-   - enables RLS on **every** `follow_up` table; tables without a policy (`jobs`, `outbox`, `backfill_progress`, `schema_migrations`) are invisible to API roles;
+   - enables RLS on **every** `follow_up` table, found in the catalog (not a hand-kept list), and revokes table privileges and default privileges from `anon` and `authenticated`; tables without a policy (`jobs`, `outbox`, `backfill_progress`, `schema_migrations`, `api_keys`) are invisible to API roles;
    - lets `authenticated` users `SELECT` rows whose `clinic_id` equals the `clinic_id` claim of their JWT (add the claim with a custom access token hook); their own `clinics` row is readable without `api_key_hash` (column privileges);
    - grants no writes and nothing to `anon`. Writes go through the engine API, which applies the business rules and the audit trail;
-   - finally add `follow_up` to _Settings → Data API → Exposed schemas_.
+   - finally add `follow_up` to _Settings → Data API → Exposed schemas_. **Do not** run the `GRANT ALL ON ALL TABLES IN SCHEMA ... TO anon, authenticated` (and `ALTER DEFAULT PRIVILEGES ... GRANT ALL`) that Supabase's guide to custom schemas suggests: RLS would still deny rows, but the grants are the only other line of defense. Re-run `applySupabaseRowLevelSecurity` after upgrading the engine (it is idempotent); new tables already arrive with RLS on.
+
+   `src/rls.test.ts` runs in CI on plain Postgres (it emulates the Supabase roles and `auth.jwt()`): every table has RLS right after `migrate()`, every policy after `rls.sql` is a clinic-scoped `SELECT` for `authenticated`, and `anon` and `authenticated` read nothing from internal tables even after the broad grants above.
 
    The engine is not affected: it connects as `postgres`, the owner of the tables, which RLS does not restrict. Every unit of work also sets `app.clinic_id` for its transaction (`set_config('app.clinic_id', <clinic>, true)`), so a host that runs the engine under a non-owner role with `FORCE ROW LEVEL SECURITY` can key policies on `current_setting('app.clinic_id', true)` as defense in depth.
 
@@ -141,3 +145,25 @@ await pool.end();
 - `withTransaction` runs `BEGIN ... COMMIT` on one connection; a throw rolls back every write, jobs and outbox events included. Nested calls reuse the transaction through a savepoint. Repositories taken from `pg` (not only `stores`) join the ambient transaction automatically, so code inside a unit of work cannot accidentally use a second connection.
 - The job queue leases with `FOR UPDATE SKIP LOCKED`; an expired lease makes the job claimable again and the stale holder's `complete`/`fail` returns `lease_lost`. Failures retry with exponential backoff (10 s doubling, capped at 1 h) or at `retryAt`; after `maxAttempts` (default 5) the job is dead-lettered (`status = 'dead'`, kept for inspection).
 - The outbox relay claims events with `SKIP LOCKED` and a lease, publishes outside any transaction, and retries failures with backoff (5 s doubling, capped at 1 h) up to 25 attempts. Delivery is at least once; the host deduplicates on the event id.
+
+## Clinics and API keys
+
+Register a clinic and issue its keys with the API package's CLI, against the production `DATABASE_URL` (it migrates first, like the API). Each key is printed **once**; only its sha256 is stored:
+
+```sh
+export DATABASE_URL=postgres://...
+pnpm --filter @follow-up-engine/api clinic:create --name "Clínica Ejemplo" --scopes fhir:write
+#   clinic clinica-ejemplo (created); key "integration" [fhir:write]: fue_Xr3...  (shown once)
+pnpm --filter @follow-up-engine/api clinic:create --id clinica-ejemplo --label inbox --scopes inbox:read,inbox:act
+pnpm --filter @follow-up-engine/api clinic:create --id clinica-ejemplo --revoke inbox   # revoke that key
+```
+
+Scopes: `fhir:write` (the host integration: `/fhir`, `/jobs`), `inbox:read`, `inbox:act` (the inbox API), `demo` (the demo controls; meaningless and unneeded in production). Give the host server one `fhir:write` key and the inbox its own key without `fhir:write`; rotate a key by issuing a new one under another label, switching, then `--revoke` the old label. New clinics start with patient contact disabled (`--allow-patient-contact` turns it on once the clinical team has validated it).
+
+## Security checklist (production)
+
+- **Real clock, no demo clinic.** `CLOCK=system` (the default). The demo clinic is not registered then, even if `DEMO_API_KEY` is set (the compose `app` profile sets it for convenience; it is logged and ignored), and the published demo keys (`demo-clinic-key`, `demo-inbox-key`) are refused even if a database once seeded by the demo still holds them. `DEMO_CLINIC=true` forces the demo clinic on a real clock and then requires private keys of 24+ characters.
+- **Inbox behind the host's login.** The inbox key is scoped (`inbox:read`, `inbox:act`), but whoever holds it acts for the whole clinic: serve the inbox behind the host's authentication and call `/api/inbox` from the host's server or a proxy that adds the key and `X-FollowUp-User` (the logged-in user) server-side, dropping any `X-FollowUp-User` the browser sent. `VITE_API_KEY` compiled into a browser bundle is for the demo only.
+- **Webhooks.** A long random `WEBHOOK_SECRET` shared with the host only. Never deploy the development default `dev-only-webhook-secret` (the engine logs a warning when it runs on a real clock with it). Hosts verify the HMAC over `timestamp.deliveryId.body` and a 5-minute window ([integration.md](integration.md#verifying-the-signature-node)).
+- **Edge limits.** The API caps bodies at 5 MB and rate-limits per key (600/min) and per client for wrong keys (60/min), in process memory: with several API replicas, add a shared limit at the gateway. It sends `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, a deny-all `Content-Security-Policy` (the `/docs` page allows only its pinned, SRI-checked Scalar bundle) and HSTS over HTTPS. Terminate TLS in front of it.
+- **Database role.** The engine must connect as the role that owns its tables (the one that runs the migrations at boot): RLS is on for every table and does not restrict the owner.

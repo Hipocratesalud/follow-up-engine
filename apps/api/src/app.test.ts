@@ -320,14 +320,17 @@ describe('API over the memory runtime', () => {
 describe('API on a real clock', () => {
   it('has no demo endpoints', async () => {
     const h = await harness({ CLOCK: 'system' });
-    expect((await h.call('/api/demo/clock')).status).toBe(404);
-    expect((await h.call('/api/demo/clock/advance', { body: { days: 1 } })).status).toBe(404);
+    // The demo clinic is not registered on a real clock: clinic B's key.
+    expect((await h.call('/api/demo/clock', { key: KEY_B })).status).toBe(404);
+    expect(
+      (await h.call('/api/demo/clock/advance', { body: { days: 1 }, key: KEY_B })).status,
+    ).toBe(404);
     await h.runtime.close();
   });
 });
 
 describe('webhook verification helper', () => {
   it('is exported for hosts and tests', () => {
-    expect(verifyWebhookSignature('s', '{}', undefined)).toBe(false);
+    expect(verifyWebhookSignature('s', { rawBody: '{}', signature: undefined })).toBe(false);
   });
 });

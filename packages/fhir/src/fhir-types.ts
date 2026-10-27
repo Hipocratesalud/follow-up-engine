@@ -12,6 +12,8 @@ export type Resource = fhir4.Resource;
 export type Bundle = fhir4.Bundle;
 export type BundleEntry = fhir4.BundleEntry;
 export type BundleLink = fhir4.BundleLink;
+export type BundleEntryResponse = fhir4.BundleEntryResponse;
+export type CapabilityStatement = fhir4.CapabilityStatement;
 export type OperationOutcome = fhir4.OperationOutcome;
 export type OperationOutcomeIssue = fhir4.OperationOutcomeIssue;
 

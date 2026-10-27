@@ -2,7 +2,12 @@ import type { Evidence } from './common.ts';
 import type { ClinicId, PatientId } from './ids.ts';
 import type { Coding, ResourceRef } from './resource.ts';
 
-export type PatientConditionStatus = 'confirmed' | 'probable' | 'resolved';
+/**
+ * `rejected`: a clinician said the patient does not have it (exported as FHIR
+ * `refuted`); automation never re-infers it. `resolved`: the patient had it
+ * and no longer does.
+ */
+export type PatientConditionStatus = 'confirmed' | 'probable' | 'resolved' | 'rejected';
 
 /** How the engine learned about the condition. */
 export type ConditionSourceType =
@@ -23,7 +28,7 @@ export interface PatientCondition {
   readonly confidence: number;
   readonly sourceType: ConditionSourceType;
   readonly source: ResourceRef;
-  /** Host user id of the clinician who confirmed an inferred condition. */
+  /** Host user id of the clinician who reviewed it: confirmed it, or rejected it (`rejected`). */
   readonly confirmedBy?: string;
   /** For conditions read from a note: the verbatim quote that supports it. */
   readonly evidence?: Evidence;

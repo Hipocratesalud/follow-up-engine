@@ -6,8 +6,20 @@ import { isApiError } from '../api/client.ts';
 import { cx } from '../lib/cx.ts';
 import { Button } from './ui.tsx';
 
+/**
+ * What the team reads for API errors whose server message is meant for an
+ * integrator (a scope name, a byte limit, a pagination cursor).
+ */
+const ERROR_COPY: Readonly<Record<string, string>> = {
+  insufficient_scope:
+    'Tu acceso no permite esta acción. Pide a quien administra el consultorio una clave con ese permiso.',
+  rate_limited: 'Demasiadas solicitudes seguidas. Espera unos segundos e intenta de nuevo.',
+  payload_too_large: 'El texto es demasiado largo. Acórtalo e intenta de nuevo.',
+  invalid_cursor: 'La lista cambió mientras la recorrías. Vuelve a la primera página.',
+};
+
 export function errorMessage(error: unknown): string {
-  if (isApiError(error)) return error.message;
+  if (isApiError(error)) return ERROR_COPY[error.code] ?? error.message;
   return 'Algo salió mal. Intenta de nuevo.';
 }
 

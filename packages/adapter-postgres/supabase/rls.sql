@@ -6,8 +6,11 @@
 -- Supabase's `auth.jwt()` and its `authenticated` / `anon` roles.
 --
 -- Model:
---   * Every engine table gets RLS. With no policy, a table is invisible to
---     API roles (internal tables: jobs, outbox, backfill progress, migrations).
+--   * Every engine table gets RLS (found in the catalog, not listed by hand).
+--     With no policy, a table is invisible to API roles (internal tables:
+--     jobs, outbox, backfill progress, migrations, API keys). A test
+--     (src/rls.test.ts, runs in CI) fails on any table without RLS or with a
+--     policy that is not a clinic-scoped read.
 --   * Clinic users read their clinic's rows only: `clinic_id` must equal the
 --     `clinic_id` claim of their JWT (set it with a custom access token hook).
 --   * API roles never write. Writes go through the engine API, which applies
@@ -15,24 +18,32 @@
 --   * The engine connects as the role that ran the migrations (`postgres`),
 --     which owns the tables and is therefore not subject to these policies.
 
--- Every table, including internal ones: no policy means no API access.
-ALTER TABLE follow_up.schema_migrations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.clinics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.clinical_resources ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.clinical_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.patient_conditions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.expectations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.follow_up_cases ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.case_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.case_feedback ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.quality_findings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.llm_calls ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.outbox ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.jobs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE follow_up.backfill_progress ENABLE ROW LEVEL SECURITY;
+-- Every table, including internal ones and any a later migration adds
+-- (migration 0004 already enables RLS on every engine table; this repeats it
+-- for databases migrated before): no policy means no API access.
+DO $$
+DECLARE
+  item record;
+BEGIN
+  FOR item IN
+    SELECT c.oid::regclass AS name
+    FROM pg_class c
+    WHERE c.relnamespace = 'follow_up'::regnamespace AND c.relkind IN ('r', 'p')
+  LOOP
+    EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY', item.name);
+  END LOOP;
+END
+$$;
 
--- Privileges: anonymous callers get nothing; signed-in users may read.
+-- Privileges: anonymous callers get nothing; signed-in users may read. Also
+-- for tables created later by this role (the migrations): Supabase's guide
+-- to exposing a custom schema grants ALL to anon and authenticated by
+-- default; do not follow it for `follow_up`.
 REVOKE ALL ON ALL TABLES IN SCHEMA follow_up FROM anon, authenticated;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA follow_up FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA follow_up REVOKE ALL ON TABLES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA follow_up REVOKE ALL ON SEQUENCES FROM anon, authenticated;
+REVOKE ALL ON SCHEMA follow_up FROM anon;
 GRANT USAGE ON SCHEMA follow_up TO authenticated;
 
 GRANT SELECT ON

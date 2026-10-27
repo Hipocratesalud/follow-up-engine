@@ -246,13 +246,16 @@ export function fhirToPatientCondition(
   const clinical = codeIn(condition.clinicalStatus, TERMINOLOGY.conditionClinical);
   const verification = codeIn(condition.verificationStatus, TERMINOLOGY.conditionVerification);
   const status: PatientConditionStatus =
-    clinical === 'resolved'
-      ? 'resolved'
-      : verification === 'provisional'
-        ? 'probable'
-        : 'confirmed';
+    verification === 'refuted'
+      ? 'rejected'
+      : clinical === 'resolved'
+        ? 'resolved'
+        : verification === 'provisional'
+          ? 'probable'
+          : 'confirmed';
   const coding = required(condition.code?.coding?.[0], 'Condition.code.coding');
-  const confirmedBy = stringExt(ext, ENGINE_EXTENSIONS.confirmedBy);
+  const confirmedBy =
+    stringExt(ext, ENGINE_EXTENSIONS.confirmedBy) ?? stringExt(ext, ENGINE_EXTENSIONS.refutedBy);
   const evidence = evidenceOf(ext);
   return {
     id: required(condition.id, 'Condition.id'),
