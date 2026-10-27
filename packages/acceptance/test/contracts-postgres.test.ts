@@ -14,6 +14,7 @@ import {
   describeFindingFlagRepositoryContract,
   describeJobQueueContract,
   describeLlmUsageLogContract,
+  describeMetricsReadModelContract,
   describeOutboxContract,
   describeQualityFindingRepositoryContract,
   describeSuppressionRepositoryContract,
@@ -125,4 +126,9 @@ describe.skipIf(!POSTGRES_ENABLED)(postgresTitle('contract suites'), () => {
   describeLlmUsageLogContract(NAME, () =>
     Promise.resolve({ subject: adapters().llmUsage, cleanup: noop }),
   );
+
+  describeMetricsReadModelContract(NAME, () => {
+    const all = adapters();
+    return Promise.resolve({ subject: { stores: all, llmUsage: all.llmUsage }, cleanup: noop });
+  });
 });

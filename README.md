@@ -92,6 +92,8 @@ The clinical reviewer's shadow pilot runs on top. Twenty more synthetic patients
 
 "Revisión clínica" lists them for the clinical staff's verdicts. `SEED_REVIEWER=false` skips the cohort and the reviews. "Categorías" turns each category live once someone signs it off.
 
+**Metrics** (`GET /api/inbox/metrics`, [docs/metrics.md](docs/metrics.md)) tells what the engine did for the clinic over a period: cases opened, how many ended in a booking and in a visit, split by whether the booking came from working the case, from a contact request or on its own (the host names the case `Task` or `CommunicationRequest` on the FHIR `Appointment`, and the engine verifies it), the time from a case reaching the inbox to the team's first action, feedback, dismissals, the conditions doctors confirmed or rejected, and AI cost per task, per case and per review. Every case reason also says which rule and protocol version produced it.
+
 The Demo page saves a consultation, shows how the note was read and moves the simulated clock; signed webhooks land in an in-process sink. Notes are read by the fake provider (rules, no model) unless you set `LLM_PROVIDER=meta` and `META_API_KEY` (see `.env.example`).
 
 ### On Postgres

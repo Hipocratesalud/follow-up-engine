@@ -21,6 +21,7 @@ import {
   type Origin,
 } from '../api/contract.ts';
 import { MOCK_API_KEY } from '../config.ts';
+import { mockMetrics } from '../features/metrics/mock.ts';
 import { VALIDATION_COPY } from '../lib/copy.ts';
 import { INPUT_LIMITS } from '../lib/limits.ts';
 import { ReviewerMockError } from './reviewer.ts';
@@ -280,6 +281,17 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     http.get(
       '*/api/inbox/stats',
       route(() => store.stats()),
+    ),
+    http.get(
+      '*/api/inbox/metrics',
+      route(({ request }) => {
+        const url = new URL(request.url);
+        return mockMetrics(
+          new Date(store.clock().now),
+          url.searchParams.get('from') ?? undefined,
+          url.searchParams.get('to') ?? undefined,
+        );
+      }),
     ),
     http.get(
       '*/api/inbox/findings',

@@ -748,6 +748,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     return {
       expectationId: expectation.id,
       ruleId: expectation.ruleId,
+      ruleVersion: expectation.protocol?.version ?? '1.0.0',
       layer: expectation.layer,
       label: expectation.label,
       ...(expectation.protocol ? { protocol: { ...expectation.protocol } } : {}),

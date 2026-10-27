@@ -300,12 +300,36 @@ export function appointmentResource(
     readonly start: Date;
     readonly bookedAt: Date;
     readonly status?: 'booked' | 'cancelled' | 'noshow' | 'entered-in-error' | 'fulfilled';
+    /**
+     * Attribution (HIP-141): the case `Task` in the `follow-up-origin-case`
+     * extension, references in `basedOn` or `supportingInformation`
+     * (`Task/<id>`, `CommunicationRequest/<id>`).
+     */
+    readonly originCase?: string;
+    readonly basedOn?: readonly string[];
+    readonly supportingInformation?: readonly string[];
   },
 ): TestResource {
   return {
     resourceType: 'Appointment',
     id: input.id,
     meta: meta(input),
+    ...(input.originCase === undefined
+      ? {}
+      : {
+          extension: [
+            {
+              url: 'https://hipocratesalud.com/fhir/StructureDefinition/follow-up-origin-case',
+              valueReference: { reference: input.originCase },
+            },
+          ],
+        }),
+    ...(input.basedOn === undefined
+      ? {}
+      : { basedOn: input.basedOn.map((reference) => ({ reference })) }),
+    ...(input.supportingInformation === undefined
+      ? {}
+      : { supportingInformation: input.supportingInformation.map((reference) => ({ reference })) }),
     status: input.status ?? 'booked',
     ...(input.specialty === undefined
       ? {}

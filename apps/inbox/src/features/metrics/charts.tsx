@@ -90,7 +90,7 @@ export function BarChart({
                       rx="4"
                       fill={SERIES_FILL[segment.tone]}
                       stroke="var(--surface)"
-                      strokeWidth="2"
+                      strokeWidth={width < 4 ? 0 : 2}
                     >
                       <title>{`${row.label} · ${segment.label}: ${String(segment.value)}`}</title>
                     </rect>
@@ -104,23 +104,26 @@ export function BarChart({
           );
         })}
       </ul>
-      <table className="sr-only">
-        <caption>{caption}</caption>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={row.key}>
-              <th scope="row">{row.label}</th>
-              <td>{row.display ?? String(totals[index] ?? 0)}</td>
-              <td>
-                {row.segments
-                  .filter((segment) => segment.value > 0)
-                  .map((segment) => `${segment.label}: ${String(segment.value)}`)
-                  .join(', ')}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* A div clips it: a table ignores its own 1px width. */}
+      <div className="sr-only">
+        <table>
+          <caption>{caption}</caption>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={row.key}>
+                <th scope="row">{row.label}</th>
+                <td>{row.display ?? String(totals[index] ?? 0)}</td>
+                <td>
+                  {row.segments
+                    .filter((segment) => segment.value > 0)
+                    .map((segment) => `${segment.label}: ${String(segment.value)}`)
+                    .join(', ')}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </figure>
   );
 }

@@ -202,6 +202,13 @@ function Funnel({
       className="lg:col-span-2"
     >
       <BarChart rows={rows} caption={caption} />
+      {bookings.booked.total === 0 ? null : (
+        // The same bookings on their own scale, so a small origin split stays readable.
+        <div className="flex flex-col gap-2.5 border-t border-border pt-3">
+          <h3 className="text-xs font-medium text-fg">{copy.funnel.byOrigin}</h3>
+          <BarChart rows={rows.slice(1)} caption={copy.funnel.byOrigin} />
+        </div>
+      )}
       <Legend
         items={ORIGIN_KEYS.map((key) => ({
           key,
@@ -325,9 +332,21 @@ function Extraction({
       <BarChart rows={rows} caption={copy.extraction.conditions} />
       <Legend
         items={[
-          { key: 'confirmed', label: copy.extraction.confirmed, tone: 'success' },
-          { key: 'rejected', label: copy.extraction.rejected, tone: 'danger' },
-          { key: 'pending', label: copy.extraction.pending, tone: 'neutral' },
+          {
+            key: 'confirmed',
+            label: copy.extraction.legend(copy.extraction.confirmed, conditions.confirmed),
+            tone: 'success',
+          },
+          {
+            key: 'rejected',
+            label: copy.extraction.legend(copy.extraction.rejected, conditions.rejected),
+            tone: 'danger',
+          },
+          {
+            key: 'pending',
+            label: copy.extraction.legend(copy.extraction.pending, conditions.pendingReview),
+            tone: 'neutral',
+          },
         ]}
       />
       <p className="text-xs text-muted">
@@ -407,7 +426,7 @@ function AiCost({
 
 function MetricsSkeleton({ copy }: { readonly copy: MetricsCopy }): ReactNode {
   return (
-    <div aria-busy="true" aria-label={copy.loading} className="flex flex-col gap-4">
+    <div role="status" aria-busy="true" aria-label={copy.loading} className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[0, 1, 2, 3, 4, 5, 6, 7].map((key) => (
           <Skeleton key={key} className="h-[86px] rounded-xl" />

@@ -76,6 +76,8 @@ describe('OpenAPI document', () => {
     ['GET', '/api/inbox/findings?category=nope', {}],
     ['GET', '/api/inbox/findings?cursor=garbage', {}],
     ['GET', '/api/inbox/findings/metrics', {}],
+    ['GET', '/api/inbox/metrics', {}],
+    ['GET', '/api/inbox/metrics?from=garbage', {}],
     ['GET', '/api/inbox/findings/missing', {}],
     ['GET', '/api/inbox/findings/missing/fhir', {}],
     ['POST', '/api/inbox/findings/missing/review', { body: { verdict: 'relevant' } }],

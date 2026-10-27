@@ -49,6 +49,7 @@ export interface MetricsCopy {
     readonly booked: string;
     readonly attended: string;
     readonly resolvedByBooking: string;
+    readonly byOrigin: string;
     readonly origin: Readonly<Record<OriginKey, string>>;
     readonly summary: (stage: string, total: number, parts: string) => string;
   };
@@ -74,6 +75,7 @@ export interface MetricsCopy {
     readonly confirmed: string;
     readonly rejected: string;
     readonly pending: string;
+    readonly legend: (label: string, count: number) => string;
     readonly corrections: (rate: string) => string;
     readonly planItems: string;
     readonly planItemsNone: string;
@@ -139,6 +141,7 @@ const EN: MetricsCopy = {
     booked: 'Booked',
     attended: 'Attended',
     resolvedByBooking: 'Resolved by the booking',
+    byOrigin: 'The bookings, by origin',
     origin: {
       followUpCase: 'From the case',
       patientContact: 'After a contact request',
@@ -179,6 +182,7 @@ const EN: MetricsCopy = {
     confirmed: 'Confirmed',
     rejected: 'Rejected',
     pending: 'Waiting for review',
+    legend: (label, count) => `${label} ${String(count)}`,
     corrections: (rate) => `${rate} rejected`,
     planItems: 'Plan items',
     planItemsNone: 'No plan item was reviewed in this period.',
@@ -258,6 +262,7 @@ const ES: MetricsCopy = {
     booked: 'Con cita',
     attended: 'Con consulta',
     resolvedByBooking: 'Resueltos por la cita',
+    byOrigin: 'Las citas, por origen',
     origin: {
       followUpCase: 'Desde el caso',
       patientContact: 'Tras un pedido de contacto',
@@ -297,6 +302,7 @@ const ES: MetricsCopy = {
     confirmed: 'Confirmadas',
     rejected: 'Rechazadas',
     pending: 'Por revisar',
+    legend: (label, count) => `${label} ${String(count)}`,
     corrections: (rate) => `${rate} rechazadas`,
     planItems: 'Ítems del plan',
     planItemsNone: 'No se revisó ningún ítem del plan en este período.',
