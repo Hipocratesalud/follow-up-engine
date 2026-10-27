@@ -52,7 +52,7 @@ export async function resolveSatisfiedCases(input: {
 }): Promise<CaseId[]> {
   const resolved: CaseId[] = [];
   for (const caseId of new Set(input.caseIds)) {
-    const followUpCase = await input.stores.cases.get(input.clinicId, caseId);
+    const followUpCase = await input.stores.cases.get(input.clinicId, caseId, { forUpdate: true });
     if (followUpCase === undefined || !isActiveCaseStatus(followUpCase.status)) {
       continue;
     }

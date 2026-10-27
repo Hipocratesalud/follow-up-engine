@@ -5,6 +5,7 @@ import {
   type CaseId,
   type CaseListQuery,
   type CasePage,
+  type CaseReadOptions,
   type CaseReason,
   type CaseRepository,
   type CaseResolution,
@@ -47,6 +48,10 @@ const COLUMNS = `clinic_id, id, patient_id, dedup_key, reasons, status, priority
 const PLACEHOLDERS = Array.from({ length: 16 }, (_, index) => `$${String(index + 1)}`).join(', ');
 const ACTIVE_DEDUP_INDEX = 'follow_up_cases_active_dedup_key';
 const ACTIVE = `status IN ('open', 'notified', 'snoozed', 'escalated')`;
+
+function lockClause(options: CaseReadOptions): string {
+  return options.forUpdate === true ? 'FOR UPDATE' : '';
+}
 
 function toCase(row: CaseRow): FollowUpCase {
   return {
@@ -167,13 +172,16 @@ export class PostgresCaseRepository implements CaseRepository {
     this.#ctx = ctx;
   }
 
-  async get(clinicId: ClinicId, id: CaseId): Promise<FollowUpCase | undefined> {
-    const { rows } = await this.#ctx
-      .db()
-      .query<CaseRow>(
-        `SELECT ${COLUMNS} FROM ${this.#ctx.tables.follow_up_cases} WHERE clinic_id = $1 AND id = $2`,
-        [clinicId, id],
-      );
+  async get(
+    clinicId: ClinicId,
+    id: CaseId,
+    options: CaseReadOptions = {},
+  ): Promise<FollowUpCase | undefined> {
+    const { rows } = await this.#ctx.db().query<CaseRow>(
+      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.follow_up_cases} WHERE clinic_id = $1 AND id = $2
+       ${lockClause(options)}`,
+      [clinicId, id],
+    );
     const [row] = rows;
     return row === undefined ? undefined : toCase(row);
   }
@@ -181,10 +189,15 @@ export class PostgresCaseRepository implements CaseRepository {
   async findActiveByDedupKey(
     clinicId: ClinicId,
     dedupKey: string,
+    options: CaseReadOptions = {},
   ): Promise<FollowUpCase | undefined> {
+    // With FOR UPDATE, a row changed meanwhile by another transaction is
+    // re-checked against the WHERE clause once its lock is released: a case
+    // resolved in between is no longer returned.
     const { rows } = await this.#ctx.db().query<CaseRow>(
       `SELECT ${COLUMNS} FROM ${this.#ctx.tables.follow_up_cases}
-       WHERE clinic_id = $1 AND dedup_key = $2 AND ${ACTIVE}`,
+       WHERE clinic_id = $1 AND dedup_key = $2 AND ${ACTIVE}
+       ${lockClause(options)}`,
       [clinicId, dedupKey],
     );
     const [row] = rows;
@@ -284,19 +297,18 @@ export class PostgresCaseRepository implements CaseRepository {
     limit: number,
   ): Promise<readonly FollowUpCase[]> {
     // The instant that makes a case due: its next action, or the end of its
-    // snooze, whichever has passed first.
+    // snooze, whichever has passed first. The rows stay locked for the sweep's
+    // transaction; one a user is changing right now is left for the next sweep.
     const { rows } = await this.#ctx.db().query<CaseRow>(
-      `SELECT ${COLUMNS} FROM (
-         SELECT *, LEAST(
+      `SELECT ${COLUMNS} FROM ${this.#ctx.tables.follow_up_cases}
+       WHERE clinic_id = $1 AND ${ACTIVE}
+         AND (next_action_at <= $2 OR (status = 'snoozed' AND snoozed_until <= $2))
+       ORDER BY LEAST(
            CASE WHEN next_action_at <= $2 THEN next_action_at END,
            CASE WHEN status = 'snoozed' AND snoozed_until <= $2 THEN snoozed_until END
-         ) AS due_at
-         FROM ${this.#ctx.tables.follow_up_cases}
-         WHERE clinic_id = $1 AND ${ACTIVE}
-           AND (next_action_at <= $2 OR (status = 'snoozed' AND snoozed_until <= $2))
-       ) due
-       ORDER BY due_at, id
-       LIMIT $3`,
+         ), id
+       LIMIT $3
+       FOR UPDATE SKIP LOCKED`,
       [clinicId, now, limit],
     );
     return rows.map(toCase);

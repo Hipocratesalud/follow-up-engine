@@ -166,7 +166,9 @@ class Sweep {
     );
     const patient = await this.#patient(expectation.patientId);
     const actor: CaseEventActor = { type: 'rule', id: expectation.ruleId };
-    const active = await this.#stores.cases.findActiveByDedupKey(this.#clinicId, dedupKey);
+    const active = await this.#stores.cases.findActiveByDedupKey(this.#clinicId, dedupKey, {
+      forUpdate: true,
+    });
     const followUpCase =
       active === undefined
         ? await this.#open(expectation, dedupKey, patient, actor)

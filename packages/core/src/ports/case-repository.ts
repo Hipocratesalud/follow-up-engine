@@ -27,12 +27,26 @@ export interface CasePage {
   readonly nextCursor?: string;
 }
 
+export interface CaseReadOptions {
+  /**
+   * Read to write: the case is locked until the transaction ends (Postgres
+   * `SELECT ... FOR UPDATE`), so a concurrent command on the same case waits
+   * and then sees this one's outcome instead of overwriting it. Transactions
+   * of the memory adapter are serialized, which is equivalent.
+   */
+  readonly forUpdate?: boolean;
+}
+
 /** Persists cases. Adapters throw `TenantMismatchError` if `value.clinicId !== clinicId`. */
 export interface CaseRepository {
-  get(clinicId: ClinicId, id: CaseId): Promise<FollowUpCase | undefined>;
+  get(clinicId: ClinicId, id: CaseId, options?: CaseReadOptions): Promise<FollowUpCase | undefined>;
 
   /** The active (`ACTIVE_CASE_STATUSES`) case for a dedup key, if any. */
-  findActiveByDedupKey(clinicId: ClinicId, dedupKey: string): Promise<FollowUpCase | undefined>;
+  findActiveByDedupKey(
+    clinicId: ClinicId,
+    dedupKey: string,
+    options?: CaseReadOptions,
+  ): Promise<FollowUpCase | undefined>;
 
   /** Throws `ConflictError` if an active case with the same `dedupKey` exists. */
   create(clinicId: ClinicId, value: FollowUpCase): Promise<void>;
@@ -52,7 +66,9 @@ export interface CaseRepository {
 
   /**
    * Active cases the worker must act on: `nextActionAt <= now`, or snoozed
-   * with `snoozedUntil <= now`. By that instant ascending.
+   * with `snoozedUntil <= now`. By that instant ascending. Locked for the
+   * rest of the transaction; a case another transaction is changing right
+   * now is skipped (Postgres `FOR UPDATE SKIP LOCKED`): the next sweep takes it.
    */
   findDueForAction(clinicId: ClinicId, now: Date, limit: number): Promise<readonly FollowUpCase[]>;
 }

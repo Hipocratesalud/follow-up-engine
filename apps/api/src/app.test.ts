@@ -275,6 +275,24 @@ describe('API over the memory runtime', () => {
     expect((await h.call(`/api/inbox/patients/${PATIENT}`, { key: KEY_B })).status).toBe(404);
   });
 
+  it('serializes concurrent clock advances: each moves the clock exactly as asked (HIP-119)', async () => {
+    await h.call('/fhir?sync=true', { body: BUNDLE, fhir: true });
+    const start = (await h.call<{ now: string }>('/api/demo/clock')).body.now;
+    const days = (iso: string) => Math.round((Date.parse(iso) - Date.parse(start)) / 86_400_000);
+    const [thirty, ninety] = await Promise.all([
+      h.call<{ now: string }>('/api/demo/clock/advance', { body: { days: 30 } }),
+      h.call<{ now: string }>('/api/demo/clock/advance', { body: { days: 90 } }),
+    ]);
+    expect([thirty.status, ninety.status]).toEqual([200, 200]);
+    const moved = [days(thirty.body.now), days(ninety.body.now)];
+    // One ran entirely before the other.
+    expect([
+      [30, 120],
+      [120, 90],
+    ]).toContainEqual(moved);
+    expect(days((await h.call<{ now: string }>('/api/demo/clock')).body.now)).toBe(120);
+  });
+
   it('builds, ingests and explains a demo consultation', async () => {
     const noteText = 'Paciente con DM2. Plan: control en 3 meses con HbA1c.';
     const response = await h.call<{

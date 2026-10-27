@@ -87,16 +87,10 @@ export function registerDemoRoutes(
     // Day by day, as the hourly sweeps would: cases open on the day their
     // expectation expires and escalate on schedule, not all at the end.
     // Webhooks go out at the end of each day, so the host sees them on the
-    // simulated timeline.
-    let webhooks = 0;
-    for (let day = 0; day < days; day += 1) {
-      clock.advance({ days: 1 });
-      await worker.runJobs();
-      await worker.runSweeps([c.var.clinicId]);
-      webhooks += (await worker.deliverOutbox()).delivered;
-    }
+    // simulated timeline. Atomic: a concurrent advance waits for this one.
+    const { now, webhooks } = await worker.advanceFakeClock(days, [c.var.clinicId]);
     c.var.log.info({ days, webhooks }, 'demo clock advanced');
-    return c.json({ now: clock.now().toISOString() });
+    return c.json({ now: now.toISOString() });
   });
 
   app.post('/api/demo/consultations', async (c) => {

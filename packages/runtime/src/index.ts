@@ -41,9 +41,11 @@ export { createLogger, type Logger } from './logger.ts';
 export type { PatientRecord, ReadModel } from './read-model.ts';
 export type { ClinicRegistration, DrainResult, Storage } from './storage.ts';
 export {
+  ClockNotFakeError,
   jobRetryDelayMs,
   Worker,
   WORKER_JOB_TYPES,
+  type ClockAdvance,
   type JobPassResult,
   type SweepResult,
   type WorkerOptions,

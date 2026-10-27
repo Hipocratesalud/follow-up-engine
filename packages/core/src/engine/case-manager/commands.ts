@@ -116,7 +116,9 @@ async function requireCase(
   clinicId: ClinicId,
   caseId: CaseId,
 ): Promise<FollowUpCase> {
-  const found = await stores.cases.get(clinicId, caseId);
+  // Locked until the command commits: a concurrent command on the same case
+  // waits, then sees this one's outcome (and fails as it would afterwards).
+  const found = await stores.cases.get(clinicId, caseId, { forUpdate: true });
   if (found === undefined) {
     throw new NotFoundError('FollowUpCase', caseId);
   }

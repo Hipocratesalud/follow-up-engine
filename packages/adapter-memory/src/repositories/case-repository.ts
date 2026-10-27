@@ -54,6 +54,7 @@ export class MemoryCaseRepository implements CaseRepository {
     this.#db = db;
   }
 
+  // Transactions are serialized: a read is always the latest, no lock needed.
   get(clinicId: ClinicId, id: CaseId): Promise<FollowUpCase | undefined> {
     return Promise.resolve(this.#db.state.cases.get(tenantKey(clinicId, id)));
   }
