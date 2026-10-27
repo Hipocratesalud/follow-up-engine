@@ -155,7 +155,8 @@ function recordUpdates(makeHarness: (options: HarnessOptions) => Promise<EngineH
     const conditions = await harness.read((stores) =>
       stores.conditions.listByPatient(harness.clinicId, patientId(patient)),
     );
-    expect(conditions.map((c) => c.status)).toEqual(['resolved']);
+    // Refuted by the host: the patient does not have it (exported `refuted`).
+    expect(conditions.map((c) => c.status)).toEqual(['rejected']);
     await days(harness, 3, 100);
     expect(await activeCases(harness, patient)).toEqual([]);
   });

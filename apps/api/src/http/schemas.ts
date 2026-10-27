@@ -217,7 +217,11 @@ export const ConditionViewSchema = z
     id: z.string(),
     code: z.string(),
     display: z.string(),
-    status: z.enum(['confirmed', 'probable', 'resolved', 'rejected']),
+    status: z.enum(['confirmed', 'probable', 'resolved', 'rejected', 'entered_in_error']),
+    rejectedBy: z.enum(['host', 'clinician']).optional().meta({
+      description:
+        "For a rejected condition: who said the patient does not have it, the host's record (refuted) or a clinician of the team",
+    }),
     confidence: z.number(),
     sourceType: z.string(),
     evidence: z.object({ quote: z.string(), documentId: z.string() }).optional(),
