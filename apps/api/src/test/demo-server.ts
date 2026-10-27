@@ -7,8 +7,9 @@ import { seedSyntheticClinic } from './seed.ts';
  * `pnpm --filter @follow-up-engine/api demo`: the whole product in one
  * process with no infrastructure. Fake clock, embedded worker, in-process
  * signed webhook sink, memory storage unless `DATABASE_URL` is set, and the
- * synthetic clinic seeded at startup (`SEED_PATIENTS`: 30 in memory, all 120
- * on Postgres; `SEED=false` skips it, for an already seeded database).
+ * synthetic clinic loaded at startup through the initial backfill (all 120
+ * patients; `SEED_PATIENTS=N` loads fewer, `SEED=false` skips it). Seeding an
+ * already seeded database is a no-op.
  */
 const apiKey = process.env['DEMO_API_KEY'] ?? 'demo-clinic-key';
 const config = loadRuntimeConfig({ ...process.env, CLOCK: 'fake', DEMO_API_KEY: apiKey });
@@ -16,10 +17,9 @@ const runtime = await createRuntime(config, { service: 'api' });
 if (process.env['SEED'] !== 'false') {
   const report = await seedSyntheticClinic(runtime, {
     apiKey,
-    // Memory storage snapshots per transaction: a subset keeps startup short.
-    patients: Number(
-      process.env['SEED_PATIENTS'] ?? (config.databaseUrl === undefined ? '30' : '120'),
-    ),
+    ...(process.env['SEED_PATIENTS'] === undefined
+      ? {}
+      : { patients: Number(process.env['SEED_PATIENTS']) }),
   });
   runtime.logger.info(report, 'synthetic clinic seeded');
 }

@@ -1,31 +1,48 @@
 import type { ClinicId } from '@follow-up-engine/core';
-import { BASE_DATE, loadSyntheticClinic } from '@follow-up-engine/testkit';
 import { type EngineRuntime, registerDemoClinic, Worker } from '@follow-up-engine/runtime';
+import { BASE_DATE, loadSyntheticClinic } from '@follow-up-engine/testkit';
 
 /*
  * Loads the synthetic demo clinic (packages/testkit, fictional patients
- * only) into a running engine: every patient's FHIR Bundles are ingested in
- * global chronological order, each with the fake clock set to the moment the
- * host would have sent it, exactly as live traffic would have arrived. Then
- * the clock stops at the end of the history (`BASE_DATE`) and the sweeps run,
- * so the inbox opens with the cases a real clinic would have today.
+ * only) the way a real clinic is switched on: through the initial backfill.
+ * Every patient's FHIR Bundles are imported as history (resources stored,
+ * events staged, nothing annotated), then `engine.backfill.run` replays each
+ * patient's two years in order, with the clock at the end of the history
+ * (`BASE_DATE`). History closes most of what it expected; what is still
+ * unmet becomes held cases (`origin: 'backfill'`). Finally the watcher runs,
+ * which releases day 0's batch to the inbox; the rest wait among the
+ * patients to recover ("Por recuperar").
  */
+
+/** Fixed run id: seeding an already seeded database is a no-op. */
+export const SEED_RUN_ID = 'seed-synthetic-clinic';
 
 export interface SeedOptions {
   readonly apiKey: string;
   /** Only the first N patients (by id). All 120 by default. */
   readonly patients?: number;
-  /** Called every `every` bundles. */
+  /** Called every 100 staged bundles. */
   readonly onProgress?: (done: number, total: number) => void;
 }
 
 export interface SeedReport {
   readonly clinicId: ClinicId;
+  /** False when the database already held the seeded clinic: nothing was replayed. */
+  readonly seeded: boolean;
   readonly patients: number;
   readonly bundles: number;
+  readonly eventsStaged: number;
+  readonly documentsProcessed: number;
   readonly expectationsCreated: number;
+  readonly expectationsFulfilled: number;
+  /** Backfill cases the replay opened (held until their release day). */
   readonly casesOpened: number;
-  readonly notesFailed: number;
+  /** Released to the inbox (day 0's batch). */
+  readonly casesReleased: number;
+  /** Still held: listed among the patients to recover. */
+  readonly casesHeld: number;
+  readonly stageMs: number;
+  readonly backfillMs: number;
   readonly ms: number;
 }
 
@@ -43,50 +60,81 @@ export async function seedSyntheticClinic(
   const patients = [...synthetic.patients]
     .sort((left, right) => left.patientId.localeCompare(right.patientId))
     .slice(0, options.patients ?? synthetic.patients.length);
+  const bundles = patients.flatMap((patient) => patient.entries);
+  clock.set(BASE_DATE);
 
-  const timeline = patients
-    .flatMap((patient) => patient.entries)
-    .sort((left, right) => left.at.localeCompare(right.at));
+  const previous = await runtime.engine.backfill.status(clinic.id, SEED_RUN_ID);
+  const alreadySeeded = previous?.status === 'completed';
 
-  // The clinic directory (organization, practitioners) arrives first, so the
-  // inbox can name each case's treating practitioner.
-  clock.set(new Date(timeline[0]?.at ?? BASE_DATE));
-  await runtime.ingestion.accept(
-    clinic.id,
-    {
-      resourceType: 'Bundle',
-      type: 'batch',
-      entry: [synthetic.clinic.organization, ...synthetic.clinic.practitioners].map((resource) => ({
-        resource,
-        request: { method: 'PUT', url: `${resource.resourceType}/${resource.id}` },
-      })),
-    },
-    'sync',
-  );
-
-  let expectationsCreated = 0;
-  let notesFailed = 0;
-  for (const [index, entry] of timeline.entries()) {
-    clock.set(new Date(entry.at));
-    const accepted = await runtime.ingestion.accept(clinic.id, entry.bundle, 'sync');
-    for (const report of accepted.reports ?? []) {
-      expectationsCreated += report.expectationsCreated.length;
-      notesFailed += report.notes.filter((note) => note.status === 'failed').length;
-    }
-    if ((index + 1) % 100 === 0) {
-      options.onProgress?.(index + 1, timeline.length);
+  let eventsStaged = 0;
+  if (!alreadySeeded) {
+    // The clinic directory (organization, practitioners) first, so the inbox
+    // can name each case's treating practitioner.
+    const earliest = bundles.reduce(
+      (min, entry) => (entry.at < min ? entry.at : min),
+      BASE_DATE.toISOString(),
+    );
+    await runtime.ingestion.stageHistory(
+      clinic.id,
+      {
+        resourceType: 'Bundle',
+        type: 'batch',
+        entry: [synthetic.clinic.organization, ...synthetic.clinic.practitioners].map(
+          (resource) => ({
+            resource,
+            request: { method: 'PUT', url: `${resource.resourceType}/${resource.id}` },
+          }),
+        ),
+      },
+      new Date(earliest),
+    );
+    for (const [index, entry] of bundles.entries()) {
+      const staging = await runtime.ingestion.stageHistory(
+        clinic.id,
+        entry.bundle,
+        new Date(entry.at),
+      );
+      eventsStaged += staging.staged;
+      if ((index + 1) % 100 === 0) {
+        options.onProgress?.(index + 1, bundles.length);
+      }
     }
   }
+  const staged = performance.now();
 
-  clock.set(BASE_DATE);
-  const [sweep] = await new Worker(runtime).runSweeps([clinic.id]);
+  const report = alreadySeeded
+    ? undefined
+    : await runtime.engine.backfill.run(clinic.id, { runId: SEED_RUN_ID });
+  const progress = report?.progress ?? previous;
+  const replayed = performance.now();
+
+  // The run already released day 0's batch; the watcher sweep does it on
+  // every pass (and opens whatever is due today), as the worker would.
+  await new Worker(runtime).runSweeps([clinic.id]);
+  const count = async (query: { releasedAsOf: Date } | { unreleasedAsOf: Date }) =>
+    (
+      await runtime.storage.stores.cases.list(clinic.id, {
+        origin: 'backfill',
+        ...query,
+        limit: 1_000,
+      })
+    ).items.length;
+  const now = clock.now();
+
   return {
     clinicId: clinic.id,
+    seeded: !alreadySeeded,
     patients: patients.length,
-    bundles: timeline.length,
-    expectationsCreated,
-    casesOpened: sweep?.watcher.casesOpened.length ?? 0,
-    notesFailed,
+    bundles: bundles.length,
+    eventsStaged,
+    documentsProcessed: progress?.documentsProcessed ?? 0,
+    expectationsCreated: progress?.expectationsCreated ?? 0,
+    expectationsFulfilled: progress?.expectationsFulfilled ?? 0,
+    casesOpened: progress?.casesOpened ?? 0,
+    casesReleased: await count({ releasedAsOf: now }),
+    casesHeld: await count({ unreleasedAsOf: now }),
+    stageMs: Math.round(staged - started),
+    backfillMs: Math.round(replayed - staged),
     ms: Math.round(performance.now() - started),
   };
 }
