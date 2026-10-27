@@ -1,15 +1,28 @@
 import type { Protocol } from '../../config/protocol.ts';
 import type { ClinicalEvent } from '../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
+import type { Expectation } from '../../domain/expectation.ts';
 import { closeExpectation } from '../case-manager/reconcile.ts';
 import type { PatientState } from '../patient-state.ts';
 import { itemApplies, protocolEpisode, startsAfter } from '../protocols/episodes.ts';
+import { datingOf } from '../protocols/gestational-age.ts';
 import { encounterOf } from '../timeline.ts';
 import { enrollingConditions, icd10Matches } from './conditions.ts';
 import type { AnnotationContext, ClosedExpectation } from './context.ts';
 
-/** `Expectation.closedReason` of a protocol expectation whose episode ended (a delivery, a loss). */
+/**
+ * `Expectation.closedReason` of a protocol expectation whose episode ended
+ * (a delivery, a loss), in records written before `pregnancy_ended`.
+ */
 export const PROTOCOL_CLOSED = 'protocol_closed';
+/**
+ * `Expectation.closedReason` of everything an episode that ended with an
+ * outcome (a delivery, a loss) asked for and that no longer applies: the
+ * protocol's prenatal items, and the orders and doctor's-plan items of the
+ * pregnancy's own consultations (a first-trimester glucose, a 32-week
+ * ultrasound, the next prenatal control).
+ */
+export const PREGNANCY_ENDED = 'pregnancy_ended';
 /**
  * `Expectation.closedReason` of a protocol expectation whose episode a
  * discharge ended (`closesOnDischarge`): the same reason the cadence layer
@@ -31,8 +44,9 @@ export const RESCHEDULED_BY_PROTOCOL = 'rescheduled_by_protocol';
 
 /**
  * The consultations of the episode that ended at `closure`: those that
- * recorded a diagnosis enrolling the patient (a prenatal control), after the
- * previous episode's end and before this one's.
+ * recorded a diagnosis enrolling the patient (a prenatal control) or dated
+ * the pregnancy (a gestational age read from the note), after the previous
+ * episode's end and up to the outcome.
  */
 function encountersOfEpisode(
   protocol: Protocol,
@@ -41,15 +55,19 @@ function encountersOfEpisode(
   since: Date | undefined,
 ): Set<string> {
   const encounters = new Set<string>();
-  for (const event of state.timeline.ofType('condition.recorded')) {
+  for (const event of state.timeline.events) {
     const at = event.occurredAt.getTime();
     const encounter = encounterOf(event);
+    const obstetric =
+      (event.type === 'condition.recorded' &&
+        icd10Matches(event.code, protocol.enrollment.conditionCodes)) ||
+      datingOf(event) !== undefined;
     if (
+      obstetric &&
       encounter !== undefined &&
       encounter !== encounterOf(closure) &&
       at <= closure.occurredAt.getTime() &&
-      (since === undefined || at > since.getTime()) &&
-      icd10Matches(event.code, protocol.enrollment.conditionCodes)
+      (since === undefined || at > since.getTime())
     ) {
       encounters.add(encounter);
     }
@@ -58,13 +76,58 @@ function encountersOfEpisode(
 }
 
 /**
+ * Whether a doctor's-plan or universal expectation belongs to the episode
+ * that ended: triggered before its end by a consultation of the episode
+ * (an order, a plan item of a prenatal control), or by a result of an order
+ * of one (the abnormal 32-week ultrasound), or by an obstetric record of the
+ * episode (an ultrasound of the pregnancy with no order).
+ */
+function belongsToEpisode(
+  protocol: Protocol,
+  expectation: Expectation,
+  state: PatientState,
+  episodeEncounters: ReadonlySet<string>,
+  window: { readonly since: Date | undefined; readonly until: number },
+): boolean {
+  const anchor = state.timeline.bySource(expectation.source);
+  if (anchor === undefined) {
+    return false;
+  }
+  const at = anchor.occurredAt.getTime();
+  if (at > window.until || (window.since !== undefined && at <= window.since.getTime())) {
+    return false;
+  }
+  const encounter = encounterOf(anchor);
+  if (encounter !== undefined && episodeEncounters.has(encounter)) {
+    return true;
+  }
+  if (anchor.type !== 'result.received') {
+    return false;
+  }
+  const order =
+    anchor.basedOnOrderId === undefined
+      ? undefined
+      : state.timeline.bySource({ resourceType: 'ServiceRequest', id: anchor.basedOnOrderId });
+  const orderEncounter = order === undefined ? undefined : encounterOf(order);
+  if (orderEncounter !== undefined && episodeEncounters.has(orderEncounter)) {
+    return true;
+  }
+  return (protocol.enrollment.records ?? []).some((record) =>
+    record.codes.some(
+      (code) => code.system === anchor.code.system && code.code === anchor.code.code,
+    ),
+  );
+}
+
+/**
  * Episodic protocols (a pregnancy) end with an outcome recorded in the
  * record (a delivery, a loss). Once ended: the conditions that enrolled the
  * patient are resolved (a clinician's confirmation was of that episode, so a
  * later pregnancy enrolls again), and the protocol's live expectations that
- * no longer apply are cancelled (`protocol_closed`), with what the doctor
- * planned in the episode's consultations (the next prenatal control): never
- * another prenatal expectation after a delivery or a loss.
+ * no longer apply are cancelled, with everything the episode's
+ * consultations asked for (the next prenatal control, the
+ * first-trimester labs, the obstetric ultrasounds: `pregnancy_ended`):
+ * never another prenatal expectation after a delivery or a loss.
  *
  * A protocol that `closesOnDischarge` ends at a discharge from one of its
  * specialties: its live expectations are cancelled (`patient_discharged`);
@@ -137,13 +200,19 @@ export async function endEpisodes(
     const episodeEncounters = discharge
       ? new Set<string>()
       : encountersOfEpisode(protocol, state, closure, episode.since);
+    const window = {
+      since: episode.since,
+      until: closure.occurredAt.getTime(),
+    };
     for (const expectation of state.live.list()) {
-      if (expectation.layer === 'doctor_plan') {
-        // What the doctor planned in a prenatal consultation (the next
-        // control, the next ultrasound) has nothing left to follow.
-        const anchor = state.timeline.bySource(expectation.source);
-        const encounter = anchor === undefined ? undefined : encounterOf(anchor);
-        if (encounter === undefined || !episodeEncounters.has(encounter)) {
+      if (expectation.layer === 'doctor_plan' || expectation.layer === 'universal') {
+        // What the pregnancy's consultations asked for (the next prenatal
+        // control, a first-trimester lab, the next ultrasound) has nothing
+        // left to follow once it ended; the postpartum plan stays.
+        if (
+          discharge ||
+          !belongsToEpisode(protocol, expectation, state, episodeEncounters, window)
+        ) {
           continue;
         }
       } else if (expectation.protocolId === protocol.id) {
@@ -159,7 +228,7 @@ export async function endEpisodes(
         context.stores,
         expectation,
         'cancelled',
-        discharge ? PROTOCOL_DISCHARGED : PROTOCOL_CLOSED,
+        discharge ? PROTOCOL_DISCHARGED : PREGNANCY_ENDED,
         context.now,
         closure.source,
       );

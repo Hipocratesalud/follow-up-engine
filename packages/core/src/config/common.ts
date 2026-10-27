@@ -117,6 +117,14 @@ export const EventCorrelationSchema = z.strictObject({
    * {@link DEFAULT_BOOKING_TOLERANCE_FRACTION}.
    */
   toleranceFraction: z.number().min(0).max(1).optional(),
+  /**
+   * The event counts only from this many days before the expectation's due
+   * date (for a booking, its scheduled date): the comprehensive postpartum
+   * visit is due at 6 weeks and counts from week 3, so the early puerperal
+   * check a week after the delivery does not fulfill it. Any time after the
+   * trigger when absent.
+   */
+  earliestDaysBeforeDue: z.number().int().nonnegative().optional(),
 });
 export type EventCorrelation = z.infer<typeof EventCorrelationSchema>;
 

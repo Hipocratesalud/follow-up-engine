@@ -244,7 +244,7 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
       ]);
       let snapshot = await snapshotPatient(harness, patient);
       expect(live(ofRule(snapshot, PRENATAL))).toEqual([]);
-      expect(ofRule(snapshot, PRENATAL).at(-1)?.closedReason).toBe('protocol_closed');
+      expect(ofRule(snapshot, PRENATAL).at(-1)?.closedReason).toBe('pregnancy_ended');
       expect(liveDue(snapshot, POSTPARTUM)).toEqual([delivery + 42]);
       const conditions = await harness.read((stores) =>
         stores.conditions.listByPatient(harness.clinicId, patient),
@@ -321,15 +321,38 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
       ]);
       const snapshot = await snapshotPatient(harness, patient);
       expect(live(ofRule(snapshot, 'doctor_plan_followup'))).toEqual([]);
-      expect(ofRule(snapshot, 'doctor_plan_followup').at(-1)?.closedReason).toBe('protocol_closed');
+      expect(ofRule(snapshot, 'doctor_plan_followup').at(-1)?.closedReason).toBe('pregnancy_ended');
       expect(liveDue(snapshot, POSTPARTUM)).toEqual([delivery + 42]);
     });
 
-    it('a puerperal visit that records the end is itself the postpartum visit', async () => {
+    it('a puerperal visit a week after the due date is not the postpartum visit; one from week 3 is', async () => {
       const harness = await harnessWith();
       await day(harness, 0, pregnancyStart());
+      // Only the puerperal visit tells the delivery (Z39): dated by the estimated delivery date.
       await day(harness, weekDay(10, 41), [
         visit('puerperal', weekDay(10, 41), {
+          specialty: 'gynecology',
+          diagnoses: [{ icd10: 'Z39.2', display: 'puerperio' }],
+        }),
+      ]);
+      let snapshot = await snapshotPatient(harness, patient);
+      expect(live(ofRule(snapshot, PRENATAL))).toEqual([]);
+      expect(liveDue(snapshot, POSTPARTUM)).toEqual([weekDay(10, 40) + 42]);
+      await day(harness, weekDay(10, 40) + 30, [
+        visit('postpartum-4w', weekDay(10, 40) + 30, {
+          specialty: 'gynecology',
+          diagnoses: [{ icd10: 'Z39.2', display: 'puerperio' }],
+        }),
+      ]);
+      snapshot = await snapshotPatient(harness, patient);
+      expect(live(ofRule(snapshot, POSTPARTUM))).toEqual([]);
+    });
+
+    it('a puerperal visit from week 3 after the due date that records the end is itself the postpartum visit', async () => {
+      const harness = await harnessWith();
+      await day(harness, 0, pregnancyStart());
+      await day(harness, weekDay(10, 44), [
+        visit('puerperal', weekDay(10, 44), {
           specialty: 'gynecology',
           diagnoses: [{ icd10: 'Z39.2', display: 'puerperio' }],
         }),

@@ -227,6 +227,9 @@ export const EN = {
     // Only an episodic protocol closes (today, pregnancy). Says the episode
     // ended, never how (delivery or loss).
     protocol_closed: 'The protocol ended: the end of the pregnancy was recorded',
+    // Everything a pregnancy asked for (prenatal labs, ultrasounds, the next
+    // prenatal control) once it ended. Never says how it ended.
+    pregnancy_ended: 'The pregnancy ended: nothing prenatal is pending',
     rescheduled_by_protocol: 'Rescheduled: the protocol asks for the same check-up sooner',
     corrected_by_clinician: 'Corrected by a clinician',
     rejected_by_clinician: 'Rejected by a clinician: the note did not ask for it',

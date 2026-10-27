@@ -56,8 +56,15 @@ export interface EndedEpisode {
   readonly outcome: EpisodeEnd;
   /** What ended it: the diagnosis (the delivery, the loss), or the visit that discharged the patient. */
   readonly endedBy: ClinicalEvent;
-  /** The diagnosis was recorded at a visit after the outcome (a puerperal visit), which counts as one. */
+  /** The diagnosis was recorded at a visit after the outcome (a puerperal visit). */
   readonly endedAtFollowUp: boolean;
+  /**
+   * When the outcome happened: the delivery or loss dated when it happened
+   * (a delivery code, "cesárea hace 12 días" read from a note), else, when
+   * only a later visit tells it (Z39), the earlier of that visit and the
+   * estimated delivery date; the discharge itself for a discharge.
+   */
+  readonly outcomeAt: Date;
   /** End of the episode before this one, if any. */
   readonly since?: Date;
 }
@@ -286,14 +293,94 @@ export function protocolEpisode(
   ) {
     return undefined;
   }
-  const previous = closureOf(protocol, timeline, closure.event.occurredAt);
+  const previous = previousEpisodeEnd(protocol, timeline, closure.event);
   return {
     status: 'ended',
     outcome: closure.outcome,
     endedBy: closure.event,
     endedAtFollowUp: closure.atFollowUp,
+    outcomeAt: outcomeDate(protocol, timeline, closure, previous?.event.occurredAt),
     ...(previous === undefined ? {} : { since: previous.event.occurredAt }),
   };
+}
+
+/**
+ * When the outcome that ended an episode happened (see `EndedEpisode.outcomeAt`):
+ * the earliest outcome diagnosis dated at the outcome (not one recorded at a
+ * later visit) after the previous episode's end, else the earlier of the
+ * closure and the pregnancy's estimated delivery date.
+ */
+function outcomeDate(
+  protocol: Protocol,
+  timeline: PatientTimeline,
+  closure: Closure,
+  since: Date | undefined,
+): Date {
+  if (closure.outcome === 'discharge') {
+    return closure.event.occurredAt;
+  }
+  const atOutcome = (protocol.closing?.outcomes ?? []).filter(
+    (outcome) => outcome.recordedAtFollowUp !== true,
+  );
+  let earliest: Date | undefined;
+  for (const event of timeline.ofType('condition.recorded')) {
+    const at = event.occurredAt.getTime();
+    if (
+      at <= closure.event.occurredAt.getTime() &&
+      (since === undefined || at > since.getTime()) &&
+      atOutcome.some((outcome) => icd10Matches(event.code, outcome.conditionCodes)) &&
+      (earliest === undefined || at < earliest.getTime())
+    ) {
+      earliest = event.occurredAt;
+    }
+  }
+  if (earliest !== undefined) {
+    return earliest;
+  }
+  const dating = closure.atFollowUp ? currentDating(timeline.events, since) : undefined;
+  return dating !== undefined &&
+    dating.estimatedDeliveryDate.getTime() < closure.event.occurredAt.getTime()
+    ? dating.estimatedDeliveryDate
+    : closure.event.occurredAt;
+}
+
+/**
+ * The end of the episode before the one that ended at `closure`: the latest
+ * earlier closure followed by a new enrolling diagnosis. Closures with no
+ * new pregnancy between them are one ending told twice (the delivery dated
+ * when it happened, then the puerperal visit that codes Z39), so they never
+ * split the episode.
+ */
+function previousEpisodeEnd(
+  protocol: Protocol,
+  timeline: PatientTimeline,
+  closure: ClinicalEvent,
+): Closure | undefined {
+  let candidate = closureOf(protocol, timeline, closure.occurredAt);
+  while (candidate !== undefined && !restartedBetween(protocol, timeline, candidate, closure)) {
+    candidate = closureOf(protocol, timeline, candidate.event.occurredAt);
+  }
+  return candidate;
+}
+
+/** Whether a record after `previous` and before `closure` started a new episode. */
+function restartedBetween(
+  protocol: Protocol,
+  timeline: PatientTimeline,
+  previous: Closure,
+  closure: ClinicalEvent,
+): boolean {
+  if (previous.outcome === 'discharge') {
+    const restart = restartAfter(protocol, previous.event, timeline);
+    return restart !== undefined && restart.occurredAt.getTime() <= closure.occurredAt.getTime();
+  }
+  return timeline.events.some(
+    (event) =>
+      event.type === 'condition.recorded' &&
+      event.occurredAt.getTime() < closure.occurredAt.getTime() &&
+      icd10Matches(event.code, protocol.enrollment.conditionCodes) &&
+      afterClosure(event, previous.event),
+  );
 }
 
 function confirmedFirst(conditions: readonly PatientCondition[]): PatientCondition[] {

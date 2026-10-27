@@ -287,6 +287,23 @@ function happensAfterAnchor(event: ClinicalEvent, target: CorrelationTarget): bo
   return true;
 }
 
+/**
+ * Whether the event falls in the correlation's window (`earliestDaysBeforeDue`):
+ * a visit, or the date a booking brings the visit in, no earlier than that
+ * many days before the due date.
+ */
+export function withinFulfillmentWindow(
+  correlation: EventCorrelation,
+  event: ClinicalEvent,
+  dueAt: Date,
+): boolean {
+  if (correlation.earliestDaysBeforeDue === undefined) {
+    return true;
+  }
+  const at = event.type === 'appointment.booked' ? event.scheduledFor : eventInstant(event);
+  return at.getTime() >= addDays(dueAt, -correlation.earliestDaysBeforeDue).getTime();
+}
+
 function orderIdsOf(target: CorrelationTarget): readonly string[] {
   const ids: string[] = [];
   if (target.anchor?.type === 'service_request.created') {
@@ -345,12 +362,14 @@ export function correlates(
     case 'any':
       return (
         happensAfterAnchor(event, target) &&
+        withinFulfillmentWindow(correlation, event, target.expectation.dueAt) &&
         bookedInTime(correlation, event, target) &&
         visitFits(correlation, event, target, timeline)
       );
     case 'same_specialty':
       return (
         happensAfterAnchor(event, target) &&
+        withinFulfillmentWindow(correlation, event, target.expectation.dueAt) &&
         bookedInTime(correlation, event, target) &&
         (target.anchor === undefined ||
           normalizeSpecialty(timeline.specialtyOf(event)) ===
