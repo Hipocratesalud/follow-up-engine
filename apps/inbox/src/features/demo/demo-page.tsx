@@ -12,13 +12,19 @@ import {
 import { type ChangeEvent, type MouseEvent, type ReactNode, useState } from 'react';
 import { useSessionState } from '../../lib/session-state.ts';
 import { Link } from 'react-router';
-import type { DemoConsultationResponse, InboxStats, WebhookDelivery } from '../../api/contract.ts';
+import type {
+  DemoConsultationResponse,
+  InboxStats,
+  RecoveryPage,
+  WebhookDelivery,
+} from '../../api/contract.ts';
 import {
   DEMO_CONSULTATION_MUTATION_KEY,
   queryKeys,
   useAdvanceClock,
   useDemoClock,
   useNoteReader,
+  useRecovery,
   useStats,
   useWebhooks,
 } from '../../api/queries.ts';
@@ -30,12 +36,41 @@ import { WEBHOOK_LABELS } from '../../lib/labels.ts';
 import { ConsultationForm } from './consultation-form.tsx';
 import { ExtractionPlaceholder, ExtractionResult } from './extraction-result.tsx';
 
-const ADVANCE_OPTIONS = [7, 15, 30, 90] as const;
+/** One day shows the next batch of patients to recover entering the inbox. */
+const ADVANCE_OPTIONS = [1, 7, 15, 30, 90] as const;
 
 interface AdvanceSummary {
   readonly days: number;
   readonly before: number | undefined;
   readonly after: number | undefined;
+  /** Held backfill cases ("Por recuperar") before and after the jump. */
+  readonly heldBefore: number | undefined;
+  readonly heldAfter: number | undefined;
+}
+
+function daysLabel(days: number): string {
+  return days === 1 ? '1 día' : `${String(days)} días`;
+}
+
+/** "Entraron 5 pacientes de «Por recuperar» a la bandeja (quedan 28)." */
+function releasedSentence(summary: AdvanceSummary): string | undefined {
+  const { heldBefore, heldAfter } = summary;
+  if (heldBefore === undefined || heldAfter === undefined) return undefined;
+  const released = heldBefore - heldAfter;
+  if (released <= 0) {
+    return heldAfter > 0
+      ? `Ningún paciente de «Por recuperar» entró a la bandeja (quedan ${String(heldAfter)}).`
+      : undefined;
+  }
+  const who = released === 1 ? '1 paciente' : `${String(released)} pacientes`;
+  const verb = released === 1 ? 'Entró' : 'Entraron';
+  const left =
+    heldAfter === 0
+      ? 'ya no queda ninguno'
+      : heldAfter === 1
+        ? 'queda 1'
+        : `quedan ${String(heldAfter)}`;
+  return `${verb} ${who} de «Por recuperar» a la bandeja (${left}).`;
 }
 
 function ClockPanel({
@@ -47,6 +82,7 @@ function ClockPanel({
 }): ReactNode {
   const queryClient = useQueryClient();
   const stats = useStats();
+  const recovery = useRecovery();
   const advance = useAdvanceClock();
   const [summary, setSummary] = useState<AdvanceSummary>();
   const [pendingDays, setPendingDays] = useState<number>();
@@ -56,11 +92,13 @@ function ClockPanel({
     if (advance.isPending) return;
     const days = Number(event.currentTarget.value);
     const before = stats.data?.activeCases;
+    const heldBefore = recovery.data?.total;
     setPendingDays(days);
     advance.mutate(days, {
       onSuccess: () => {
         const after = queryClient.getQueryData<InboxStats>(queryKeys.stats)?.activeCases;
-        setSummary({ days, before, after });
+        const heldAfter = queryClient.getQueryData<RecoveryPage>(queryKeys.recovery)?.total;
+        setSummary({ days, before, after, heldBefore, heldAfter });
         onAdvanced(now);
       },
       onSettled: () => {
@@ -102,7 +140,7 @@ function ClockPanel({
                 onClick={handleAdvance}
                 icon={<FastForward className="size-3.5" aria-hidden="true" />}
               >
-                +{days} días
+                +{daysLabel(days)}
               </Button>
             ))}
           </div>
@@ -112,8 +150,8 @@ function ClockPanel({
         <p aria-live="polite" className="text-sm text-muted">
           {summary ? (
             <>
-              Pasaron {summary.days} días. El motor revisó los vencimientos y escaló los casos sin
-              respuesta
+              {summary.days === 1 ? 'Pasó 1 día' : `Pasaron ${String(summary.days)} días`}. El motor
+              revisó los vencimientos y escaló los casos sin respuesta
               {delta === undefined ? (
                 '.'
               ) : (
@@ -124,6 +162,9 @@ function ClockPanel({
                   {delta > 0 ? ` (+${String(delta)})` : ''}.
                 </>
               )}{' '}
+              {releasedSentence(summary) ? (
+                <strong className="font-medium text-fg">{releasedSentence(summary)} </strong>
+              ) : null}
               <Link to="/bandeja" className="font-medium text-primary hover:underline">
                 Ver la bandeja
               </Link>

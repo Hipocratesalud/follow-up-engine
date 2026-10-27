@@ -39,7 +39,7 @@ import { cx } from '../../lib/cx.ts';
 import { formatDate, formatDateTime, formatOverdue, formatRelative } from '../../lib/format.ts';
 import { STATUS_LABELS, actorLabel } from '../../lib/labels.ts';
 import { patientMeta } from '../inbox/case-row.tsx';
-import { CaseActions } from './case-actions.tsx';
+import { CASE_CLOSED_NOTICE_ID, CASE_TITLE_ID, CaseActions } from './case-actions.tsx';
 import { FeedbackPanel } from './feedback-panel.tsx';
 
 const SOURCE_TYPE_LABELS: Record<string, string> = {
@@ -61,13 +61,19 @@ function sourceLabel(source: CaseReasonView['source']): string {
   return source.display.startsWith(type) ? source.display : `${type} — ${source.display}`;
 }
 
-function ReasonCard({ reason }: { readonly reason: CaseReasonView }): ReactNode {
+function ReasonCard({
+  reason,
+  now,
+}: {
+  readonly reason: CaseReasonView;
+  readonly now: Date;
+}): ReactNode {
   return (
     <li className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
       <div className="flex flex-wrap items-center gap-2">
         <LayerChip layer={reason.layer} />
         <span className={cx('text-xs font-medium', overdueTone(reason.overdueDays))}>
-          {formatOverdue(reason.overdueDays)}
+          {formatOverdue(reason.overdueDays, reason.dueAt, now)}
         </span>
       </div>
       <div>
@@ -134,24 +140,40 @@ function Timeline({
   );
 }
 
+/** What a step of the escalation meter says: done, skipped, or when it will run. */
+function stepState(
+  escalation: EscalationView,
+  index: number,
+  step: EscalationView['steps'][number],
+  active: boolean,
+): string {
+  if (index < escalation.currentStep) {
+    if (step.outcome === 'skipped') return 'No aplicó en este caso';
+    return step.at ? `Hecho el ${formatDate(step.at)}` : 'Hecho';
+  }
+  const isNext = index === escalation.currentStep && escalation.next;
+  if (isNext && escalation.next) return `Programado para el ${formatDate(escalation.next.at)}`;
+  if (step.scheduledAt) return `Previsto para el ${formatDate(step.scheduledAt)} si nadie actúa`;
+  if (!active) return 'No llegó a ejecutarse: el caso se cerró antes';
+  return step.afterDays === 0
+    ? 'Al entrar el caso a la bandeja'
+    : `${String(step.afterDays)} ${step.afterDays === 1 ? 'día' : 'días'} sin respuesta, según la política`;
+}
+
 /** The case's escalation policy, step by step: what already happened, what was skipped, what comes next. */
-function EscalationSteps({ escalation }: { readonly escalation: EscalationView }): ReactNode {
+function EscalationSteps({
+  escalation,
+  active,
+}: {
+  readonly escalation: EscalationView;
+  readonly active: boolean;
+}): ReactNode {
   return (
     <ol className="flex flex-col gap-2">
       {escalation.steps.map((step, index) => {
         const passed = index < escalation.currentStep;
         const isNext = !passed && index === escalation.currentStep && escalation.next;
-        const state = passed
-          ? step.outcome === 'skipped'
-            ? 'No aplicó en este caso'
-            : step.at
-              ? `Hecho el ${formatDate(step.at)}`
-              : 'Hecho'
-          : isNext && escalation.next
-            ? `Programado para el ${formatDate(escalation.next.at)}`
-            : step.afterDays === 0
-              ? 'Al abrir el caso'
-              : `A los ${String(step.afterDays)} ${step.afterDays === 1 ? 'día' : 'días'} de abierto el caso`;
+        const state = stepState(escalation, index, step, active);
         const Icon = passed
           ? step.outcome === 'skipped'
             ? Minus
@@ -226,6 +248,15 @@ function CaseDetailView({
   const active = (ACTIVE_CASE_STATUSES as readonly string[]).includes(detail.status);
   const planReasons = detail.reasons.filter((reason) => reason.evidence).length;
   const heading = useRef<HTMLHeadingElement>(null);
+  const closedNotice = useRef<HTMLDivElement>(null);
+  const wasActive = useRef(active);
+
+  // Resolving or dismissing removes the action buttons with their dialog:
+  // the keyboard lands on what replaced them, not on <body>.
+  useEffect(() => {
+    if (wasActive.current && !active) closedNotice.current?.focus();
+    wasActive.current = active;
+  }, [active]);
 
   // Opening a case moves the keyboard focus to it (not left on the list row),
   // without scrolling the page away from the list unless the title is hidden.
@@ -253,7 +284,7 @@ function CaseDetailView({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h2
-              id="case-title"
+              id={CASE_TITLE_ID}
               ref={heading}
               tabIndex={-1}
               className="text-lg font-semibold tracking-tight text-fg outline-none"
@@ -311,10 +342,18 @@ function CaseDetailView({
           <CaseActions detail={detail} />
         </Card>
       ) : (
-        <Card className="flex items-center gap-3 p-4 text-sm text-muted">
-          <StatusBadge status={detail.status} />
-          Este caso está cerrado ({STATUS_LABELS[detail.status].toLowerCase()}). Si el paciente
-          vuelve a tener algo pendiente, el motor abrirá un caso nuevo.
+        <Card className="p-0">
+          <div
+            ref={closedNotice}
+            id={CASE_CLOSED_NOTICE_ID}
+            tabIndex={-1}
+            role="status"
+            className="flex items-center gap-3 rounded-xl p-4 text-sm text-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <StatusBadge status={detail.status} />
+            Este caso está cerrado ({STATUS_LABELS[detail.status].toLowerCase()}). Si el paciente
+            vuelve a tener algo pendiente, el motor abrirá un caso nuevo.
+          </div>
         </Card>
       )}
 
@@ -330,7 +369,7 @@ function CaseDetailView({
         ) : null}
         <ul className="flex flex-col gap-3">
           {detail.reasons.map((reason) => (
-            <ReasonCard key={reason.expectationId} reason={reason} />
+            <ReasonCard key={reason.expectationId} reason={reason} now={now} />
           ))}
         </ul>
       </section>
@@ -341,7 +380,14 @@ function CaseDetailView({
           Lo que hace el motor si nadie responde, según la política de este caso. Pedir contacto o
           posponer el caso reinicia la espera.
         </p>
-        <EscalationSteps escalation={detail.escalation} />
+        {detail.status === 'snoozed' && detail.snoozedUntil ? (
+          <p className="flex items-start gap-1.5 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs text-fg">
+            <CalendarX className="mt-px size-3.5 shrink-0 text-muted" aria-hidden="true" />
+            Pospuesto hasta el {formatDate(detail.snoozedUntil)}: mientras tanto no avanza, y la
+            espera de cada paso se cuenta desde ese día.
+          </p>
+        ) : null}
+        <EscalationSteps escalation={detail.escalation} active={active} />
       </Card>
 
       <Card className="flex flex-col gap-3 p-5">

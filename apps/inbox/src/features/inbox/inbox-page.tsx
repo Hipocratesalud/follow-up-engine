@@ -12,10 +12,11 @@ import {
 import { Outlet, useParams, useSearchParams } from 'react-router';
 import type { CaseListView } from '../../api/contract.ts';
 import { useCasePages, useNow, useOwners } from '../../api/queries.ts';
-import { EmptyState, ErrorState, InlineError } from '../../components/states.tsx';
+import { EmptyState, ErrorState, fieldError, InlineError } from '../../components/states.tsx';
 import { StatsBar } from '../../components/stats-bar.tsx';
 import { Button, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
+import { INPUT_LIMITS } from '../../lib/limits.ts';
 import { CaseRow, CaseRowSkeleton, isNewCase } from './case-row.tsx';
 
 const VIEW_OPTIONS: readonly { value: CaseListView; label: string }[] = [
@@ -127,7 +128,10 @@ function CaseList(): ReactNode {
   const [searchParams, setSearchParams] = useSearchParams();
   const view = parseView(searchParams.get('vista'));
   const assignee = searchParams.get('responsable') ?? '';
-  const [searchText, setSearchText] = useState(searchParams.get('buscar') ?? '');
+  // A shared link may carry a longer search than the box accepts.
+  const [searchText, setSearchText] = useState(
+    (searchParams.get('buscar') ?? '').slice(0, INPUT_LIMITS.search),
+  );
   const search = useDebounced(searchText.trim(), SEARCH_DEBOUNCE_MS);
   const cases = useCasePages({
     view,
@@ -181,6 +185,8 @@ function CaseList(): ReactNode {
   }
 
   const items = cases.data?.pages.flatMap((page) => page.items) ?? [];
+  // An invalid search is shown under the box; the list stays as it was, not an error page.
+  const searchError = fieldError(cases.error, 'q');
   const sentinel = useLoadMoreOnView(cases.hasNextPage, items.length, handleLoadMore);
   const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
   const total = cases.data?.pages[0]?.total;
@@ -217,7 +223,10 @@ function CaseList(): ReactNode {
             id="case-search"
             type="search"
             value={searchText}
+            maxLength={INPUT_LIMITS.search}
             onChange={handleSearchChange}
+            aria-invalid={searchError ? true : undefined}
+            aria-describedby={searchError ? 'case-search-error' : undefined}
             autoComplete="off"
             placeholder="Buscar paciente por nombre"
             className={cx(INPUT_CLASS, 'h-9 py-0 pr-9 pl-9')}
@@ -233,6 +242,11 @@ function CaseList(): ReactNode {
             </button>
           ) : null}
         </div>
+        {searchError ? (
+          <p id="case-search-error" role="alert" className="-mt-1 text-sm text-danger">
+            {searchError}
+          </p>
+        ) : null}
         <label className="sr-only" htmlFor="assignee-filter">
           Responsable
         </label>
@@ -257,7 +271,7 @@ function CaseList(): ReactNode {
             <CaseRowSkeleton key={key} />
           ))}
         </div>
-      ) : cases.isError && items.length === 0 ? (
+      ) : searchError && items.length === 0 ? null : cases.isError && items.length === 0 ? (
         <ErrorState error={cases.error} onRetry={handleRetry} title="No pudimos cargar los casos" />
       ) : items.length === 0 ? (
         <EmptyState

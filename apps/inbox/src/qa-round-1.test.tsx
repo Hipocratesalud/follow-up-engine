@@ -32,7 +32,7 @@ function only(elements: readonly HTMLElement[]): HTMLElement {
 }
 
 function rows(): HTMLElement[] {
-  return screen.queryAllByRole('link', { name: /Vencido hace|Vence hoy/ });
+  return screen.queryAllByRole('link', { name: /Vencido hace|Venció hoy|Vence hoy/ });
 }
 
 describe('HIP-114 inbox counts', () => {

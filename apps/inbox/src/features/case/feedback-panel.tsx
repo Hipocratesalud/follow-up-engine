@@ -7,9 +7,10 @@ import {
   type FeedbackRequest,
 } from '../../api/contract.ts';
 import { useCaseFeedback } from '../../api/queries.ts';
-import { InlineError } from '../../components/states.tsx';
+import { fieldError, InlineError } from '../../components/states.tsx';
 import { Button, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
+import { formatLimit, INPUT_LIMITS } from '../../lib/limits.ts';
 import { FEEDBACK_REASON_LABELS } from '../../lib/labels.ts';
 
 function parseReason(value: string): FeedbackReason | undefined {
@@ -67,6 +68,8 @@ export function FeedbackPanel({
   const [reason, setReason] = useState<FeedbackReason>();
   const [comment, setComment] = useState('');
   const [reasonError, setReasonError] = useState<string>();
+  const [commentError, setCommentError] = useState<string>();
+  const commentMessage = commentError ?? fieldError(mutation.error, 'comment');
 
   function submit(request: FeedbackRequest): void {
     if (mutation.isPending) return;
@@ -97,11 +100,19 @@ export function FeedbackPanel({
 
   function handleCommentChange(event: ChangeEvent<HTMLTextAreaElement>): void {
     setComment(event.target.value);
+    setCommentError(undefined);
+    if (fieldError(mutation.error, 'comment')) mutation.reset();
   }
 
   function handleSubmitNotUseful(): void {
     if (!reason) {
       setReasonError('Elige un motivo para continuar: así sabemos qué ajustar.');
+      return;
+    }
+    if (comment.trim().length > INPUT_LIMITS.comment) {
+      setCommentError(
+        `El comentario puede tener hasta ${formatLimit(INPUT_LIMITS.comment)} caracteres.`,
+      );
       return;
     }
     submit({ useful: false, reason, ...(comment.trim() ? { comment: comment.trim() } : {}) });
@@ -184,9 +195,17 @@ export function FeedbackPanel({
               id={`${ids}-comment`}
               rows={2}
               value={comment}
+              maxLength={INPUT_LIMITS.comment}
               onChange={handleCommentChange}
+              aria-invalid={commentMessage ? true : undefined}
+              aria-describedby={commentMessage ? `${ids}-comment-error` : undefined}
               className={INPUT_CLASS}
             />
+            {commentMessage ? (
+              <p id={`${ids}-comment-error`} role="alert" className="text-sm text-danger">
+                {commentMessage}
+              </p>
+            ) : null}
           </div>
           <div>
             <Button
@@ -201,7 +220,7 @@ export function FeedbackPanel({
           </div>
         </div>
       ) : null}
-      <InlineError error={mutation.error} />
+      <InlineError error={mutation.error} inlineFields={['comment']} />
     </div>
   );
 }

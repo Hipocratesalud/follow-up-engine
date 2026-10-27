@@ -92,6 +92,12 @@ export interface EscalationStepView {
   /** For steps already passed: it ran, or it could not happen and was skipped. */
   outcome?: 'done' | 'skipped';
   at?: string;
+  /**
+   * Pending steps of an active case: when the step runs if nobody acts, counted
+   * as the engine does (from the next scheduled step, the end of a snooze, or
+   * the release day of a held case).
+   */
+  scheduledAt?: string;
 }
 
 /** The case's escalation policy as the engine applies it. */
@@ -212,6 +218,8 @@ export interface ConditionView {
   confidence: number;
   sourceType: string;
   evidence?: { quote: string; documentId: string };
+  /** Who rejected a `rejected` condition: the clinic's own system (FHIR) or the team in the inbox. */
+  rejectedBy?: 'host' | 'clinician';
 }
 
 export type ExpectationStatus = 'open' | 'fulfilled' | 'superseded' | 'expired' | 'cancelled';
@@ -331,6 +339,12 @@ export interface WebhookDelivery {
   delivered: boolean;
 }
 
+/** One invalid input of a 422: the request field (`note`, `q`, `patientName`) and a Spanish message. */
+export interface ApiFieldError {
+  path: string;
+  message: string;
+}
+
 export interface ApiErrorBody {
-  error: { code: string; message: string };
+  error: { code: string; message: string; fields?: ApiFieldError[] };
 }

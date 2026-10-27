@@ -18,9 +18,31 @@ const ERROR_COPY: Readonly<Record<string, string>> = {
   invalid_cursor: 'La lista cambió mientras la recorrías. Vuelve a la primera página.',
 };
 
+/** 422 codes for an invalid input (`invalid_request` carries Spanish per-field messages). */
+const VALIDATION_CODES: ReadonlySet<string> = new Set(['invalid_request', 'validation_error']);
+
+/** Shown for an invalid input when the API gave no Spanish message for it. */
+const VALIDATION_FALLBACK = 'Revisa los datos ingresados e intenta de nuevo.';
+
+function isValidationError(error: unknown): boolean {
+  return isApiError(error) && VALIDATION_CODES.has(error.code);
+}
+
 export function errorMessage(error: unknown): string {
-  if (isApiError(error)) return ERROR_COPY[error.code] ?? error.message;
-  return 'Algo salió mal. Intenta de nuevo.';
+  if (!isApiError(error)) return 'Algo salió mal. Intenta de nuevo.';
+  if (isValidationError(error)) {
+    // Never the validator's own text (English, field paths): the per-field
+    // Spanish messages, or a generic Spanish line.
+    const messages = error.fields.map((field) => field.message);
+    return messages.length > 0 ? messages.join(' ') : VALIDATION_FALLBACK;
+  }
+  return ERROR_COPY[error.code] ?? error.message;
+}
+
+/** The Spanish message of a 422 for one input (`note`, `q`, `patientName`), to show next to it. */
+export function fieldError(error: unknown, path: string): string | undefined {
+  if (!isValidationError(error) || !isApiError(error)) return undefined;
+  return error.fields.find((field) => field.path === path)?.message;
 }
 
 function isNotFound(error: unknown): boolean {
@@ -157,8 +179,27 @@ export function EmptyState({
   );
 }
 
-export function InlineError({ error }: { readonly error: unknown }): ReactNode {
+/**
+ * A failed request, under the form that sent it. `inlineFields` are the inputs
+ * that already show their own 422 message: when every invalid field is one of
+ * them, nothing is repeated here.
+ */
+export function InlineError({
+  error,
+  inlineFields = [],
+}: {
+  readonly error: unknown;
+  readonly inlineFields?: readonly string[];
+}): ReactNode {
   if (!error) return null;
+  if (
+    isApiError(error) &&
+    isValidationError(error) &&
+    error.fields.length > 0 &&
+    error.fields.every((field) => inlineFields.includes(field.path))
+  ) {
+    return null;
+  }
   return (
     <p
       role="alert"

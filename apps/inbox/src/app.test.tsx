@@ -180,6 +180,6 @@ describe('recovery', () => {
     renderApp('/por-recuperar');
     expect(await screen.findByText('No son notificaciones.')).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: /Mercedes Rangel/ })).toBeInTheDocument();
-    expect(screen.getAllByText(/Entra a la bandeja el/).length).toBe(6);
+    expect(screen.getAllByText(/Entra a la bandeja/).length).toBe(6);
   });
 });

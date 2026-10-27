@@ -33,6 +33,13 @@ export function formatDate(iso: string): string {
   return dateFormat.format(new Date(iso));
 }
 
+const shortDateFormat = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short' });
+
+/** "6 ene" (the year is implied: a date within the coming weeks). */
+export function formatShortDate(iso: string): string {
+  return shortDateFormat.format(new Date(iso));
+}
+
 /** "martes, 27 de octubre de 2026" */
 export function formatLongDate(iso: string): string {
   return longDateFormat.format(new Date(iso));
@@ -57,9 +64,16 @@ export function formatRelative(iso: string, now: Date): string {
   return relativeFormat.format(-days, 'day');
 }
 
-/** "Vencido hace 18 días" / "Vence hoy". */
-export function formatOverdue(overdueDays: number): string {
-  if (overdueDays <= 0) return 'Vence hoy';
+/**
+ * "Vencido hace 18 días" / "Venció hoy" / "Vence hoy". `overdueDays` counts
+ * calendar days (the API does, in the clinic's zone); on the deadline's own
+ * day, `dueAt` against the API clock says whether it already passed.
+ */
+export function formatOverdue(overdueDays: number, dueAt?: string, now?: Date): string {
+  if (overdueDays <= 0) {
+    const passed = dueAt !== undefined && now !== undefined && Date.parse(dueAt) <= now.getTime();
+    return passed ? 'Venció hoy' : 'Vence hoy';
+  }
   if (overdueDays === 1) return 'Vencido hace 1 día';
   return `Vencido hace ${String(overdueDays)} días`;
 }

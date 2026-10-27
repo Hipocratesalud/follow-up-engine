@@ -1,4 +1,5 @@
 import {
+  type ApiFieldError,
   ACTIVE_CASE_STATUSES,
   LAYERS,
   type ActorType,
@@ -62,12 +63,19 @@ const MAX_SNOOZE_DAYS = 90;
 export class MockHttpError extends Error {
   readonly status: number;
   readonly code: string;
+  readonly fields: readonly ApiFieldError[];
 
-  constructor(status: number, code: string, message: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    fields: readonly ApiFieldError[] = [],
+  ) {
     super(message);
     this.name = 'MockHttpError';
     this.status = status;
     this.code = code;
+    this.fields = fields;
   }
 }
 
@@ -605,19 +613,43 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
     };
   }
 
+  /** When each pending step runs if nobody acts, as the mock's own escalation counts (see the API presenter). */
+  function projectedSchedule(followUpCase: MockCase): Map<number, Date> {
+    const schedule = new Map<number, Date>();
+    const current = followUpCase.escalationStep;
+    if (!ACTIVE.includes(followUpCase.status)) return schedule;
+    let at =
+      followUpCase.status === 'snoozed' && followUpCase.snoozedUntil
+        ? addDays(followUpCase.snoozedUntil, ESCALATION_DELAYS_DAYS[0])
+        : !isReleased(followUpCase) && followUpCase.releaseAt
+          ? addDays(followUpCase.releaseAt, ESCALATION_DELAYS_DAYS[0])
+          : followUpCase.nextActionAt;
+    if (!at) return schedule;
+    for (let index = current; index < MOCK_POLICY.length; index += 1) {
+      if (index > current) at = addDays(at, ESCALATION_DELAYS_DAYS[index] ?? LOST_AFTER_DAYS);
+      schedule.set(index, at);
+    }
+    return schedule;
+  }
+
   function escalationView(followUpCase: MockCase, detail: boolean): EscalationView {
     const current = followUpCase.escalationStep;
     const nextStep = MOCK_POLICY[current];
     const active = followUpCase.status !== 'snoozed' && ACTIVE.includes(followUpCase.status);
+    const schedule = projectedSchedule(followUpCase);
     return {
       policyId: 'mock_v1',
       currentStep: current,
-      steps: MOCK_POLICY.map((step, index) => ({
-        action: step.action,
-        label: ESCALATION_STEP_LABELS[step.action],
-        afterDays: step.afterDays,
-        ...(detail && index < current ? { outcome: 'done' as const } : {}),
-      })),
+      steps: MOCK_POLICY.map((step, index) => {
+        const scheduledAt = schedule.get(index);
+        return {
+          action: step.action,
+          label: ESCALATION_STEP_LABELS[step.action],
+          afterDays: step.afterDays,
+          ...(detail && index < current ? { outcome: 'done' as const } : {}),
+          ...(scheduledAt ? { scheduledAt: scheduledAt.toISOString() } : {}),
+        };
+      }),
       ...(active && nextStep && followUpCase.nextActionAt && isReleased(followUpCase)
         ? {
             next: {
@@ -941,6 +973,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
       confidence: condition.confidence,
       sourceType: condition.sourceType,
       ...(condition.evidence ? { evidence: { ...condition.evidence } } : {}),
+      ...(condition.status === 'rejected' ? { rejectedBy: 'clinician' as const } : {}),
     };
   }
 

@@ -159,6 +159,13 @@
   ::selection {
     background: var(--primary-soft);
   }
+
+  /* Search boxes bring their own clear button: hide the browser's. */
+  input[type='search']::-webkit-search-cancel-button,
+  input[type='search']::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
 }
 
 @layer components {

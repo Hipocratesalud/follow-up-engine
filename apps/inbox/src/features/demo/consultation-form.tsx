@@ -10,9 +10,10 @@ import {
 } from 'react';
 import type { DemoConsultationRequest, DemoConsultationResponse } from '../../api/contract.ts';
 import { useDemoConsultation, useNoteReader, usePatientList } from '../../api/queries.ts';
-import { InlineError } from '../../components/states.tsx';
+import { fieldError, InlineError } from '../../components/states.tsx';
 import { Button, Card, Field, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
+import { formatLimit, INPUT_LIMITS } from '../../lib/limits.ts';
 import { SPECIALTY_OPTIONS } from '../../lib/labels.ts';
 import { EXAMPLE_NOTES, LAB_OPTIONS } from './example-notes.ts';
 
@@ -67,6 +68,7 @@ export function ConsultationForm({
   function handlePatientNameChange(event: ChangeEvent<HTMLInputElement>): void {
     setPatientName(event.target.value);
     setErrors((previous) => ({ ...previous, patient: undefined }));
+    if (fieldError(mutation.error, 'patientName')) mutation.reset();
   }
 
   function handleSpecialtyChange(event: ChangeEvent<HTMLSelectElement>): void {
@@ -77,6 +79,7 @@ export function ConsultationForm({
     setNoteText(event.target.value);
     setExampleId(undefined);
     setErrors((previous) => ({ ...previous, note: undefined }));
+    if (fieldError(mutation.error, 'noteText')) mutation.reset();
   }
 
   function handleOrderToggle(event: ChangeEvent<HTMLInputElement>): void {
@@ -95,8 +98,12 @@ export function ConsultationForm({
     const isNew = patientId === NEW_PATIENT;
     if (isNew && !patientName.trim())
       nextErrors.patient = 'Escribe el nombre del paciente o elige uno existente.';
+    else if (isNew && patientName.trim().length > INPUT_LIMITS.patientName)
+      nextErrors.patient = `El nombre puede tener hasta ${formatLimit(INPUT_LIMITS.patientName)} caracteres.`;
     if (noteText.trim().length < MIN_NOTE_LENGTH) {
       nextErrors.note = 'Escribe la nota de la consulta (al menos 20 caracteres) o usa un ejemplo.';
+    } else if (noteText.trim().length > INPUT_LIMITS.noteText) {
+      nextErrors.note = `La nota puede tener hasta ${formatLimit(INPUT_LIMITS.noteText)} caracteres. Acórtala e intenta de nuevo.`;
     }
     setErrors(nextErrors);
     if (nextErrors.patient ?? nextErrors.note) return;
@@ -113,6 +120,9 @@ export function ConsultationForm({
       },
     });
   }
+
+  const patientError = errors.patient ?? fieldError(mutation.error, 'patientName');
+  const noteError = errors.note ?? fieldError(mutation.error, 'noteText');
 
   return (
     <Card className="flex flex-col gap-4 p-5">
@@ -191,13 +201,14 @@ export function ConsultationForm({
         </div>
 
         {patientId === NEW_PATIENT ? (
-          <Field label="Nombre del paciente nuevo" htmlFor={`${ids}-name`} error={errors.patient}>
+          <Field label="Nombre del paciente nuevo" htmlFor={`${ids}-name`} error={patientError}>
             <input
               id={`${ids}-name`}
               value={patientName}
+              maxLength={INPUT_LIMITS.patientName}
               onChange={handlePatientNameChange}
-              aria-invalid={errors.patient ? true : undefined}
-              aria-describedby={errors.patient ? `${ids}-name-error` : undefined}
+              aria-invalid={patientError ? true : undefined}
+              aria-describedby={patientError ? `${ids}-name-error` : undefined}
               autoComplete="off"
               className={INPUT_CLASS}
               placeholder="Nombre y apellido (ficticio)"
@@ -208,16 +219,17 @@ export function ConsultationForm({
         <Field
           label="Nota de la consulta"
           htmlFor={`${ids}-note`}
-          error={errors.note}
-          hint="Escribe como lo haría el médico. Solo datos ficticios."
+          error={noteError}
+          hint={`Escribe como lo haría el médico. Solo datos ficticios, hasta ${formatLimit(INPUT_LIMITS.noteText)} caracteres.`}
         >
           <textarea
             id={`${ids}-note`}
             rows={8}
             value={noteText}
+            maxLength={INPUT_LIMITS.noteText}
             onChange={handleNoteChange}
-            aria-invalid={errors.note ? true : undefined}
-            aria-describedby={errors.note ? `${ids}-note-error` : `${ids}-note-hint`}
+            aria-invalid={noteError ? true : undefined}
+            aria-describedby={noteError ? `${ids}-note-error` : `${ids}-note-hint`}
             className={cx(INPUT_CLASS, 'resize-y leading-relaxed')}
           />
         </Field>
@@ -245,7 +257,7 @@ export function ConsultationForm({
           </div>
         </fieldset>
 
-        <InlineError error={mutation.error} />
+        <InlineError error={mutation.error} inlineFields={['patientName', 'noteText']} />
 
         <div>
           <Button
