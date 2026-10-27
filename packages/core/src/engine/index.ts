@@ -42,6 +42,7 @@ export type { EscalationReport, EscalationStepRecord } from './escalation/escala
 export { FALLBACK_ESCALATION_POLICY, nextActionAfter } from './escalation/schedule.ts';
 export {
   decidePatientContact,
+  PatientContactNotAllowedError,
   type PatientContactDecision,
   type PatientContactDenial,
 } from './patient-contact/policy.ts';

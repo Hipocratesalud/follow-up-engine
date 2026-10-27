@@ -122,7 +122,7 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
       runEscalation({ ...shared, clinics: deps.clinics }, clinicId, now),
     runNoteExtractionJob: (clinicId, payload) =>
       runNoteExtractionJob(ingestDeps, clinicId, payload),
-    cases: createCaseCommands({ ...shared, clock: deps.clock }),
+    cases: createCaseCommands({ ...shared, clock: deps.clock, clinics: deps.clinics }),
     backfill: {
       stage: (batch) => stageHistory(deps, batch),
       run: (clinicId, options) =>

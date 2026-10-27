@@ -12,6 +12,21 @@ export type PatientContactDenial =
   | 'low_confidence'
   | 'contact_window';
 
+/**
+ * A clinic user asked to contact a patient and the rules forbid it (the
+ * clinic does not allow contact, the patient opted out, or the patient was
+ * already asked within the window). HTTP 409 with `reason`.
+ */
+export class PatientContactNotAllowedError extends Error {
+  override readonly name = 'PatientContactNotAllowedError';
+  readonly reason: PatientContactDenial;
+
+  constructor(reason: PatientContactDenial) {
+    super(`Patient contact is not allowed: ${reason}`);
+    this.reason = reason;
+  }
+}
+
 export type PatientContactDecision =
   { readonly allowed: true } | { readonly allowed: false; readonly reason: PatientContactDenial };
 

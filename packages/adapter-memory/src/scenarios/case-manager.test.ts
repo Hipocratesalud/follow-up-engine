@@ -186,6 +186,40 @@ describe('patient contact rules', () => {
     expect(status).toEqual({ allowed: false, optedOut: true });
   });
 
+  it('a user asks for patient contact: allowed once per window, never for an opted-out patient', async () => {
+    const world = await pendingLabCase().run();
+    const caseId = await onlyCaseId(world);
+    await world.engine.cases.requestPatientContact(world.clinicId, caseId, USER);
+    const [request] = contactRequests(world);
+    expect(request?.payload).toMatchObject({ caseId, purpose: 'complete_pending_test' });
+    const audit = await world.audit(caseId);
+    expect(audit.at(-1)).toMatchObject({ type: 'patient_contact_requested', actor: USER });
+    await expect(
+      world.engine.cases.requestPatientContact(world.clinicId, caseId, USER),
+    ).rejects.toMatchObject({ name: 'PatientContactNotAllowedError', reason: 'contact_window' });
+
+    const optedOut = await pendingLabCase()
+      .ingest((current) => [patientOptedOut(current.context(), { id: 'consent-1' })])
+      .run();
+    await expect(
+      optedOut.engine.cases.requestPatientContact(
+        optedOut.clinicId,
+        await onlyCaseId(optedOut),
+        USER,
+      ),
+    ).rejects.toMatchObject({ reason: 'patient_opted_out' });
+
+    const closedClinic = await pendingLabCase({ allowPatientContact: false }).run();
+    await expect(
+      closedClinic.engine.cases.requestPatientContact(
+        closedClinic.clinicId,
+        await onlyCaseId(closedClinic),
+        USER,
+      ),
+    ).rejects.toMatchObject({ reason: 'clinic_disallows_contact' });
+    expect(contactRequests(optedOut)).toEqual([]);
+  });
+
   it('never contacts the patient for a case built only on a probable condition', async () => {
     const world = await scenario({ allowPatientContact: true })
       .at(0)
