@@ -10,7 +10,7 @@ import {
 import { type MouseEvent, type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import type { ConditionView, PatientDetail, PatientExpectationView } from '../../api/contract.ts';
-import { useConditionReview, useNow, usePatient } from '../../api/queries.ts';
+import { useConditionReview, useNoteReader, useNow, usePatient } from '../../api/queries.ts';
 import { LayerChip } from '../../components/case-badges.tsx';
 import { InlineQuote } from '../../components/evidence.tsx';
 import { EmptyState, ErrorState, InlineError } from '../../components/states.tsx';
@@ -59,6 +59,7 @@ function ConditionItem({
   readonly patientId: string;
 }): ReactNode {
   const review = useConditionReview(patientId);
+  const reader = useNoteReader();
   const [decision, setDecision] = useState<'confirm' | 'reject'>();
 
   function handleReview(event: MouseEvent<HTMLButtonElement>): void {
@@ -84,7 +85,9 @@ function ConditionItem({
             <span>·</span>
             <span className="inline-flex items-center gap-1">
               {fromAi ? <Sparkles className="size-3 text-layer-plan" aria-hidden="true" /> : null}
-              {CONDITION_SOURCE_LABELS[condition.sourceType] ?? condition.sourceType}
+              {fromAi && reader.simulated
+                ? 'Leída de la nota (lectura simulada)'
+                : (CONDITION_SOURCE_LABELS[condition.sourceType] ?? condition.sourceType)}
             </span>
           </p>
         </div>
@@ -104,7 +107,8 @@ function ConditionItem({
       {probable ? (
         <div className="flex flex-col gap-2">
           <p className="text-xs text-muted">
-            ¿Es correcta? Al confirmarla, el paciente entra en el protocolo de esta condición.
+            ¿Es correcta? Si la confirmas, sus controles de protocolo quedan firmes; si la
+            descartas, se cancelan.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -197,8 +201,14 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold tracking-tight text-fg">{patient.name}</h1>
           <p className="text-sm text-muted">
-            {patient.age === undefined ? '' : `${String(patient.age)} años · `}
-            {SEX_LABELS[patient.sex ?? 'unknown']}
+            {[
+              patient.age === undefined ? undefined : `${String(patient.age)} años`,
+              patient.sex === undefined || patient.sex === 'unknown'
+                ? undefined
+                : SEX_LABELS[patient.sex],
+            ]
+              .filter((part) => part !== undefined)
+              .join(' · ') || 'Sin edad ni sexo registrados'}
           </p>
         </div>
         {contact ? (
@@ -233,11 +243,10 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
         </SectionTitle>
         {probable > 0 ? (
           <p className="text-sm text-muted">
-            La IA encontró{' '}
             {probable === 1
-              ? 'una condición probable'
-              : `${String(probable)} condiciones probables`}{' '}
-            en las notas. Revísalas: nada se activa sin tu confirmación.
+              ? 'Hay una condición probable leída de las notas'
+              : `Hay ${String(probable)} condiciones probables leídas de las notas`}
+            . Revísalas: mientras no las confirmes, nadie contacta al paciente por ellas.
           </p>
         ) : null}
         {detail.conditions.length === 0 ? (
