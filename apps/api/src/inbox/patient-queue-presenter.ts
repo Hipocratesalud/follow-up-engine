@@ -67,6 +67,7 @@ export function patientQueueItem(views: readonly CaseView[]): PatientQueueItem {
   return {
     patient: top.patient,
     priority: top.priority,
+    priorityBand: top.priorityBand,
     priorityLabel: top.priorityLabel,
     status: status ?? top.status,
     caseCount: summarized.length,

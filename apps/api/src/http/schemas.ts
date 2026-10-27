@@ -25,7 +25,14 @@ const isoDate = z.string().meta({ format: 'date-time', example: '2026-01-21T12:0
 
 export const LayerSchema = z.enum(EXPECTATION_LAYERS);
 export const CaseStatusSchema = z.enum(CASE_STATUSES);
-export const PriorityLabelSchema = z.enum(['baja', 'media', 'alta', 'urgente']);
+export const PRIORITY_BANDS = ['low', 'medium', 'high', 'urgent'] as const;
+export const PriorityBandSchema = z.enum(PRIORITY_BANDS).meta({
+  description: 'Priority band of the case (a stable code; name it with `priorityLabel`)',
+});
+export const PriorityLabelSchema = z.string().meta({
+  description: "Name of the priority band in the request's language (`Accept-Language`)",
+  example: 'High',
+});
 export const SexSchema = z.enum(['female', 'male', 'other', 'unknown']);
 export const OriginSchema = z.enum(['live', 'backfill']);
 export const FeedbackReasonSchema = z.enum([
@@ -199,6 +206,7 @@ export const CaseViewSchema = z
     patient: PatientSummarySchema,
     status: CaseStatusSchema,
     priority: z.number().int(),
+    priorityBand: PriorityBandSchema,
     priorityLabel: PriorityLabelSchema,
     escalationStep: z.number().int(),
     escalation: EscalationViewSchema,

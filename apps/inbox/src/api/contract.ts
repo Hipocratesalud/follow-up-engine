@@ -30,7 +30,8 @@ export const ACTIVE_CASE_STATUSES = [
   'escalated',
 ] as const satisfies readonly CaseStatus[];
 
-export type PriorityLabel = 'baja' | 'media' | 'alta' | 'urgente';
+/** Priority band of a case: a stable code; the inbox names it per locale. */
+export type PriorityBand = 'low' | 'medium' | 'high' | 'urgent';
 export type Sex = 'female' | 'male' | 'other' | 'unknown';
 export type Origin = 'live' | 'backfill';
 
@@ -297,7 +298,9 @@ export interface CaseView {
   patient: PatientSummary;
   status: CaseStatus;
   priority: number;
-  priorityLabel: PriorityLabel;
+  priorityBand: PriorityBand;
+  /** The band's name in the API request's language. */
+  priorityLabel: string;
   escalationStep: number;
   escalation: EscalationView;
   /** Display name of the owner. */

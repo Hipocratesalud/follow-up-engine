@@ -13,6 +13,7 @@ import type { Expectation } from '../../domain/expectation.ts';
 import type { ClinicId, PatientId } from '../../domain/ids.ts';
 import type { ResourceRef } from '../../domain/resource.ts';
 import { atcCodeOf } from '../terminology/atc.ts';
+import { withoutSubsumedConditions } from '../terminology/icd10.ts';
 import { foldText } from '../support/text.ts';
 import { latestAppointmentVersions, refKey, withoutWithdrawnRecords } from '../timeline.ts';
 import type { CitationKind } from '../../domain/clinical-finding.ts';
@@ -388,8 +389,12 @@ export function buildDossier(
       title: event.code.display ?? event.code.code,
     });
   }
-  const standing = snapshot.conditions.filter(
-    (condition) => condition.status === 'confirmed' || condition.status === 'probable',
+  // A probable condition a confirmed one subsumes (E14 inferred from an HbA1c
+  // next to the coded E11.9) is dropped: the doctor's diagnosis is the evidence.
+  const standing = withoutSubsumedConditions(
+    snapshot.conditions.filter(
+      (condition) => condition.status === 'confirmed' || condition.status === 'probable',
+    ),
   );
   const conditions: ConditionEntry[] =
     standing.length > 0

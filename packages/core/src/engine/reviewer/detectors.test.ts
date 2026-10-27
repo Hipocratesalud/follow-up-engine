@@ -161,11 +161,17 @@ describe('vital trends', () => {
     expect(rules(panels, { components })).toContain('vital_trend:systolic_bp');
   });
 
-  it('finds a steady weight loss of 5 % or more', () => {
+  it('finds a steady weight loss of 5 % or more (12 % at 68: a red flag, high)', () => {
     const weights = [82, 79, 76, 72].map((value, index) =>
       result(-360 + index * 110, '29463-7', value, 'kg'),
     );
     expect(signals(weights).find((signal) => signal.rule === 'vital_trend:weight')?.severity).toBe(
+      'high',
+    );
+    const gain = [72, 76, 79, 82].map((value, index) =>
+      result(-360 + index * 110, '29463-7', value, 'kg'),
+    );
+    expect(signals(gain).find((signal) => signal.rule === 'vital_trend:weight')?.severity).toBe(
       'medium',
     );
   });

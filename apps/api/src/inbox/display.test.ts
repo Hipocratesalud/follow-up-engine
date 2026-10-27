@@ -1,4 +1,5 @@
 import type { Expectation, ExpectationLayer, PatientCondition } from '@follow-up-engine/core';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { messagesFor } from '../i18n/index.ts';
 import { sourceDisplay } from './fhir-display.ts';
@@ -108,5 +109,44 @@ describe('patient conditions', () => {
       condition('I10', 'probable'),
     ]);
     expect(kept.map((item) => item.code.code)).toEqual(['E11.9', 'I10']);
+  });
+
+  it('hide a probable condition a confirmed one of the same disease subsumes (E14 by E11.9, J03 by J02.9, Z34 by Z34.9)', () => {
+    const condition = (code: string, status: PatientCondition['status']) =>
+      ({ code: { system: 'icd10', code }, status }) as unknown as PatientCondition;
+    const kept = withoutConfirmedDuplicates([
+      condition('E14', 'probable'),
+      condition('E11.9', 'confirmed'),
+      condition('J03', 'probable'),
+      condition('J02.9', 'confirmed'),
+      condition('Z34', 'probable'),
+      condition('Z34.9', 'confirmed'),
+      condition('E78.5', 'probable'),
+    ]);
+    expect(kept.map((item) => item.code.code)).toEqual(['E11.9', 'J02.9', 'Z34.9', 'E78.5']);
+    // Without a confirmed diabetes code the inferred E14 stays (it is all the record says).
+    expect(
+      withoutConfirmedDuplicates([condition('E14', 'probable')]).map((item) => item.code.code),
+    ).toEqual(['E14']);
+  });
+
+  it('every condition the engine can infer has a name in every locale (never "E14 — E14")', () => {
+    const directory = new URL('../../../../config/protocols/', import.meta.url);
+    const inferred = new Set(
+      readdirSync(directory)
+        .filter((file) => file.endsWith('.json'))
+        .flatMap((file) =>
+          [
+            ...JSON.stringify(JSON.parse(readFileSync(new URL(file, directory), 'utf8'))).matchAll(
+              /"conditionCode":"([^"]+)"/g,
+            ),
+          ].map((match) => match[1] ?? ''),
+        ),
+    );
+    expect(inferred).toContain('E14');
+    for (const code of inferred) {
+      expect(icd10Label(EN, code, undefined), `en ${code}`).not.toBe(code);
+      expect(icd10Label(ES, code, undefined), `es ${code}`).not.toBe(code);
+    }
   });
 });

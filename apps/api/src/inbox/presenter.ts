@@ -24,6 +24,7 @@ import {
   type PatientId,
   policyOf,
   practitionerId,
+  withoutSubsumedConditions,
 } from '@follow-up-engine/core';
 import { taskPriority } from '@follow-up-engine/fhir';
 import type { EngineRuntime } from '@follow-up-engine/runtime';
@@ -103,12 +104,12 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * MS_PER_DAY);
 }
 
-/** Priority bands (codes of the contract, not labels: the inbox names them). */
-const PRIORITY_LABELS = {
-  stat: 'urgente',
-  asap: 'alta',
-  urgent: 'media',
-  routine: 'baja',
+/** Priority band of each task priority: a stable code, named per locale by `t.priorities`. */
+const PRIORITY_BANDS = {
+  stat: 'urgent',
+  asap: 'high',
+  urgent: 'medium',
+  routine: 'low',
 } as const;
 
 /** Owner ids the engine uses when no practitioner is known (`EngineSettings`). */
@@ -192,21 +193,15 @@ export function conditionView(t: ApiMessages, condition: PatientCondition): Cond
 
 /**
  * Hides a probable condition when the clinician already recorded or confirmed
- * one of the same ICD-10 category (the note says "DM2", the record has
- * E11.9): asking to confirm what the chart already states is noise.
+ * the same disease (the note says "DM2", the record has E11.9; an E14
+ * inferred from an HbA1c next to the coded E11.9; J03 read from a note next
+ * to the recorded J02.9): asking to confirm what the chart already states is
+ * noise. The subsumption table is core's (`withoutSubsumedConditions`).
  */
 export function withoutConfirmedDuplicates(
   conditions: readonly PatientCondition[],
 ): PatientCondition[] {
-  const confirmed = new Set(
-    conditions
-      .filter((condition) => condition.status === 'confirmed')
-      .map((condition) => condition.code.code.slice(0, 3)),
-  );
-  return conditions.filter(
-    (condition) =>
-      condition.status !== 'probable' || !confirmed.has(condition.code.code.slice(0, 3)),
-  );
+  return withoutSubsumedConditions(conditions);
 }
 
 /** Rules whose reason is a result that came back abnormal: the most urgent thing to act on. */
@@ -487,7 +482,8 @@ export class InboxPresenter {
       },
       status: followUpCase.status,
       priority: followUpCase.priority,
-      priorityLabel: PRIORITY_LABELS[taskPriority(followUpCase.priority)],
+      priorityBand: PRIORITY_BANDS[taskPriority(followUpCase.priority)],
+      priorityLabel: this.t.priorities[PRIORITY_BANDS[taskPriority(followUpCase.priority)]],
       escalationStep: followUpCase.escalationStep,
       escalation: this.escalationView(followUpCase),
       assignee,

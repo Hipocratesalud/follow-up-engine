@@ -348,7 +348,7 @@ export function CaseDetailView({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={detail.status} />
-              <PriorityBadge label={detail.priorityLabel} priority={detail.priority} />
+              <PriorityBadge band={detail.priorityBand} priority={detail.priority} />
               <span className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
                 <EscalationMeter escalation={detail.escalation} showLabel />
               </span>

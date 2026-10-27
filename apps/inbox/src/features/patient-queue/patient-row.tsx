@@ -18,11 +18,11 @@ import { daysAgo, formatOverdue, initials } from '../../lib/format.ts';
 import { useT } from '../../i18n/index.ts';
 import { NEW_CASE_DAYS, patientMeta } from '../inbox/case-row.tsx';
 
-const AVATAR_TONES: Record<PatientQueueItem['priorityLabel'], string> = {
-  urgente: 'bg-danger-soft text-danger',
-  alta: 'bg-warning-soft text-warning',
-  media: 'bg-info-soft text-info',
-  baja: 'bg-surface-2 text-muted',
+const AVATAR_TONES: Record<PatientQueueItem['priorityBand'], string> = {
+  urgent: 'bg-danger-soft text-danger',
+  high: 'bg-warning-soft text-warning',
+  medium: 'bg-info-soft text-info',
+  low: 'bg-surface-2 text-muted',
 };
 
 /**
@@ -80,7 +80,7 @@ export function PatientRow({
         aria-hidden="true"
         className={cx(
           'mt-0.5 grid size-9 shrink-0 place-items-center rounded-full text-xs font-semibold',
-          AVATAR_TONES[item.priorityLabel],
+          AVATAR_TONES[item.priorityBand],
         )}
       >
         {initials(item.patient.name)}
@@ -95,7 +95,7 @@ export function PatientRow({
           </span>
           <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
             {isNew ? <Badge tone="primary">{t.common.newBadge}</Badge> : null}
-            <PriorityBadge label={item.priorityLabel} priority={item.priority} />
+            <PriorityBadge band={item.priorityBand} priority={item.priority} />
           </span>
         </span>
         {top ? (

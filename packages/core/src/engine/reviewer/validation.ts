@@ -9,6 +9,7 @@ import {
 import type { ProposedFinding } from '../../ports/clinical-review-agent.ts';
 import { refKey } from '../timeline.ts';
 import type { ReviewDossier } from './dossier.ts';
+import { SCREENING_RULES } from './knowledge.ts';
 import { foldWithMap, locateVerbatim } from './text.ts';
 
 /** Letters or digits a quote needs to count as evidence. */
@@ -69,10 +70,39 @@ function significantChars(text: string): number {
   return (text.match(/[\p{L}\p{N}]/gu) ?? []).length;
 }
 
-/** `<category>|<cited sources, sorted>`: same category and same main citations. */
-export function findingDedupKey(category: string, citations: readonly FindingCitation[]): string {
+/**
+ * `<category>|<topic>|<cited sources, sorted>`: the same check about the same
+ * evidence. The topic is the detector rule a finding confirms
+ * (`screening:diabetic_foot`, `symptom:headache`), so two different checks
+ * that cite the same record (the fundus, foot and albuminuria gaps of a
+ * diabetic all cite the diagnosis; two symptoms quoted from the same notes)
+ * are never merged into one. Without a topic: `<category>|<cited sources>`.
+ */
+export function findingDedupKey(
+  category: string,
+  citations: readonly FindingCitation[],
+  topic = '',
+): string {
   const sources = [...new Set(citations.map((citation) => refKey(citation.source)))].sort();
-  return `${category}|${sources.join(',')}`;
+  return topic === ''
+    ? `${category}|${sources.join(',')}`
+    : `${category}|${topic}|${sources.join(',')}`;
+}
+
+/**
+ * What a proposal is about: the rules of the signals it confirms, else, for
+ * a check-up the agent added on its own, the check-ups its text names.
+ */
+export function proposalTopic(
+  proposal: Pick<ProposedFinding, 'category' | 'summary' | 'suggestion'>,
+  signalRules: readonly string[],
+): string {
+  if (signalRules.length > 0) return [...new Set(signalRules)].sort().join('+');
+  if (proposal.category !== 'missing_screening') return '';
+  const text = foldWithMap(`${proposal.summary} ${proposal.suggestion}`).folded;
+  return SCREENING_RULES.filter((rule) => rule.coverageTerms.some((term) => text.includes(term)))
+    .map((rule) => `screening:${rule.key}`)
+    .join('+');
 }
 
 function clip(text: string, max: number): string {
@@ -92,6 +122,8 @@ export function checkProposal(
   options: {
     readonly enabled: (category: FindingCategory, specialty: string | undefined) => boolean;
     readonly knownSignals: ReadonlySet<string>;
+    /** Detector rule of each known signal (`S2` -> `screening:diabetic_foot`). */
+    readonly signalRules?: ReadonlyMap<string, string>;
   },
 ): ProposalCheck {
   const category = FINDING_CATEGORIES.find((item) => item === proposal.category);
@@ -132,6 +164,13 @@ export function checkProposal(
   const specialty = latestNote?.specialty ?? dossier.specialty;
   if (!options.enabled(category, specialty)) return { ok: false, reason: 'category_disabled' };
   const signalIds = proposal.signalIds.filter((id) => options.knownSignals.has(id));
+  const topic = proposalTopic(
+    proposal,
+    signalIds.flatMap((id) => {
+      const rule = options.signalRules?.get(id);
+      return rule === undefined ? [] : [rule];
+    }),
+  );
   return {
     ok: true,
     draft: {
@@ -144,7 +183,7 @@ export function checkProposal(
       origin: signalIds.length > 0 ? 'confirmed' : 'added',
       signalIds,
       ...(specialty === undefined ? {} : { specialty }),
-      dedupKey: findingDedupKey(category, citations),
+      dedupKey: findingDedupKey(category, citations, topic),
     },
   };
 }

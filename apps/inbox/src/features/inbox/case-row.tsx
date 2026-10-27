@@ -28,11 +28,11 @@ export function isNewCase(item: CaseView, now: Date): boolean {
   return item.origin === 'live' && daysAgo(item.openedAt, now) <= NEW_CASE_DAYS;
 }
 
-const AVATAR_TONES: Record<CaseView['priorityLabel'], string> = {
-  urgente: 'bg-danger-soft text-danger',
-  alta: 'bg-warning-soft text-warning',
-  media: 'bg-info-soft text-info',
-  baja: 'bg-surface-2 text-muted',
+const AVATAR_TONES: Record<CaseView['priorityBand'], string> = {
+  urgent: 'bg-danger-soft text-danger',
+  high: 'bg-warning-soft text-warning',
+  medium: 'bg-info-soft text-info',
+  low: 'bg-surface-2 text-muted',
 };
 
 /** "58 y · F": age and sex, as short as a list row needs. */
@@ -101,7 +101,7 @@ export function CaseRow({
         aria-hidden="true"
         className={cx(
           'mt-0.5 grid size-9 shrink-0 place-items-center rounded-full text-xs font-semibold',
-          AVATAR_TONES[item.priorityLabel],
+          AVATAR_TONES[item.priorityBand],
         )}
       >
         {initials(item.patient.name)}
@@ -116,7 +116,7 @@ export function CaseRow({
           </span>
           <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
             {isNew ? <Badge tone="primary">{t.common.newBadge}</Badge> : null}
-            <PriorityBadge label={item.priorityLabel} priority={item.priority} />
+            <PriorityBadge band={item.priorityBand} priority={item.priority} />
           </span>
         </span>
         {top ? (

@@ -161,6 +161,12 @@ export {
   type ConclusionReading,
   readConclusion,
 } from './terminology/conclusions.ts';
+export {
+  icd10Category,
+  icd10Subsumes,
+  type SubsumableCondition,
+  withoutSubsumedConditions,
+} from './terminology/icd10.ts';
 export { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from './settings.ts';
 
 export * from './reviewer/index.ts';

@@ -298,6 +298,24 @@ describe('inbox API on a seeded clinic', () => {
       }
     });
 
+    it('names the priority band in the request language, English by default (clinical-fix-4)', async () => {
+      const english = await h.call<CasePage>('/api/inbox/cases?limit=50');
+      const spanish = await h.call<CasePage>('/api/inbox/cases?limit=50', undefined, 'es');
+      const names = {
+        en: { urgent: 'Urgent', high: 'High', medium: 'Medium', low: 'Low' },
+        es: { urgent: 'Urgente', high: 'Alta', medium: 'Media', low: 'Baja' },
+      } as const;
+      expect(english.body.items.length).toBeGreaterThan(0);
+      for (const [index, item] of english.body.items.entries()) {
+        expect(['low', 'medium', 'high', 'urgent']).toContain(item.priorityBand);
+        expect(item.priorityLabel).toBe(names.en[item.priorityBand]);
+        const same = spanish.body.items[index];
+        expect(same?.priorityBand).toBe(item.priorityBand);
+        expect(same?.priorityLabel).toBe(names.es[item.priorityBand]);
+      }
+      expect(english.body.items.map((item) => item.priorityLabel)).not.toContain('alta');
+    });
+
     it('asks for a feedback reason in the request language', async () => {
       const caseId = (await h.call<CasePage>('/api/inbox/cases?limit=1')).body.items[0]?.id ?? '';
       const path = `/api/inbox/cases/${caseId}/feedback`;
