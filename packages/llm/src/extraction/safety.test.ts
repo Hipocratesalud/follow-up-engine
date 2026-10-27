@@ -55,6 +55,7 @@ describe('an injected or hallucinating model cannot turn a diabetes note into an
   const obeyed: ModelExtraction = {
     hasPlan: true,
     discharge: null,
+    pregnancy: null,
     conditions: [
       { icd10: 'B20', display: 'HIV disease', confidence: 1, evidenceQuote: 'DM2' },
       {
@@ -176,6 +177,7 @@ describe('evidence quotes stay aligned with emoji and other astral characters (a
       {
         hasPlan: true,
         discharge: null,
+        pregnancy: null,
         conditions: [
           { icd10: 'E11', display: '', confidence: 0.9, evidenceQuote: '[REDACTADO] 😀 con DM2' },
         ],
@@ -307,6 +309,7 @@ describe('error messages never carry model output (security #11)', () => {
     const { extractor, usageLog } = setup(() => ({
       hasPlan: 'Rosalinda Quintero',
       discharge: null,
+      pregnancy: null,
       conditions: [{ icd10: 'B20', 'Rosalinda Quintero Pérez': 1 }],
       medications: [],
       planItems: [],

@@ -102,8 +102,16 @@ export { DEFAULT_CONDITION_TERMS, type ConditionTermTable } from './extraction/c
 export {
   EXTRACTION_OUTPUT_NAME,
   ModelExtractionSchema,
+  ModelPregnancySchema,
+  PREGNANCY_OUTCOME_KINDS,
   type ModelExtraction,
+  type ModelPregnancy,
 } from './extraction/schema.ts';
+export {
+  MAX_GESTATIONAL_WEEKS,
+  MAX_OUTCOME_AGE_DAYS,
+  postProcessPregnancy,
+} from './extraction/pregnancy.ts';
 export {
   LOINC_SYSTEM,
   MAX_ITEM_CONFIDENCE,
@@ -116,12 +124,14 @@ export { addInterval, resolveDueAt } from './extraction/due-date.ts';
 export { createQuoteIndex, locateQuote, normalizeForMatch } from './extraction/quote.ts';
 export {
   ExpectedExtractionSchema,
+  ExpectedPregnancySchema,
   ExtractionFixtureSchema,
   chainResponders,
   createNoteFixtureResponder,
   modelOutputFromExpected,
   modelOutputFromExtraction,
   type ExpectedExtraction,
+  type ExpectedPregnancy,
   type ExtractionFixture,
   type NoteFixture,
 } from './extraction/fixtures.ts';
@@ -130,10 +140,12 @@ export type {
   DetailedNoteExtraction,
   ExtractedCondition,
   ExtractedMedication,
+  ExtractedPregnancy,
   ExtractionWarning,
   NoteExtraction,
   NoteExtractionInput,
   NoteExtractor,
+  PregnancyOutcomeKind,
   RejectedItem,
   RejectionReason,
 } from './extraction/types.ts';
@@ -147,6 +159,8 @@ export {
   matchCounts,
   medicationsMatch,
   percentile,
+  pregnancyDatingCounts,
+  pregnancyOutcomeCounts,
   scores,
   type Counts,
   type Scores,

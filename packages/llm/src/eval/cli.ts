@@ -251,6 +251,8 @@ async function main(argv: readonly string[]): Promise<void> {
       `conditions F1 ${(overall.scores.conditions.f1 * 100).toFixed(1)}%`,
       `medications F1 ${(overall.scores.medications.f1 * 100).toFixed(1)}%`,
       `plan items F1 ${(overall.scores.planItems.f1 * 100).toFixed(1)}%`,
+      `pregnancy outcome P ${((overall.scores.pregnancyOutcome?.precision ?? 1) * 100).toFixed(1)}% R ${((overall.scores.pregnancyOutcome?.recall ?? 1) * 100).toFixed(1)}%`,
+      `pregnancy dating P ${((overall.scores.pregnancyDating?.precision ?? 1) * 100).toFixed(1)}% R ${((overall.scores.pregnancyDating?.recall ?? 1) * 100).toFixed(1)}%`,
       `hasPlan ${(overall.hasPlanAccuracy * 100).toFixed(1)}%`,
       `discharge ${(overall.dischargeAccuracy * 100).toFixed(1)}%`,
       `hallucinated quotes ${(overall.hallucinatedQuoteRate * 100).toFixed(1)}%`,

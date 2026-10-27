@@ -3,6 +3,7 @@ import { ALL_RULE_IDS, type RuleId, SPECIALTIES } from '../constants.ts';
 import { TIMELINE_ENTRY_KINDS } from '../synthetic/timeline.ts';
 
 const PLAN_ITEM_KINDS = ['follow_up_visit', 'lab', 'imaging', 'session', 'other'] as const;
+const PREGNANCY_OUTCOME_KINDS = ['vaginal_delivery', 'cesarean_delivery', 'loss'] as const;
 
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD');
 const IsoInstant = z.iso.datetime();
@@ -42,6 +43,29 @@ export const GoldNoteSchema = z.strictObject({
         evidenceQuote: z.string().min(1),
       }),
     ),
+    /**
+     * The current pregnancy as the note writes it: its dating and, when the
+     * note reports it, how it ended (`date` or `daysAgo` only when written).
+     * Absent means the note reports no current pregnancy: obstetric history
+     * ("G3P2, cesárea previa") and a routine "FUM" are not one.
+     */
+    pregnancy: z
+      .strictObject({
+        gestationalWeeks: z.number().int().min(0).max(45).optional(),
+        gestationalDays: z.number().int().min(0).max(6).optional(),
+        lastMenstrualPeriod: IsoDate.optional(),
+        estimatedDeliveryDate: IsoDate.optional(),
+        datingEvidenceQuote: z.string().min(1).optional(),
+        outcome: z
+          .strictObject({
+            kind: z.enum(PREGNANCY_OUTCOME_KINDS),
+            date: IsoDate.optional(),
+            daysAgo: z.number().int().nonnegative().optional(),
+            evidenceQuote: z.string().min(1),
+          })
+          .optional(),
+      })
+      .optional(),
   }),
 });
 export type GoldNote = z.infer<typeof GoldNoteSchema>;

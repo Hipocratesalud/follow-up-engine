@@ -13,7 +13,7 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
  NoteExtractor.extract ──▶ createNoteExtractor
    (clinicId, note,          │ prepareNote: mask patient names/ids (redactTerms), neutralize
     redactTerms)             │   delimiter-like tags, past 20,000 chars keep head + tail
-                             │ prompt note-extraction@3 (metadata and note fenced as data)
+                             │ prompt note-extraction@4 (metadata and note fenced as data)
                              │ output schema: ModelExtractionSchema (zod)
                              ▼
                         createLlmGateway ── budget check (usage log, UTC month)
@@ -32,7 +32,8 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
                              ▼ back in the extractor
                         postProcessExtraction: verbatim and meaningful evidence, negation,
                         ICD-10 and LOINC validation, due dates computed from authoredAt,
-                        confidence capped by what the note backs, discharge, dedupe
+                        confidence capped by what the note backs, discharge, pregnancy
+                        dating and outcome (postProcessPregnancy), dedupe
 ```
 
 - **Providers** implement core's `LlmProvider` (plus an optional abort `signal` and detailed usage:
@@ -44,16 +45,16 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
 
 ## Exported API
 
-| Area       | Exports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Gateway    | `createLlmGateway(config)`, `LlmGatewayConfig`, `TaskConfig`, `RouteTarget`, `GatewayResult`, `DEFAULT_RETRY_POLICY`, `backoffDelayMs`, `startOfUtcMonth`, `repairInstruction`                                                                                                                                                                                                                                                                                                                                            |
-| Providers  | `createMetaProvider`, `createBasetenProvider`, `createOpenAiCompatibleProvider`, `createChatCompletionsProvider`, `createFakeProvider`, `fakeRequestKey`, `isContributorModel`, `META_API_BASE_URL`, `META_DEFAULT_MODEL`, `BASETEN_BASE_URL`, `BASETEN_MUSE_SPARK_OPEN_MODEL`, `STRUCTURED_OUTPUT_MODES`                                                                                                                                                                                                                 |
-| Pricing    | `DEFAULT_PRICING`, `priceFor`, `costOf`, `ModelPrice`, `PricingTable`                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Usage log  | `LlmUsageLog`, `LlmCallRecord` (structural copies of the core port), `InMemoryLlmUsageLog`                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Errors     | `LlmProviderError` (status, code, retryable, retryAfterMs), `LlmTimeoutError`, `LlmSchemaError` (raw output, issues, usage, repairable), `LlmUnavailableError`, `LlmConfigError`; core's `LlmBudgetExceededError` and `LlmOutputError` are thrown as is                                                                                                                                                                                                                                                                   |
-| Extraction | `createNoteExtractor`, `NOTE_EXTRACTION_PROMPT_VERSION`, `NOTE_EXTRACTION_TASK`, `buildExtractionMessages`, `sanitizeSpecialty`, `ModelExtractionSchema`, `postProcessExtraction`, `MAX_ITEM_CONFIDENCE`, `prepareNote`, `MAX_NOTE_CHARS`, `REDACTION_PLACEHOLDER`, `DEFAULT_CONDITION_TERMS`, `resolveDueAt`, `addInterval`, `createQuoteIndex`, `locateQuote`, `isValidLoinc`, port types (`NoteExtractor`, `NoteExtraction`, ...) and `DetailedNoteExtraction` (with `rejected`, `warnings`, `dischargeEvidenceQuote`) |
-| Fixtures   | `createNoteFixtureResponder`, `chainResponders`, `modelOutputFromExpected` (gold `expected`), `modelOutputFromExtraction` (scenario `llmFixture`), `heuristicExtraction` / `heuristicResponder` (rule-based baseline)                                                                                                                                                                                                                                                                                                     |
-| Evals      | `loadGoldNotes`, `runExtractionEval`, `compareExtraction`, `scores`, `renderReport`, `renderComparison`                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Area       | Exports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gateway    | `createLlmGateway(config)`, `LlmGatewayConfig`, `TaskConfig`, `RouteTarget`, `GatewayResult`, `DEFAULT_RETRY_POLICY`, `backoffDelayMs`, `startOfUtcMonth`, `repairInstruction`                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Providers  | `createMetaProvider`, `createBasetenProvider`, `createOpenAiCompatibleProvider`, `createChatCompletionsProvider`, `createFakeProvider`, `fakeRequestKey`, `isContributorModel`, `META_API_BASE_URL`, `META_DEFAULT_MODEL`, `BASETEN_BASE_URL`, `BASETEN_MUSE_SPARK_OPEN_MODEL`, `STRUCTURED_OUTPUT_MODES`                                                                                                                                                                                                                                                                                                                  |
+| Pricing    | `DEFAULT_PRICING`, `priceFor`, `costOf`, `ModelPrice`, `PricingTable`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Usage log  | `LlmUsageLog`, `LlmCallRecord` (structural copies of the core port), `InMemoryLlmUsageLog`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Errors     | `LlmProviderError` (status, code, retryable, retryAfterMs), `LlmTimeoutError`, `LlmSchemaError` (raw output, issues, usage, repairable), `LlmUnavailableError`, `LlmConfigError`; core's `LlmBudgetExceededError` and `LlmOutputError` are thrown as is                                                                                                                                                                                                                                                                                                                                                                    |
+| Extraction | `createNoteExtractor`, `NOTE_EXTRACTION_PROMPT_VERSION`, `NOTE_EXTRACTION_TASK`, `buildExtractionMessages`, `sanitizeSpecialty`, `ModelExtractionSchema`, `ModelPregnancySchema`, `PREGNANCY_OUTCOME_KINDS`, `postProcessExtraction`, `postProcessPregnancy`, `MAX_ITEM_CONFIDENCE`, `prepareNote`, `MAX_NOTE_CHARS`, `REDACTION_PLACEHOLDER`, `DEFAULT_CONDITION_TERMS`, `resolveDueAt`, `addInterval`, `createQuoteIndex`, `locateQuote`, `isValidLoinc`, port types (`NoteExtractor`, `NoteExtraction`, `ExtractedPregnancy`, ...) and `DetailedNoteExtraction` (with `rejected`, `warnings`, `dischargeEvidenceQuote`) |
+| Fixtures   | `createNoteFixtureResponder`, `chainResponders`, `ExpectedPregnancySchema`, `modelOutputFromExpected` (gold `expected`), `modelOutputFromExtraction` (scenario `llmFixture`), `heuristicExtraction` / `heuristicResponder` (rule-based baseline)                                                                                                                                                                                                                                                                                                                                                                           |
+| Evals      | `loadGoldNotes`, `runExtractionEval`, `compareExtraction`, `pregnancyOutcomeCounts`, `pregnancyDatingCounts`, `scores`, `renderReport`, `renderComparison`                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ### Wiring example (in an app)
 
@@ -180,6 +181,35 @@ the real gateway, validation and post-checks.
   controles"); not "IRA alta", "no se da de alta", nor a past hospital discharge ("dado de alta del
   hospital hace 5 días", "alta hospitalaria", "dado de alta hace 3 días"). A discharge counts as a
   plan (`hasPlan`). The engine then anchors no visit cadence on that note.
+- **Pregnancy.** `pregnancy` in the model schema (prompt `note-extraction@4`): the current
+  pregnancy's dating (`gestationalWeeks`, `gestationalDays`, `lastMenstrualPeriod`,
+  `estimatedDeliveryDate` as written, `datingEvidenceQuote`) and its `outcome` (`kind`
+  `vaginal_delivery` | `cesarean_delivery` | `loss`, `date` only when written, `daysAgo` only when the
+  note says "hace 10 días" or "puérpera de 10 días", `evidenceQuote`), or null. The model never
+  computes weeks or dates; core turns the result into LOINC Observations (11884-4, 8665-2, 11778-8)
+  and a provisional O80/O82/O03 dated `outcome.date`, which ends the pregnancy protocol's episode,
+  so `pregnancy.ts` is strict about false positives. An outcome survives only when its quote names
+  a delivery or a loss of this pregnancy: never the obstetric formula ("G2P1"), history
+  ("cesárea previa", "parto anterior", "antecedente de aborto", "2 partos", "cesárea hace 3 años",
+  "parto vaginal en 2019", under "AGO:"), all `not_current`; nor a denied (`negated`), planned or
+  threatened one ("cesárea programada", "amenaza de aborto", "vía del parto", "control posparto",
+  `quote_unrelated`). Its kind is what the quote says ("cesárea" is a caesarean whatever the model
+  said; "puérpera" alone backs a delivery, never a loss). Its date must be written in the quoted
+  sentence, else its "hace N días" must be (then `date` = note day minus N, computed here); else the
+  date is dropped (`timing_unsupported`) and core dates the outcome with the note. After the note,
+  or more than 300 days before it, the outcome is `out_of_range`. Dating needs a note that states
+  a current pregnancy ("embarazo", "gestante", "EG", "FPP", "control prenatal", a gestational age
+  such as "G2P1, 20 sem"), not denied, wished or tested ("niega embarazo", "desea embarazo", "prueba
+  de embarazo negativa"): a routine "FUM: 12/12/2025" in an annual control is `not_current`, and so
+  is the dating of a pregnancy the same note ends. Each value must be written in the note: weeks 0
+  to 45 and days 0 to 6 as a gestational age ("embarazo de 20 semanas y 3 días", "EG: 20+3", "20
+  sem"; not "control en 4 semanas", "eco a las 20 semanas" or "dolor de 2 semanas"), the last
+  period after "FUM"/"FUR" within 45 weeks before the note, the delivery date after "FPP" from 4
+  weeks before to 45 weeks after it (dates `dd/mm/yyyy`, a missing year inferred). Each value
+  that fails is dropped alone, with its reason under `field: 'pregnancy'` in `rejected`. The
+  heuristic reader shares these readers (`pregnancy-signals.ts`) and keeps "FUM"/"FPP" dates out of
+  the plan. The ICD-10 terms back Z33/Z34/Z35, Z39, O00/O02/O03 and O80/O82; a past delivery or
+  loss read as a condition ("cesárea previa" as O82) is `not_current` too.
 - **Long notes.** Past `MAX_NOTE_CHARS` (20,000 UTF-16 units, `maxNoteChars` to change) the model reads
   the first 40% and the last 60% of the budget (about 8,000 + 12,000 characters, cut at whitespace),
   with an elision marker between them, since the plan is usually at the end. The result carries the
@@ -222,7 +252,8 @@ seed notes in `packages/llm/test/fixtures/gold-notes/`; `--gold <dir>` overrides
 `docs/evals/<date>-<provider>-<model>.md` plus a `.json` summary (no note text) that `eval:compare` reads.
 
 Metrics: precision, recall and F1 per field (conditions by ICD-10 category, plan items by kind and due
-date within ±20%, medications by fuzzy drug name), `hasPlan` accuracy, discharge accuracy,
+date within ±20%, medications by fuzzy drug name, pregnancy outcome by kind, pregnancy dating with
+weeks, last period and delivery date one item each, matched exactly), `hasPlan` accuracy, discharge accuracy,
 hallucinated-quote rate, items dropped by the evidence checks, results per specialty, tokens and cost
 per note, latency p50/p95. Extraction errors count as misses.
 
@@ -255,6 +286,18 @@ visit ("acude a control anual", "sesión de seguimiento mensual"), and skips can
 post-checks drop a model item whose list item cancels it (`cancelled`). Heuristic baseline on the 76
 notes, before and after: plan items F1 87.3% → 93.1%; conditions 80.0%, medications 83.2%, hasPlan
 94.7% and discharge 98.7% unchanged (the 70 older notes score exactly as before).
+
+HIP-137 added the pregnancy reading and gold-077 to 084, and labeled `expected.pregnancy` on
+gold-035, 036 and 042: dating by FUM (077) and by "20 sem" (078), a vaginal delivery with its date
+(079), a caesarean "hace 10 días" (080), a miscarriage (081), and two traps without a pregnancy
+label: an annual control with a routine FUM (082, like 034) and a G3P2 with "cesárea previa" and a
+FUM (083); 084 is a current pregnancy next to "cesárea previa" and "parto vaginal anterior".
+Heuristic baseline, before (no pregnancy reading) and after: pregnancy outcome 0 of 4 → precision
+and recall 100% (4 / 0 / 0), dating 0 of 6 values → 100% (6 / 0 / 0). On the 76 older notes
+conditions F1 goes 80.0% → 80.9% (puerperium and loss terms), the rest is unchanged; on all 84
+notes: conditions 80.3%, medications 80.7% (two-word drug names, "ácido fólico"), plan items 94.1%,
+hasPlan 95.2%, discharge 98.8%. The oracle scores 100% on every field, pregnancy included (tested
+on the shared set).
 
 Real-network smoke test, never run by `pnpm verify`:
 

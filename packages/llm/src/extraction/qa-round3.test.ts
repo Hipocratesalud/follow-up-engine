@@ -167,6 +167,7 @@ describe('frequency words and suspended controls (clinical #1)', () => {
     const model: ModelExtraction = {
       hasPlan: true,
       discharge: null,
+      pregnancy: null,
       conditions: [],
       medications: [],
       planItems: [
