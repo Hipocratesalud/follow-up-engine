@@ -96,7 +96,10 @@ export interface CaseEvent {
   readonly caseId: CaseId;
   readonly type: CaseEventType;
   readonly actor: CaseEventActor;
-  /** Structured context. Never free-text clinical content. */
+  /**
+   * Structured context. The only free text is `note`, the internal note a
+   * clinic user wrote with an action (shown to the team, never sent out).
+   */
   readonly payload: JsonObject;
   readonly at: Date;
 }

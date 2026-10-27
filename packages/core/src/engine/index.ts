@@ -39,7 +39,7 @@ export {
 } from './case-manager/state-machine.ts';
 export { computeCasePriority, PRIORITY_WEIGHTS } from './case-manager/priority.ts';
 export type { EscalationReport, EscalationStepRecord } from './escalation/escalation.ts';
-export { FALLBACK_ESCALATION_POLICY, nextActionAfter } from './escalation/schedule.ts';
+export { FALLBACK_ESCALATION_POLICY, nextActionAfter, policyOf } from './escalation/schedule.ts';
 export {
   decidePatientContact,
   PatientContactNotAllowedError,
