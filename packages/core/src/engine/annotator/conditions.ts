@@ -113,10 +113,10 @@ export function recordedCandidate(
 
 const MS_PER_DAY = 86_400_000;
 
-type EnrollmentResult = NonNullable<Protocol['enrollment']['results']>[number];
+export type EnrollmentResult = NonNullable<Protocol['enrollment']['results']>[number];
 
 /** Whether a result meets an enrollment threshold (`gte`, `lt`; `abnormal` stands for `gte` without a value). */
-function meetsThreshold(rule: EnrollmentResult, event: ClinicalEvent): boolean {
+export function meetsThreshold(rule: EnrollmentResult, event: ClinicalEvent): boolean {
   if (event.type !== 'result.received' || !sameConcept(event.code, rule.code)) {
     return false;
   }
