@@ -29,6 +29,9 @@ export type Condition = fhir4.Condition;
 export type DocumentReference = fhir4.DocumentReference;
 export type Composition = fhir4.Composition;
 export type Consent = fhir4.Consent;
+export type Communication = fhir4.Communication;
+export type CommunicationRequest = fhir4.CommunicationRequest;
+export type Flag = fhir4.Flag;
 
 export type Task = fhir4.Task;
 export type TaskInput = fhir4.TaskInput;

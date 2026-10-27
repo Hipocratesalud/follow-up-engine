@@ -22,6 +22,8 @@ Registers a clinic (or updates one) and issues a scoped API key, printed once.
                              (demo:clock moves the shared fake clock of every clinic)
   --allow-patient-contact    Enable patient contact requests for a new clinic (default: off)
   --timezone <iana>          Clinic time zone for a new clinic (default: UTC)
+  --escalation-policy <id>   Named escalation policy of the clinic, new or existing
+                             (default_v1, default_v2; cases already open keep theirs)
   --help                     This help
 
 Needs DATABASE_URL (the same database the API uses).`;
@@ -71,6 +73,7 @@ export async function runClinicCommand(
         'allow-patient-contact': { type: 'boolean' },
         'allow-demo': { type: 'boolean' },
         timezone: { type: 'string' },
+        'escalation-policy': { type: 'string' },
         help: { type: 'boolean' },
       },
       strict: true,
@@ -121,8 +124,22 @@ export async function runClinicCommand(
   if (existing === undefined && values.name === undefined) {
     return fail(`Clinic ${id} does not exist: give --name to create it.`);
   }
+  const policyId = values['escalation-policy'];
+  if (
+    policyId !== undefined &&
+    (await runtime.engine.catalog(toClinicId(id))).policy(policyId) === undefined
+  ) {
+    return fail(`Unknown escalation policy ${policyId}.`);
+  }
+  const policy = policyId === undefined ? {} : { escalationPolicyId: policyId };
   let action = 'unchanged';
-  if (existing === undefined || (values.name !== undefined && values.name !== existing.name)) {
+  const renamed =
+    existing !== undefined && values.name !== undefined && values.name !== existing.name;
+  const repoliced =
+    existing !== undefined &&
+    policyId !== undefined &&
+    policyId !== existing.settings.escalationPolicyId;
+  if (existing === undefined || renamed || repoliced) {
     await runtime.storage.registerClinic({
       id: toClinicId(id),
       name: values.name ?? existing?.name ?? id,
@@ -131,11 +148,12 @@ export async function runClinicCommand(
             settings: {
               allowPatientContact: values['allow-patient-contact'] === true,
               ...(values.timezone === undefined ? {} : { timezone: values.timezone }),
+              ...policy,
             },
           }
-        : { settings: existing.settings, active: existing.active }),
+        : { settings: { ...existing.settings, ...policy }, active: existing.active }),
     });
-    action = existing === undefined ? 'created' : 'renamed';
+    action = existing === undefined ? 'created' : renamed ? 'renamed' : 'updated';
   }
   const label = values.label ?? 'integration';
   const issued = await runtime.issueApiKey({

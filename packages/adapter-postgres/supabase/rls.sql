@@ -57,7 +57,11 @@ GRANT SELECT ON
   follow_up.case_events,
   follow_up.case_feedback,
   follow_up.quality_findings,
-  follow_up.llm_calls
+  follow_up.llm_calls,
+  follow_up.contact_requests,
+  follow_up.contact_communications,
+  follow_up.patient_contact_flags,
+  follow_up.patient_rule_suppressions
 TO authenticated;
 
 -- The clinic row without its API key hash.
@@ -111,5 +115,25 @@ CREATE POLICY clinic_reads_own_rows ON follow_up.quality_findings
 
 DROP POLICY IF EXISTS clinic_reads_own_rows ON follow_up.llm_calls;
 CREATE POLICY clinic_reads_own_rows ON follow_up.llm_calls
+  FOR SELECT TO authenticated
+  USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id'));
+
+DROP POLICY IF EXISTS clinic_reads_own_rows ON follow_up.contact_requests;
+CREATE POLICY clinic_reads_own_rows ON follow_up.contact_requests
+  FOR SELECT TO authenticated
+  USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id'));
+
+DROP POLICY IF EXISTS clinic_reads_own_rows ON follow_up.contact_communications;
+CREATE POLICY clinic_reads_own_rows ON follow_up.contact_communications
+  FOR SELECT TO authenticated
+  USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id'));
+
+DROP POLICY IF EXISTS clinic_reads_own_rows ON follow_up.patient_contact_flags;
+CREATE POLICY clinic_reads_own_rows ON follow_up.patient_contact_flags
+  FOR SELECT TO authenticated
+  USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id'));
+
+DROP POLICY IF EXISTS clinic_reads_own_rows ON follow_up.patient_rule_suppressions;
+CREATE POLICY clinic_reads_own_rows ON follow_up.patient_rule_suppressions
   FOR SELECT TO authenticated
   USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id'));

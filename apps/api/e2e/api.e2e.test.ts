@@ -43,6 +43,20 @@ function exampleBundle(): { text: string; json: unknown } {
   return { text: block[1], json: JSON.parse(block[1]) };
 }
 
+/** The "Closing the loop" Communication Bundle of docs/integration.md, verbatim. */
+function exampleCommunicationBundle(): string {
+  const doc = readFileSync(new URL('../../../docs/integration.md', import.meta.url), 'utf8');
+  const marker = doc.indexOf('<!-- e2e:communication-bundle -->');
+  const block = /```json\n([\s\S]*?)\n```/.exec(doc.slice(marker));
+  if (marker === -1 || block?.[1] === undefined) {
+    throw new Error('docs/integration.md lost its example Communication Bundle');
+  }
+  return block[1];
+}
+
+/** The ids the example Communication Bundle uses for the attempt and the patient. */
+const EXAMPLE_REQUEST_ID = '7b0d3f52-2c1e-4f7a-9b6d-1e2f3a4b5c6d';
+
 function noteOf(bundle: unknown): string {
   const entries = (bundle as { entry: { resource: Record<string, unknown> }[] }).entry;
   const doc = entries.find((entry) => entry.resource['resourceType'] === 'DocumentReference');
@@ -369,8 +383,11 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
       );
     }, 'the patient_contact.requested webhook');
     expect(request.signatureValid).toBe(true);
+    // A user's request lets the host choose its channel: no channel hint.
     expect(Object.keys(request.payload.data).sort()).toEqual([
+      'attempt',
       'caseId',
+      'communicationRequest',
       'dueBy',
       'patientId',
       'purpose',
@@ -412,10 +429,98 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '')(title, () => 
     expect(resolved.body.status).toBe('resolved');
     expect(resolved.body.timeline.at(-1)?.actor).toEqual({ type: 'user', id: 'Dra. Médica Peña' });
     const again = await call<{ error: { code: string } }>(`/api/inbox/cases/${planCase}/actions`, {
-      body: { action: 'dismiss' },
+      body: { action: 'dismiss', reason: 'already_done' },
     });
     expect(again.status).toBe(409);
     expect(again.body.error.code).toBe('invalid_transition');
+  });
+
+  it('closes the loop: WhatsApp asked by a signed webhook, the host answers with a Communication', async () => {
+    const patientId = 'e2e-contact-01';
+    const at = runtime.clock.now().toISOString();
+    const order = await call<{ type: string }>('/fhir?sync=true', {
+      fhir: true,
+      body: {
+        resourceType: 'Bundle',
+        type: 'transaction',
+        entry: [
+          {
+            resource: { resourceType: 'Patient', id: patientId, name: [{ text: 'Paciente E2E' }] },
+            request: { method: 'PUT', url: `Patient/${patientId}` },
+          },
+          {
+            resource: {
+              resourceType: 'ServiceRequest',
+              id: 'e2e-contact-sr',
+              status: 'active',
+              intent: 'order',
+              category: [{ coding: [{ system: 'http://snomed.info/sct', code: '108252007' }] }],
+              code: { coding: [{ system: 'http://loinc.org', code: '4548-4' }] },
+              subject: { reference: `Patient/${patientId}` },
+              authoredOn: at,
+            },
+            request: { method: 'PUT', url: 'ServiceRequest/e2e-contact-sr' },
+          },
+        ],
+      },
+    });
+    expect(order.status).toBe(200);
+    // The case opens on day 15 (lab result pending); day 14 of the case is the WhatsApp.
+    await call('/api/demo/clock/advance', { body: { days: 29 } });
+    const asked = await eventually(async () => {
+      const webhooks = await call<{
+        items: {
+          type: string;
+          signatureValid: boolean;
+          payload: { data: Record<string, unknown> };
+        }[];
+      }>('/api/demo/webhooks?limit=200&type=patient_contact.requested');
+      return webhooks.body.items.find((item) => item.payload.data['patientId'] === patientId);
+    }, 'the WhatsApp contact request');
+    expect(asked.signatureValid).toBe(true);
+    expect(asked.payload.data).toMatchObject({ channel: 'whatsapp', attempt: 1 });
+    const caseId = String(asked.payload.data['caseId']);
+    const requestId = String(asked.payload.data['communicationRequest']).replace(
+      'CommunicationRequest/',
+      '',
+    );
+    const request = await call<{ status: string; medium: unknown[] }>(
+      `/fhir/CommunicationRequest/${requestId}`,
+    );
+    expect(request.body).toMatchObject({ status: 'active' });
+
+    // The host's answer, exactly as docs/integration.md shows it.
+    const answer = exampleCommunicationBundle()
+      .replaceAll(EXAMPLE_REQUEST_ID, requestId)
+      .replaceAll(PATIENT, patientId);
+    const accepted = await call<{ type: string }>('/fhir', { body: answer, fhir: true });
+    expect(accepted.status).toBe(202);
+    const resolved = await eventually(async () => {
+      const webhooks = await call<{
+        items: {
+          type: string;
+          signatureValid: boolean;
+          payload: { data: Record<string, unknown> };
+        }[];
+      }>('/api/demo/webhooks?limit=200&type=case.resolved');
+      return webhooks.body.items.find((item) => item.payload.data['caseId'] === caseId);
+    }, 'the case.resolved webhook after the Communication');
+    expect(resolved.signatureValid).toBe(true);
+    expect(resolved.payload.data['resolution']).toBe('handled_outside');
+    const detail = await call<CaseDetail>(`/api/inbox/cases/${caseId}`);
+    expect(detail.body.contactAttempts).toMatchObject([
+      { channel: 'whatsapp', status: 'answered', outcome: 'treated_elsewhere' },
+    ]);
+    const completed = await call<{ status: string }>(`/fhir/CommunicationRequest/${requestId}`);
+    expect(completed.body.status).toBe('completed');
+    // Another clinic cannot answer for this attempt.
+    const foreign = await call<{ resourceType: string }>('/fhir', {
+      body: answer,
+      fhir: true,
+      key: KEY_B,
+    });
+    expect(foreign.status).toBe(400);
+    expect(foreign.body.resourceType).toBe('OperationOutcome');
   });
 
   it('keeps clinics apart: clinic B sees nothing of clinic A', async () => {

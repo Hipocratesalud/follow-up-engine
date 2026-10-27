@@ -40,6 +40,12 @@ import { formatDate, formatDateTime, formatOverdue, formatRelative } from '../..
 import { STATUS_LABELS, actorLabel } from '../../lib/labels.ts';
 import { patientMeta } from '../inbox/case-row.tsx';
 import { CASE_CLOSED_NOTICE_ID, CASE_TITLE_ID, CaseActions } from './case-actions.tsx';
+import {
+  CallTask,
+  ContactFlagNotice,
+  ContactTimeline,
+  DismissalSummary,
+} from './contact-panel.tsx';
 import { FeedbackPanel } from './feedback-panel.tsx';
 
 const SOURCE_TYPE_LABELS: Record<string, string> = {
@@ -218,21 +224,26 @@ function ContactStatus({
   const { patientContact } = detail;
   const blocked = !patientContact.allowed || patientContact.optedOut;
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      {blocked ? (
-        <Badge tone="warning" icon={<MessageSquareOff className="size-3" aria-hidden="true" />}>
-          {patientContact.optedOut ? 'No acepta mensajes' : 'Contacto no permitido'}
-        </Badge>
-      ) : (
-        <Badge tone="success" icon={<MessageSquareText className="size-3" aria-hidden="true" />}>
-          Contacto permitido
-        </Badge>
-      )}
-      <span className="text-muted">
-        {patientContact.lastContactAt
-          ? `Último contacto ${formatRelative(patientContact.lastContactAt, now)}`
-          : 'Sin contactos registrados'}
-      </span>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {blocked ? (
+          <Badge tone="warning" icon={<MessageSquareOff className="size-3" aria-hidden="true" />}>
+            {patientContact.optedOut ? 'No acepta mensajes' : 'Contacto no permitido'}
+          </Badge>
+        ) : (
+          <Badge tone="success" icon={<MessageSquareText className="size-3" aria-hidden="true" />}>
+            Contacto permitido
+          </Badge>
+        )}
+        <span className="text-muted">
+          {patientContact.lastContactAt
+            ? `Último contacto ${formatRelative(patientContact.lastContactAt, now)}`
+            : 'Sin contactos registrados'}
+        </span>
+      </div>
+      {patientContact.contactFlag ? (
+        <ContactFlagNotice flag={patientContact.contactFlag} now={now} />
+      ) : null}
     </div>
   );
 }
@@ -357,6 +368,10 @@ function CaseDetailView({
         </Card>
       )}
 
+      {active && detail.callTask ? (
+        <CallTask caseId={detail.id} task={detail.callTask} patientName={detail.patient.name} />
+      ) : null}
+
       <section aria-labelledby="reasons-title" className="flex flex-col gap-3">
         <SectionTitle id="reasons-title" count={detail.reasons.length}>
           Motivos
@@ -390,10 +405,18 @@ function CaseDetailView({
         <EscalationSteps escalation={detail.escalation} active={active} />
       </Card>
 
-      <Card className="flex flex-col gap-3 p-5">
-        <h3 className="text-sm font-semibold text-fg">¿Te sirvió este caso?</h3>
-        <FeedbackPanel caseId={detail.id} feedback={detail.feedback} />
-      </Card>
+      <ContactTimeline attempts={detail.contactAttempts} now={now} />
+
+      {detail.status === 'dismissed' ? (
+        detail.dismissal ? (
+          <DismissalSummary dismissal={detail.dismissal} patientId={detail.patient.id} />
+        ) : null
+      ) : (
+        <Card className="flex flex-col gap-3 p-5">
+          <h3 className="text-sm font-semibold text-fg">¿Te sirvió este caso?</h3>
+          <FeedbackPanel caseId={detail.id} feedback={detail.feedback} />
+        </Card>
+      )}
 
       <Card className="flex flex-col gap-4 p-5" aria-labelledby="timeline-title">
         <SectionTitle id="timeline-title">Historial del caso</SectionTitle>

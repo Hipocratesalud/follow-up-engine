@@ -55,6 +55,8 @@ const CONTACT_DENIAL_MESSAGES: Record<PatientContactDenial, string> = {
   backfill_case:
     'Este caso viene de la revisión del historial: el equipo decide a quién contactar.',
   low_confidence: 'El caso se apoya en una condición sin confirmar: revísala antes de contactar.',
+  contact_data_invalid:
+    'El número del paciente está marcado como equivocado: corrígelo en el sistema del consultorio.',
 };
 
 /**
@@ -65,6 +67,10 @@ const DOMAIN_VALIDATION_MESSAGES: Readonly<Record<string, string>> = {
   until: 'Solo puedes posponer un caso hasta una fecha futura.',
   status: 'El caso ya no está activo: no admite esta acción.',
   reason: 'Indica el motivo cuando el caso no fue útil.',
+  note: 'Escribe una nota que explique el motivo.',
+  suppressRuleIds: 'Solo puedes dejar de recordar un caso que no aplica a este paciente.',
+  ruleId: 'Ese recordatorio no existe en el consultorio.',
+  subject: 'La respuesta corresponde a otro paciente.',
   userId: 'Falta identificar a la persona del equipo que hace la revisión.',
 };
 

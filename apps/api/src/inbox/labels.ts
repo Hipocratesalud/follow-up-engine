@@ -1,7 +1,12 @@
 import type {
+  CallOutcome,
   CaseEvent,
   CaseResolutionKind,
   CaseStatus,
+  ContactChannel,
+  ContactOutcome,
+  ContactSkipReason,
+  DismissReason,
   EscalationAction,
   ExpectationLayer,
   JsonValue,
@@ -69,6 +74,75 @@ export function planItemLabel(
   const name = testName(code);
   return name === undefined ? 'Examen indicado en el plan' : `Examen indicado en el plan: ${name}`;
 }
+
+/** How the patient is contacted; an attempt without a channel goes by the clinic's own system. */
+export const CHANNEL_LABELS: Record<ContactChannel, string> = {
+  whatsapp: 'WhatsApp',
+  phone_call: 'Llamada',
+  sms: 'SMS',
+  email: 'Correo',
+};
+export const HOST_CHANNEL_LABEL = 'Canal de la clínica';
+
+export function channelLabel(channel: ContactChannel | undefined): string {
+  return channel === undefined ? HOST_CHANNEL_LABEL : CHANNEL_LABELS[channel];
+}
+
+/** What came of an attempt. */
+export const OUTCOME_LABELS: Record<ContactOutcome, string> = {
+  delivered: 'Entregado',
+  read: 'Leído',
+  replied: 'Respondió',
+  booked: 'Agendó cita',
+  declined: 'No quiere seguimiento',
+  treated_elsewhere: 'Se atiende en otro lugar',
+  wrong_number: 'Número equivocado',
+  no_answer: 'No contestó',
+};
+
+/** The call outcomes the team records, as the buttons read, in display order. */
+export const CALL_OUTCOME_LABELS: Record<CallOutcome, string> = {
+  booked: 'Contestó y agendó',
+  treated_elsewhere: 'Contestó, se atiende en otro lado',
+  no_answer: 'No contestó',
+  wrong_number: 'Número equivocado',
+  declined: 'No quiere seguimiento',
+};
+
+/** Where an attempt stands. */
+export const ATTEMPT_STATUS_LABELS = {
+  waiting: 'Esperando respuesta',
+  answered: 'Respondió',
+  unreached: 'No se pudo contactar',
+  unanswered: 'Sin respuesta',
+  pending_call: 'Llamada pendiente',
+  closed: 'Cerrado sin respuesta',
+} as const;
+export type AttemptStatus = keyof typeof ATTEMPT_STATUS_LABELS;
+
+/** Why the team dismissed a case. */
+export const DISMISS_REASON_LABELS: Record<DismissReason, string> = {
+  handled_elsewhere: 'Se atendió en otro lugar',
+  already_done: 'Ya se hizo',
+  not_applicable_to_patient: 'No aplica a este paciente',
+  wrong_diagnosis: 'El diagnóstico no es correcto',
+  wrong_interval: 'El plazo no es el adecuado',
+  other: 'Otro motivo',
+};
+
+export const CONTACT_FLAG_LABEL = 'Número equivocado';
+
+/** Why an escalation step did not contact the patient, for the case timeline. */
+const CONTACT_SKIP_LABELS: Record<ContactSkipReason, string> = {
+  clinic_disallows_contact: 'el consultorio no tiene activado el contacto con pacientes',
+  patient_opted_out: 'el paciente pidió no recibir mensajes',
+  backfill_case: 'el caso viene de la revisión del historial',
+  low_confidence: 'el caso se apoya en una condición sin confirmar',
+  contact_data_invalid: 'el número del paciente está marcado como equivocado',
+  contact_window: 'ya se le escribió hace pocos días',
+  patient_answered: 'el paciente ya respondió',
+  already_requested: 'la llamada ya estaba pedida',
+};
 
 const RESOLUTION_LABELS: Record<CaseResolutionKind, string> = {
   fulfilled: 'Resuelto: se cumplió lo pendiente',
@@ -216,8 +290,29 @@ export function timelineLabel(
     }
     case 'escalated':
       return ESCALATION_ACTION_LABELS[text(payload['action']) ?? ''] ?? 'Escalado';
-    case 'patient_contact_requested':
-      return 'Se pidió al sistema del consultorio contactar al paciente';
+    case 'patient_contact_requested': {
+      const channel = text(payload['channel']) as ContactChannel | undefined;
+      if (channel === 'phone_call') {
+        return text(payload['trigger']) === 'wrong_number'
+          ? 'Llamada pedida al equipo: el mensaje llegó a un número equivocado'
+          : 'Llamada pedida al equipo: llamar al paciente';
+      }
+      return channel === undefined
+        ? 'Se pidió al sistema del consultorio contactar al paciente'
+        : `Se pidió al sistema del consultorio escribir al paciente por ${CHANNEL_LABELS[channel]}`;
+    }
+    case 'contact_attempt_skipped': {
+      const why = CONTACT_SKIP_LABELS[text(payload['reason']) as ContactSkipReason] as
+        string | undefined;
+      return why === undefined ? 'Contacto omitido' : `Contacto omitido: ${why}`;
+    }
+    case 'contact_outcome_recorded': {
+      const outcome = OUTCOME_LABELS[text(payload['outcome']) as ContactOutcome] as
+        string | undefined;
+      const channel = text(payload['channel']) as ContactChannel | undefined;
+      const via = channel === undefined ? '' : ` (${CHANNEL_LABELS[channel]})`;
+      return `Respuesta del contacto${via}: ${outcome ?? 'registrada'}`;
+    }
     case 'resolved': {
       const kind = text(payload['kind']) as CaseResolutionKind | undefined;
       const label = kind === undefined ? 'Resuelto' : RESOLUTION_LABELS[kind];
@@ -232,8 +327,13 @@ export function timelineLabel(
       ];
       return why.length === 0 ? label : `${label} (${why.join('; ').toLowerCase()})`;
     }
-    case 'dismissed':
-      return 'Descartado por el equipo';
+    case 'dismissed': {
+      const reasonLabel = DISMISS_REASON_LABELS[text(payload['reason']) as DismissReason] as
+        string | undefined;
+      return reasonLabel === undefined
+        ? 'Descartado por el equipo'
+        : `Descartado por el equipo: ${reasonLabel.toLowerCase()}`;
+    }
     case 'reopened':
       return 'Volvió a la bandeja al terminar el plazo pospuesto';
     case 'lost_to_follow_up':

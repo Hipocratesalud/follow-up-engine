@@ -1,8 +1,15 @@
 import {
+  CALL_OUTCOMES,
   type CaseEvent,
   type Catalog,
   type ClinicId,
   conditionId,
+  type ContactCommunication,
+  type ContactRequest,
+  type PatientContactFlag,
+  type RuleSuppression,
+  summarizeAttempt,
+  UNREACHED_OUTCOMES,
   type EscalationPolicy,
   type Expectation,
   type FhirResourceJson,
@@ -19,20 +26,32 @@ import {
 import { taskPriority } from '@follow-up-engine/fhir';
 import type { EngineRuntime } from '@follow-up-engine/runtime';
 import type {
+  CallTaskView,
   CaseDetail,
   CaseReasonView,
   CaseTimelineEntry,
   CaseView,
   ConditionView,
+  ContactAttemptView,
+  ContactFlagView,
+  DismissalView,
   EscalationView,
   PatientContact,
   PatientDetail,
   PatientExpectationView,
+  SuppressionView,
 } from '../http/schemas.ts';
 import { excerptAround, humanName, patientSummary, sourceDisplay } from './fhir-display.ts';
 import {
+  ATTEMPT_STATUS_LABELS,
+  type AttemptStatus,
+  CALL_OUTCOME_LABELS,
+  channelLabel,
   closedReasonLabel,
+  CONTACT_FLAG_LABEL,
   COORDINATOR_LABEL,
+  DISMISS_REASON_LABELS,
+  OUTCOME_LABELS,
   DEFAULT_SUGGESTED_ACTION,
   ESCALATION_STEP_LABELS,
   eventNote,
@@ -113,14 +132,36 @@ function memo<TKey, TValue>(load: (key: TKey) => Promise<TValue>): (key: TKey) =
   };
 }
 
-function contactView(status: PatientContactStatus): PatientContact {
+function flagView(flag: PatientContactFlag): ContactFlagView {
+  return {
+    issue: flag.issue,
+    label: CONTACT_FLAG_LABEL,
+    raisedAt: flag.raisedAt.toISOString(),
+    ...(flag.channel === undefined ? {} : { channel: flag.channel }),
+  };
+}
+
+function contactView(
+  status: PatientContactStatus,
+  flags: readonly PatientContactFlag[] = [],
+): PatientContact {
+  const standing = flags.find((flag) => flag.clearedAt === undefined);
   return {
     allowed: status.allowed,
     optedOut: status.optedOut,
     ...(status.lastContactAt === undefined
       ? {}
       : { lastContactAt: status.lastContactAt.toISOString() }),
+    contactDataInvalid: status.contactDataInvalid,
+    ...(standing === undefined ? {} : { contactFlag: flagView(standing) }),
   };
+}
+
+/** A patient's contact attempts, their reports and contact data flags. */
+interface PatientContacts {
+  readonly requests: readonly ContactRequest[];
+  readonly communications: readonly ContactCommunication[];
+  readonly flags: readonly PatientContactFlag[];
 }
 
 export function conditionView(condition: PatientCondition): ConditionView {
@@ -259,6 +300,7 @@ export class InboxPresenter {
   readonly resource: (key: string) => Promise<FhirResourceJson | undefined>;
   readonly #notes: (patientId: PatientId) => Promise<readonly NoteReceivedEvent[]>;
   readonly #contact: (patientId: PatientId) => Promise<PatientContactStatus>;
+  readonly #contacts: (patientId: PatientId) => Promise<PatientContacts>;
 
   private constructor(
     runtime: EngineRuntime,
@@ -286,6 +328,9 @@ export class InboxPresenter {
     );
     this.#contact = memo((patientId: PatientId) =>
       runtime.engine.patientContactStatus(clinicId, patientId),
+    );
+    this.#contacts = memo((patientId: PatientId) =>
+      runtime.engine.contacts.forPatient(clinicId, patientId),
     );
   }
 
@@ -359,9 +404,10 @@ export class InboxPresenter {
   async caseView(followUpCase: FollowUpCase, withExcerpts = false): Promise<CaseView> {
     await this.prefetch([followUpCase]);
     const expectations = this.expectationsOf(followUpCase);
-    const [patientResource, contact, assignee, reasons] = await Promise.all([
+    const [patientResource, contact, contacts, assignee, reasons] = await Promise.all([
       this.resource(`Patient/${followUpCase.patientId}`),
       this.#contact(followUpCase.patientId),
+      this.#contacts(followUpCase.patientId),
       this.personName(followUpCase.assignee),
       Promise.all(expectations.map((item) => this.reasonView(item, withExcerpts))),
     ]);
@@ -395,7 +441,7 @@ export class InboxPresenter {
         : { snoozedUntil: followUpCase.snoozedUntil.toISOString() }),
       reasons,
       suggestedAction: this.#suggestedAction(expectations),
-      patientContact: contactView(contact),
+      patientContact: contactView(contact, contacts.flags),
     };
   }
 
@@ -412,12 +458,18 @@ export class InboxPresenter {
         const expectation = this.#expectations.get(reason.expectationId);
         return expectation === undefined ? [] : [expectation];
       }),
+      followUpCase,
     );
     const passed = followUpCase.escalationStep;
     const ran = new Map<number, Date>();
     for (const event of events ?? []) {
       const step = event.payload['step'];
-      if (event.actor.type === 'system' && typeof step === 'number' && !ran.has(step)) {
+      if (
+        event.actor.type === 'system' &&
+        event.type !== 'contact_attempt_skipped' &&
+        typeof step === 'number' &&
+        !ran.has(step)
+      ) {
         ran.set(step, event.at);
       }
     }
@@ -458,10 +510,11 @@ export class InboxPresenter {
 
   async caseDetail(followUpCase: FollowUpCase): Promise<CaseDetail> {
     const { stores } = this.#runtime.storage;
-    const [view, events, feedback] = await Promise.all([
+    const [view, events, feedback, contacts] = await Promise.all([
       this.caseView(followUpCase, true),
       stores.audit.listForCase(this.#clinicId, followUpCase.id),
       stores.feedback.listForCase(this.#clinicId, followUpCase.id),
+      this.#contacts(followUpCase.patientId),
     ]);
     const names = new Map<string, string>();
     for (const event of events) {
@@ -494,10 +547,22 @@ export class InboxPresenter {
       };
     });
     const latest = feedback.at(-1);
+    // Attempt order: two attempts can share an instant (a wrong number brings the call forward).
+    const requests = contacts.requests
+      .filter((request) => request.caseId === followUpCase.id)
+      .sort((left, right) => left.attempt - right.attempt);
+    const contactAttempts = await Promise.all(
+      requests.map((request) => this.#attemptView(followUpCase, request, contacts.communications)),
+    );
+    const callTask = this.#callTask(followUpCase, requests, contactAttempts);
+    const dismissal = await this.#dismissal(followUpCase);
     return {
       ...view,
       escalation: this.escalationView(followUpCase, events),
       timeline,
+      contactAttempts,
+      ...(callTask === undefined ? {} : { callTask }),
+      ...(dismissal === undefined ? {} : { dismissal }),
       ...(latest === undefined
         ? {}
         : {
@@ -507,6 +572,155 @@ export class InboxPresenter {
               ...(latest.comment === undefined ? {} : { comment: latest.comment }),
             },
           }),
+    };
+  }
+
+  /** A host user (or practitioner) by id: the practitioner's name when the host sent it, else the id. */
+  async userName(id: string): Promise<string> {
+    const role = ROLE_LABELS[id];
+    if (role !== undefined) {
+      return role;
+    }
+    const practitioner = await this.resource(`Practitioner/${practitionerId(id)}`);
+    return humanName(practitioner) ?? id;
+  }
+
+  /**
+   * One contact attempt as the case detail shows it: the channel, its
+   * deadline, where it stands and every report on it.
+   */
+  async #attemptView(
+    followUpCase: FollowUpCase,
+    request: ContactRequest,
+    communications: readonly ContactCommunication[],
+  ): Promise<ContactAttemptView> {
+    const summary = summarizeAttempt(request, communications);
+    const active = isActiveCaseStatus(followUpCase.status);
+    const status: AttemptStatus = summary.answered
+      ? 'answered'
+      : summary.outcome !== undefined && UNREACHED_OUTCOMES.has(summary.outcome)
+        ? 'unreached'
+        : !active
+          ? 'closed'
+          : request.channel === 'phone_call'
+            ? 'pending_call'
+            : request.dueBy.getTime() <= this.now.getTime()
+              ? 'unanswered'
+              : 'waiting';
+    const reports = await Promise.all(
+      summary.communications.map(async (communication) => ({
+        id: communication.id,
+        at: communication.recordedAt.toISOString(),
+        status: communication.status,
+        ...(communication.outcome === undefined
+          ? {}
+          : {
+              outcome: communication.outcome,
+              outcomeLabel: OUTCOME_LABELS[communication.outcome],
+            }),
+        sender: communication.sender.type,
+        ...(communication.sender.id === undefined
+          ? {}
+          : { senderName: await this.userName(communication.sender.id) }),
+      })),
+    );
+    return {
+      id: request.id,
+      attempt: request.attempt,
+      ...(request.channel === undefined ? {} : { channel: request.channel }),
+      channelLabel: channelLabel(request.channel),
+      trigger: request.trigger,
+      requestedAt: request.requestedAt.toISOString(),
+      dueBy: request.dueBy.toISOString(),
+      ...(request.requestedBy === undefined
+        ? {}
+        : { requestedBy: await this.userName(request.requestedBy) }),
+      status,
+      statusLabel: ATTEMPT_STATUS_LABELS[status],
+      ...(summary.outcome === undefined
+        ? {}
+        : { outcome: summary.outcome, outcomeLabel: OUTCOME_LABELS[summary.outcome] }),
+      ...(summary.outcomeAt === undefined ? {} : { outcomeAt: summary.outcomeAt.toISOString() }),
+      communications: reports,
+    };
+  }
+
+  /** The call the team has to make now: the case's latest call nobody recorded yet. */
+  #callTask(
+    followUpCase: FollowUpCase,
+    requests: readonly ContactRequest[],
+    attempts: readonly ContactAttemptView[],
+  ): CallTaskView | undefined {
+    if (!isActiveCaseStatus(followUpCase.status)) {
+      return undefined;
+    }
+    const pending = attempts.filter((attempt) => attempt.status === 'pending_call').at(-1);
+    const request = requests.find((candidate) => candidate.id === pending?.id);
+    if (pending === undefined || request === undefined) {
+      return undefined;
+    }
+    return {
+      requestId: request.id,
+      dueBy: request.dueBy.toISOString(),
+      overdue: request.dueBy.getTime() < this.now.getTime(),
+      trigger: request.trigger,
+      outcomes: CALL_OUTCOMES.map((outcome) => ({ outcome, label: CALL_OUTCOME_LABELS[outcome] })),
+    };
+  }
+
+  async suppressionView(suppression: RuleSuppression): Promise<SuppressionView> {
+    const definition = this.#catalog.definition(suppression.ruleId);
+    return {
+      id: suppression.id,
+      ruleId: suppression.ruleId,
+      label: definition?.reason.label ?? suppression.reason.label,
+      dismissReason: suppression.dismissReason,
+      dismissReasonLabel: DISMISS_REASON_LABELS[suppression.dismissReason],
+      ...(suppression.note === undefined ? {} : { note: suppression.note }),
+      ...(suppression.caseId === undefined ? {} : { caseId: suppression.caseId }),
+      createdAt: suppression.createdAt.toISOString(),
+      ...(suppression.createdBy === undefined
+        ? {}
+        : { createdBy: await this.userName(suppression.createdBy) }),
+      active: suppression.revokedAt === undefined,
+      ...(suppression.revokedAt === undefined
+        ? {}
+        : { revokedAt: suppression.revokedAt.toISOString() }),
+      ...(suppression.revokedBy === undefined
+        ? {}
+        : { revokedBy: await this.userName(suppression.revokedBy) }),
+    };
+  }
+
+  async #suppressions(patientId: PatientId): Promise<RuleSuppression[]> {
+    const all = await this.#runtime.engine.suppressions.list(this.#clinicId, patientId);
+    // Active first, each group newest first (the store's order).
+    return [
+      ...all.filter((suppression) => suppression.revokedAt === undefined),
+      ...all.filter((suppression) => suppression.revokedAt !== undefined),
+    ];
+  }
+
+  /** Why the team dismissed the case, with the rules it stopped for the patient. */
+  async #dismissal(followUpCase: FollowUpCase): Promise<DismissalView | undefined> {
+    const resolution = followUpCase.resolution;
+    if (followUpCase.status !== 'dismissed' || resolution?.dismissReason === undefined) {
+      return undefined;
+    }
+    const suppressions = (await this.#suppressions(followUpCase.patientId)).filter(
+      (suppression) => suppression.caseId === followUpCase.id,
+    );
+    return {
+      reason: resolution.dismissReason,
+      reasonLabel: DISMISS_REASON_LABELS[resolution.dismissReason],
+      ...(resolution.note === undefined ? {} : { note: resolution.note }),
+      ...(resolution.resolvedBy === undefined
+        ? {}
+        : { by: await this.userName(resolution.resolvedBy) }),
+      at: resolution.resolvedAt.toISOString(),
+      suppressions: await Promise.all(
+        suppressions.map((suppression) => this.suppressionView(suppression)),
+      ),
     };
   }
 
@@ -596,13 +810,16 @@ export class InboxPresenter {
   /** `undefined` when the clinic has nothing at all for this patient. */
   async patientDetail(patientId: PatientId): Promise<PatientDetail | undefined> {
     const { stores } = this.#runtime.storage;
-    const [resource, conditions, ascending, findings, contact] = await Promise.all([
-      this.resource(`Patient/${patientId}`),
-      stores.conditions.listByPatient(this.#clinicId, patientId),
-      stores.expectations.listByPatient(this.#clinicId, patientId),
-      stores.qualityFindings.listByPatient(this.#clinicId, patientId),
-      this.#contact(patientId),
-    ]);
+    const [resource, conditions, ascending, findings, contact, contacts, suppressions] =
+      await Promise.all([
+        this.resource(`Patient/${patientId}`),
+        stores.conditions.listByPatient(this.#clinicId, patientId),
+        stores.expectations.listByPatient(this.#clinicId, patientId),
+        stores.qualityFindings.listByPatient(this.#clinicId, patientId),
+        this.#contact(patientId),
+        this.#contacts(patientId),
+        this.#suppressions(patientId),
+      ]);
     // Newest deadline first.
     const expectations = [...ascending].reverse();
     if (resource === undefined && expectations.length === 0 && conditions.length === 0) {
@@ -612,7 +829,7 @@ export class InboxPresenter {
       }
     }
     const summary = patientSummary(patientId, resource, this.now);
-    const contactInfo = contactView(contact);
+    const contactInfo = contactView(contact, contacts.flags);
     return {
       patient: { ...summary, contact: contactInfo },
       contact: contactInfo,
@@ -628,6 +845,9 @@ export class InboxPresenter {
         at: finding.detectedAt.toISOString(),
         label: QUALITY_FINDING_LABELS[finding.kind],
       })),
+      suppressions: await Promise.all(
+        suppressions.map((suppression) => this.suppressionView(suppression)),
+      ),
     };
   }
 }

@@ -1,6 +1,13 @@
-import { BellRing, CheckCircle2, Clock, Lock, ShieldAlert, XCircle } from 'lucide-react';
+import { BellRing, CheckCircle2, Clock, Info, Lock, ShieldAlert, XCircle } from 'lucide-react';
 import { type ChangeEvent, type MouseEvent, type ReactNode, useId, useRef, useState } from 'react';
-import type { CaseAction, CaseActionRequest, CaseDetail } from '../../api/contract.ts';
+import { Link } from 'react-router';
+import {
+  type CaseAction,
+  type CaseActionRequest,
+  type CaseDetail,
+  DISMISS_REASONS,
+  type DismissReason,
+} from '../../api/contract.ts';
 import { useCaseAction, useNow, useRefreshAfterConflict } from '../../api/queries.ts';
 import { Dialog } from '../../components/dialog.tsx';
 import { fieldError, InlineError } from '../../components/states.tsx';
@@ -8,6 +15,7 @@ import { Button, Field, INPUT_CLASS } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
 import { formatLimit, INPUT_LIMITS } from '../../lib/limits.ts';
 import { firstName, formatDate } from '../../lib/format.ts';
+import { DISMISS_REASON_LABELS } from '../../lib/labels.ts';
 
 const SNOOZE_PRESETS = [3, 7, 14, 30] as const;
 const MAX_SNOOZE_DAYS = 90;
@@ -26,6 +34,16 @@ const DIALOG_COPY: Record<CaseAction, { title: string; confirm: string; done: st
   snooze: { title: 'Posponer el caso', confirm: 'Posponer', done: 'Caso pospuesto.' },
   resolve: { title: 'Resolver el caso', confirm: 'Resolver caso', done: 'Caso resuelto.' },
   dismiss: { title: 'Descartar el caso', confirm: 'Descartar caso', done: 'Caso descartado.' },
+};
+
+/** What each dismissal reason does, under its option. */
+const DISMISS_REASON_HINTS: Record<DismissReason, string> = {
+  handled_elsewhere: 'El paciente ya lo resolvió en otro centro.',
+  already_done: 'Ocurrió, pero el sistema del consultorio no lo registró.',
+  not_applicable_to_patient: 'Por su situación, este recordatorio no corresponde a este paciente.',
+  wrong_diagnosis: 'El caso se apoya en un diagnóstico que el paciente no tiene.',
+  wrong_interval: 'Se pidió antes de tiempo o con un plazo que no corresponde.',
+  other: 'Cuéntanos en la nota por qué lo descartas.',
 };
 
 const ACTIONS: readonly CaseAction[] = ['notify', 'snooze', 'resolve', 'dismiss'];
@@ -50,6 +68,9 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
   const [customDays, setCustomDays] = useState('');
   const [validationError, setValidationError] = useState<string>();
   const [noteError, setNoteError] = useState<string>();
+  const [dismissReason, setDismissReason] = useState<DismissReason>();
+  const [reasonError, setReasonError] = useState<string>();
+  const [suppress, setSuppress] = useState(false);
   const [doneMessage, setDoneMessage] = useState<string>();
   const trigger = useRef<HTMLButtonElement | null>(null);
 
@@ -62,6 +83,9 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
     setSnoozeDays(7);
     setValidationError(undefined);
     setNoteError(undefined);
+    setDismissReason(undefined);
+    setReasonError(undefined);
+    setSuppress(false);
     mutation.reset();
   }
 
@@ -100,6 +124,21 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
     if (fieldError(mutation.error, 'note')) mutation.reset();
   }
 
+  function handleReasonChange(event: ChangeEvent<HTMLInputElement>): void {
+    const next = DISMISS_REASONS.find((reason) => reason === event.target.value);
+    setDismissReason(next);
+    setReasonError(undefined);
+    if (next !== 'other') setNoteError(undefined);
+    if (next !== 'not_applicable_to_patient') setSuppress(false);
+    if (fieldError(mutation.error, 'reason') || fieldError(mutation.error, 'suppress')) {
+      mutation.reset();
+    }
+  }
+
+  function handleSuppressChange(event: ChangeEvent<HTMLInputElement>): void {
+    setSuppress(event.target.checked);
+  }
+
   function handlePresetClick(event: MouseEvent<HTMLButtonElement>): void {
     setSnoozeDays(Number(event.currentTarget.value));
     setCustomDays('');
@@ -120,6 +159,16 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
       return;
     }
     const request: CaseActionRequest = { action, ...(note.trim() ? { note: note.trim() } : {}) };
+    if (action === 'dismiss') {
+      // Validated on click, never by disabling the button: every missing input gets its message.
+      const missingReason = dismissReason === undefined;
+      const missingNote = dismissReason === 'other' && !note.trim();
+      if (missingReason) setReasonError('Elige por qué descartas el caso.');
+      if (missingNote) setNoteError('Cuéntanos el motivo en la nota.');
+      if (missingReason || missingNote) return;
+      request.reason = dismissReason;
+      if (dismissReason === 'not_applicable_to_patient' && suppress) request.suppress = true;
+    }
     if (action === 'snooze') {
       if (
         !Number.isInteger(effectiveSnoozeDays) ||
@@ -145,6 +194,9 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
   const snoozeUntil = new Date(now.getTime() + (effectiveSnoozeDays || 0) * DAY_MS).toISOString();
   const noteMessage = noteError ?? fieldError(mutation.error, 'note');
   const daysMessage = validationError ?? fieldError(mutation.error, 'snoozeDays');
+  const reasonMessage =
+    reasonError ?? fieldError(mutation.error, 'reason') ?? fieldError(mutation.error, 'suppress');
+  const noteRequired = action === 'dismiss' && dismissReason === 'other';
 
   return (
     <div className="flex flex-col gap-3">
@@ -281,15 +333,88 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
         ) : null}
 
         {action === 'dismiss' ? (
-          <p className="text-sm text-muted">
-            Descarta el caso si no corresponde hacer seguimiento. Si la regla se equivocó, cuéntanos
-            en «¿Te sirvió este caso?» para mejorarla.
-          </p>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted">
+              Descarta el caso si no corresponde hacer seguimiento. El motivo también queda como tu
+              opinión sobre el caso: así ajustamos la regla.
+            </p>
+            <fieldset
+              className="flex flex-col gap-2"
+              aria-describedby={reasonMessage ? `${ids}-reason-error` : undefined}
+            >
+              <legend className="mb-1 text-sm font-medium text-fg">¿Por qué lo descartas?</legend>
+              {DISMISS_REASONS.map((reason) => (
+                <label
+                  key={reason}
+                  className={cx(
+                    'flex cursor-pointer gap-2.5 rounded-lg border px-3 py-2 transition-colors',
+                    dismissReason === reason
+                      ? 'border-primary bg-primary-soft'
+                      : 'border-border-strong hover:bg-surface-2',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name={`${ids}-reason`}
+                    value={reason}
+                    checked={dismissReason === reason}
+                    onChange={handleReasonChange}
+                    className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-fg">
+                      {DISMISS_REASON_LABELS[reason]}
+                    </span>
+                    <span className="block text-xs text-muted">{DISMISS_REASON_HINTS[reason]}</span>
+                  </span>
+                </label>
+              ))}
+              {reasonMessage ? (
+                <p id={`${ids}-reason-error`} role="alert" className="text-sm text-danger">
+                  {reasonMessage}
+                </p>
+              ) : null}
+            </fieldset>
+            {dismissReason === 'not_applicable_to_patient' ? (
+              <label className="flex cursor-pointer gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={suppress}
+                  onChange={handleSuppressChange}
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-fg">
+                    Dejar de recordarlo para este paciente
+                  </span>
+                  <span className="block text-xs text-muted">
+                    El motor no volverá a abrir este recordatorio para {detail.patient.name}; los
+                    demás pacientes no cambian. Puedes volver a activarlo desde su ficha.
+                  </span>
+                </span>
+              </label>
+            ) : null}
+            {dismissReason === 'wrong_diagnosis' ? (
+              <p className="flex gap-2 rounded-lg bg-info-soft px-3 py-2.5 text-sm text-fg">
+                <Info className="mt-0.5 size-4 shrink-0 text-info" aria-hidden="true" />
+                <span>
+                  Si el diagnóstico no corresponde, recházalo en la{' '}
+                  <Link
+                    to={`/pacientes/${detail.patient.id}`}
+                    className="font-medium text-primary underline underline-offset-2"
+                  >
+                    ficha del paciente
+                  </Link>
+                  : así se cancelan todos los recordatorios que dependen de él.
+                </span>
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         {action && showConfirm ? (
           <Field
-            label="Nota interna (opcional)"
+            label={noteRequired ? 'Nota interna' : 'Nota interna (opcional)'}
             htmlFor={`${ids}-note`}
             error={noteMessage}
             hint={`Solo la ve el equipo. Hasta ${formatLimit(INPUT_LIMITS.note)} caracteres.`}
@@ -312,7 +437,10 @@ export function CaseActions({ detail }: { readonly detail: CaseDetail }): ReactN
           </Field>
         ) : null}
 
-        <InlineError error={mutation.error} inlineFields={['note', 'snoozeDays']} />
+        <InlineError
+          error={mutation.error}
+          inlineFields={['note', 'snoozeDays', 'reason', 'suppress']}
+        />
       </Dialog>
     </div>
   );

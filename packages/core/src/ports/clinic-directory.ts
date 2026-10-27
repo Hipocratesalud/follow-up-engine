@@ -10,6 +10,13 @@ export interface ClinicSettings {
   readonly llmMonthlyBudgetUsd: number;
   /** IANA time zone. */
   readonly timezone: string;
+  /**
+   * The clinic's escalation policy (a named, versioned policy such as
+   * `default_v2`): replaces the named policy every rule and protocol
+   * references. Absent: each rule's own (`default_v1`). Cases keep the
+   * policy they opened with.
+   */
+  readonly escalationPolicyId?: string;
 }
 
 /** A tenant of the engine. */

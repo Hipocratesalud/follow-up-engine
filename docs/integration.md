@@ -15,13 +15,17 @@ How a host EHR (Hipócrates first, any FHIR-capable EHR later) plugs into the Fo
                                        ◀─── webhook case.opened
                                             escalation: notify, raise priority,
                                        ◀─── webhook patient_contact.requested
+                                                    (a CommunicationRequest: WhatsApp)
  host sends WhatsApp (its channel)
+ patient answers (or not)
+   └─ POST /fhir (Communication) ──────▶   outcome on the attempt: wait for the visit,
+                                            resolve, call next, or try again
  result / appointment arrives
    └─ POST /fhir (Bundle) ─────────────▶   fulfills the expectation, resolves the case
                                        ◀─── webhook case.resolved
 ```
 
-The engine never contacts patients. It asks the host to, with ids and a generic purpose only; the host owns the message and the channel.
+The engine never contacts patients. It asks the host to, with ids and a generic purpose only; the host owns the message and the channel, and tells the engine what came of it ([Closing the loop](#4-closing-the-loop)).
 
 ## 1. Authentication
 
@@ -50,13 +54,13 @@ DATABASE_URL=... pnpm --filter @follow-up-engine/api clinic:create \
 
 Each key carries the least it needs:
 
-| Scope         | Allows                                                                                                                 | Who holds it                      |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `fhir:write`  | Everything under `/fhir` (ingest, read `Task`, `Condition`, `DetectedIssue`) and `/jobs`.                              | The host integration (server)     |
-| `inbox:read`  | `GET /api/inbox/*` (and reading the demo clock).                                                                       | The inbox                         |
-| `inbox:act`   | `POST /api/inbox/*`: case actions, feedback, condition review.                                                         | The inbox                         |
-| `demo:clock`  | `POST /api/demo/clock/advance` (the fake clock is shared by every clinic of the process) and `GET /api/demo/webhooks`. | The demo operator; never a clinic |
-| `demo:ingest` | `POST /api/demo/consultations`: synthetic consultations, only into the demo clinic `clinic-demo`.                      | The demo operator; never a clinic |
+| Scope         | Allows                                                                                                                                     | Who holds it                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| `fhir:write`  | Everything under `/fhir` (ingest, read `Task`, `Condition`, `DetectedIssue`, `CommunicationRequest`, `Communication`, `Flag`) and `/jobs`. | The host integration (server)     |
+| `inbox:read`  | `GET /api/inbox/*` (and reading the demo clock).                                                                                           | The inbox                         |
+| `inbox:act`   | `POST /api/inbox/*`: case actions, feedback, condition review.                                                                             | The inbox                         |
+| `demo:clock`  | `POST /api/demo/clock/advance` (the fake clock is shared by every clinic of the process) and `GET /api/demo/webhooks`.                     | The demo operator; never a clinic |
+| `demo:ingest` | `POST /api/demo/consultations`: synthetic consultations, only into the demo clinic `clinic-demo`.                                          | The demo operator; never a clinic |
 
 `demo:*` scopes only exist on a fake clock (`CLOCK=fake`): on a real clock they are dropped and the demo routes do not exist. The CLI refuses them for any clinic but `clinic-demo` unless `--allow-demo` is passed.
 
@@ -78,18 +82,19 @@ Errors of the JSON API (`/api/*`) are `{ "error": { "code", "message" } }`, with
 
 ### Mapping the host's records
 
-| Host record (Hipócrates)                 | FHIR resource                          | Notes                                                                                                                                        |
-| ---------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Paciente                                 | `Patient`                              | Send it with the patient's first consultation, and again when demographics change. `id` = the host's patient id.                             |
-| Consulta (finalizada)                    | `Encounter` `status: finished`         | `serviceType` = specialty code (`diabetology`, `psychology`, ...), `participant` = the treating `Practitioner`, `period` = when it happened. |
-| Nota de la consulta (evolución, informe) | `DocumentReference` (or `Composition`) | Note text in `content[0].attachment.data` (base64, `text/plain; charset=utf-8`), `context.encounter` = the consultation.                     |
-| Orden de laboratorio / imagen            | `ServiceRequest` `status: active`      | LOINC `code`, SNOMED `category` (`108252007` laboratory, `363679005` imaging), `encounter`.                                                  |
-| Receta                                   | `MedicationRequest` `status: active`   | `medicationCodeableConcept` (ATC/RxNorm when available, text always), `dispenseRequest.expectedSupplyDuration` for short treatments.         |
-| Diagnóstico                              | `Condition`                            | ICD-10 coding; `verificationStatus: provisional` for presumptive diagnoses.                                                                  |
-| Médico                                   | `Practitioner`                         | Optional, once: lets the inbox show the owner's name instead of an id.                                                                       |
-| Cita agendada / cancelada                | `Appointment` `booked` / `cancelled`   | Separate Bundle when it happens; a booked visit fulfills visit expectations.                                                                 |
-| Resultado de laboratorio / imagen        | `DiagnosticReport` + `Observation`s    | `basedOn` the `ServiceRequest` when known; `interpretation` `H`/`L`/`N`.                                                                     |
-| Paciente no quiere seguimiento           | `Consent` (deny, `follow-up-opt-out`)  | Stops patient contact requests only: open expectations and cases stay, and escalation goes to the coordinator instead of the patient.        |
+| Host record (Hipócrates)                 | FHIR resource                          | Notes                                                                                                                                                   |
+| ---------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Paciente                                 | `Patient`                              | Send it with the patient's first consultation, and again when demographics change. `id` = the host's patient id.                                        |
+| Consulta (finalizada)                    | `Encounter` `status: finished`         | `serviceType` = specialty code (`diabetology`, `psychology`, ...), `participant` = the treating `Practitioner`, `period` = when it happened.            |
+| Nota de la consulta (evolución, informe) | `DocumentReference` (or `Composition`) | Note text in `content[0].attachment.data` (base64, `text/plain; charset=utf-8`), `context.encounter` = the consultation.                                |
+| Orden de laboratorio / imagen            | `ServiceRequest` `status: active`      | LOINC `code`, SNOMED `category` (`108252007` laboratory, `363679005` imaging), `encounter`.                                                             |
+| Receta                                   | `MedicationRequest` `status: active`   | `medicationCodeableConcept` (ATC/RxNorm when available, text always), `dispenseRequest.expectedSupplyDuration` for short treatments.                    |
+| Diagnóstico                              | `Condition`                            | ICD-10 coding; `verificationStatus: provisional` for presumptive diagnoses.                                                                             |
+| Médico                                   | `Practitioner`                         | Optional, once: lets the inbox show the owner's name instead of an id.                                                                                  |
+| Cita agendada / cancelada                | `Appointment` `booked` / `cancelled`   | Separate Bundle when it happens; a booked visit fulfills visit expectations.                                                                            |
+| Resultado de laboratorio / imagen        | `DiagnosticReport` + `Observation`s    | `basedOn` the `ServiceRequest` when known; `interpretation` `H`/`L`/`N`.                                                                                |
+| Paciente no quiere seguimiento           | `Consent` (deny, `follow-up-opt-out`)  | Stops patient contact requests only: open expectations and cases stay, and escalation goes to the coordinator instead of the patient.                   |
+| Resultado del contacto (WhatsApp)        | `Communication`                        | `basedOn` the `CommunicationRequest` the engine asked for; the outcome in the `contact-outcome` extension. See [Closing the loop](#4-closing-the-loop). |
 
 Use stable ids (`PUT Type/<host id>`) or `urn:uuid` full URLs: re-sending a Bundle is harmless, ingestion is idempotent end to end (resources, events, expectations, cases).
 
@@ -519,6 +524,9 @@ Single resources can also be sent one by one with `POST /fhir/<type>` or `PUT /f
 | `GET /fhir/Task/<id>`                         | one expectation or case; the `task` link of every webhook points here                                                                        |
 | `GET /fhir/Condition?patient=<id>`            | conditions the engine believes the patient has, with verification status and confidence                                                      |
 | `GET /fhir/DetectedIssue?patient=<id>`        | documentation findings (a note without a follow-up plan)                                                                                     |
+| `GET /fhir/CommunicationRequest[/<id>]`       | contact attempts (`?patient=<id>`); the `communicationRequest` link of every `patient_contact.requested` points here                         |
+| `GET /fhir/Communication[/<id>]`              | what came of each attempt (`?patient=<id>`): what the host reported and the calls the team recorded                                          |
+| `GET /fhir/Flag?patient=<id>`                 | reminders the team stopped for the patient (category `follow-up-suppression`), active or reactivated                                         |
 
 `status` matches `Task.status` (`requested`, `ready`, ...) or the engine status (`open`, `expired`, `notified`, ...); `code` is a FHIR token: the rule id or `follow-up-case`, optionally with its system (`https://hipocratesalud.com/fhir/CodeSystem/follow-up-expectation|lab_order_result_pending`; a wrong system matches nothing). `subject` is an alias of `patient`. Pages hold `_count` Tasks (default 100, at most 500, `0` for just the `total`); follow the `next` link (it carries `_offset`) until there is none. A search parameter the engine does not support is reported, never silently dropped: by default the searchset carries an `OperationOutcome` entry (`search.mode = outcome`) with a warning and the filter is not applied; with `Prefer: handling=strict` the search is a `400`. A comma inside a value is OR (`patient=a,b`, `status=requested,ready`); a parameter repeated is AND, as FHIR says (`status=requested&status=failed` matches nothing): by default it is applied with a warning in the `outcome` entry, with `Prefer: handling=strict` it is a `400` so a host that meant OR finds out. The inbox JSON API (`/api/inbox/*`) and the OpenAPI document (`/openapi.json`, browsable at `/docs`) cover the rest.
 
@@ -569,7 +577,7 @@ A case entered the clinic's inbox (one per patient and reason group; later reaso
 
 ### `case.escalated`
 
-The case moved along its escalation policy (`default_v1`: notify the owner at day 0, raise priority and ask for patient contact at day 14, escalate to coordination at day 21, lost to follow-up at day 35 only if the patient was asked to come back and did not answer by the request's `dueBy`, waiting for it when it is later; otherwise the case stays with the coordinator).
+The case moved along its escalation policy. `default_v1`: notify the owner at day 0, raise priority and ask for patient contact at day 14, escalate to coordination at day 21, lost to follow-up at day 35. `default_v2` (the demo clinic's; `ClinicSettings.escalationPolicyId` per clinic): a WhatsApp at day 14, a front-desk call at day 21 if nobody answered, coordination at day 21, a second WhatsApp at day 28, lost at day 35. Lost to follow-up only when attempts were made, nobody answered and every answer window is over (waiting for the last one when it ends later); otherwise the case stays with the coordinator. A case keeps the policy it opened with.
 
 ```json
 {
@@ -589,7 +597,7 @@ The case moved along its escalation policy (`default_v1`: notify the owner at da
 
 ### `patient_contact.requested`
 
-The engine (escalation policy) or a clinic user ("Pedir contacto" in the inbox) asks the host to contact the patient. Only sent when the clinic allows patient contact (`ClinicSettings.allowPatientContact`) and the patient has not opted out; automatic requests are capped at one per patient every 14 days.
+The engine (escalation policy) or a clinic user ("Pedir contacto" in the inbox) asks the host to message the patient: one contact attempt, a FHIR `CommunicationRequest` (`communicationRequest`, readable with `GET /fhir/CommunicationRequest/<id>`). Only sent when the clinic allows patient contact (`ClinicSettings.allowPatientContact`), the patient has not opted out and their number is not flagged as wrong; automatic messages are capped at one per patient every 14 days, whatever the number of cases. `channel` is the policy's hint (`whatsapp`, `sms`, `email`), absent when the host chooses; `attempt` counts the attempts of the case; `dueBy` is when the attempt counts as unanswered. Calls are not sent: they are tasks for the clinic team in the inbox.
 
 ```json
 {
@@ -602,16 +610,41 @@ The engine (escalation policy) or a clinic user ("Pedir contacto" in the inbox) 
     "patientId": "5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e01",
     "purpose": "complete_pending_test",
     "dueBy": "2026-02-11T12:00:00.000Z",
-    "task": "Task/8c0d6b4e-6f43-4a8e-9a55-1f0c3a2b7d10"
+    "channel": "whatsapp",
+    "attempt": 1,
+    "task": "Task/8c0d6b4e-6f43-4a8e-9a55-1f0c3a2b7d10",
+    "communicationRequest": "CommunicationRequest/7b0d3f52-2c1e-4f7a-9b6d-1e2f3a4b5c6d"
   }
 }
 ```
 
 `purpose` is one of `schedule_follow_up`, `complete_pending_test`, `review_results`, `medication_review`. The host turns it into its own generic message ("Hola, Ana. Tienes un control pendiente con tu equipo de salud. Responde este mensaje para agendar tu cita.") on its own channel (WhatsApp for Hipócrates). Never put clinical content in the message.
 
+### `contact.outcome_recorded`
+
+A clinic user recorded what came of a call ("Llamar al paciente" in the inbox). Sent because the host owns the patient's contact data and its own reminders: a `wrong_number` means the phone number needs fixing (send the `Patient` again with the corrected `telecom` and the engine trusts it again), `booked` or `declined` mean the host should not keep messaging about it. Outcomes the host itself reported are not echoed back. Codes and links only; `GET /fhir/Communication/<id>` has the rest.
+
+```json
+{
+  "id": "3c2b1a09-8f7e-4d6c-9b5a-4e3d2c1b0a99",
+  "type": "contact.outcome_recorded",
+  "clinicId": "clinic-demo",
+  "occurredAt": "2026-02-11T15:20:00.000Z",
+  "data": {
+    "caseId": "8c0d6b4e-6f43-4a8e-9a55-1f0c3a2b7d10",
+    "patientId": "5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e01",
+    "outcome": "wrong_number",
+    "channel": "phone_call",
+    "task": "Task/8c0d6b4e-6f43-4a8e-9a55-1f0c3a2b7d10",
+    "communicationRequest": "CommunicationRequest/1d2e3f4a-5b6c-4d7e-8f90-a1b2c3d4e5f6",
+    "communication": "Communication/9e8d7c6b-5a49-4b38-a271-605f4e3d2c1b"
+  }
+}
+```
+
 ### `case.resolved`
 
-The case closed: what was expected happened (`fulfilled`), the team handled it (`handled_outside`), it was dismissed or superseded (`not_needed`), or follow-up was lost (`patient_unreachable`, `patient_declined`).
+The case closed: what was expected happened (`fulfilled`), the team handled it or the patient was treated elsewhere (`handled_outside`), it was dismissed or superseded (`not_needed`), the patient declined (`patient_declined`) or could not be reached after every attempt (`patient_unreachable`).
 
 ```json
 {
@@ -724,7 +757,154 @@ The same check is exported as `verifyWebhookSignature(secret, { timestamp, deliv
 - Order is preserved within a delivery pass (insertion order) but not guaranteed across retries: use `occurredAt` and the case's current state (`GET /fhir/Task/<caseId>`) rather than arrival order.
 - Answer `2xx` quickly and do the work asynchronously.
 
-## 4. Configuration
+## 4. Closing the loop
+
+After every message it sends for a `patient_contact.requested`, the host tells the engine what came of it with a FHIR `Communication`: `POST /fhir` (a `transaction` or `batch` Bundle, or `PUT /fhir/Communication/<id>`), `basedOn` the `CommunicationRequest` of the webhook, `subject` the patient, the outcome in the `contact-outcome` extension (or `statusReason`). Send one `Communication` per update, or new versions of the same one (`meta.versionId`): the engine keeps the latest, ignores an older version and changes nothing when the same one arrives again. The strongest outcome of an attempt decides it.
+
+| Outcome (`CodeSystem/contact-outcome`) | When the host sends it                                      | What the engine does                                                                                                                             |
+| -------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `delivered`, `read`                    | the channel's receipts                                      | nothing yet: the attempt waits for an answer until its `dueBy`                                                                                   |
+| `replied`                              | the patient answered                                        | the patient is reachable: later attempts that skip when answered (the call, the second WhatsApp) are skipped; never lost to follow-up            |
+| `booked`                               | the patient booked (send the `Appointment` too)             | as `replied`; the `Appointment` holds the expectation and the visit resolves the case, as always (a no-show opens it again)                      |
+| `treated_elsewhere`                    | the patient is followed elsewhere                           | the case resolves as `handled_outside`                                                                                                           |
+| `declined`                             | the patient does not want this follow-up                    | the case resolves as `patient_declined` (an opt-out of every contact is a `Consent`, see the mapping table)                                      |
+| `wrong_number`                         | the message reached someone else                            | the patient's contact data is flagged (no more messages; the inbox shows it), the front-desk call is requested now; send the corrected `Patient` |
+| `no_answer`                            | the message could not be delivered (or a `not-done` status) | the attempt is over: the next attempt of the policy goes ahead on its day                                                                        |
+
+A `basedOn` that is not a `CommunicationRequest` of the clinic (another clinic's, or made up) is refused with an `OperationOutcome` (`not-found` at `basedOn`): a transaction is rejected whole, a batch answers that entry `400`. A `Communication` about another patient than the attempt's is refused the same way (`value` at `subject`).
+
+**The patient answered and is treated elsewhere.** The WhatsApp of attempt 1 was answered; the host's bot (or its staff) read the answer. This is the Bundle the end-to-end suite posts (with its own ids):
+
+<!-- e2e:communication-bundle -->
+
+```json
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Communication",
+        "id": "wa-0001-answer",
+        "meta": { "versionId": "3", "lastUpdated": "2026-02-05T09:12:00Z" },
+        "extension": [
+          {
+            "url": "https://hipocratesalud.com/fhir/StructureDefinition/contact-outcome",
+            "valueCodeableConcept": {
+              "coding": [
+                {
+                  "system": "https://hipocratesalud.com/fhir/CodeSystem/contact-outcome",
+                  "code": "treated_elsewhere"
+                }
+              ]
+            }
+          }
+        ],
+        "basedOn": [{ "reference": "CommunicationRequest/7b0d3f52-2c1e-4f7a-9b6d-1e2f3a4b5c6d" }],
+        "status": "completed",
+        "medium": [
+          {
+            "coding": [
+              {
+                "system": "https://hipocratesalud.com/fhir/CodeSystem/contact-channel",
+                "code": "whatsapp"
+              }
+            ]
+          }
+        ],
+        "subject": { "reference": "Patient/5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e01" },
+        "sent": "2026-02-04T12:01:00Z",
+        "received": "2026-02-05T09:10:00Z"
+      },
+      "request": { "method": "PUT", "url": "Communication/wa-0001-answer" }
+    }
+  ]
+}
+```
+
+**The patient booked.** Send the outcome with the booking in the same Bundle: the `Appointment` fulfills the visit expectation, the `Communication` stops the next attempts.
+
+```json
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Communication",
+        "id": "wa-0002-answer",
+        "extension": [
+          {
+            "url": "https://hipocratesalud.com/fhir/StructureDefinition/contact-outcome",
+            "valueCodeableConcept": {
+              "coding": [
+                {
+                  "system": "https://hipocratesalud.com/fhir/CodeSystem/contact-outcome",
+                  "code": "booked"
+                }
+              ]
+            }
+          }
+        ],
+        "basedOn": [{ "reference": "CommunicationRequest/7b0d3f52-2c1e-4f7a-9b6d-1e2f3a4b5c6d" }],
+        "status": "completed",
+        "subject": { "reference": "Patient/5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e01" },
+        "received": "2026-02-05T09:10:00Z"
+      },
+      "request": { "method": "PUT", "url": "Communication/wa-0002-answer" }
+    },
+    {
+      "resource": {
+        "resourceType": "Appointment",
+        "id": "appt-0002",
+        "status": "booked",
+        "start": "2026-02-12T14:00:00-04:00",
+        "end": "2026-02-12T14:30:00-04:00",
+        "participant": [
+          {
+            "actor": { "reference": "Patient/5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e01" },
+            "status": "accepted"
+          }
+        ]
+      },
+      "request": { "method": "PUT", "url": "Appointment/appt-0002" }
+    }
+  ]
+}
+```
+
+**Wrong number.** The message could not reach the patient: a `not-done` `Communication` with the outcome in `statusReason` (or the extension). The engine flags the contact data and puts "Llamar al paciente" in the inbox at once.
+
+```json
+{
+  "resourceType": "Communication",
+  "id": "wa-0003-failed",
+  "basedOn": [{ "reference": "CommunicationRequest/7b0d3f52-2c1e-4f7a-9b6d-1e2f3a4b5c6d" }],
+  "status": "not-done",
+  "statusReason": {
+    "coding": [
+      {
+        "system": "https://hipocratesalud.com/fhir/CodeSystem/contact-outcome",
+        "code": "wrong_number"
+      }
+    ]
+  },
+  "subject": { "reference": "Patient/5f1c2a52-6d1e-4b8a-9a34-0b9f0c1d2e01" },
+  "sent": "2026-02-04T12:01:00Z"
+}
+```
+
+**A call the team made.** Calls are inbox tasks, never webhooks. When the team records the call ("Contestó y agendó", "Contestó, se atiende en otro lado", "No contestó", "Número equivocado", "No quiere seguimiento"), the engine stores it as a `Communication` (medium phone, `sender` the user), reacts as to any other outcome and sends [`contact.outcome_recorded`](#contactoutcome_recorded); `GET /fhir/Communication/<id>` returns it.
+
+What the engine does after each WhatsApp of `default_v2`, if nobody acts on the case in between:
+
+| Day of the case | Attempt                      | If the patient answered                  | If nobody answered by its `dueBy`                   |
+| --------------- | ---------------------------- | ---------------------------------------- | --------------------------------------------------- |
+| 14              | WhatsApp (answer within 7 d) | the case waits for the visit or resolves | the call goes ahead on day 21                       |
+| 21              | front-desk call (3 d)        | skipped                                  | coordination already has the case; second WhatsApp  |
+| 28              | second WhatsApp (7 d)        | skipped                                  | lost to follow-up on day 35 (`patient_unreachable`) |
+
+## 5. Configuration
 
 | Variable                              | Meaning                                                                                                                                                                                                                                             |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

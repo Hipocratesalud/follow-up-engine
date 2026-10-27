@@ -54,6 +54,27 @@ export function describeCaseRepositoryContract(
       expect(await repo().get(a, c.id)).toEqual(c);
     });
 
+    it('round-trips the pinned escalation policy and a dismissal reason', async () => {
+      const { a } = freshClinics();
+      const c = aCase(a, { escalationPolicyId: 'default_v2' });
+      await repo().create(a, c);
+      expect(await repo().get(a, c.id)).toEqual(c);
+      const dismissed = {
+        ...c,
+        status: 'dismissed' as const,
+        resolution: {
+          kind: 'not_needed' as const,
+          resolvedAt: at(3),
+          resolvedBy: 'u-1',
+          dismissReason: 'not_applicable_to_patient' as const,
+          note: 'no aplica',
+        },
+        updatedAt: at(3),
+      };
+      await repo().update(a, dismissed);
+      expect(await repo().get(a, c.id)).toEqual(dismissed);
+    });
+
     it('allows a single active case per dedupKey', async () => {
       const { a } = freshClinics();
       const first = aCase(a, { dedupKey: 'pat-1:labs' });

@@ -25,7 +25,7 @@ import {
   releaseDueBackfillCases,
 } from '../backfill/release.ts';
 import { daysBetween } from '../support/time.ts';
-import { caseExpectations } from '../escalation/schedule.ts';
+import { caseExpectations, pinnedPolicyId } from '../escalation/schedule.ts';
 import { recheckFulfilled } from '../annotator/recheck.ts';
 import { caseOwner } from './owner.ts';
 
@@ -354,6 +354,7 @@ class Sweep {
       priority: this.#priority([expectation], patient, 0),
       assignee: caseOwner(expectation, patient.timeline, this.#deps.settings.frontDeskOwner),
       escalationStep: 0,
+      ...optionalPolicyId(pinnedPolicyId(this.#catalog, expectation)),
       // A held backfill case neither escalates nor shows until its release day.
       ...(held
         ? { releaseAt: BACKFILL_UNSCHEDULED_RELEASE_AT }
@@ -402,7 +403,12 @@ class Sweep {
           ...active.reasons,
           { expectationId: expectation.id, reasonCode: expectation.reason.code },
         ],
-        priority: this.#priority(reasons, patient, active.escalationStep),
+        priority: this.#priority(
+          reasons,
+          patient,
+          active.escalationStep,
+          active.escalationPolicyId,
+        ),
         updatedAt: this.#now,
       },
       {
@@ -427,12 +433,14 @@ class Sweep {
     reasons: readonly Expectation[],
     patient: PatientContext,
     escalationStep: number,
+    escalationPolicyId?: string,
   ): number {
     return priorityOfCase({
       catalog: this.#catalog,
       reasons,
       conditions: patient.conditions,
       escalationStep,
+      escalationPolicyId,
       now: this.#now,
     });
   }
@@ -451,4 +459,8 @@ class Sweep {
     this.#patients.set(patientId, context);
     return context;
   }
+}
+
+function optionalPolicyId(id: string | undefined): { readonly escalationPolicyId?: string } {
+  return id === undefined ? {} : { escalationPolicyId: id };
 }

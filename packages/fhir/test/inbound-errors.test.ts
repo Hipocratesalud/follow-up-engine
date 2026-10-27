@@ -65,6 +65,7 @@ describe('envelope', () => {
   it('accepts an empty transaction', () => {
     expect(map({ resourceType: 'Bundle', type: 'transaction' })).toEqual({
       batches: [],
+      communications: [],
       resources: [],
       contextResources: [],
       issues: undefined,

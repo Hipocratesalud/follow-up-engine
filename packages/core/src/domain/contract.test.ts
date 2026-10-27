@@ -10,6 +10,7 @@ import type {
   DOMAIN_EVENT_TYPES,
   DomainEvent,
   DomainEventType,
+  ContactOutcomeRecordedPayload,
   PatientContactRequestedPayload,
 } from './domain-event.ts';
 
@@ -68,7 +69,10 @@ describe('domain contract', () => {
 
   it('keeps patient contact requests free of clinical content', () => {
     expectTypeOf<keyof PatientContactRequestedPayload>().toEqualTypeOf<
-      'caseId' | 'patientId' | 'purpose' | 'dueBy'
+      'caseId' | 'patientId' | 'purpose' | 'dueBy' | 'requestId' | 'channel' | 'attempt'
+    >();
+    expectTypeOf<keyof ContactOutcomeRecordedPayload>().toEqualTypeOf<
+      'caseId' | 'patientId' | 'requestId' | 'communicationId' | 'channel' | 'outcome'
     >();
   });
 });

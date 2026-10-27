@@ -1,21 +1,35 @@
 import {
   ArrowLeft,
+  BellRing,
   Check,
   FileWarning,
   MessageSquareOff,
   MessageSquareText,
+  ShieldOff,
   Sparkles,
   X,
 } from 'lucide-react';
 import { type MouseEvent, type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import type { ConditionView, PatientDetail, PatientExpectationView } from '../../api/contract.ts';
-import { useConditionReview, useNoteReader, useNow, usePatient } from '../../api/queries.ts';
+import type {
+  ConditionView,
+  PatientDetail,
+  PatientExpectationView,
+  SuppressionView,
+} from '../../api/contract.ts';
+import {
+  useConditionReview,
+  useNoteReader,
+  useNow,
+  usePatient,
+  useReactivateSuppression,
+} from '../../api/queries.ts';
 import { LayerChip } from '../../components/case-badges.tsx';
 import { InlineQuote } from '../../components/evidence.tsx';
 import { ErrorState, InlineError, NotFoundState } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, Skeleton, type Tone } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
+import { ContactFlagNotice } from '../case/contact-panel.tsx';
 import { formatDate, formatPercent, formatRelative, initials } from '../../lib/format.ts';
 import {
   CONDITION_SOURCE_LABELS,
@@ -183,6 +197,127 @@ function ExpectationItem({
   );
 }
 
+function SuppressionItem({
+  suppression,
+  patientId,
+}: {
+  readonly suppression: SuppressionView;
+  readonly patientId: string;
+}): ReactNode {
+  const reactivate = useReactivateSuppression(patientId);
+  const [done, setDone] = useState(false);
+
+  function handleReactivate(): void {
+    if (reactivate.isPending) return;
+    reactivate.mutate(suppression.id, {
+      onSuccess: () => {
+        setDone(true);
+      },
+    });
+  }
+
+  return (
+    <li className="flex flex-col gap-2 border-b border-border py-3 last:border-b-0">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-fg">{suppression.label}</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {suppression.dismissReasonLabel} ·{' '}
+            {suppression.createdBy ? `${suppression.createdBy}, ` : ''}
+            {formatDate(suppression.createdAt)}
+            {suppression.caseId ? (
+              <>
+                {' · '}
+                <Link
+                  to={`/casos/${suppression.caseId}`}
+                  className="font-medium text-primary underline underline-offset-2"
+                >
+                  Ver el caso descartado
+                </Link>
+              </>
+            ) : null}
+          </p>
+          {!suppression.active && suppression.revokedAt ? (
+            <p className="mt-0.5 text-xs text-muted">
+              Reactivado{suppression.revokedBy ? ` por ${suppression.revokedBy}` : ''} el{' '}
+              {formatDate(suppression.revokedAt)}
+            </p>
+          ) : null}
+        </div>
+        {suppression.active ? (
+          <Button
+            size="sm"
+            loading={reactivate.isPending}
+            onClick={handleReactivate}
+            icon={<BellRing className="size-3.5" aria-hidden="true" />}
+          >
+            Volver a activar
+          </Button>
+        ) : (
+          <Badge tone="neutral">Reactivado</Badge>
+        )}
+      </div>
+      {suppression.note ? (
+        <p className="rounded-lg bg-surface-2 px-2.5 py-1.5 text-sm text-fg">{suppression.note}</p>
+      ) : null}
+      <InlineError error={reactivate.error} />
+      <p aria-live="polite" className={cx('text-xs text-success', !done && 'sr-only')}>
+        {done ? 'Listo: el motor vuelve a recordarlo para este paciente.' : ''}
+      </p>
+    </li>
+  );
+}
+
+function SuppressionsSection({
+  suppressions,
+  patientId,
+}: {
+  readonly suppressions: readonly SuppressionView[];
+  readonly patientId: string;
+}): ReactNode {
+  const active = suppressions.filter((suppression) => suppression.active);
+  const history = suppressions.filter((suppression) => !suppression.active);
+  return (
+    <Card className="flex flex-col p-5" aria-labelledby="suppressions-title">
+      <SectionTitle id="suppressions-title" count={active.length}>
+        Recordatorios desactivados
+      </SectionTitle>
+      <p className="mt-1 text-xs text-muted">
+        Recordatorios que el equipo marcó como «No aplica a este paciente». El motor no los vuelve a
+        abrir para este paciente; al resto de los pacientes les siguen aplicando.
+      </p>
+      {active.length === 0 ? (
+        <p className="mt-3 flex items-center gap-1.5 text-sm text-muted">
+          <ShieldOff className="size-4" aria-hidden="true" />
+          Ningún recordatorio desactivado.
+        </p>
+      ) : (
+        <ul className="mt-1">
+          {active.map((suppression) => (
+            <SuppressionItem key={suppression.id} suppression={suppression} patientId={patientId} />
+          ))}
+        </ul>
+      )}
+      {history.length > 0 ? (
+        <details className="mt-2 rounded-lg border border-border">
+          <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-muted hover:text-fg">
+            Reactivados ({history.length})
+          </summary>
+          <ul className="px-3">
+            {history.map((suppression) => (
+              <SuppressionItem
+                key={suppression.id}
+                suppression={suppression}
+                patientId={patientId}
+              />
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </Card>
+  );
+}
+
 function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode {
   const now = useNow();
   const { patient } = detail;
@@ -259,6 +394,8 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
         ) : null}
       </Card>
 
+      {contact?.contactFlag ? <ContactFlagNotice flag={contact.contactFlag} now={now} /> : null}
+
       <section aria-labelledby="conditions-title" className="flex flex-col gap-3">
         <SectionTitle id="conditions-title" count={current.length}>
           Condiciones
@@ -323,6 +460,8 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
           )}
         </Card>
       </div>
+
+      <SuppressionsSection suppressions={detail.suppressions} patientId={patient.id} />
 
       <section aria-labelledby="quality-title" className="flex flex-col gap-3">
         <SectionTitle id="quality-title" count={detail.qualityFindings.length}>

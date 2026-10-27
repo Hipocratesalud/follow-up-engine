@@ -18,6 +18,12 @@ export type CaseId = Brand<string, 'CaseId'>;
 /** Identifier of a piece of clinician feedback on an expectation or case. */
 export type FeedbackId = Brand<string, 'FeedbackId'>;
 
+/** Identifier of a contact attempt (a FHIR `CommunicationRequest`). */
+export type ContactRequestId = Brand<string, 'ContactRequestId'>;
+
+/** Identifier of a per-patient rule suppression (a FHIR `Flag`). */
+export type SuppressionId = Brand<string, 'SuppressionId'>;
+
 /** Identifier of a job in the job queue / transactional outbox. */
 export type JobId = Brand<string, 'JobId'>;
 
@@ -69,6 +75,16 @@ export function caseId(value: string): CaseId {
 /** Parses a raw string into a {@link FeedbackId}. Throws {@link InvalidIdentifierError}. */
 export function feedbackId(value: string): FeedbackId {
   return requireIdentifier('FeedbackId', value) as FeedbackId;
+}
+
+/** Parses a raw string into a {@link ContactRequestId}. Throws {@link InvalidIdentifierError}. */
+export function contactRequestId(value: string): ContactRequestId {
+  return requireIdentifier('ContactRequestId', value) as ContactRequestId;
+}
+
+/** Parses a raw string into a {@link SuppressionId}. Throws {@link InvalidIdentifierError}. */
+export function suppressionId(value: string): SuppressionId {
+  return requireIdentifier('SuppressionId', value) as SuppressionId;
 }
 
 /** Parses a raw string into a {@link JobId}. Throws {@link InvalidIdentifierError}. */

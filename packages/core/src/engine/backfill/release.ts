@@ -61,7 +61,7 @@ export async function releaseCase(
   reasons: readonly Expectation[],
   now: Date,
 ): Promise<FollowUpCase> {
-  const policy = policyOf(catalog, reasons);
+  const policy = policyOf(catalog, reasons, followUpCase);
   const released = await writer.update(
     {
       ...followUpCase,

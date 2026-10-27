@@ -13,6 +13,10 @@ export { MemoryExpectationRepository } from './repositories/expectation-reposito
 export { MemoryCaseRepository } from './repositories/case-repository.ts';
 export { MemoryBackfillProgressStore } from './repositories/backfill-progress-store.ts';
 export {
+  MemoryContactRepository,
+  MemorySuppressionRepository,
+} from './repositories/contact-repository.ts';
+export {
   MemoryAuditLog,
   MemoryConditionRepository,
   MemoryFeedbackRepository,
@@ -27,9 +31,11 @@ export {
 } from './clinic-directory.ts';
 export {
   DEFAULT_CONFIG_DIR,
+  FileEscalationPolicySource,
   FileProtocolSource,
   FileRuleSource,
   loadConfigDirectory,
+  StaticEscalationPolicySource,
   StaticProtocolSource,
   StaticRuleSource,
   type LoadedConfig,
