@@ -136,7 +136,11 @@ export interface PlanExtractedEvent extends ClinicalEventBase {
   readonly extractor: { readonly model: string; readonly promptVersion: string };
 }
 
-/** The patient asked not to be followed up. Closes everything open. */
+/**
+ * The patient asked not to be contacted. The clinic keeps following them up
+ * (expectations and cases go on); the engine never asks the host to contact
+ * them again.
+ */
 export interface PatientOptedOutEvent extends ClinicalEventBase {
   readonly type: 'patient.opted_out';
 }

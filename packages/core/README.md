@@ -82,7 +82,7 @@ stateDiagram-v2
   [*] --> open: rule fires
   open --> fulfilled: matching event
   open --> superseded: newer order, same test
-  open --> cancelled: opt-out / condition rejected
+  open --> cancelled: condition rejected
   open --> expired: dueAt passed (grouped into a case)
   expired --> fulfilled: late, while the case is active
   expired --> superseded
@@ -104,7 +104,7 @@ stateDiagram-v2
   open --> resolved
   notified --> resolved
   snoozed --> resolved
-  escalated --> resolved: fulfilled, handled outside, opt-out
+  escalated --> resolved: fulfilled, handled outside
   open --> dismissed
   notified --> dismissed
   snoozed --> dismissed
@@ -131,7 +131,9 @@ Every transition is appended to the `AuditLog` with its actor (`rule`, `user`, `
 
 A user action (notify, assign, end of a snooze) restarts the wait before the next step.
 
-Patient contact rules (`patient-contact/policy.ts`): only if the clinic allows it; never after `patient.opted_out` (which also closes everything open); never for cases resting only on probable conditions; at most one request per patient per 14 days whatever the number of cases. The `patient_contact.requested` payload carries ids, a generic purpose and a date, never a diagnosis or test name.
+Patient contact rules (`patient-contact/policy.ts`): only if the clinic allows it; never after `patient.opted_out`; never for cases resting only on probable conditions; at most one request per patient per 14 days whatever the number of cases.
+
+**Opt-out means no patient contact, not no follow-up.** After `patient.opted_out` the clinic keeps following the patient: expectations and cases are created, merged and resolved as usual, and `patientContactStatus` reports `optedOut: true` (`allowed: false`). Escalation skips the patient-contact step and goes straight to the coordinator instead of waiting for an answer that cannot come. The `patient_contact.requested` payload carries ids, a generic purpose and a date, never a diagnosis or test name.
 
 ## Adding a rule or a protocol
 

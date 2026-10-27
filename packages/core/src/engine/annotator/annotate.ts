@@ -1,4 +1,3 @@
-import type { CaseEventActor } from '../../domain/case.ts';
 import type { ClinicalEvent } from '../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
 import type { Expectation } from '../../domain/expectation.ts';
@@ -6,7 +5,7 @@ import { type CaseId, type ClinicId, expectationId, type PatientId } from '../..
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { TransactionalStores } from '../../ports/unit-of-work.ts';
 import { CaseWriter } from '../case-manager/case-writer.ts';
-import { closeExpectation, resolveCase, resolveSatisfiedCases } from '../case-manager/reconcile.ts';
+import { closeExpectation, resolveSatisfiedCases } from '../case-manager/reconcile.ts';
 import type { Catalog } from '../catalog.ts';
 import {
   findFulfillment,
@@ -45,7 +44,7 @@ export interface AnnotationHints {
 /** An expectation the run closed, and why. */
 export interface ClosedExpectation {
   readonly expectation: Expectation;
-  readonly closedBy: ClinicalEvent['type'] | 'patient.opted_out';
+  readonly closedBy: ClinicalEvent['type'];
 }
 
 export interface AnnotationResult {
@@ -53,6 +52,10 @@ export interface AnnotationResult {
   readonly expectationsClosed: readonly ClosedExpectation[];
   readonly casesResolved: readonly CaseId[];
   readonly conditionsUpserted: readonly PatientCondition[];
+  /**
+   * The patient opted out of being contacted. Follow-up goes on for the
+   * clinic team; only patient contact stops (see escalation).
+   */
   readonly optedOut: boolean;
 }
 
@@ -74,10 +77,6 @@ export async function annotate(
   const ordered = [...events].sort(
     (left, right) => left.occurredAt.getTime() - right.occurredAt.getTime(),
   );
-
-  if (state.timeline.optedOut) {
-    return optOut(context, state, writer);
-  }
 
   const conditions = await upsertConditions(context, state, ordered, hints);
   const created: Expectation[] = [];
@@ -128,7 +127,7 @@ export async function annotate(
     expectationsClosed: closed,
     casesResolved,
     conditionsUpserted: conditions.upserted,
-    optedOut: false,
+    optedOut: state.timeline.optedOut,
   };
 }
 
@@ -248,40 +247,4 @@ async function applyFulfillment(
     }
   }
   return closed;
-}
-
-/**
- * The patient asked not to be followed up: every live expectation is
- * cancelled and every active case resolved as `patient_declined`, audited
- * with the patient as actor. Nothing new is created for them afterwards.
- */
-async function optOut(
-  context: AnnotationContext,
-  state: PatientState,
-  writer: CaseWriter,
-): Promise<AnnotationResult> {
-  const closed: ClosedExpectation[] = [];
-  for (const expectation of state.live.list()) {
-    const next = await closeExpectation(
-      context.stores,
-      expectation,
-      'cancelled',
-      'patient_opted_out',
-      context.now,
-    );
-    closed.push({ expectation: next, closedBy: 'patient.opted_out' });
-  }
-  const actor: CaseEventActor = { type: 'patient', id: context.patientId };
-  const casesResolved: CaseId[] = [];
-  for (const followUpCase of state.activeCases) {
-    await resolveCase(writer, followUpCase, { kind: 'patient_declined', actor, now: context.now });
-    casesResolved.push(followUpCase.id);
-  }
-  return {
-    expectationsCreated: [],
-    expectationsClosed: closed,
-    casesResolved,
-    conditionsUpserted: [],
-    optedOut: true,
-  };
 }

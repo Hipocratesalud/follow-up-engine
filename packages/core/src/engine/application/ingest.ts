@@ -66,7 +66,7 @@ export interface IngestReport {
   readonly conditionsUpserted: readonly PatientCondition[];
   readonly qualityFindings: readonly QualityFinding[];
   readonly notes: readonly NoteExtractionOutcome[];
-  /** The patient opted out: everything open was closed and nothing new created. */
+  /** The patient opted out of contact: follow-up continues for the clinic, never toward the patient. */
   readonly optedOut: boolean;
 }
 

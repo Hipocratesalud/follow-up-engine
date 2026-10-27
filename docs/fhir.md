@@ -12,7 +12,7 @@ The engine speaks HL7 FHIR R4 (4.0.1) in and out ([ADR 0001](adr/0001-fhir-r4-da
 
 ### What the host sends
 
-One `transaction` (or `batch`) Bundle per saved consultation: the `Encounter`, the note (`DocumentReference` or `Composition`), orders (`ServiceRequest`), prescriptions (`MedicationRequest`), diagnoses (`Condition`) and, for a new patient, the `Patient`. Other host events arrive the same way: a result (`DiagnosticReport` and/or `Observation`), an appointment booked or cancelled (`Appointment`), a patient opt-out (`Patient` extension or `Consent`).
+One `transaction` (or `batch`) Bundle per saved consultation: the `Encounter`, the note (`DocumentReference` or `Composition`), orders (`ServiceRequest`), prescriptions (`MedicationRequest`), diagnoses (`Condition`) and, for a new patient, the `Patient`. Other host events arrive the same way: a result (`DiagnosticReport` and/or `Observation`), an appointment booked or cancelled (`Appointment`), a patient opt-out (`Patient` extension or `Consent`). An opt-out stops patient contact only: the clinic keeps following the patient, and escalation goes to the coordinator instead of the patient.
 
 | Bundle `type` | Semantics                                                                                                                                                |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
