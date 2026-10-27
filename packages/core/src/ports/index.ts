@@ -1,5 +1,6 @@
 export type * from './audit-log.ts';
 export type * from './case-repository.ts';
+export type * from './clinic-directory.ts';
 export type * from './clinical-record-repository.ts';
 export type * from './clock.ts';
 export type * from './condition-repository.ts';
@@ -8,5 +9,7 @@ export type * from './event-publisher.ts';
 export type * from './expectation-repository.ts';
 export type * from './feedback-repository.ts';
 export type * from './job-queue.ts';
+export type * from './llm-usage-log.ts';
+export type * from './note-extractor.ts';
 export type * from './unit-of-work.ts';
 export * from './llm.ts';
