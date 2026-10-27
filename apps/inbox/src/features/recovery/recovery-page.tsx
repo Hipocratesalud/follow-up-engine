@@ -20,7 +20,10 @@ export function RecoveryPage(): ReactNode {
         </p>
       </header>
 
-      <aside className="flex gap-3 rounded-xl border border-info/30 bg-info-soft p-4 text-sm text-fg">
+      <div
+        role="note"
+        className="flex gap-3 rounded-xl border border-info/30 bg-info-soft p-4 text-sm text-fg"
+      >
         <Info className="mt-0.5 size-4 shrink-0 text-info" aria-hidden="true" />
         <div className="flex flex-col gap-1">
           <p className="font-medium">No son notificaciones.</p>
@@ -30,7 +33,7 @@ export function RecoveryPage(): ReactNode {
             para que el equipo pueda atenderlos sin saturarse.
           </p>
         </div>
-      </aside>
+      </div>
 
       {recovery.isPending ? (
         <div aria-busy="true" aria-label="Cargando pacientes" className="flex flex-col gap-1">
@@ -75,6 +78,7 @@ export function StandaloneCasePage(): ReactNode {
   const { caseId = '' } = useParams();
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
+      <h1 className="sr-only">Detalle del caso</h1>
       <Link
         to="/por-recuperar"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-fg"

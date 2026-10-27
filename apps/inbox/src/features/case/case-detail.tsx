@@ -149,7 +149,9 @@ function EscalationSteps({ escalation }: { readonly escalation: EscalationView }
               : 'Hecho'
           : isNext && escalation.next
             ? `Programado para el ${formatDate(escalation.next.at)}`
-            : `A los ${String(step.afterDays)} ${step.afterDays === 1 ? 'día' : 'días'} sin respuesta`;
+            : step.afterDays === 0
+              ? 'Al abrir el caso'
+              : `A los ${String(step.afterDays)} ${step.afterDays === 1 ? 'día' : 'días'} de abierto el caso`;
         const Icon = passed
           ? step.outcome === 'skipped'
             ? Minus
@@ -225,9 +227,14 @@ function CaseDetailView({
   const planReasons = detail.reasons.filter((reason) => reason.evidence).length;
   const heading = useRef<HTMLHeadingElement>(null);
 
-  // Opening a case moves the keyboard focus to it (not left on the list row).
+  // Opening a case moves the keyboard focus to it (not left on the list row),
+  // without scrolling the page away from the list unless the title is hidden.
   useEffect(() => {
-    heading.current?.focus();
+    const element = heading.current;
+    if (element === null) return;
+    element.focus({ preventScroll: true });
+    const { top, bottom } = element.getBoundingClientRect();
+    if (top < 0 || bottom > globalThis.innerHeight) element.scrollIntoView({ block: 'nearest' });
   }, [detail.id]);
 
   return (
@@ -249,7 +256,7 @@ function CaseDetailView({
               id="case-title"
               ref={heading}
               tabIndex={-1}
-              className="text-lg font-semibold tracking-tight text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              className="text-lg font-semibold tracking-tight text-fg outline-none"
             >
               {detail.patient.name}
             </h2>

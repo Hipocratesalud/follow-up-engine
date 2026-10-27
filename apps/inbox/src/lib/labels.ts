@@ -43,16 +43,21 @@ export const PRIORITY_LABELS: Record<PriorityLabel, string> = {
 };
 
 /**
- * "Paso 2 de 5: Aumento de prioridad": how far the case went along its
- * escalation policy. The step labels come from the API (the engine's policy).
+ * "Escalamiento: paso 2 de 5, aumento de prioridad": how far the case went
+ * along its escalation policy (step labels come from the API). The last step
+ * is named only when the API says it ran (case detail); a list view does not
+ * know whether a passed step was skipped, so it gives the count only.
  */
 export function escalationSummary(escalation: EscalationView): string {
   const total = escalation.steps.length;
   const passed = Math.min(escalation.currentStep, total);
-  const last = escalation.steps[passed - 1];
-  return passed === 0 || last === undefined
-    ? `Escalamiento: ningún paso de ${String(total)}`
-    : `Escalamiento: paso ${String(passed)} de ${String(total)}, ${last.label.toLowerCase()}`;
+  if (passed === 0) return `Escalamiento: ningún paso de ${String(total)}`;
+  const count = `Escalamiento: paso ${String(passed)} de ${String(total)}`;
+  const lastDone = escalation.steps
+    .slice(0, passed)
+    .filter((step) => step.outcome === 'done')
+    .at(-1);
+  return lastDone ? `${count}, ${lastDone.label.toLowerCase()}` : count;
 }
 
 /** "Siguiente: Paso a coordinación, 12 feb 2026" (empty when nothing is scheduled). */

@@ -62,7 +62,7 @@ function StatsTiles({ stats }: { readonly stats: InboxStats }): ReactNode {
       </Tile>
       <Tile label="Utilidad según el equipo">
         <p className="text-xl font-semibold tracking-tight text-fg tabular-nums">
-          {formatPercent(stats.feedback.usefulRate)}
+          {stats.feedback.total === 0 ? '—' : formatPercent(stats.feedback.usefulRate)}
         </p>
         <p className="mt-0.5 text-xs text-muted">
           {stats.feedback.total === 0
