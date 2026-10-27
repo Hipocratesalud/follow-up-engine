@@ -129,6 +129,33 @@ export function describeLlmUsageLogContract(
       expect(await log().totalCostUsd(a, at(-30))).toBeCloseTo(0.4375, 10);
     });
 
+    it('summarizes calls since a date, in total and per provider and model', async () => {
+      const { a } = freshClinics();
+      await log().record(aCall(a, { costUsd: 9, at: at(-40) }));
+      await log().record(aCall(a, { model: 'muse-spark', provider: 'meta', costUsd: 0.25 }));
+      await log().record(aCall(a, { model: 'muse-spark', provider: 'meta', costUsd: 0.5 }));
+      await log().record(
+        aCall(a, { model: 'muse-spark', provider: 'meta', costUsd: 0.125, ok: false, error: 'x' }),
+      );
+      await log().record(aCall(a, { model: 'fake-model', provider: 'fake', costUsd: 0.0625 }));
+      const summary = await log().summary(a, at(-30));
+      expect(summary).toMatchObject({ calls: 4, successfulCalls: 3 });
+      expect(summary.costUsd).toBeCloseTo(0.9375, 10);
+      expect(
+        summary.byModel.map(({ provider, model, calls }) => ({ provider, model, calls })),
+      ).toEqual([
+        { provider: 'meta', model: 'muse-spark', calls: 3 },
+        { provider: 'fake', model: 'fake-model', calls: 1 },
+      ]);
+      expect(summary.byModel[0]?.costUsd).toBeCloseTo(0.875, 10);
+      expect(await log().summary(freshClinics().a, at(-30))).toEqual({
+        calls: 0,
+        successfulCalls: 0,
+        costUsd: 0,
+        byModel: [],
+      });
+    });
+
     it('isolates clinics', async () => {
       const { a, b } = freshClinics();
       await log().record(aCall(a, { costUsd: 1 }));
