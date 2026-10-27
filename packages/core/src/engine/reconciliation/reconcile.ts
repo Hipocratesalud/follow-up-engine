@@ -39,6 +39,7 @@ import {
 import type { Catalog } from '../catalog.ts';
 import { listPatientCases } from '../patient-state.ts';
 import { expirePatient, recheckPatientBookings } from '../watcher/watcher.ts';
+import { PAST_RELEVANCE_HORIZON } from '../annotator/acuity.ts';
 import { DEFAULT_RECONCILIATION_SCHEDULE, nextReconciliationRun } from './schedule.ts';
 
 /** Job of the nightly reconciliation of one clinic (enqueued by {@link scheduleReconciliation}). */
@@ -122,6 +123,19 @@ type StatusClass = 'unmet' | Exclude<ExpectationStatus, 'open' | 'expired'>;
 
 function statusClass(status: ExpectationStatus): StatusClass {
   return status === 'open' || status === 'expired' ? 'unmet' : status;
+}
+
+/**
+ * The watcher's decision, like expiry: an unmet expectation that would have
+ * opened its case long after the episode it belonged to was over was closed
+ * when due, which a replay of the record (that never expires) cannot see.
+ */
+function closedByTheWatcher(stored: Expectation, replayed: Expectation): boolean {
+  return (
+    stored.status === 'cancelled' &&
+    stored.closedReason === PAST_RELEVANCE_HORIZON &&
+    statusClass(replayed.status) === 'unmet'
+  );
 }
 
 function conditionKey(condition: PatientCondition): string {
@@ -277,6 +291,7 @@ async function planPatient(
         }
       } else if (
         statusClass(stored.status) !== statusClass(replayed.status) &&
+        !closedByTheWatcher(stored, replayed) &&
         // A plan item a clinician corrected or rejected is their decision, not
         // the record's: the replay never reopens or recloses it (HIP-141).
         !isClosedByClinician(stored)

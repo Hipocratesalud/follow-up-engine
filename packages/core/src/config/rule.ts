@@ -101,6 +101,47 @@ export const CadenceEpisodeSchema = z.strictObject({
 });
 export type CadenceEpisode = z.infer<typeof CadenceEpisodeSchema>;
 
+/**
+ * What kind of consultation an expectation comes from, for its relevance
+ * horizon (see `engine/annotator/acuity.ts`): `acute`, a visit that started
+ * a short course of treatment (as the catalog's treatment rule defines it)
+ * and records no chronic condition (a cold, a urinary tract infection); a
+ * `chronic` visit records a condition one of the clinic's protocols
+ * enrolls, one of `chronicConditionCodes`, or prescribes a chronic drug
+ * class; any other is `routine` (a yearly gynecology control).
+ * `non_chronic` is acute or routine; `any` is every visit, and the
+ * expectations no visit anchors.
+ */
+export const RELEVANCE_VISITS = ['any', 'acute', 'non_chronic'] as const;
+export type RelevanceVisits = (typeof RELEVANCE_VISITS)[number];
+
+/**
+ * A clinical-relevance horizon: an expectation that would open a case more
+ * than `afterOverdueDays` after it was due (the initial backfill of a
+ * clinic's history, old history sent late) is closed instead
+ * (`past_relevance_horizon`): a control of a cold of two years ago, or a
+ * blood count it asked for, helps no one. Live, an expectation opens its
+ * case when due, so the horizon never touches it.
+ */
+export const RelevanceHorizonSchema = z.strictObject({
+  visits: z.enum(RELEVANCE_VISITS),
+  /** Only expectations of these kinds (`follow_up_visit`, `lab`, ...). Every kind when absent. */
+  kinds: z.array(z.enum(PLAN_ITEM_KINDS)).min(1).optional(),
+  /**
+   * Only expectations asked for at most this many days after their trigger:
+   * a short control ("control en 1 mes"), not a yearly one.
+   */
+  maxIntervalDays: z.number().int().positive().optional(),
+  /** Overdue by more than this many days when it would open a case: closed instead. */
+  afterOverdueDays: z.number().int().positive(),
+  /**
+   * ICD-10 codes or prefixes, besides the enabled protocols' enrollment
+   * codes, that make a visit chronic (`E28.2` polycystic ovary syndrome).
+   */
+  chronicConditionCodes: z.array(z.string().min(1)).min(1).optional(),
+});
+export type RelevanceHorizon = z.infer<typeof RelevanceHorizonSchema>;
+
 /** Days within which a critical (panic) result is expected to be acted on. */
 export const DEFAULT_CRITICAL_RESULT_DUE_IN_DAYS = 1;
 
@@ -200,6 +241,16 @@ export const RuleSchema = z.strictObject({
    * a 7-day antibiotic is one reason, not two).
    */
   coveredByPlan: z.boolean().optional(),
+  /** Clinical-relevance horizons (see {@link RelevanceHorizonSchema}); the first that applies decides. */
+  relevance: z.array(RelevanceHorizonSchema).min(1).optional(),
+  /**
+   * Order rules: the order is abandoned when the patient came to this many
+   * visits of the ordering specialty after it was due and none of them
+   * asked for the test again (no new order, no plan item naming it): the
+   * clinician dropped it, so it is closed (`not_reordered`) instead of
+   * staying a pending result for years.
+   */
+  abandonedAfterVisits: z.number().int().positive().optional(),
 });
 
 export type Rule = z.infer<typeof RuleSchema>;

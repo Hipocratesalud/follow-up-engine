@@ -31,6 +31,7 @@ import { suppressedRuleIds } from '../suppression/active.ts';
 import { recheckAtFor, recheckFulfilled } from './recheck.ts';
 import { bookingOriginsOf, recordCaseBookings } from '../attribution/attribution.ts';
 import { retractByLaterInformation } from './retract.ts';
+import { oneRequestPerTest } from './test-requests.ts';
 import {
   cancelWithdrawn,
   supersedeAmendedPlans,
@@ -122,6 +123,10 @@ export async function annotate(
   const ended = await endEpisodes(context, state, conditions.all);
   closed.push(...ended.closed);
   closed.push(...(await applyFulfillment(context, state.timeline, state.live, ordered)));
+  // One test, one pending request: a plan item and the order of the same
+  // visit are one (a newer order of the same
+  // test already superseded the old one, `superseded_by_new_order`), and a test asked for again replaces what was asked before.
+  closed.push(...(await oneRequestPerTest(context, state.timeline, state.live)));
   // What withdrawn resources triggered goes; what they fulfilled is open again.
   closed.push(...(await cancelWithdrawn(context, state, ordered)));
   const unenrolled = await withdrawConditions(context, state, ordered, conditions.all);

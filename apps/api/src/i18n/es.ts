@@ -236,6 +236,13 @@ export const ES = {
     // A treatment protocol whose patient has no active prescription left (HIP-139).
     // Neutral: never names the drug or the condition.
     treatment_ended: 'Terminó el tratamiento que lo motivaba',
+    // Clinical audit 2026-10-27: episodes, horizons and one request per test.
+    episode_closed: 'Una consulta posterior dio de alta al paciente: el episodio terminó',
+    past_relevance_horizon: 'Ya no es relevante: el episodio al que pertenecía terminó hace mucho',
+    superseded_by_new_request: 'Una orden o un plan más reciente pide el mismo examen',
+    covered_by_order: 'La orden de la misma consulta ya pide este examen',
+    covered_by_other_visit: 'Otro motivo pendiente cubre la misma consulta',
+    not_reordered: 'No se volvió a pedir en las consultas siguientes: el médico lo dejó',
   },
   escalationSteps: {
     notify_clinic: 'Aviso al responsable',
