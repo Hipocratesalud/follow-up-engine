@@ -64,7 +64,7 @@ const RULES: Readonly<Record<string, RuleText>> = {
     action: 'Indicar prueba de tolerancia oral a la glucosa',
   },
   protocol_pregnancy_postpartum_visit: {
-    reason: 'Control posparto pendiente (6 semanas)',
+    reason: 'Control posparto pendiente (semanas 3 a 8)',
     action: 'Agendar control posparto',
   },
   protocol_treatment_followup: { reason: 'Seguimiento de tratamiento' },
@@ -95,6 +95,10 @@ const RULES: Readonly<Record<string, RuleText>> = {
   abnormal_result_followup: {
     reason: 'Resultado alterado sin consulta posterior',
     action: 'Revisar el resultado con el paciente',
+  },
+  abnormal_imaging_followup_study: {
+    reason: 'Estudio de control que recomienda el informe',
+    action: 'Pedir el estudio de control que recomienda el informe',
   },
 };
 
@@ -230,6 +234,9 @@ export const ES = {
     // Only an episodic protocol closes (today, pregnancy). Says the episode
     // ended, never how (delivery or loss).
     protocol_closed: 'El protocolo terminó: se registró el fin del embarazo',
+    // Everything a pregnancy asked for (prenatal labs, ultrasounds, the next
+    // prenatal control) once it ended. Never says how it ended.
+    pregnancy_ended: 'El embarazo terminó: no queda nada prenatal pendiente',
     rescheduled_by_protocol: 'Reprogramado: el protocolo pide el mismo control antes',
     corrected_by_clinician: 'Corregido por el equipo clínico',
     rejected_by_clinician: 'Rechazado por el equipo clínico: la nota no lo pedía',

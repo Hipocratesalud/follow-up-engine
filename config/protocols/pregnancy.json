@@ -1,8 +1,8 @@
 {
   "id": "pregnancy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "status": "draft",
-  "description": "Pregnancy and postpartum follow-up: prenatal visits by gestational age (every 4 weeks up to week 28, every 2 weeks up to 36, weekly after), an oral glucose tolerance test between weeks 24 and 28, and a postpartum visit within 6 weeks of a delivery. The episode ends on a delivery or a loss: nothing prenatal is expected after it. Fills only what the doctor's plan did not cover.",
+  "description": "Pregnancy and postpartum follow-up: prenatal visits by gestational age (every 4 weeks up to week 28, every 2 weeks up to 36, weekly after), an oral glucose tolerance test between weeks 24 and 28, and a comprehensive postpartum visit between weeks 3 and 8 after a delivery (the puerperal check of the first days is not it). The episode ends on a delivery or a loss: nothing prenatal is expected after it, and everything the pregnancy's consultations asked for (prenatal labs and ultrasounds, the next prenatal control) closes as `pregnancy_ended`. Fills only what the doctor's plan did not cover.",
   "reason": {
     "code": "protocol_pregnancy",
     "label": "Pregnancy and postpartum"
@@ -193,21 +193,23 @@
       "kind": "follow_up_visit",
       "reason": {
         "code": "protocol_pregnancy_postpartum_visit",
-        "label": "Postpartum visit due (6 weeks)"
+        "label": "Postpartum visit due (weeks 3 to 8)"
       },
       "schedule": {
         "type": "after_outcome",
         "outcome": "delivery",
-        "withinDays": 42
+        "withinDays": 56
       },
       "fulfilledBy": [
         {
           "event": "encounter.finished",
-          "match": "any"
+          "match": "any",
+          "earliestDaysBeforeDue": 35
         },
         {
           "event": "appointment.booked",
-          "match": "any"
+          "match": "any",
+          "earliestDaysBeforeDue": 35
         }
       ],
       "priority": 40,

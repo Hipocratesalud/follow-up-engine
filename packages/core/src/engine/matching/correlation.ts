@@ -11,6 +11,7 @@ import type { ExpectationDefinition } from '../catalog.ts';
 import { addDays } from '../support/time.ts';
 import { encounterOf, eventInstant, type PatientTimeline, refKey } from '../timeline.ts';
 import { matchesFilter } from './filter.ts';
+import { currentDating, gestationalAgeAt } from '../protocols/gestational-age.ts';
 import { resultAnswers, sameConcept } from '../terminology/loinc.ts';
 import { kindOfMatchKey, parseCodeMatchKey } from './match-key.ts';
 import { canonicalSpecialty, referredSpecialties } from './specialty.ts';
@@ -287,6 +288,23 @@ function happensAfterAnchor(event: ClinicalEvent, target: CorrelationTarget): bo
   return true;
 }
 
+/**
+ * Whether the event falls in the correlation's window (`earliestDaysBeforeDue`):
+ * a visit, or the date a booking brings the visit in, no earlier than that
+ * many days before the due date.
+ */
+export function withinFulfillmentWindow(
+  correlation: EventCorrelation,
+  event: ClinicalEvent,
+  dueAt: Date,
+): boolean {
+  if (correlation.earliestDaysBeforeDue === undefined) {
+    return true;
+  }
+  const at = event.type === 'appointment.booked' ? event.scheduledFor : eventInstant(event);
+  return at.getTime() >= addDays(dueAt, -correlation.earliestDaysBeforeDue).getTime();
+}
+
 function orderIdsOf(target: CorrelationTarget): readonly string[] {
   const ids: string[] = [];
   if (target.anchor?.type === 'service_request.created') {
@@ -345,12 +363,14 @@ export function correlates(
     case 'any':
       return (
         happensAfterAnchor(event, target) &&
+        withinFulfillmentWindow(correlation, event, target.expectation.dueAt) &&
         bookedInTime(correlation, event, target) &&
         visitFits(correlation, event, target, timeline)
       );
     case 'same_specialty':
       return (
         happensAfterAnchor(event, target) &&
+        withinFulfillmentWindow(correlation, event, target.expectation.dueAt) &&
         bookedInTime(correlation, event, target) &&
         (target.anchor === undefined ||
           normalizeSpecialty(timeline.specialtyOf(event)) ===
@@ -379,7 +399,50 @@ export function findFulfillment(
   );
 }
 
-/** Whether `event` replaces the target (for example a newer order of the same test). */
+/** Weeks of gestation at which the second and third trimesters start. */
+const TRIMESTER_STARTS = [14, 28] as const;
+
+function trimesterOf(weeks: number): number {
+  return TRIMESTER_STARTS.filter((start) => weeks >= start).length + 1;
+}
+
+/**
+ * Whether two orders of the same test fall in different trimesters of a
+ * dated pregnancy: prenatal tests are repeated by trimester (the 20-week
+ * anatomy scan and the 32-week growth scan, a first- and a third-trimester
+ * blood count), so the later one is a new test, not a re-order.
+ */
+function differentTrimesters(
+  later: ClinicalEvent,
+  earlier: ClinicalEvent | undefined,
+  timeline: PatientTimeline,
+): boolean {
+  if (later.type !== 'service_request.created' || earlier?.type !== 'service_request.created') {
+    return false;
+  }
+  const dating = currentDating(
+    timeline.events.filter((event) => event.occurredAt.getTime() <= later.occurredAt.getTime()),
+  );
+  if (dating === undefined) {
+    return false;
+  }
+  const weeks = [earlier, later].map(
+    (order) => gestationalAgeAt(dating, order.occurredAt).totalDays / 7,
+  );
+  if (weeks.some((week) => week < 0 || week > MAX_PREGNANCY_WEEKS)) {
+    return false;
+  }
+  const [first = 0, second = 0] = weeks.map(trimesterOf);
+  return first !== second;
+}
+
+/** Past this gestational age an order is not part of the pregnancy dated. */
+const MAX_PREGNANCY_WEEKS = 45;
+
+/**
+ * Whether `event` replaces the target (for example a newer order of the same
+ * test). During a pregnancy, only within the same trimester.
+ */
 export function supersedes(
   event: ClinicalEvent,
   target: CorrelationTarget,
@@ -387,6 +450,7 @@ export function supersedes(
 ): boolean {
   return (
     refKey(event.source) !== refKey(target.expectation.source) &&
+    !differentTrimesters(event, target.anchor, timeline) &&
     target.definition.supersededBy.some((correlation) =>
       correlates(correlation, event, target, timeline),
     )

@@ -62,7 +62,7 @@ const RULES: Readonly<Record<string, RuleText>> = {
     action: 'Order an oral glucose tolerance test',
   },
   protocol_pregnancy_postpartum_visit: {
-    reason: 'Postpartum visit due (6 weeks)',
+    reason: 'Postpartum visit due (weeks 3 to 8)',
     action: 'Schedule a postpartum visit',
   },
   protocol_treatment_followup: { reason: 'Treatment follow-up' },
@@ -93,6 +93,10 @@ const RULES: Readonly<Record<string, RuleText>> = {
   abnormal_result_followup: {
     reason: 'Abnormal result with no visit since',
     action: 'Review the result with the patient',
+  },
+  abnormal_imaging_followup_study: {
+    reason: 'Follow-up study the report recommends',
+    action: 'Order the follow-up study the report recommends',
   },
 };
 
@@ -227,6 +231,9 @@ export const EN = {
     // Only an episodic protocol closes (today, pregnancy). Says the episode
     // ended, never how (delivery or loss).
     protocol_closed: 'The protocol ended: the end of the pregnancy was recorded',
+    // Everything a pregnancy asked for (prenatal labs, ultrasounds, the next
+    // prenatal control) once it ended. Never says how it ended.
+    pregnancy_ended: 'The pregnancy ended: nothing prenatal is pending',
     rescheduled_by_protocol: 'Rescheduled: the protocol asks for the same check-up sooner',
     corrected_by_clinician: 'Corrected by a clinician',
     rejected_by_clinician: 'Rejected by a clinician: the note did not ask for it',

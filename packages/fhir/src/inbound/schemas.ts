@@ -327,6 +327,7 @@ export const DiagnosticReportSchema = z.object({
   issued: fhirDateTime.optional(),
   result: z.array(ReferenceSchema).optional(),
   conclusion: fhirString.optional(),
+  conclusionCode: z.array(CodeableConceptSchema).optional(),
 }) satisfies z.ZodType<Partial<R4.DiagnosticReport>>;
 
 export const ConditionSchema = z.object({

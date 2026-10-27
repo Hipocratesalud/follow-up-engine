@@ -244,23 +244,23 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
       ]);
       let snapshot = await snapshotPatient(harness, patient);
       expect(live(ofRule(snapshot, PRENATAL))).toEqual([]);
-      expect(ofRule(snapshot, PRENATAL).at(-1)?.closedReason).toBe('protocol_closed');
-      expect(liveDue(snapshot, POSTPARTUM)).toEqual([delivery + 42]);
+      expect(ofRule(snapshot, PRENATAL).at(-1)?.closedReason).toBe('pregnancy_ended');
+      expect(liveDue(snapshot, POSTPARTUM)).toEqual([delivery + 56]);
       const conditions = await harness.read((stores) =>
         stores.conditions.listByPatient(harness.clinicId, patient),
       );
       expect(conditions.find((condition) => condition.code.code === 'Z34.9')?.status).toBe(
         'resolved',
       );
-      // No visit within 6 weeks: one case, the postpartum visit, never a prenatal reason.
-      await day(harness, delivery + 50);
+      // No visit within 8 weeks: one case, the postpartum visit, never a prenatal reason.
+      await day(harness, delivery + 60);
       snapshot = await snapshotPatient(harness, patient);
       expect(activeReasons(snapshot)).toContain(POSTPARTUM);
       expect(activeReasons(snapshot)).not.toContain(PRENATAL);
       expect(live(ofRule(snapshot, PRENATAL))).toEqual([]);
       // The postpartum visit resolves it.
-      await day(harness, delivery + 52, [
-        visit('postpartum', delivery + 52, {
+      await day(harness, delivery + 62, [
+        visit('postpartum', delivery + 62, {
           specialty: 'gynecology',
           diagnoses: [{ icd10: 'Z39.2', display: 'puerperio' }],
         }),
@@ -293,7 +293,7 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
       ]);
       const snapshot = await snapshotPatient(harness, patient);
       expect(live(ofRule(snapshot, PRENATAL))).toEqual([]);
-      expect(liveDue(snapshot, POSTPARTUM)).toEqual([delivery + 42]);
+      expect(liveDue(snapshot, POSTPARTUM)).toEqual([delivery + 56]);
     });
 
     it("the doctor's next prenatal control is moot after the delivery, and does not stand in for the postpartum visit", async () => {
@@ -321,15 +321,38 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
       ]);
       const snapshot = await snapshotPatient(harness, patient);
       expect(live(ofRule(snapshot, 'doctor_plan_followup'))).toEqual([]);
-      expect(ofRule(snapshot, 'doctor_plan_followup').at(-1)?.closedReason).toBe('protocol_closed');
-      expect(liveDue(snapshot, POSTPARTUM)).toEqual([delivery + 42]);
+      expect(ofRule(snapshot, 'doctor_plan_followup').at(-1)?.closedReason).toBe('pregnancy_ended');
+      expect(liveDue(snapshot, POSTPARTUM)).toEqual([delivery + 56]);
     });
 
-    it('a puerperal visit that records the end is itself the postpartum visit', async () => {
+    it('a puerperal visit a week after the due date is not the postpartum visit; one from week 3 is', async () => {
       const harness = await harnessWith();
       await day(harness, 0, pregnancyStart());
+      // Only the puerperal visit tells the delivery (Z39): dated by the estimated delivery date.
       await day(harness, weekDay(10, 41), [
         visit('puerperal', weekDay(10, 41), {
+          specialty: 'gynecology',
+          diagnoses: [{ icd10: 'Z39.2', display: 'puerperio' }],
+        }),
+      ]);
+      let snapshot = await snapshotPatient(harness, patient);
+      expect(live(ofRule(snapshot, PRENATAL))).toEqual([]);
+      expect(liveDue(snapshot, POSTPARTUM)).toEqual([weekDay(10, 40) + 56]);
+      await day(harness, weekDay(10, 40) + 30, [
+        visit('postpartum-4w', weekDay(10, 40) + 30, {
+          specialty: 'gynecology',
+          diagnoses: [{ icd10: 'Z39.2', display: 'puerperio' }],
+        }),
+      ]);
+      snapshot = await snapshotPatient(harness, patient);
+      expect(live(ofRule(snapshot, POSTPARTUM))).toEqual([]);
+    });
+
+    it('a puerperal visit from week 3 after the due date that records the end is itself the postpartum visit', async () => {
+      const harness = await harnessWith();
+      await day(harness, 0, pregnancyStart());
+      await day(harness, weekDay(10, 44), [
+        visit('puerperal', weekDay(10, 44), {
           specialty: 'gynecology',
           diagnoses: [{ icd10: 'Z39.2', display: 'puerperio' }],
         }),
@@ -413,14 +436,20 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
         visit('psq-1', 0, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
       ]);
       expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([28]);
+      // A psychotherapy session is not the prescriber's control: the 2-4 week
+      // control after the start is still due.
       await day(harness, 21, [visit('psy-2', 21, { specialty: 'psychology' })]);
-      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([51]);
-      await day(harness, 50, [
-        visit('psq-2', 50, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
+      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([28]);
+      await day(harness, 27, [
+        visit('psq-2', 27, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
       ]);
-      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([80]);
+      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([57]);
+      await day(harness, 55, [
+        visit('psq-3', 55, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
+      ]);
+      expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([85]);
       await day(harness, 78, [
-        visit('psq-3', 78, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
+        visit('psq-3b', 78, { specialty: 'psychiatry', prescriptions: [sertraline(50)] }),
       ]);
       // Three controls without a change: every 3 months.
       expect(liveDue(await snapshotPatient(harness, patient), TREATMENT_VISIT)).toEqual([168]);
@@ -430,7 +459,9 @@ function protocolLibrary(makeHarness: (options: HarnessOptions) => Promise<Engin
       ]);
       let snapshot = await snapshotPatient(harness, patient);
       expect(liveDue(snapshot, TREATMENT_VISIT)).toEqual([128]);
-      // Missed: a case, whose reason names no condition.
+      // Psychotherapy goes on, but the prescriber's control is missed: a
+      // case, whose reason names no condition.
+      await day(harness, 110, [visit('psy-3', 110, { specialty: 'psychology' })]);
       await day(harness, 140);
       snapshot = await snapshotPatient(harness, patient);
       expect(activeReasons(snapshot)).toContain(TREATMENT_VISIT);

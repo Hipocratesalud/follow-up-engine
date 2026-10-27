@@ -624,3 +624,69 @@ describe('builder round trip', () => {
     ]);
   });
 });
+
+describe('DiagnosticReport conclusions', () => {
+  function report(conclusion: string | undefined, conclusionCode?: string): unknown {
+    return {
+      resourceType: 'Bundle',
+      type: 'transaction',
+      entry: [
+        {
+          resource: {
+            resourceType: 'DiagnosticReport',
+            id: 'dr-mammo',
+            status: 'final',
+            code: {
+              coding: [{ system: 'http://loinc.org', code: '24606-6', display: 'Mamografía' }],
+            },
+            subject: { reference: 'Patient/pat-conclusion' },
+            issued: '2024-01-27T10:00:00Z',
+            ...(conclusion === undefined ? {} : { conclusion }),
+            ...(conclusionCode === undefined
+              ? {}
+              : {
+                  conclusionCode: [
+                    { coding: [{ system: 'http://snomed.info/sct', code: conclusionCode }] },
+                  ],
+                }),
+          },
+          request: { method: 'PUT', url: 'DiagnosticReport/dr-mammo' },
+        },
+      ],
+    };
+  }
+
+  function result(bundle: unknown) {
+    const [event] = eventsOf(onlyBatch(map(bundle)), 'result.received');
+    return event;
+  }
+
+  it('reads an abnormal free-text conclusion with the follow-up study it calls for', () => {
+    expect(
+      result(
+        report('BI-RADS 3. Hallazgo probablemente benigno; se sugiere control a corto plazo.'),
+      ),
+    ).toMatchObject({
+      interpretation: 'abnormal',
+      severity: 'mild',
+      conclusion: 'BI-RADS 3. Hallazgo probablemente benigno; se sugiere control a corto plazo.',
+      recommendedFollowUpDays: 180,
+    });
+  });
+
+  it('reads the SNOMED CT conclusion code', () => {
+    expect(result(report('Ver informe.', '263654008'))).toMatchObject({
+      interpretation: 'abnormal',
+    });
+    const normal = result(report('BI-RADS 1.', '17621005'));
+    expect(normal).toMatchObject({ interpretation: 'normal' });
+    expect(normal?.recommendedFollowUpDays).toBeUndefined();
+    expect(normal?.severity).toBeUndefined();
+  });
+
+  it('keeps an unknown interpretation when the report says nothing readable', () => {
+    const event = result(report(undefined));
+    expect(event?.interpretation).toBe('unknown');
+    expect(event?.conclusion).toBeUndefined();
+  });
+});

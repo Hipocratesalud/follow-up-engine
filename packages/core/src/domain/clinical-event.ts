@@ -131,6 +131,18 @@ export interface ResultReceivedEvent extends ClinicalEventBase {
    * it without that list.
    */
   readonly listedResults?: readonly ResourceRef[];
+  /**
+   * The report's free-text conclusion (FHIR `DiagnosticReport.conclusion`):
+   * an imaging report's finding is often only there ("BI-RADS 3", "biometría
+   * por debajo del percentil 10"). Read into `interpretation`.
+   */
+  readonly conclusion?: string;
+  /**
+   * Days within which the report's finding calls for a follow-up study
+   * (BI-RADS 3: a short-interval study at 6 months; fetal biometry below the
+   * 10th percentile: a growth scan in 2 weeks), read from its conclusion.
+   */
+  readonly recommendedFollowUpDays?: number;
 }
 
 /** A medication was prescribed (FHIR `MedicationRequest`). */

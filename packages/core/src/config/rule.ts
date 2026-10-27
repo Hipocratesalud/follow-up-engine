@@ -183,9 +183,12 @@ export const RuleSchema = z.strictObject({
   caseGroup: ConfigIdSchema.optional(),
   /**
    * What `dueInDays` counts from: the trigger event (default) or the end of
-   * the prescribed treatment (`startAt + durationDays`).
+   * the prescribed treatment (`startAt + durationDays`). For a result,
+   * `recommended_follow_up` is due when its report says the follow-up study
+   * is (`recommendedFollowUpDays`: BI-RADS 3 at 6 months), `dueInDays` when
+   * it does not say.
    */
-  dueFrom: z.enum(['trigger', 'treatment_end']).optional(),
+  dueFrom: z.enum(['trigger', 'treatment_end', 'recommended_follow_up']).optional(),
   /** Parameters of a `cadence` rule: due after `multiplier` times the patient's usual interval. */
   cadence: z
     .strictObject({

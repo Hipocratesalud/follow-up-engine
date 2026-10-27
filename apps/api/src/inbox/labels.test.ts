@@ -17,6 +17,7 @@ const ENGINE_CLOSED_REASONS = [
   'covered_by_later_request',
   'condition_rejected',
   'protocol_closed',
+  'pregnancy_ended',
   'rescheduled_by_protocol',
   'suppressed_for_patient',
 ];

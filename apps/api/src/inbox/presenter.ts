@@ -210,7 +210,10 @@ export function withoutConfirmedDuplicates(
 }
 
 /** Rules whose reason is a result that came back abnormal: the most urgent thing to act on. */
-const ABNORMAL_RESULT_RULES = new Set(['abnormal_result_followup']);
+const ABNORMAL_RESULT_RULES = new Set([
+  'abnormal_result_followup',
+  'abnormal_imaging_followup_study',
+]);
 /** Rules waiting for the result of an order. */
 const PENDING_RESULT_RULES = new Set(['lab_order_result_pending', 'imaging_order_result_pending']);
 

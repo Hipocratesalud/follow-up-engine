@@ -3,7 +3,11 @@ import type { ClinicalEvent } from '../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
 import type { ResourceRef } from '../../domain/resource.ts';
 import type { ExpectationDefinition } from '../catalog.ts';
-import { definitionVisitFits, matchesShape } from '../matching/correlation.ts';
+import {
+  definitionVisitFits,
+  matchesShape,
+  withinFulfillmentWindow,
+} from '../matching/correlation.ts';
 import { addDays } from '../support/time.ts';
 import { encounterOf, eventInstant, type PatientTimeline } from '../timeline.ts';
 import type { ActiveEpisode, EndedEpisode, ProtocolEpisode } from './episodes.ts';
@@ -202,20 +206,28 @@ function afterOutcomeSchedule(
 ): ScheduledItem | undefined {
   const closure = episode.endedBy;
   const closedAt = closure.occurredAt.getTime();
+  const outcomeAt = episode.outcomeAt.getTime();
+  const dueAt = addDays(episode.outcomeAt, schedule.withinDays);
   const encounter = encounterOf(closure);
-  // A visit after the outcome. The encounter that recorded it counts when
-  // it is a puerperal visit (Z39), or took place days after the outcome it
-  // tells about ("cesárea hace 10 días"); never the delivery itself.
+  // A visit after the outcome, inside the item's window (the postpartum
+  // visit counts from week 3: the puerperal check a week after the delivery
+  // is not it). The encounter that recorded the outcome counts when it is a
+  // later visit (Z39, "cesárea hace 10 días"); never the delivery itself.
   const done = fulfillingEvents(input.definition, input.timeline).some((event) => {
-    const after = eventInstant(event).getTime() - closedAt;
+    const at = eventInstant(event).getTime();
+    const inWindow = input.definition.fulfilledBy.some(
+      (correlation) =>
+        correlation.event === event.type && withinFulfillmentWindow(correlation, event, dueAt),
+    );
+    if (at <= outcomeAt || !inWindow) {
+      return false;
+    }
     const sameEncounter = encounter !== undefined && encounterOf(event) === encounter;
     return sameEncounter
-      ? episode.endedAtFollowUp || after >= RECORDED_LATER_DAYS * MS_PER_DAY
-      : after > 0;
+      ? episode.endedAtFollowUp || at - closedAt >= RECORDED_LATER_DAYS * MS_PER_DAY
+      : at > closedAt || episode.endedAtFollowUp;
   });
-  return done
-    ? undefined
-    : { anchor: closure.source, dueAt: addDays(closure.occurredAt, schedule.withinDays) };
+  return done ? undefined : { anchor: closure.source, dueAt };
 }
 
 function ckdStageSchedule(
