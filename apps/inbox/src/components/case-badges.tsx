@@ -24,8 +24,11 @@ import type {
 import { cx } from '../lib/cx.ts';
 import { formatDate } from '../lib/format.ts';
 import {
+  DRAFT_PROTOCOL_HINT,
+  DRAFT_PROTOCOL_LABEL,
   LAYER_DESCRIPTIONS,
   LAYER_LABELS,
+  PROTOCOL_NAME_PREFIX,
   PRIORITY_LABELS,
   STATUS_LABELS,
   escalationNext,
@@ -174,10 +177,6 @@ export function EscalationMeter({
   );
 }
 
-export const DRAFT_PROTOCOL_LABEL = 'Protocolo en borrador · pendiente de validación clínica';
-export const DRAFT_PROTOCOL_HINT =
-  'Este protocolo aún no fue validado por el equipo clínico de tu consultorio.';
-
 export function isDraftProtocol(protocol: ProtocolRef | undefined): boolean {
   return protocol?.status === 'draft';
 }
@@ -228,7 +227,7 @@ export function ReasonProtocol({
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
       {protocol?.name === undefined ? null : (
         <span className="text-xs text-muted">
-          Protocolo: <span className="font-medium text-fg">{protocol.name}</span>
+          {PROTOCOL_NAME_PREFIX} <span className="font-medium text-fg">{protocol.name}</span>
         </span>
       )}
       {draft ? <DraftProtocolBadge /> : null}

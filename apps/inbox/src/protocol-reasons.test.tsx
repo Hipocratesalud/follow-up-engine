@@ -1,12 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { CaseView } from './api/contract.ts';
-import {
-  DRAFT_PROTOCOL_HINT,
-  DRAFT_PROTOCOL_LABEL,
-  DraftProtocolBadge,
-  ReasonProtocol,
-} from './components/case-badges.tsx';
+import { DraftProtocolBadge, ReasonProtocol } from './components/case-badges.tsx';
+import { DRAFT_PROTOCOL_HINT, DRAFT_PROTOCOL_LABEL } from './lib/labels.ts';
 import { createMockStore } from './mocks/store.ts';
 import { renderApp } from './test/render.tsx';
 

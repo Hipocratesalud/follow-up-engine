@@ -25,6 +25,14 @@ export const LAYER_DESCRIPTIONS: Record<Layer, string> = {
   protocol: 'Un control que el protocolo de su condición indica y nadie ha pedido.',
 };
 
+/** Badge of a reason from a protocol the clinical team has not validated yet (`status: draft`). */
+export const DRAFT_PROTOCOL_LABEL = 'Protocolo en borrador · pendiente de validación clínica';
+/** Tooltip and screen-reader text of {@link DRAFT_PROTOCOL_LABEL}. */
+export const DRAFT_PROTOCOL_HINT =
+  'Este protocolo aún no fue validado por el equipo clínico de tu consultorio.';
+/** Prefix of the protocol's name under a reason ("Protocolo: Embarazo y puerperio"). */
+export const PROTOCOL_NAME_PREFIX = 'Protocolo:';
+
 export const STATUS_LABELS: Record<CaseStatus, string> = {
   open: 'Abierto',
   notified: 'Avisado',
