@@ -233,3 +233,26 @@ describe('invalid replies', () => {
     });
   });
 });
+
+describe('allowLive', () => {
+  it('fails a miss without calling the model while it returns false, and calls it after', async () => {
+    const live = liveProvider(['{"answer":"x"}']);
+    let open = false;
+    const provider = createSnapshotProvider({
+      snapshot: emptySnapshot('meta'),
+      live,
+      allowLive: () => open,
+    });
+    await expect(provider.complete(request('note A'))).rejects.toMatchObject({
+      code: 'snapshot_miss',
+      retryable: false,
+    });
+    expect(live.calls).toBe(0);
+    open = true;
+    await expect(provider.complete(request('note A'))).resolves.toMatchObject({
+      output: { answer: 'x' },
+    });
+    expect(live.calls).toBe(1);
+    expect(provider.stats()).toEqual({ hits: 0, misses: 2 });
+  });
+});

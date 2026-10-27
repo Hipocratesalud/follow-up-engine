@@ -188,6 +188,13 @@ export interface SnapshotProviderOptions {
    * own, near-zero, latency). `none`: zero tokens and latency.
    */
   readonly replayUsage?: 'recorded' | 'none';
+  /**
+   * Whether a miss may call `live` right now (default: always). The demo
+   * seed replays only (a miss fails like an outage, and the gateway's next
+   * route entry answers); live traffic after it calls the model. Recording
+   * scripts use it as a spending cap.
+   */
+  readonly allowLive?: () => boolean;
   /** Called after a live reply is recorded. */
   readonly onRecord?: (key: string, entry: LlmSnapshotEntry) => void;
   /** Called when a recorded reply is replayed (to keep only the entries a run still uses). */
@@ -252,7 +259,7 @@ export function createSnapshotProvider(options: SnapshotProviderOptions): Snapsh
       };
     }
     misses += 1;
-    if (options.live === undefined) {
+    if (options.live === undefined || options.allowLive?.() === false) {
       throw new LlmProviderError(name, `No snapshot entry for request ${key.slice(0, 12)}`, {
         retryable: false,
         code: 'snapshot_miss',

@@ -138,6 +138,35 @@ describe('a recorded Muse Spark snapshot', () => {
     expect(second.replay?.stats()).toEqual({ hits: 1, misses: 1 });
   });
 
+  it('replay-only: a miss is read by the fake provider and labeled fake, never called live', async () => {
+    const config = loadRuntimeConfig({ META_API_KEY: 'key' }).llm;
+    const fetch = metaFetch();
+    const usageLog = new MemoryLlmUsageLog(new MemoryDatabase());
+    let live = false;
+    const configured = createConfiguredExtractor(config, {
+      ...deps(fetch.fetch),
+      usageLog,
+      snapshot: { snapshot: emptySnapshot('meta'), allowLive: () => live },
+    });
+    const seeded = await configured.extractor.extract(clinicId('c1'), NOTE);
+    expect(fetch.calls).toHaveLength(0);
+    expect(seeded.model).toBe('fake-extractor');
+    expect(seeded.planItems.map((item) => item.kind)).toEqual(['follow_up_visit']);
+
+    live = true;
+    const consultation = await configured.extractor.extract(clinicId('c1'), {
+      ...NOTE,
+      text: `${NOTE.text} Nueva consulta.`,
+    });
+    expect(fetch.calls).toHaveLength(1);
+    expect(consultation.model).toBe('muse-spark-1.3');
+    const usage = await usageLog.summary(clinicId('c1'), new Date(0));
+    expect(usage.byModel.map((row) => `${row.provider}:${row.model}`).sort()).toEqual([
+      'fake:fake-extractor',
+      'meta:muse-spark-1.3',
+    ]);
+  });
+
   it('is ignored with the fake provider', () => {
     const configured = createConfiguredExtractor(loadRuntimeConfig({}).llm, {
       ...deps(metaFetch().fetch),

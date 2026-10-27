@@ -63,6 +63,14 @@ export interface ConfiguredExtractor {
  */
 export interface LlmSnapshotOption {
   readonly snapshot: LlmSnapshot;
+  /**
+   * Whether a request not in the snapshot may call the model now. When
+   * given, such a request is answered instead by the fake provider (the
+   * rule-based reader, the scripted reviewer) as the gateway's fallback
+   * route, and accounted and labeled as `fake`: the demo seed never spends
+   * on a stale snapshot, and never passes a fake reading off as Muse Spark.
+   */
+  readonly allowLive?: () => boolean;
   readonly onRecord?: (key: string, entry: LlmSnapshotEntry) => void;
   readonly onReplay?: (key: string, entry: LlmSnapshotEntry) => void;
 }
@@ -172,18 +180,33 @@ export function createConfiguredExtractor(
           live: choice.provider,
           ...(deps.snapshot.onRecord === undefined ? {} : { onRecord: deps.snapshot.onRecord }),
           ...(deps.snapshot.onReplay === undefined ? {} : { onReplay: deps.snapshot.onReplay }),
+          ...(deps.snapshot.allowLive === undefined ? {} : { allowLive: deps.snapshot.allowLive }),
         })
       : undefined;
+  // Only next to a replay-only snapshot: the fake answers what the snapshot cannot.
+  const fallback =
+    replay !== undefined && deps.snapshot?.allowLive !== undefined
+      ? chooseProvider({ provider: 'fake' }, deps)
+      : undefined;
   const gateway = createLlmGateway({
-    providers: { [choice.info.provider]: replay ?? choice.provider },
+    providers: {
+      [choice.info.provider]: replay ?? choice.provider,
+      ...(fallback === undefined ? {} : { [fallback.info.provider]: fallback.provider }),
+    },
     tasks: {
       [NOTE_EXTRACTION_TASK]: {
-        route: [{ provider: choice.info.provider, model: choice.info.model }],
+        route: [
+          { provider: choice.info.provider, model: choice.info.model },
+          ...(fallback === undefined ? [] : [fallback.info]),
+        ],
         maxOutputTokens: 8_000,
       },
       [CLINICAL_REVIEW_TASK]: {
         route: [
           { provider: choice.info.provider, model: choice.reviewerModel ?? choice.info.model },
+          ...(fallback === undefined
+            ? []
+            : [{ provider: fallback.info.provider, model: fallback.reviewerModel ?? '' }]),
         ],
         maxOutputTokens: 4_000,
       },

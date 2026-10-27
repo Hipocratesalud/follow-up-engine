@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { parseArgs } from 'node:util';
 import {
   CLINICAL_REVIEW_PROMPT_VERSION,
   costOf,
@@ -34,7 +35,23 @@ import { seedSyntheticClinic } from './seed.ts';
  * record), so recording from scratch takes minutes, not an hour. Entries no
  * request used any more (an older prompt version) are dropped.
  * `SEED_PATIENTS=N` records only the first N patients (a smoke check).
+ * `--max-usd <n>` caps the live spend (default 10; a full recording costs
+ * about $7.3: $4.7 for the 918 notes, $2.6 for the 185 reviews); past it a
+ * request is read by the fake provider, exactly as the demo seed reads a
+ * request missing from the snapshot. `--no-reviews` records the backfill only.
  */
+
+const { values } = parseArgs({
+  options: {
+    'max-usd': { type: 'string', default: '10' },
+    reviews: { type: 'boolean', default: true },
+    'no-reviews': { type: 'boolean', default: false },
+  },
+});
+/** Live spend cap (USD at list price); past it, requests are read by the fake provider. */
+const maxUsd = Number(values['max-usd']);
+if (!Number.isFinite(maxUsd) || maxUsd < 0) throw new Error('--max-usd must be a number of USD');
+if (values['no-reviews']) values.reviews = false;
 
 const SLICES = 4;
 const path = llmSnapshotPath(LLM_SNAPSHOTS.demoClinic);
@@ -57,9 +74,9 @@ const started = performance.now();
 let hits = 0;
 let misses = 0;
 
-await Promise.all(
-  Array.from({ length: SLICES }, async (_, index) => {
-    const runtime = await createRuntime(
+const runtimes = await Promise.all(
+  Array.from({ length: SLICES }, (_, index) =>
+    createRuntime(
       loadRuntimeConfig({
         ...process.env,
         LLM_PROVIDER: 'meta',
@@ -71,30 +88,52 @@ await Promise.all(
       }),
       {
         service: `record-${String(index)}`,
-        llmSnapshot: { snapshot: existing, onRecord: record, onReplay: keep },
+        llmSnapshot: {
+          snapshot: existing,
+          onRecord: record,
+          onReplay: keep,
+          // Past the cap a request is read by the fake provider, as the demo
+          // seed would read it, and not recorded.
+          allowLive: () => liveCostUsd < maxUsd,
+        },
       },
-    );
-    try {
-      const seed = await seedSyntheticClinic(runtime, {
+    ),
+  ),
+);
+try {
+  // Every note first, then the reviews: under a spending cap, the readings
+  // the inbox is built from come first.
+  const seeds = await Promise.all(
+    runtimes.map((runtime, index) =>
+      seedSyntheticClinic(runtime, {
         apiKey: DEFAULT_DEMO_API_KEY,
         inboxApiKey: DEFAULT_DEMO_INBOX_API_KEY,
         slice: { index, count: SLICES },
         ...(process.env['SEED_PATIENTS'] === undefined
           ? {}
           : { patients: Number(process.env['SEED_PATIENTS']) }),
-      });
-      const pilot = await seedReviewerPilot(runtime, { cohort: index === 0 });
-      const stats = runtime.llmReplay?.stats() ?? { hits: 0, misses: 0 };
-      hits += stats.hits;
-      misses += stats.misses;
-      process.stdout.write(
-        `slice ${String(index + 1)}/${String(SLICES)}: ${String(seed.patients)} patients, ${String(seed.documentsProcessed)} notes, ${String(pilot.reviewed)} reviews; ${String(stats.hits)} replayed, ${String(stats.misses)} live\n`,
-      );
-    } finally {
-      await runtime.close();
-    }
-  }),
-);
+      }),
+    ),
+  );
+  process.stdout.write(
+    `seeded ${String(seeds.reduce((sum, seed) => sum + seed.documentsProcessed, 0))} notes; live so far $${liveCostUsd.toFixed(4)}\n`,
+  );
+  const pilots = values.reviews
+    ? await Promise.all(
+        runtimes.map((runtime, index) => seedReviewerPilot(runtime, { cohort: index === 0 })),
+      )
+    : [];
+  for (const [index, runtime] of runtimes.entries()) {
+    const stats = runtime.llmReplay?.stats() ?? { hits: 0, misses: 0 };
+    hits += stats.hits;
+    misses += stats.misses;
+    process.stdout.write(
+      `slice ${String(index + 1)}/${String(SLICES)}: ${String(seeds[index]?.patients ?? 0)} patients, ${String(seeds[index]?.documentsProcessed ?? 0)} notes, ${String(pilots[index]?.reviewed ?? 0)} reviews; ${String(stats.hits)} replayed, ${String(stats.misses)} not in the snapshot\n`,
+    );
+  }
+} finally {
+  await Promise.all(runtimes.map((runtime) => runtime.close()));
+}
 
 const snapshot: LlmSnapshot = {
   format: 1,
@@ -107,5 +146,5 @@ const snapshot: LlmSnapshot = {
 await mkdir(dirname(path), { recursive: true });
 await writeFile(path, serializeSnapshot(snapshot), 'utf8');
 process.stdout.write(
-  `${path}: ${String(used.size)} entries (${String(hits)} replayed, ${String(misses)} recorded live for $${liveCostUsd.toFixed(4)}) in ${String(Math.round((performance.now() - started) / 1000))} s\n`,
+  `${path}: ${String(used.size)} entries (${String(hits)} replayed, ${String(misses)} not in the snapshot; live spend $${liveCostUsd.toFixed(4)} of the $${maxUsd.toFixed(2)} cap) in ${String(Math.round((performance.now() - started) / 1000))} s\n`,
 );
