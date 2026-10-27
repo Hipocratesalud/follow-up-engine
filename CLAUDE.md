@@ -25,7 +25,7 @@ Use pnpm 10 (`corepack enable pnpm`; a global pnpm 7 is rejected by `engines`).
 
 - `packages/core`: domain + ports only. Imports itself and zod. No `pg`, no vendor SDKs, no `node:fs|net|http|child_process`, no other workspace packages.
 - `packages/fhir` → core. Adapters (`adapter-postgres`, `adapter-memory`, `llm`) → core, fhir. Never adapter → adapter.
-- Only `apps/*` (composition roots) wire adapters. Nothing imports an app. `testkit` only from tests.
+- Only `packages/runtime` (the composition root, ADR 0005) wires adapters; only apps (and acceptance tests) import it. Nothing imports an app, no exceptions. `testkit` only from tests.
 - No circular dependencies. Type-only imports count.
 - TypeScript runs without a build step (`erasableSyntaxOnly`): no enums, no parameter properties, relative imports end in `.ts`.
 

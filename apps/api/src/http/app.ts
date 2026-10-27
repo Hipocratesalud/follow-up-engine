@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { type EngineRuntime, hashApiKey, type Worker } from '@follow-up-engine/worker';
+import { type EngineRuntime, hashApiKey, type Worker } from '@follow-up-engine/runtime';
 import { Hono, type MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
 import { routePath } from 'hono/route';

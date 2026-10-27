@@ -6,9 +6,9 @@ import {
   NOTE_EXTRACTION_JOB,
   type WatcherReport,
 } from '@follow-up-engine/core';
-import { INGEST_BUNDLE_JOB } from './runtime/ingestion.ts';
-import { activeClinicIds, type EngineRuntime } from './runtime/runtime.ts';
-import type { DrainResult } from './runtime/storage.ts';
+import { INGEST_BUNDLE_JOB } from './ingestion.ts';
+import { activeClinicIds, type EngineRuntime } from './runtime.ts';
+import type { DrainResult } from './storage.ts';
 
 /** Job types this worker handles. */
 export const WORKER_JOB_TYPES = [INGEST_BUNDLE_JOB, NOTE_EXTRACTION_JOB] as const;

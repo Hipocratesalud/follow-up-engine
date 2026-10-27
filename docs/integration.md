@@ -572,7 +572,7 @@ The case closed: what was expected happened (`fulfilled`), the team handled it (
 
 ### `backfill.completed`
 
-The initial scan of the clinic's history finished.
+The initial scan of the clinic's history finished. Counters only: how much history was replayed, how much of what it expected the history already closed, how many cases were opened, how many were given a release day (`casesScheduled`, released in daily batches as `case.opened`) and how many are too old to notify (`casesNotNotified`, listed among the patients to recover only). `shadow: true` means nothing was scheduled.
 
 ```json
 {
@@ -582,9 +582,40 @@ The initial scan of the clinic's history finished.
   "occurredAt": "2026-01-05T12:00:00.000Z",
   "data": {
     "runId": "backfill-2026-01-05",
+    "shadow": false,
     "patientsScanned": 120,
-    "expectationsCreated": 2154,
-    "casesOpened": 87
+    "eventsProcessed": 5074,
+    "documentsProcessed": 671,
+    "expectationsCreated": 2221,
+    "expectationsFulfilled": 1794,
+    "casesOpened": 104,
+    "llmCostUsd": 0,
+    "casesScheduled": 104,
+    "casesNotNotified": 0
+  }
+}
+```
+
+### `backfill.paused`
+
+Alert: the scan stopped before the end because the clinic's monthly LLM budget ran out (`reason: "llm_budget_exceeded"`). Counters are the work done so far; the run resumes from the last finished patient once there is budget. Raise the budget or wait for the next month.
+
+```json
+{
+  "id": "1e2d3c4b-5a69-4788-97a6-b5c4d3e2f1a0",
+  "type": "backfill.paused",
+  "clinicId": "clinic-demo",
+  "occurredAt": "2026-01-05T12:40:00.000Z",
+  "data": {
+    "runId": "backfill-2026-01-05",
+    "reason": "llm_budget_exceeded",
+    "patientsScanned": 61,
+    "eventsProcessed": 2533,
+    "documentsProcessed": 340,
+    "expectationsCreated": 1102,
+    "expectationsFulfilled": 897,
+    "casesOpened": 52,
+    "llmCostUsd": 50
   }
 }
 ```
@@ -621,7 +652,7 @@ app.post(
 );
 ```
 
-The same check is exported as `verifyWebhookSignature(secret, rawBody, signature)` from `@follow-up-engine/worker`, and `pnpm --filter @follow-up-engine/worker webhook-sink` runs a receiver that verifies and lists deliveries (`GET /deliveries`) for development.
+The same check is exported as `verifyWebhookSignature(secret, rawBody, signature)` from `@follow-up-engine/runtime`, and `pnpm --filter @follow-up-engine/worker webhook-sink` runs a receiver that verifies and lists deliveries (`GET /deliveries`) for development.
 
 ### Delivery and retries
 

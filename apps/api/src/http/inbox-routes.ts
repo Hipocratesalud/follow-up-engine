@@ -10,11 +10,10 @@ import {
   parseConditionId,
   patientId as toPatientId,
 } from '@follow-up-engine/core';
-import type { EngineRuntime } from '@follow-up-engine/worker';
+import type { EngineRuntime } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { conditionView, InboxPresenter, assigneeIdFromLabel } from '../inbox/presenter.ts';
 import { patientSummary } from '../inbox/fhir-display.ts';
-import { requestPatientContact } from '../inbox/patient-contact.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
 import {
@@ -49,6 +48,19 @@ async function requireCase(
     throw notFound('No encontramos ese caso.');
   }
   return found;
+}
+
+/** "Pedir contacto": `patient_contact.requested` to the host, then the case is marked notified. */
+async function requestContact(
+  runtime: EngineRuntime,
+  clinicId: ClinicId,
+  caseId: CaseId,
+  user: CaseEventActor,
+): Promise<FollowUpCase> {
+  const requested = await runtime.engine.cases.requestPatientContact(clinicId, caseId, user);
+  return requested.status === 'open' || requested.status === 'snoozed'
+    ? runtime.engine.cases.notify(clinicId, caseId, user)
+    : requested;
 }
 
 /** Every case matching a query, across pages (stats, recovery). */
@@ -123,11 +135,12 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     await requireCase(runtime, c.var.clinicId, caseId);
     const now = runtime.clock.now();
     const user = actor(c);
-    // "Pedir contacto" asks the host to reach the patient; the other actions
-    // are case transitions the engine owns.
+    // "Pedir contacto" asks the host to reach the patient (the engine checks
+    // the clinic's settings, opt-out and contact window), then marks the case
+    // as notified; the other actions are plain case transitions.
     const updated =
       body.action === 'notify'
-        ? await requestPatientContact(runtime, c.var.clinicId, caseId, user)
+        ? await requestContact(runtime, c.var.clinicId, caseId, user)
         : await engine.cases.apply(
             c.var.clinicId,
             caseId,
@@ -207,13 +220,12 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
   app.get('/api/inbox/recovery', async (c) => {
     const query = readQuery(c, PageQuerySchema);
     const now = runtime.clock.now();
-    const pending = (
-      await listAll(runtime, c.var.clinicId, {
-        statuses: ACTIVE_CASE_STATUSES,
-        origin: 'backfill',
-        orderBy: 'priority',
-      })
-    ).filter((item) => item.releaseAt !== undefined && item.releaseAt.getTime() > now.getTime());
+    const pending = await listAll(runtime, c.var.clinicId, {
+      statuses: ACTIVE_CASE_STATUSES,
+      origin: 'backfill',
+      unreleasedAsOf: now,
+      orderBy: 'priority',
+    });
     const offset = Number(query.cursor ?? '0');
     const start = Number.isInteger(offset) && offset > 0 ? offset : 0;
     const slice = pending.slice(start, start + query.limit);
@@ -233,7 +245,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     const [active, feedback, usage] = await Promise.all([
       listAll(runtime, clinicId, { statuses: ACTIVE_CASE_STATUSES, releasedAsOf: now }),
       stores.feedback.listSince(clinicId, new Date(0), 100_000),
-      readModel.llmUsage(clinicId, startOfUtcMonth(now)),
+      runtime.storage.llmUsage.summary(clinicId, startOfUtcMonth(now)),
     ]);
     await presenter.prefetch(active);
     const byLayer = Object.fromEntries(EXPECTATION_LAYERS.map((layer) => [layer, 0])) as Record<

@@ -10,7 +10,7 @@ import {
   loadRuntimeConfig,
   WEBHOOK_SINK_PATH,
   WebhookSink,
-} from '@follow-up-engine/worker';
+} from '@follow-up-engine/runtime';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { CaseDetail, CaseView } from '../src/http/schemas.ts';
 import { type ApiServer, createApiServer } from '../src/server.ts';

@@ -35,7 +35,7 @@ OpenAI-compatible endpoint plugs in the same way, so models can be compared on t
 - **Providers** implement core's `LlmProvider` (plus an optional abort `signal` and detailed usage:
   cached prompt tokens, reasoning tokens). They never see a `clinicId`.
 - **Gateway** implements core's `LlmGateway`. Config is a typed object; reading env vars and picking
-  providers is the job of the apps (composition roots).
+  providers is the job of the composition root (`packages/runtime`).
 - **Note extractor** implements the `NoteExtractor` port (`note-extractor.ts` in core).
 - **Eval harness** scores the extractor on gold notes and writes Markdown reports to `docs/evals/`.
 

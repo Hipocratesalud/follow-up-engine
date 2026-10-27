@@ -86,21 +86,34 @@ module.exports = {
       to: { path: '^packages/acceptance/' },
     },
     {
+      name: 'runtime-is-the-composition-root',
+      severity: 'error',
+      comment:
+        'packages/runtime wires adapters to the core ports from the environment (docs/adr/0005). ' +
+        'It may import core, fhir, llm and the adapters; never an app or testkit outside its tests.',
+      from: { path: '^packages/runtime/', pathNot: TEST_FILE },
+      to: {
+        path: '^(packages|apps)/',
+        pathNot: '^packages/(core|fhir|llm|adapter-[^/]+|runtime)/',
+      },
+    },
+    {
+      name: 'only-apps-use-the-runtime',
+      severity: 'error',
+      comment:
+        'The runtime is the composition root: only process entry points (apps) and the ' +
+        'acceptance tests build on it. Domain and adapter packages never import it.',
+      from: { path: '^packages/', pathNot: '^packages/(runtime|acceptance)/' },
+      to: { path: '^packages/runtime/' },
+    },
+    {
       name: 'nothing-imports-apps',
       severity: 'error',
       comment:
-        'Apps are composition roots (leaves of the graph). Packages and other apps never import them.',
-      from: { path: '^(packages|apps)/([^/]+)/', pathNot: '^apps/api/' },
+        'Apps are process entry points (leaves of the graph). Packages and other apps never ' +
+        'import them: shared wiring lives in packages/runtime.',
+      from: { path: '^(packages|apps)/([^/]+)/' },
       to: { path: '^apps/', pathNot: '^apps/$2/' },
-    },
-    {
-      name: 'api-runs-on-the-worker-runtime',
-      severity: 'error',
-      comment:
-        'The one sanctioned app-to-app edge (docs/adr/0005): apps/api runs on the engine runtime ' +
-        'that apps/worker exports from its entry point, and imports nothing else from another app.',
-      from: { path: '^apps/api/' },
-      to: { path: '^apps/', pathNot: ['^apps/api/', '^apps/worker/src/index\\.ts$'] },
     },
     {
       name: 'packages-import-by-name',

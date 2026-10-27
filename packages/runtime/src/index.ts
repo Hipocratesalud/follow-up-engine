@@ -1,9 +1,10 @@
 /**
- * `@follow-up-engine/worker`: the engine runtime (composition root that
- * picks every adapter from the environment) and the background worker
- * (job runner, deadline and escalation sweeps, outbox delivery through
- * signed webhooks). `apps/api` runs on the same runtime; see
- * docs/adr/0005-http-api-and-runtime.md.
+ * `@follow-up-engine/runtime`: the engine runtime shared by every process.
+ * The composition root that picks every adapter from the environment
+ * (`createRuntime`), the ingestion service, the background worker loops (job
+ * runner, deadline and escalation sweeps, outbox delivery) and the signed
+ * webhook publisher. `apps/api` and `apps/worker` are thin process entry
+ * points over it; see docs/adr/0005-http-api-and-runtime.md.
  */
 export {
   DEFAULT_FAKE_CLOCK_START,
@@ -25,19 +26,20 @@ export {
   registerDemoClinic,
   type CreateRuntimeOptions,
   type EngineRuntime,
-} from './runtime/runtime.ts';
+} from './runtime.ts';
 export {
   CLINIC_CONTEXT_OWNER,
   INGEST_BUNDLE_JOB,
   IngestionService,
   type BundleAcceptance,
+  type HistoryStaging,
   type IngestMode,
   type StoredEntry,
-} from './runtime/ingestion.ts';
-export type { ExtractorInfo } from './runtime/llm.ts';
-export { createLogger, type Logger } from './runtime/logger.ts';
-export type { LlmUsageSummary, PatientRecord, ReadModel } from './runtime/read-model.ts';
-export type { ClinicRegistration, DrainResult, Storage } from './runtime/storage.ts';
+} from './ingestion.ts';
+export type { ExtractorInfo } from './llm.ts';
+export { createLogger, type Logger } from './logger.ts';
+export type { PatientRecord, ReadModel } from './read-model.ts';
+export type { ClinicRegistration, DrainResult, Storage } from './storage.ts';
 export {
   jobRetryDelayMs,
   Worker,

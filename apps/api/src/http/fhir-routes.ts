@@ -18,7 +18,7 @@ import {
   type Task,
   toSearchsetBundle,
 } from '@follow-up-engine/fhir';
-import type { BundleAcceptance, EngineRuntime, IngestMode } from '@follow-up-engine/worker';
+import type { BundleAcceptance, EngineRuntime, IngestMode } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import type { App, AppEnv } from './context.ts';
@@ -204,7 +204,7 @@ async function allCases(
  * engine's own resources (`Task`, `Condition`, `DetectedIssue`) for the host.
  */
 export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
-  const { stores, readModel } = runtime.storage;
+  const { stores } = runtime.storage;
 
   app.get('/fhir/metadata', (c) =>
     fhirJson(c, {
@@ -346,7 +346,7 @@ export function registerFhirRoutes(app: App, runtime: EngineRuntime): void {
     const expectations =
       query.patient === undefined
         ? []
-        : await readModel.expectationsByPatient(c.var.clinicId, toPatientId(query.patient));
+        : await stores.expectations.listByPatient(c.var.clinicId, toPatientId(query.patient));
     const cases = await allCases(runtime, c, query.patient, query._count);
     const tasks = [...cases.map(caseToTask), ...expectations.map(expectationToTask)].filter(
       (task) => taskMatches(task, query.status, query.code),

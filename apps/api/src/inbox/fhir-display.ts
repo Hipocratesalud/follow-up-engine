@@ -1,6 +1,7 @@
 import type { FhirResourceJson, JsonValue } from '@follow-up-engine/core';
 import type { PatientSummary } from '../http/schemas.ts';
 import { UNKNOWN_PATIENT_LABEL } from './labels.ts';
+import { loincLabel } from './terminology.ts';
 
 /*
  * Human-readable text out of stored FHIR resources (names, ages, what an
@@ -79,15 +80,24 @@ export function patientSummary(
   };
 }
 
+/**
+ * Display text of a CodeableConcept: the host's own `text`, else the Spanish
+ * name of a known code, else a coding's `display` (often English).
+ */
 function conceptText(value: Json): string | undefined {
   const concept = record(value);
   if (concept === undefined) {
     return undefined;
   }
-  const coding = list(concept['coding'])
-    .map(record)
-    .find((item) => str(item?.['display']) !== undefined);
-  return str(concept['text']) ?? str(coding?.['display']);
+  const codings = list(concept['coding']).map(record);
+  const known = codings
+    .map((item) => {
+      const code = str(item?.['code']);
+      return code === undefined ? undefined : loincLabel(code);
+    })
+    .find((label) => label !== undefined);
+  const display = codings.map((item) => str(item?.['display'])).find((item) => item !== undefined);
+  return str(concept['text']) ?? known ?? display;
 }
 
 const TYPE_LABELS: Record<string, string> = {

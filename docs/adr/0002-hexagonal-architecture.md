@@ -15,7 +15,7 @@ Ports and adapters (hexagonal architecture), enforced by tooling.
 - Ports: `ClinicalRecordRepository`, `ExpectationRepository`, `CaseRepository`, `FeedbackRepository`, `ConditionRepository`, `AuditLog`, `UnitOfWork`, `JobQueue`/outbox, `Clock`, `EventPublisher`, `LlmProvider`/`LlmGateway`, `RuleSource`, `ProtocolSource`.
 - Adapters live in their own packages: `adapter-postgres`, `adapter-memory`, `llm` (Meta, OpenAI-compatible, fake). Clocks (`SystemClock`, `FakeClock`) live in core because they are pure.
 - Every adapter passes the same contract test suite from `packages/testkit`, so the memory adapter is a faithful stand-in for Postgres.
-- `apps/api` and `apps/worker` are the composition roots: the only place adapters are chosen and wired.
+- Adapters are chosen and wired in one place, the composition root in `packages/runtime` (originally the apps; see ADR 0005, amended). `apps/api` and `apps/worker` are process entry points over it.
 - `dependency-cruiser` (`pnpm boundaries`) fails CI on any boundary violation.
 
 ## Consequences

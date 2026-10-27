@@ -1,5 +1,5 @@
 import type { Clinic, ClinicId } from '@follow-up-engine/core';
-import type { Logger } from '@follow-up-engine/worker';
+import type { Logger } from '@follow-up-engine/runtime';
 import type { Hono } from 'hono';
 
 /** Per-request values set by the middleware. */

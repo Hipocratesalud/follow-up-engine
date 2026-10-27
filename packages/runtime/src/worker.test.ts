@@ -2,16 +2,13 @@ import { readFileSync } from 'node:fs';
 import { type ClinicId, NOTE_EXTRACTION_JOB } from '@follow-up-engine/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { InvalidConfigError, loadRuntimeConfig } from './config.ts';
-import { INGEST_BUNDLE_JOB } from './runtime/ingestion.ts';
-import { createRuntime, type EngineRuntime } from './runtime/runtime.ts';
+import { INGEST_BUNDLE_JOB } from './ingestion.ts';
+import { createRuntime, type EngineRuntime } from './runtime.ts';
 import { jobRetryDelayMs, Worker } from './worker.ts';
 
 const bundle: unknown = JSON.parse(
   readFileSync(
-    new URL(
-      '../../../packages/fhir/fixtures/bundles/consultation-diabetology.json',
-      import.meta.url,
-    ),
+    new URL('../../fhir/fixtures/bundles/consultation-diabetology.json', import.meta.url),
     'utf8',
   ),
 );
@@ -71,12 +68,12 @@ describe('worker over the memory runtime', () => {
     const { runtime: rt, clinicId, worker } = await setUp();
     const accepted = await rt.ingestion.accept(clinicId, bundle, 'async');
     expect(accepted.jobId).toBeDefined();
-    expect(await rt.storage.readModel.expectationsByPatient(clinicId, PATIENT as never)).toEqual(
+    expect(await rt.storage.stores.expectations.listByPatient(clinicId, PATIENT as never)).toEqual(
       [],
     );
 
     expect(await worker.runJobs()).toEqual({ completed: 1, failed: 0 });
-    const expectations = await rt.storage.readModel.expectationsByPatient(
+    const expectations = await rt.storage.stores.expectations.listByPatient(
       clinicId,
       PATIENT as never,
     );

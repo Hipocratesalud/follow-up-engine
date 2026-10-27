@@ -1,4 +1,4 @@
-import { createRuntime, loadRuntimeConfig } from '@follow-up-engine/worker';
+import { createRuntime, loadRuntimeConfig } from '@follow-up-engine/runtime';
 import { seedSyntheticClinic } from './seed.ts';
 
 /**

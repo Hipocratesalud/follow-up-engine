@@ -52,6 +52,49 @@ describe('webhook payloads', () => {
     expect(JSON.stringify(body)).not.toMatch(/diabetes|HbA1c/i);
   });
 
+  it('carries every backfill counter, and the reason when a run pauses', () => {
+    const counts = {
+      patientsScanned: 120,
+      eventsProcessed: 5074,
+      documentsProcessed: 671,
+      expectationsCreated: 2207,
+      expectationsFulfilled: 1793,
+      casesOpened: 92,
+      llmCostUsd: 1.34,
+    };
+    const occurredAt = new Date('2026-01-05T12:00:00Z');
+    expect(
+      toWebhookBody({
+        id: 'evt-2',
+        type: 'backfill.completed',
+        clinicId: clinic,
+        occurredAt,
+        payload: {
+          runId: 'run-1',
+          shadow: false,
+          casesScheduled: 92,
+          casesNotNotified: 0,
+          ...counts,
+        },
+      }).data,
+    ).toEqual({
+      runId: 'run-1',
+      shadow: false,
+      casesScheduled: 92,
+      casesNotNotified: 0,
+      ...counts,
+    });
+    expect(
+      toWebhookBody({
+        id: 'evt-3',
+        type: 'backfill.paused',
+        clinicId: clinic,
+        occurredAt,
+        payload: { runId: 'run-1', reason: 'llm_budget_exceeded', ...counts },
+      }).data,
+    ).toEqual({ runId: 'run-1', reason: 'llm_budget_exceeded', ...counts });
+  });
+
   it('sends the delivery id, event type, timestamp and signature headers', () => {
     const webhook = buildSignedWebhook(opened, 'secret', new Date('2026-01-21T12:00:05Z'));
     expect(webhook.headers[WEBHOOK_HEADERS.delivery]).toBe('evt-1');

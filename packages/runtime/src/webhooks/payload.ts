@@ -1,4 +1,4 @@
-import type { DomainEvent } from '@follow-up-engine/core';
+import type { BackfillCounts, DomainEvent } from '@follow-up-engine/core';
 
 /** JSON body of a webhook. Ids, codes and dates only: never a diagnosis, a test name or note text. */
 export interface WebhookBody {
@@ -7,11 +7,24 @@ export interface WebhookBody {
   readonly type: DomainEvent['type'];
   readonly clinicId: string;
   readonly occurredAt: string;
-  readonly data: Readonly<Record<string, string | number | null>>;
+  readonly data: Readonly<Record<string, string | number | boolean | null>>;
 }
 
 function caseLink(caseId: string): string {
   return `Task/${caseId}`;
+}
+
+/** The counters of a backfill run (counts and a cost: nothing about any patient). */
+function backfillCounts(counts: BackfillCounts): Record<keyof BackfillCounts, number> {
+  return {
+    patientsScanned: counts.patientsScanned,
+    eventsProcessed: counts.eventsProcessed,
+    documentsProcessed: counts.documentsProcessed,
+    expectationsCreated: counts.expectationsCreated,
+    expectationsFulfilled: counts.expectationsFulfilled,
+    casesOpened: counts.casesOpened,
+    llmCostUsd: counts.llmCostUsd,
+  };
 }
 
 /**
@@ -77,9 +90,19 @@ export function toWebhookBody(event: DomainEvent): WebhookBody {
         ...base,
         data: {
           runId: event.payload.runId,
-          patientsScanned: event.payload.patientsScanned,
-          expectationsCreated: event.payload.expectationsCreated,
-          casesOpened: event.payload.casesOpened,
+          shadow: event.payload.shadow,
+          ...backfillCounts(event.payload),
+          casesScheduled: event.payload.casesScheduled,
+          casesNotNotified: event.payload.casesNotNotified,
+        },
+      };
+    case 'backfill.paused':
+      return {
+        ...base,
+        data: {
+          runId: event.payload.runId,
+          reason: event.payload.reason,
+          ...backfillCounts(event.payload),
         },
       };
   }

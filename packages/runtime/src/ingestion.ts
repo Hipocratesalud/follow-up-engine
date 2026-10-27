@@ -2,7 +2,6 @@ import {
   type ClinicalBatch,
   type ClinicId,
   type Clock,
-  type FhirResourceJson,
   type FollowUpEngine,
   type IngestReport,
   type JobId,
@@ -20,13 +19,6 @@ import type { Storage } from './storage.ts';
 
 /** Job that runs the engine over an accepted Bundle (asynchronous ingestion). */
 export const INGEST_BUNDLE_JOB = 'fhir.ingest_bundle';
-
-/**
- * Resource types that give context to a consultation and are kept so the
- * inbox can show them (the treating practitioner's name), but produce no
- * clinical event.
- */
-const CONTEXT_TYPES = new Set(['Practitioner', 'PractitionerRole', 'Organization', 'Location']);
 
 /** Patient id under which context resources of a Bundle without patients are stored. */
 export const CLINIC_CONTEXT_OWNER = '_clinic';
@@ -54,59 +46,20 @@ export interface BundleAcceptance {
   readonly reports?: readonly IngestReport[];
 }
 
+/** What {@link IngestionService.stageHistory} did with a historical Bundle. */
+export interface HistoryStaging {
+  /** False when the Bundle was rejected; nothing was stored. */
+  readonly ok: boolean;
+  readonly outcome?: OperationOutcome;
+  /** Resources stored (new or unchanged). */
+  readonly stored: number;
+  /** Clinical events staged for the backfill (new ones only). */
+  readonly staged: number;
+}
+
 interface IngestJobPayload {
   readonly bundle: unknown;
   readonly receivedAt: string;
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/** Bundle-local identity of an entry, as the FHIR mapping resolves it (id, fullUrl, PUT url). */
-function entryId(
-  entry: Readonly<Record<string, unknown>>,
-  resourceType: string,
-): string | undefined {
-  const resource = entry['resource'];
-  if (isRecord(resource) && typeof resource['id'] === 'string' && resource['id'] !== '') {
-    return resource['id'];
-  }
-  const fullUrl = entry['fullUrl'];
-  if (typeof fullUrl === 'string') {
-    const urn = /^urn:(?:uuid|oid):(.+)$/.exec(fullUrl);
-    if (urn?.[1] !== undefined) {
-      return urn[1];
-    }
-    const absolute = new RegExp(`/${resourceType}/([^/]+)$`).exec(fullUrl);
-    if (absolute?.[1] !== undefined) {
-      return absolute[1];
-    }
-  }
-  const request = entry['request'];
-  if (isRecord(request) && request['method'] === 'PUT' && typeof request['url'] === 'string') {
-    const [type, id] = request['url'].split('/');
-    return type === resourceType && id !== undefined && id !== '' ? id : undefined;
-  }
-  return undefined;
-}
-
-/** Practitioners, organizations and locations sent along the consultation. */
-function contextResources(bundle: unknown): FhirResourceJson[] {
-  if (!isRecord(bundle) || !Array.isArray(bundle['entry'])) {
-    return [];
-  }
-  return (bundle['entry'] as unknown[]).flatMap((entry) => {
-    if (!isRecord(entry) || !isRecord(entry['resource'])) {
-      return [];
-    }
-    const resourceType = entry['resource']['resourceType'];
-    if (typeof resourceType !== 'string' || !CONTEXT_TYPES.has(resourceType)) {
-      return [];
-    }
-    const id = entryId(entry, resourceType);
-    return id === undefined ? [] : [{ ...(entry['resource'] as JsonObject), resourceType, id }];
-  });
 }
 
 function hasErrors(outcome: OperationOutcome | undefined): boolean {
@@ -145,13 +98,7 @@ export class IngestionService {
     const { stored, jobId } = await this.#deps.storage.unitOfWork.withTransaction(
       clinicId,
       async (stores) => {
-        const saved = await this.#store(
-          stores.clinicalRecords,
-          clinicId,
-          mapping,
-          bundle,
-          receivedAt,
-        );
+        const saved = await this.#store(stores.clinicalRecords, clinicId, mapping, receivedAt);
         const job =
           mode === 'async' && mapping.batches.length > 0
             ? await stores.jobs.enqueue(clinicId, {
@@ -173,6 +120,39 @@ export class IngestionService {
       return { ...base, ...(jobId === undefined ? {} : { jobId }) };
     }
     return { ...base, reports: await this.#ingestBatches(mapping.batches) };
+  }
+
+  /**
+   * Initial backfill import of one historical Bundle: stores its resources
+   * (patients, practitioners, ...) and stages its clinical events with
+   * `engine.backfill.stage`, without annotating them. A later
+   * `engine.backfill.run` replays the clinic's history patient by patient.
+   * `receivedAt` is when the host originally recorded the Bundle.
+   * Idempotent: staging the same history twice changes nothing.
+   */
+  async stageHistory(
+    clinicId: ClinicId,
+    bundle: unknown,
+    receivedAt: Date,
+  ): Promise<HistoryStaging> {
+    const mapping = mapBundleToBatches(bundle, { clinicId, receivedAt });
+    const outcome = mapping.issues;
+    if (hasErrors(outcome) && mapping.batches.length === 0 && mapping.resources.length === 0) {
+      return { ok: false, ...(outcome === undefined ? {} : { outcome }), stored: 0, staged: 0 };
+    }
+    const stored = await this.#deps.storage.unitOfWork.withTransaction(clinicId, (stores) =>
+      this.#store(stores.clinicalRecords, clinicId, mapping, receivedAt),
+    );
+    let staged = 0;
+    for (const batch of mapping.batches) {
+      staged += (await this.#deps.engine.backfill.stage(batch)).inserted;
+    }
+    return {
+      ok: true,
+      ...(outcome === undefined ? {} : { outcome }),
+      stored: stored.length,
+      staged,
+    };
   }
 
   /** Handler of {@link INGEST_BUNDLE_JOB}. Throws to be retried. */
@@ -197,7 +177,6 @@ export class IngestionService {
     records: Storage['stores']['clinicalRecords'],
     clinicId: ClinicId,
     mapping: BundleMappingResult,
-    bundle: unknown,
     receivedAt: Date,
   ): Promise<StoredEntry[]> {
     const stored: StoredEntry[] = [];
@@ -205,8 +184,10 @@ export class IngestionService {
       const result = await records.saveResource(clinicId, patientId, resource, receivedAt);
       stored.push({ resourceType: resource.resourceType, id: resource.id, ...result });
     }
+    // Practitioners, organizations and locations sent along the consultation
+    // (the inbox names each case's treating practitioner with them).
     const owner: PatientId = mapping.resources[0]?.patientId ?? toPatientId(CLINIC_CONTEXT_OWNER);
-    for (const resource of contextResources(bundle)) {
+    for (const resource of mapping.contextResources) {
       const result = await records.saveResource(clinicId, owner, resource, receivedAt);
       stored.push({ resourceType: resource.resourceType, id: resource.id, ...result });
     }

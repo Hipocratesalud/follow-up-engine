@@ -1,4 +1,4 @@
-import { createRuntime, loadRuntimeConfig, Worker } from './index.ts';
+import { createRuntime, loadRuntimeConfig, Worker } from '@follow-up-engine/runtime';
 
 /**
  * Standalone worker process: `pnpm --filter @follow-up-engine/worker start`.

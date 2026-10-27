@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FakeClock, NoteExtraction } from '@follow-up-engine/core';
 import { buildConsultationBundle } from '@follow-up-engine/fhir';
-import { type EngineRuntime, Worker } from '@follow-up-engine/worker';
+import { type EngineRuntime, Worker } from '@follow-up-engine/runtime';
 import { InboxPresenter } from '../inbox/presenter.ts';
 import type { App } from './context.ts';
 import { HttpError, readJson, readQuery } from './errors.ts';

@@ -1,7 +1,11 @@
 import { serve } from '@hono/node-server';
-import { DEV_WEBHOOK_SECRET } from '../config.ts';
-import { createLogger } from '../runtime/logger.ts';
-import { createWebhookSinkApp, WEBHOOK_SINK_PATH, WebhookSink } from './sink.ts';
+import {
+  createLogger,
+  createWebhookSinkApp,
+  DEV_WEBHOOK_SECRET,
+  WEBHOOK_SINK_PATH,
+  WebhookSink,
+} from '@follow-up-engine/runtime';
 
 /**
  * Development webhook receiver (`pnpm --filter @follow-up-engine/worker webhook-sink`):

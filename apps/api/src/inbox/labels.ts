@@ -49,26 +49,6 @@ const ESCALATION_ACTION_LABELS: Record<string, string> = {
   mark_lost_to_follow_up: 'Sin respuesta tras todos los escalamientos: perdido en seguimiento',
 };
 
-/** Short Spanish names of the ICD-10 categories the demo clinic uses, for conditions without display. */
-export const ICD10_LABELS: Record<string, string> = {
-  E10: 'Diabetes mellitus tipo 1',
-  E11: 'Diabetes mellitus tipo 2',
-  E66: 'Obesidad',
-  E78: 'Dislipidemia',
-  E03: 'Hipotiroidismo',
-  I10: 'Hipertensión arterial',
-  F32: 'Episodio depresivo',
-  F41: 'Trastorno de ansiedad',
-  O80: 'Parto',
-  Z34: 'Control de embarazo',
-  D25: 'Mioma uterino',
-  N95: 'Trastorno menopáusico',
-};
-
-export function icd10Label(code: string, display: string | undefined): string {
-  return display ?? ICD10_LABELS[code.slice(0, 3)] ?? code;
-}
-
 function text(value: JsonValue | undefined): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }

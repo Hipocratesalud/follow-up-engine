@@ -12,7 +12,7 @@ import {
   practitionerId,
 } from '@follow-up-engine/core';
 import { taskPriority } from '@follow-up-engine/fhir';
-import type { EngineRuntime } from '@follow-up-engine/worker';
+import type { EngineRuntime } from '@follow-up-engine/runtime';
 import type {
   CaseDetail,
   CaseReasonView,
@@ -28,11 +28,11 @@ import {
   COORDINATOR_LABEL,
   DEFAULT_SUGGESTED_ACTION,
   FRONT_DESK_LABEL,
-  icd10Label,
   LAYER_FALLBACK_LABELS,
   QUALITY_FINDING_LABEL,
   timelineLabel,
 } from './labels.ts';
+import { icd10Label } from './terminology.ts';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -93,7 +93,55 @@ export function conditionView(condition: PatientCondition): ConditionView {
     status: isRejected(condition) ? 'rejected' : condition.status,
     confidence: condition.confidence,
     sourceType: condition.sourceType,
+    ...(condition.evidence === undefined
+      ? {}
+      : {
+          evidence: {
+            quote: condition.evidence.quote,
+            documentId: condition.evidence.sourceDocumentId,
+          },
+        }),
   };
+}
+
+/** Rules whose reason is a result that came back abnormal: the most urgent thing to act on. */
+const ABNORMAL_RESULT_RULES = new Set(['abnormal_result_followup']);
+/** Rules waiting for the result of an order. */
+const PENDING_RESULT_RULES = new Set(['lab_order_result_pending', 'imaging_order_result_pending']);
+
+/**
+ * How actionable a reason is, lower first: an abnormal result to follow up,
+ * then pending lab or imaging results, then what the doctor planned, then
+ * other orders, then a break in the visit pattern, and protocol controls last
+ * (guideline gaps nobody asked for yet).
+ */
+function actionability(expectation: Expectation): number {
+  if (ABNORMAL_RESULT_RULES.has(expectation.ruleId)) {
+    return 0;
+  }
+  if (PENDING_RESULT_RULES.has(expectation.ruleId)) {
+    return 1;
+  }
+  switch (expectation.layer) {
+    case 'doctor_plan':
+      return 2;
+    case 'universal':
+      return 3;
+    case 'cadence':
+      return 4;
+    case 'protocol':
+      return 5;
+  }
+}
+
+/** A case's reasons, most actionable first (then the longest overdue): the first one titles the case. */
+export function byActionability(expectations: readonly Expectation[]): Expectation[] {
+  return [...expectations].sort(
+    (left, right) =>
+      actionability(left) - actionability(right) ||
+      left.dueAt.getTime() - right.dueAt.getTime() ||
+      left.id.localeCompare(right.id),
+  );
 }
 
 /**
@@ -146,19 +194,25 @@ export class InboxPresenter {
     if (missing.length === 0) {
       return;
     }
-    const found = await this.#runtime.storage.readModel.expectationsByIds(this.#clinicId, [
-      ...new Set(missing),
-    ]);
+    const { expectations } = this.#runtime.storage.stores;
+    const found = await Promise.all(
+      [...new Set(missing)].map((id) => expectations.get(this.#clinicId, id)),
+    );
     for (const expectation of found) {
-      this.#expectations.set(expectation.id, expectation);
+      if (expectation !== undefined) {
+        this.#expectations.set(expectation.id, expectation);
+      }
     }
   }
 
+  /** The expectations behind a case's reasons, most actionable first. */
   expectationsOf(followUpCase: FollowUpCase): readonly Expectation[] {
-    return followUpCase.reasons.flatMap((reason) => {
-      const expectation = this.#expectations.get(reason.expectationId);
-      return expectation === undefined ? [] : [expectation];
-    });
+    return byActionability(
+      followUpCase.reasons.flatMap((reason) => {
+        const expectation = this.#expectations.get(reason.expectationId);
+        return expectation === undefined ? [] : [expectation];
+      }),
+    );
   }
 
   /** Spanish reason label of a rule, from the catalog. Never contains a day count. */
@@ -314,12 +368,12 @@ export class InboxPresenter {
     };
   }
 
+  /** The suggested action of the most actionable reason (the one that titles the case). */
   #suggestedAction(expectations: readonly Expectation[]): string {
-    const ranked = expectations
+    const definition = expectations
       .map((expectation) => this.#catalog.definition(expectation.ruleId))
-      .filter((definition) => definition !== undefined)
-      .sort((left, right) => right.priority - left.priority);
-    return ranked[0]?.suggestedAction.label ?? DEFAULT_SUGGESTED_ACTION;
+      .find((item) => item !== undefined);
+    return definition?.suggestedAction.label ?? DEFAULT_SUGGESTED_ACTION;
   }
 
   expectationView(expectation: Expectation): PatientExpectationView {
@@ -343,14 +397,16 @@ export class InboxPresenter {
 
   /** `undefined` when the clinic has nothing at all for this patient. */
   async patientDetail(patientId: PatientId): Promise<PatientDetail | undefined> {
-    const { stores, readModel } = this.#runtime.storage;
-    const [resource, conditions, expectations, findings, contact] = await Promise.all([
+    const { stores } = this.#runtime.storage;
+    const [resource, conditions, ascending, findings, contact] = await Promise.all([
       this.resource(`Patient/${patientId}`),
       stores.conditions.listByPatient(this.#clinicId, patientId),
-      readModel.expectationsByPatient(this.#clinicId, patientId),
+      stores.expectations.listByPatient(this.#clinicId, patientId),
       stores.qualityFindings.listByPatient(this.#clinicId, patientId),
       this.#contact(patientId),
     ]);
+    // Newest deadline first.
+    const expectations = [...ascending].reverse();
     if (resource === undefined && expectations.length === 0 && conditions.length === 0) {
       const events = await stores.clinicalRecords.listEventsForPatient(this.#clinicId, patientId);
       if (events.length === 0) {

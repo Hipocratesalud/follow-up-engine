@@ -19,7 +19,7 @@ import {
   type PricingTable,
   type StructuredLlmProvider,
 } from '@follow-up-engine/llm';
-import type { LlmConfig } from '../config.ts';
+import type { LlmConfig } from './config.ts';
 
 /** Which provider and model read the notes, as shown in the inbox stats. */
 export interface ExtractorInfo {

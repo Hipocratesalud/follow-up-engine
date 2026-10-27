@@ -1,4 +1,4 @@
-import { createRuntime, loadRuntimeConfig } from '@follow-up-engine/worker';
+import { createRuntime, loadRuntimeConfig } from '@follow-up-engine/runtime';
 import { loadApiConfig } from '../config.ts';
 import { createApiServer } from '../server.ts';
 import { seedSyntheticClinic } from './seed.ts';

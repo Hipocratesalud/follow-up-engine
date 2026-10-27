@@ -17,9 +17,9 @@ import {
   SystemClock,
 } from '@follow-up-engine/core';
 import type { NoteFixture } from '@follow-up-engine/llm';
-import type { RuntimeConfig } from '../config.ts';
-import { createWebhookPublisher } from '../webhooks/publisher.ts';
-import { createLoopbackPublisher, WebhookSink } from '../webhooks/sink.ts';
+import type { RuntimeConfig } from './config.ts';
+import { createWebhookPublisher } from './webhooks/publisher.ts';
+import { createLoopbackPublisher, WebhookSink } from './webhooks/sink.ts';
 import { IngestionService } from './ingestion.ts';
 import { createConfiguredExtractor, type ExtractorInfo } from './llm.ts';
 import { createLogger, type Logger } from './logger.ts';

@@ -1,5 +1,5 @@
 import { type ServerType, serve } from '@hono/node-server';
-import { type EngineRuntime, Worker } from '@follow-up-engine/worker';
+import { type EngineRuntime, Worker } from '@follow-up-engine/runtime';
 import type { ApiConfig } from './config.ts';
 import { createApp } from './http/app.ts';
 import type { App } from './http/context.ts';

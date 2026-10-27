@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** HTTP-specific configuration; the engine runtime reads its own (see `@follow-up-engine/worker`). */
+/** HTTP-specific configuration; the engine runtime reads its own (see `@follow-up-engine/runtime`). */
 export interface ApiConfig {
   readonly port: number;
   /** Run the background worker inside the API process (single-container deployments, demo). */

@@ -42,8 +42,9 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
-  # Demo: the whole product in one container on a fake clock. Seeds the
-  # synthetic clinic at startup (idempotent) and serves the demo endpoints.
+  # Demo: the whole product in one container on a fake clock. Loads the
+  # synthetic clinic at startup through the initial backfill (a no-op when the
+  # database is already seeded) and serves the demo endpoints.
   demo:
     <<: *engine
     profiles: [demo]
@@ -100,7 +101,7 @@ services:
         'node',
         '--experimental-strip-types',
         '--no-warnings=ExperimentalWarning',
-        'apps/worker/src/webhooks/sink-main.ts',
+        'apps/worker/src/webhook-sink.ts',
       ]
     environment:
       PORT: '4000'

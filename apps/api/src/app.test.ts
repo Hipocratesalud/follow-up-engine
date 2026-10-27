@@ -4,7 +4,7 @@ import {
   type EngineRuntime,
   loadRuntimeConfig,
   verifyWebhookSignature,
-} from '@follow-up-engine/worker';
+} from '@follow-up-engine/runtime';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { App } from './http/context.ts';
 import type {
@@ -170,10 +170,16 @@ describe('API over the memory runtime', () => {
       body: { action: 'notify' },
     });
     expect(contacted.body.status).toBe('notified');
-    expect(contacted.body.timeline.at(-1)).toMatchObject({
-      type: 'patient_contact_requested',
-      actor: { type: 'user', id: 'inbox-user' },
+    expect(contacted.body.timeline.slice(-2)).toMatchObject([
+      { type: 'patient_contact_requested', actor: { type: 'user', id: 'inbox-user' } },
+      { type: 'notified', actor: { type: 'user', id: 'inbox-user' } },
+    ]);
+    // The contact window: a second request within days is refused by the engine.
+    const again = await h.call<{ error: { code: string } }>(`/api/inbox/cases/${caseId}/actions`, {
+      body: { action: 'notify' },
     });
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe('patient_contact_not_allowed');
     const resolved = await h.call<CaseDetail>(`/api/inbox/cases/${caseId}/actions`, {
       body: { action: 'resolve', note: 'Agendado por teléfono' },
     });

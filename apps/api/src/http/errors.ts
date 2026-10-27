@@ -3,6 +3,8 @@ import {
   InvalidCaseTransitionError,
   InvalidIdentifierError,
   NotFoundError,
+  type PatientContactDenial,
+  PatientContactNotAllowedError,
   TenantMismatchError,
   ValidationError,
 } from '@follow-up-engine/core';
@@ -26,6 +28,17 @@ export class HttpError extends Error {
 export function notFound(message = 'No encontramos lo que buscas.'): HttpError {
   return new HttpError(404, 'not_found', message);
 }
+
+const CONTACT_DENIAL_MESSAGES: Record<PatientContactDenial, string> = {
+  clinic_disallows_contact: 'El consultorio no tiene activado el contacto con pacientes.',
+  patient_opted_out:
+    'El paciente pidió no recibir mensajes del consultorio. Contáctalo por otra vía y luego resuelve el caso.',
+  contact_window:
+    'Ya se pidió contactar a este paciente hace pocos días. Espera a que responda o contáctalo por otra vía.',
+  backfill_case:
+    'Este caso viene de la revisión del historial: el equipo decide a quién contactar.',
+  low_confidence: 'El caso se apoya en una condición sin confirmar: revísala antes de contactar.',
+};
 
 function zodMessage(error: z.ZodError): string {
   return error.issues
@@ -53,6 +66,9 @@ export function toHttpError(error: unknown): HttpError {
       'invalid_transition',
       `El caso no puede pasar de "${error.from}" a "${error.to}".`,
     );
+  }
+  if (error instanceof PatientContactNotAllowedError) {
+    return new HttpError(409, 'patient_contact_not_allowed', CONTACT_DENIAL_MESSAGES[error.reason]);
   }
   if (error instanceof ValidationError) {
     return new HttpError(422, 'validation_error', `${error.field}: ${error.message}`);

@@ -1,6 +1,6 @@
 import type { ClinicId } from '@follow-up-engine/core';
 import { BASE_DATE, loadSyntheticClinic } from '@follow-up-engine/testkit';
-import { type EngineRuntime, registerDemoClinic, Worker } from '@follow-up-engine/worker';
+import { type EngineRuntime, registerDemoClinic, Worker } from '@follow-up-engine/runtime';
 
 /*
  * Loads the synthetic demo clinic (packages/testkit, fictional patients
