@@ -1,5 +1,6 @@
 import type { PlanItemKind } from '../../domain/clinical-event.ts';
 import { type Coding, ICD10_SYSTEM } from '../../domain/resource.ts';
+import { testGroupOfCoding } from '../terminology/test-names.ts';
 
 /** Short names of well-known terminologies used in match keys (`loinc:4548-4`). */
 const SYSTEM_ALIASES: Readonly<Record<string, string>> = {
@@ -62,9 +63,18 @@ export function matchKeyFor(kind: PlanItemKind, code: Coding | undefined): strin
   return KIND_MATCH_KEYS[kind];
 }
 
-/** The kind an expectation asks for, read back from its match key (coded keys are tests: `lab`). */
+/**
+ * The kind an expectation asks for, read back from its match key: coded keys
+ * are tests, `lab` unless the lexicon knows the code as an imaging study or
+ * procedure (the eye fundus exam).
+ */
 export function kindOfMatchKey(matchKey: string): PlanItemKind {
-  return KIND_BY_MATCH_KEY.get(matchKey) ?? 'lab';
+  const kind = KIND_BY_MATCH_KEY.get(matchKey);
+  if (kind !== undefined) {
+    return kind;
+  }
+  const code = parseCodeMatchKey(matchKey);
+  return code !== undefined && testGroupOfCoding(code)?.kind === 'imaging' ? 'imaging' : 'lab';
 }
 
 /** Same terminology and code. */
