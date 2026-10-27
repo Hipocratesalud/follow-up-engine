@@ -10,6 +10,7 @@ import type { Expectation } from '../../domain/expectation.ts';
 import type { CaseId, ClinicId, ContactRequestId, PatientId } from '../../domain/ids.ts';
 import type { ResourceRef } from '../../domain/resource.ts';
 import type { TransactionalStores } from '../../ports/unit-of-work.ts';
+import type { BookingOrigin } from '../case-manager/reconcile.ts';
 import { type PatientTimeline, refKey } from '../timeline.ts';
 
 /**
@@ -70,6 +71,52 @@ async function verifyOrigin(
 /** The origin type of a booking (absent origin: `organic`). */
 export function originTypeOf(event: AppointmentBookedEvent | undefined): AppointmentOriginType {
   return event?.origin?.type ?? 'organic';
+}
+
+/** The origin type of each booking of a batch, by appointment (`Appointment/<id>`). */
+export function bookingOriginsOf(
+  events: readonly ClinicalEvent[],
+): ReadonlyMap<string, BookingOrigin> {
+  const origins = new Map<string, BookingOrigin>();
+  for (const event of events) {
+    if (event.type === 'appointment.booked') {
+      origins.set(refKey(event.source), {
+        type: originTypeOf(event),
+        ...(event.origin?.caseId === undefined ? {} : { caseId: event.origin.caseId }),
+      });
+    }
+  }
+  return origins;
+}
+
+/**
+ * The stored bookings (latest version of each appointment, origin verified)
+ * that closed the given expectations: what a repair that fulfills them from
+ * the record must also put on the case trail (HIP-141 reconciliation).
+ */
+export async function bookingsClosing(
+  stores: TransactionalStores,
+  clinicId: ClinicId,
+  patientId: PatientId,
+  closed: readonly Expectation[],
+): Promise<ClinicalEvent[]> {
+  const appointments = new Set(
+    closed.flatMap((expectation) =>
+      expectation.closedBy?.resourceType === 'Appointment' ? [refKey(expectation.closedBy)] : [],
+    ),
+  );
+  if (appointments.size === 0) {
+    return [];
+  }
+  const latest = new Map<string, AppointmentBookedEvent>();
+  for (const event of await stores.clinicalRecords.listEventsForPatient(clinicId, patientId, {
+    types: ['appointment.booked'],
+  })) {
+    if (event.type === 'appointment.booked' && appointments.has(refKey(event.source))) {
+      latest.set(refKey(event.source), event);
+    }
+  }
+  return verifyAppointmentOrigins(stores, clinicId, [...latest.values()]);
 }
 
 /** Whether a case's trail records the contact attempt (its own, or shared from the patient card). */

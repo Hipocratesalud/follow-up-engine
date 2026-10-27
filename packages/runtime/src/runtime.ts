@@ -191,6 +191,8 @@ export async function createRuntime(
     rules: new FileRuleSource(),
     protocols: new FileProtocolSource(),
     escalationPolicies: new FileEscalationPolicySource(),
+    // Per-clinic overrides (clinic:rules, PUT /api/admin/rules) layer over config/rules.
+    ruleOverrides: storage.stores.ruleOverrides,
     clinics: storage.clinics,
     clock,
     ids: options.ids ?? new UuidIdGenerator(),
@@ -357,7 +359,8 @@ export async function createRuntime(
  * `patient_contact.requested` webhooks; the release cap is
  * {@link DEMO_DAILY_CASE_CAP_PER_OWNER}; the escalation policy is
  * {@link DEMO_ESCALATION_POLICY}; every protocol of config/protocols is
- * enabled, drafts included.
+ * enabled, drafts included; the nightly reconciliation runs without the
+ * weekly full sweep.
  */
 export async function registerDemoClinic(
   runtime: EngineRuntime,
@@ -382,6 +385,9 @@ export async function registerDemoClinic(
       enabledProtocols: [...availableProtocolIds()],
       // The synthetic host sends every patient's AllergyIntolerance list.
       recordCapabilities: ['allergies'],
+      // Nightly reconciliation of what changed, no weekly full sweep: the fake
+      // clock crosses a week in seconds (a full sweep stays a CLI command).
+      reconciliation: { fullSweepWeekday: null },
     },
   });
   if (inboxApiKey !== undefined) {

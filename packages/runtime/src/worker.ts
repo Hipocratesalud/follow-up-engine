@@ -5,6 +5,7 @@ import {
   type ClinicId,
   type EscalationReport,
   NOTE_EXTRACTION_JOB,
+  RECONCILIATION_JOB,
   type WatcherReport,
 } from '@follow-up-engine/core';
 import { INGEST_BUNDLE_JOB } from './ingestion.ts';
@@ -16,6 +17,7 @@ export const WORKER_JOB_TYPES = [
   INGEST_BUNDLE_JOB,
   NOTE_EXTRACTION_JOB,
   CLINICAL_REVIEW_JOB,
+  RECONCILIATION_JOB,
 ] as const;
 
 const RETRY_BASE_MS = 5_000;
@@ -51,6 +53,8 @@ export interface SweepResult {
   readonly escalation: EscalationReport;
   /** Reviews queued for high-priority patients not reviewed in 30 days. */
   readonly reviewsQueued: number;
+  /** When the clinic's next nightly reconciliation is due (absent: switched off). */
+  readonly reconciliationDueAt?: Date;
 }
 
 /**
@@ -95,10 +99,12 @@ function describe(error: unknown): string {
 /**
  * The background worker. Three independent loops, each one pass at a time:
  *
- * - jobs: claims leased jobs (`fhir.ingest_bundle`, `note.extract_plan`) and
- *   runs them; failures are retried with exponential backoff, then dead-lettered.
+ * - jobs: claims leased jobs (`fhir.ingest_bundle`, `note.extract_plan`,
+ *   `clinical_review.run`, `reconciliation.run`) and runs them; failures are
+ *   retried with exponential backoff, then dead-lettered.
  * - sweeps: for every active clinic, the deadline watcher then the
- *   escalation sweep (hourly by default).
+ *   escalation sweep (hourly by default), and the next nightly
+ *   reconciliation queued (03:00 in the clinic's time zone by default).
  * - outbox: delivers pending domain events to the host as signed webhooks.
  *
  * `stop()` stops scheduling and waits for the passes in flight, so a
@@ -195,6 +201,8 @@ export class Worker {
       const watcher = await this.#runtime.engine.runWatcher(clinicId, now);
       const escalation = await this.#runtime.engine.runEscalation(clinicId, now);
       const reviewsQueued = await this.#runtime.reviewer.scheduleStaleReviews(clinicId, now);
+      // The nightly safety net: queued once per night, run by the jobs loop.
+      const reconciliation = await this.#runtime.engine.reconciliation.schedule(clinicId, now);
       if (watcher.expired > 0 || escalation.casesProcessed > 0) {
         this.#runtime.logger.info(
           {
@@ -208,7 +216,13 @@ export class Worker {
           'sweep',
         );
       }
-      results.push({ clinicId, watcher, escalation, reviewsQueued });
+      results.push({
+        clinicId,
+        watcher,
+        escalation,
+        reviewsQueued,
+        ...(reconciliation === undefined ? {} : { reconciliationDueAt: reconciliation.at }),
+      });
     }
     return results;
   }
@@ -333,6 +347,34 @@ export class Worker {
             },
             'clinical review',
           );
+          break;
+        }
+        case RECONCILIATION_JOB: {
+          const { run, idle } = await engine.reconciliation.runJob(job.clinicId, job.payload);
+          if (idle === true) {
+            logger.info({ ...context, since: run.runId }, 'reconciliation: nothing new');
+            break;
+          }
+          // Counts only: repairs are audited in the engine, never logged with PHI.
+          const counts = {
+            ...context,
+            runId: run.runId,
+            scope: run.scope,
+            patientsScanned: run.patientsScanned,
+            patientsRepaired: run.patientsRepaired,
+            patientsSkipped: run.patientsSkipped,
+            repairs: run.repairs,
+            repairsByKind: run.repairsByKind,
+          };
+          if (run.repairs > 0) {
+            // Repairs mean events were lost or arrived out of order: alertable.
+            logger.error(
+              { ...counts, alert: 'reconciliation_repairs' },
+              'reconciliation repaired state that lost or out-of-order events left inconsistent',
+            );
+          } else {
+            logger.info(counts, 'reconciliation');
+          }
           break;
         }
         default:

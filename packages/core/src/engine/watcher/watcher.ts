@@ -214,7 +214,8 @@ export async function recheckPatientBookings(input: {
 /**
  * Expires one patient's due expectations inside the caller's transaction:
  * the end of a backfill replay, where what history left unmet becomes held
- * `backfill` cases.
+ * `backfill` cases, and a reconciliation repair (`only` the expectations it
+ * repaired), where an overdue one opens or joins a live case at once.
  */
 export async function expirePatient(
   input: {
@@ -224,12 +225,19 @@ export async function expirePatient(
     readonly clinicId: ClinicId;
     readonly patientId: PatientId;
     readonly now: Date;
+    readonly only?: ReadonlySet<ExpectationId>;
   },
   origin: Origin,
-): Promise<{ readonly opened: readonly CaseId[]; readonly expired: number }> {
-  const { stores, clinicId, now } = input;
+): Promise<{
+  readonly opened: readonly CaseId[];
+  readonly merged: readonly CaseId[];
+  readonly expired: number;
+}> {
+  const { stores, clinicId, now, only } = input;
   const due = (await stores.expectations.findOpenByPatient(clinicId, input.patientId)).filter(
-    (expectation) => expectation.dueAt.getTime() <= now.getTime(),
+    (expectation) =>
+      expectation.dueAt.getTime() <= now.getTime() &&
+      (only === undefined || only.has(expectation.id)),
   );
   const sweep = new Sweep(
     stores,
@@ -241,13 +249,12 @@ export async function expirePatient(
     await backfillNotifyMaxAgeDays(input.deps, clinicId),
   );
   const opened: CaseId[] = [];
+  const merged: CaseId[] = [];
   for (const expectation of due) {
     const outcome = await sweep.expire(expectation);
-    if (outcome.opened) {
-      opened.push(outcome.caseId);
-    }
+    (outcome.opened ? opened : merged).push(outcome.caseId);
   }
-  return { opened, expired: due.length };
+  return { opened, merged: merged.filter((id) => !opened.includes(id)), expired: due.length };
 }
 
 async function backfillNotifyMaxAgeDays(deps: WatcherDeps, clinicId: ClinicId): Promise<number> {

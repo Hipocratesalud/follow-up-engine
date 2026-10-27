@@ -18,6 +18,8 @@ import {
   describeOutboxContract,
   describePlanItemReviewLogContract,
   describeQualityFindingRepositoryContract,
+  describeReconciliationStoreContract,
+  describeRuleOverrideStoreContract,
   describeSuppressionRepositoryContract,
   describeUnitOfWorkContract,
 } from '@follow-up-engine/testkit';
@@ -78,6 +80,14 @@ describe.skipIf(!POSTGRES_ENABLED)(postgresTitle('contract suites'), () => {
   describeBackfillProgressStoreContract(
     NAME,
     store((s) => s.backfillProgress),
+  );
+  describeRuleOverrideStoreContract(
+    NAME,
+    store((s) => s.ruleOverrides),
+  );
+  describeReconciliationStoreContract(
+    NAME,
+    store((s) => s.reconciliation),
   );
   describeClinicalFindingRepositoryContract(
     NAME,

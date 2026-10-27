@@ -20,6 +20,8 @@ import { PostgresLlmUsageLog } from './llm-usage-log.ts';
 import { PostgresMetricsReadModel } from './metrics-read-model.ts';
 import { PostgresOutbox } from './outbox.ts';
 import { PostgresPlanItemReviewLog } from './plan-item-review-log.ts';
+import { PostgresReconciliationStore } from './reconciliation-store.ts';
+import { PostgresRuleOverrideStore } from './rule-override-store.ts';
 import type { Queryable, Tables } from './sql.ts';
 
 /** Every Postgres store: the `TransactionalStores` of the port plus the registry, LLM accounting and backfill progress. */
@@ -43,6 +45,8 @@ export interface PostgresStores extends TransactionalStores {
   readonly findingFlags: PostgresFindingFlagRepository;
   readonly metrics: PostgresMetricsReadModel;
   readonly planItemReviews: PostgresPlanItemReviewLog;
+  readonly ruleOverrides: PostgresRuleOverrideStore;
+  readonly reconciliation: PostgresReconciliationStore;
 }
 
 export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): PostgresStores {
@@ -67,5 +71,7 @@ export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): P
     findingFlags: new PostgresFindingFlagRepository(ctx),
     metrics: new PostgresMetricsReadModel(ctx),
     planItemReviews: new PostgresPlanItemReviewLog(ctx),
+    ruleOverrides: new PostgresRuleOverrideStore(ctx),
+    reconciliation: new PostgresReconciliationStore(ctx),
   };
 }

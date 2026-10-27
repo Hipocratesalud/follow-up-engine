@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import { ConfigIdSchema, type EscalationPolicy, EscalationPolicySchema } from './common.ts';
 import { type Protocol, ProtocolSchema } from './protocol.ts';
 import { type Rule, RuleSchema } from './rule.ts';
+import { overriddenRuleVersion, type RuleOverride } from '../domain/rule-override.ts';
 
 /** A versioned config document failed validation. `issues` are human-readable, one per problem. */
 export class ConfigValidationError extends Error {
@@ -30,12 +31,6 @@ export interface LoadWithPoliciesOptions extends LoadOptions {
    * (`"escalationPolicy": "default_v1"`) instead of inlining its steps.
    */
   readonly escalationPolicies?: readonly EscalationPolicy[];
-}
-
-/** Per-clinic override of a rule: a different deadline, or disabling it. */
-export interface RuleOverride {
-  readonly dueInDays?: number;
-  readonly enabled?: boolean;
 }
 
 function documentName(options: LoadOptions | undefined, index: number): string {
@@ -161,11 +156,13 @@ export function loadProtocolsFromJson(
 
 /**
  * Applies a clinic's overrides (for example a 10-day lab deadline instead of
- * 15) and drops the rules it disabled.
+ * 15) and drops the rules it disabled. An override carrying its `version`
+ * (a stored override) stamps the rule's version with it (`1.0.0+clinic.3`),
+ * so expectations created under it say which configuration made them.
  */
 export function applyRuleOverrides(
   rules: readonly Rule[],
-  overrides: Readonly<Record<string, RuleOverride>>,
+  overrides: Readonly<Record<string, RuleOverride & { readonly version?: number }>>,
 ): Rule[] {
   return rules.flatMap((rule) => {
     const override = overrides[rule.id];
@@ -175,6 +172,12 @@ export function applyRuleOverrides(
     if (override.enabled === false) {
       return [];
     }
-    return [{ ...rule, dueInDays: override.dueInDays ?? rule.dueInDays }];
+    return [
+      {
+        ...rule,
+        dueInDays: override.dueInDays ?? rule.dueInDays,
+        version: overriddenRuleVersion(rule.version, override.version),
+      },
+    ];
   });
 }

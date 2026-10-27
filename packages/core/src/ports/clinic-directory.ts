@@ -45,6 +45,25 @@ export interface ClinicSettings {
    * is assumed, and the reviewer never flags a missing allergy status.
    */
   readonly recordCapabilities?: readonly RecordCapability[];
+  /** When the nightly reconciliation runs (defaults: `DEFAULT_RECONCILIATION_SCHEDULE`). */
+  readonly reconciliation?: ReconciliationSchedule;
+}
+
+/**
+ * When a clinic's nightly reconciliation runs, in the clinic's time zone.
+ * Every field is optional; absent ones take `DEFAULT_RECONCILIATION_SCHEDULE`.
+ */
+export interface ReconciliationSchedule {
+  /** `false` switches the nightly sweep off (a run can still be started by hand). */
+  readonly enabled?: boolean;
+  /** Local hour, 0 to 23. */
+  readonly hour?: number;
+  /**
+   * Local weekday (0 = Sunday ... 6) whose run sweeps every patient; other
+   * nights look at patients with new events only. `null`: never a full sweep
+   * by schedule (the demo clinic, whose fake clock crosses weeks in seconds).
+   */
+  readonly fullSweepWeekday?: number | null;
 }
 
 /** A tenant of the engine. */

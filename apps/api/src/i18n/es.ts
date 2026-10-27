@@ -585,4 +585,27 @@ export const ES = {
     signOffRequired: 'Para pasar a "en vivo" hace falta la firma de quien validó la categoría.',
     signOffRequiredField: 'Indica quién del equipo clínico validó esta categoría.',
   },
+  admin: {
+    fields: {
+      ruleId:
+        'Esa regla no existe para el consultorio. Consulta las reglas con GET /api/admin/rules.',
+      dueInDays: 'El plazo debe ser un número entero de días, de 1 a 3650.',
+      enabled: 'enabled debe ser true o false.',
+      override: 'Indica dueInDays, enabled o ambos (u override: null para restablecer la regla).',
+      reason:
+        'Indica por qué cambia la regla (de 1 a 500 caracteres): queda en el registro de auditoría.',
+      actor: 'Indica quién hace el cambio (X-FollowUp-User): queda en el registro de auditoría.',
+      unknownField: 'Solo se pueden ajustar dueInDays y enabled.',
+    },
+    invalid: 'El cambio de la regla no es válido.',
+    staleVersion:
+      'Alguien cambió esta regla desde que la leíste. Vuelve a leerla y repite el cambio.',
+    unchanged: 'La regla ya funciona así: no hubo cambios.',
+    layers: {
+      universal: 'Universal',
+      doctor_plan: 'Plan del médico',
+      cadence: 'Patrón de visitas',
+      protocol: 'Protocolo',
+    },
+  },
 } satisfies ApiMessages;

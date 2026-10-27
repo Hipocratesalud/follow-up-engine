@@ -10,6 +10,11 @@ import type { ClinicId } from '../domain/ids.ts';
 export interface RuleSource {
   listRules(clinicId: ClinicId): Promise<readonly Rule[]>;
   getRule(clinicId: ClinicId, ruleId: string): Promise<Rule | undefined>;
+  /**
+   * Rules the clinic switched off (a per-clinic override): never drafted
+   * again, but still known to the expectations they created before.
+   */
+  listRetiredRules?(clinicId: ClinicId): Promise<readonly Rule[]>;
 }
 
 /** Versioned care protocols (config/protocols), filtered like {@link RuleSource}. */

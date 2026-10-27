@@ -18,6 +18,8 @@ export * from './domain/condition.ts';
 export type * from './domain/quality-finding.ts';
 export * from './domain/clinical-finding.ts';
 export * from './domain/domain-event.ts';
+export * from './domain/rule-override.ts';
+export * from './domain/reconciliation.ts';
 export * from './domain/errors.ts';
 
 // Versioned configuration (rules, protocols)
@@ -25,6 +27,7 @@ export * from './config/common.ts';
 export * from './config/rule.ts';
 export * from './config/protocol.ts';
 export * from './config/loader.ts';
+export * from './config/rule-override.ts';
 
 // Ports
 export * from './ports/index.ts';

@@ -54,13 +54,14 @@ DATABASE_URL=... pnpm --filter @follow-up-engine/api clinic:create \
 
 Each key carries the least it needs:
 
-| Scope         | Allows                                                                                                                                     | Who holds it                      |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
-| `fhir:write`  | Everything under `/fhir` (ingest, read `Task`, `Condition`, `DetectedIssue`, `CommunicationRequest`, `Communication`, `Flag`) and `/jobs`. | The host integration (server)     |
-| `inbox:read`  | `GET /api/inbox/*` (and reading the demo clock).                                                                                           | The inbox                         |
-| `inbox:act`   | `POST /api/inbox/*`: case actions, feedback, condition and plan item review, the patient-level contact request.                            | The inbox                         |
-| `demo:clock`  | `POST /api/demo/clock/advance` (the fake clock is shared by every clinic of the process) and `GET /api/demo/webhooks`.                     | The demo operator; never a clinic |
-| `demo:ingest` | `POST /api/demo/consultations`: synthetic consultations, only into the demo clinic `clinic-demo`.                                          | The demo operator; never a clinic |
+| Scope         | Allows                                                                                                                                          | Who holds it                                              |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `fhir:write`  | Everything under `/fhir` (ingest, read `Task`, `Condition`, `DetectedIssue`, `CommunicationRequest`, `Communication`, `Flag`) and `/jobs`.      | The host integration (server)                             |
+| `inbox:read`  | `GET /api/inbox/*` (and reading the demo clock).                                                                                                | The inbox                                                 |
+| `inbox:act`   | `POST /api/inbox/*`: case actions, feedback, condition and plan item review, the patient-level contact request.                                 | The inbox                                                 |
+| `demo:clock`  | `POST /api/demo/clock/advance` (the fake clock is shared by every clinic of the process) and `GET /api/demo/webhooks`.                          | The demo operator; never a clinic                         |
+| `demo:ingest` | `POST /api/demo/consultations`: synthetic consultations, only into the demo clinic `clinic-demo`.                                               | The demo operator; never a clinic                         |
+| `admin:rules` | `/api/admin/*`: read and change the clinic's rule configuration (deadlines, rules switched off), audited ([below](#per-clinic-rule-overrides)). | The clinic's operator; never the integration or the inbox |
 
 `demo:*` scopes only exist on a fake clock (`CLOCK=fake`): on a real clock they are dropped and the demo routes do not exist. The CLI refuses them for any clinic but `clinic-demo` unless `--allow-demo` is passed.
 
@@ -744,6 +745,66 @@ The clinical reviewer ([docs/reviewer.md](reviewer.md)) found something in a pat
 }
 ```
 
+### `reconciliation.completed`
+
+The nightly reconciliation of the clinic ran ([below](#nightly-reconciliation)): how many patients it looked at (`scope: "recent"`, those with new events since the previous run; `"all"`, a full sweep), how many it repaired or left for the next night because they were changing at that moment (`patientsSkipped`), and the repairs by kind (`expectationCreated`, `expectationFulfilled`, `expectationSuperseded`, `expectationCancelled`, `expectationReopened`, `expectationUnlinked`, `conditionRecorded`, `caseOpened`, `caseResolved`). Counts only. A night with nothing new to look at sends nothing. Cases a repair opened or resolved also send their own `case.opened` / `case.resolved`.
+
+```json
+{
+  "id": "0c9b8a7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d",
+  "type": "reconciliation.completed",
+  "clinicId": "clinic-demo",
+  "occurredAt": "2026-01-06T07:00:00.000Z",
+  "data": {
+    "runId": "reconciliation-2026-01-06T07:00:00.000Z",
+    "scope": "recent",
+    "patientsScanned": 12,
+    "patientsRepaired": 0,
+    "patientsSkipped": 0,
+    "repairs": 0,
+    "expectationCreated": 0,
+    "expectationFulfilled": 0,
+    "expectationSuperseded": 0,
+    "expectationCancelled": 0,
+    "expectationReopened": 0,
+    "expectationUnlinked": 0,
+    "conditionRecorded": 0,
+    "caseOpened": 0,
+    "caseResolved": 0
+  }
+}
+```
+
+### `reconciliation.repairs_found`
+
+Alert, sent with `reconciliation.completed` when the run repaired anything: state that a lost or out-of-order event had left inconsistent was put right (each repair is in the audit trail, actor `system`, reason `reconciliation`). Same data. A clean integration never triggers it: when it fires, something stored a clinical event without its effect (a defect, a manual change to the database, an import that skipped the annotator); the repair log names each patient and entity.
+
+```json
+{
+  "id": "5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d",
+  "type": "reconciliation.repairs_found",
+  "clinicId": "clinic-demo",
+  "occurredAt": "2026-01-06T07:00:00.000Z",
+  "data": {
+    "runId": "reconciliation-2026-01-06T07:00:00.000Z",
+    "scope": "recent",
+    "patientsScanned": 12,
+    "patientsRepaired": 1,
+    "patientsSkipped": 0,
+    "repairs": 2,
+    "expectationCreated": 0,
+    "expectationFulfilled": 1,
+    "expectationSuperseded": 0,
+    "expectationCancelled": 0,
+    "expectationReopened": 0,
+    "expectationUnlinked": 0,
+    "conditionRecorded": 0,
+    "caseOpened": 0,
+    "caseResolved": 1
+  }
+}
+```
+
 ### Verifying the signature (Node)
 
 Verify the exact bytes received, before parsing, in constant time; reject (401) a signature that does not match or a timestamp more than 5 minutes from your clock; then deduplicate on the (signed) delivery id.
@@ -981,3 +1042,37 @@ The engine checks the claim before it believes it: the case or attempt must be o
 | `EMBEDDED_WORKER`                     | `true` runs the worker inside the API process (one-container deployment).                                                                                                                                                                           |
 
 See [.env.example](../.env.example) for the full list and [deploy.md](deploy.md) for the database.
+
+### Per-clinic rule overrides
+
+A clinic can run a rule of [config/rules](../config/rules) with another deadline (its lab answers in a week: `lab_order_result_pending` due in 10 days instead of 15) or switch it off, without a new rule version. Only `dueInDays` (a whole number of days, 1 to 3650) and `enabled` can be overridden, and only for the clinic's rules (protocol items follow their protocol). Each change is versioned per rule and audited: who, when, old → new, why.
+
+- **New expectations only.** An expectation created after a change carries the new deadline and the rule version with the override (`ruleVersion` `1.1.0+clinic.3`, also on the FHIR `Task`); existing ones keep the deadline and version they were created with.
+- **Switched off** (`enabled: false`): the rule creates nothing new for the clinic. What it created before keeps being fulfilled, escalated and closed under the rule.
+- **Reset**: the override is removed and the rule runs as versioned again (the change is still versioned and kept).
+- Every process sees a change at once: the engine caches each clinic's rules and checks one revision number per read.
+
+With a key that has `admin:rules` (`clinic:create --label admin --scopes admin:rules`) and the operator in `X-FollowUp-User` (required: it is the "who" of the history):
+
+```http
+GET /api/admin/rules
+PUT /api/admin/rules
+X-FollowUp-User: coordinator@clinic
+
+{ "ruleId": "lab_order_result_pending", "override": { "dueInDays": 10 },
+  "reason": "Our lab answers in a week", "expectedVersion": 0 }
+```
+
+`GET` lists every rule with its `defaults`, the `effective` values, the `version` new expectations carry and the `override` in force (with its `version`, who and why). `PUT` merges the fields given into the rule's override (`{ "enabled": false }` switches it off and keeps a deadline set before); `"override": null` resets it. The answer says whether anything changed (`changed: false` when the rule already ran like that). `expectedVersion` (the override `version` you read; `0` for a rule never changed) makes a stale change fail with `409 stale_version` instead of overwriting someone else's. An unknown rule or field, a deadline under one day, a missing reason or a missing user is `422 invalid_request`, field by field. `GET /api/admin/rules/history?ruleId=&limit=` lists the changes, newest first. The same commands from a terminal: `clinic:rules` ([deploy.md](deploy.md#rule-overrides)).
+
+### Nightly reconciliation
+
+A safety net for clinical events whose effect was lost (an import that stored events without annotating them, a defect since fixed, a row changed or deleted by hand) or that arrived in an order the engine could not reconcile on the spot. It works from the events the engine stored: a Bundle whose asynchronous job ended dead-lettered never produced events, so it is not reconciled: send that Bundle again (`GET /jobs/<id>` shows the job dead; ingestion is idempotent). Every night (03:00 in the clinic's time zone by default) the engine replays the stored record of each patient with new events since the previous run through the same annotator as live ingestion, in a transaction it always rolls back, compares what that replay decides with what is stored, and repairs only the differences:
+
+- an expectation the record calls for and that does not exist is created (and, already overdue, opens or joins a case);
+- an expectation the record fulfills, supersedes or cancels is closed; one whose closure no longer stands in the record is open again. A booking that fulfills it goes on the case's timeline with its verified origin, as live ingestion records it, so the metrics count it;
+- an expired expectation grouped into a case that does not exist is open again and opens a new case; an active case whose every reason is closed is resolved.
+
+It never duplicates anything (keys by source and rule; a patient changed by someone else while it looks is left for the next night), never applies a rule change retroactively (a rule switched back on does not create what it would have created while it was off), never overrides a clinician (a plan item they corrected or rejected stays as they left it), and changes nothing on a clean clinic. Each repair is audited with actor `system` and reason `reconciliation` (in the case's timeline when it touches a case, and in the run's repair log). Once a week (Sunday by default) it sweeps every patient instead. The run reports through `reconciliation.completed` and, when it repaired anything, `reconciliation.repairs_found`.
+
+The schedule is per clinic (`settings.reconciliation`: `enabled`, `hour` 0 to 23 local, `fullSweepWeekday` 0 = Sunday to 6, or `null` for no weekly sweep). The initial backfill counts as a full run, so the first night only looks at what arrived after it. Operators can run it by hand with `clinic:reconcile` ([deploy.md](deploy.md#nightly-reconciliation)).

@@ -124,6 +124,12 @@ export interface CatalogOptions {
    * no policy has that id. Inline policies (no id) are rule-specific and stay.
    */
   readonly clinicPolicyId?: string;
+  /**
+   * Rules the clinic switched off: their definitions stay known (an
+   * expectation created before still matches, escalates and closes under
+   * its rule), but no layer drafts them.
+   */
+  readonly retiredRules?: readonly Rule[];
 }
 
 /**
@@ -154,6 +160,9 @@ export class Catalog {
         ? definition
         : { ...definition, escalationPolicy: override };
     const definitions = new Map<string, ExpectationDefinition>();
+    for (const rule of options.retiredRules ?? []) {
+      definitions.set(rule.id, withClinicPolicy(fromRule(rule)));
+    }
     for (const rule of rules) {
       definitions.set(rule.id, withClinicPolicy(fromRule(rule)));
     }
@@ -174,7 +183,10 @@ export class Catalog {
     this.#policies = policies;
   }
 
-  /** The definition behind an expectation's `ruleId`, if still enabled for the clinic. */
+  /**
+   * The definition behind an expectation's `ruleId`, if enabled for the
+   * clinic (or switched off by it after the expectation was created).
+   */
   definition(ruleId: string): ExpectationDefinition | undefined {
     return this.#definitions.get(ruleId);
   }

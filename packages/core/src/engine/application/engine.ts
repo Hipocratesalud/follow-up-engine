@@ -29,6 +29,7 @@ import {
 } from '../suppression/suppressions.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
 import type { NoteExtractor } from '../../ports/note-extractor.ts';
+import type { RuleOverrideStore } from '../../ports/rule-override-store.ts';
 import type { UnitOfWork } from '../../ports/unit-of-work.ts';
 import {
   type BackfillOptions,
@@ -53,6 +54,23 @@ import {
 } from '../patient-contact/history.ts';
 import { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from '../settings.ts';
 import { runWatcher, type WatcherReport } from '../watcher/watcher.ts';
+import {
+  type ReconciliationOptions,
+  type ReconciliationReport,
+  runReconciliation,
+  runReconciliationJob,
+  scheduleReconciliation,
+} from '../reconciliation/reconcile.ts';
+import {
+  createRuleOverrideCommands,
+  OverridingRuleSource,
+  type RuleOverrideCommands,
+} from '../rules/overrides.ts';
+import type {
+  ReconciliationRepair,
+  ReconciliationRun,
+  ReconciliationScope,
+} from '../../domain/reconciliation.ts';
 import { type ConditionCommands, createConditionCommands } from './condition-commands.ts';
 import { createPlanItemCommands, type PlanItemCommands } from './plan-item-commands.ts';
 import { ingest, type IngestReport, runNoteExtractionJob } from './ingest.ts';
@@ -73,6 +91,13 @@ export interface FollowUpEngineDeps {
    * rule references any more. Without it, only the policies rules reference.
    */
   readonly escalationPolicies?: EscalationPolicySource;
+  /**
+   * The rule overrides store outside any transaction, for reads: a catalog
+   * is also loaded inside a transaction (a case action), where the memory
+   * unit of work cannot open another. Without it, overrides are read through
+   * `unitOfWork` (fine on Postgres, which nests with savepoints).
+   */
+  readonly ruleOverrides?: RuleOverrideStore;
 }
 
 /** Whether the engine may contact a patient, for the inbox. */
@@ -137,6 +162,29 @@ export interface BackfillCommands {
   schedule(clinicId: ClinicId, now: Date): Promise<BackfillReleasePlan>;
 }
 
+/** The nightly reconciliation of a clinic (see `runReconciliation`). */
+export interface ReconciliationCommands {
+  /** Runs a reconciliation now, or resumes the clinic's unfinished one. */
+  run(clinicId: ClinicId, options?: ReconciliationOptions): Promise<ReconciliationReport>;
+  /** Handler of the `reconciliation.run` job. Throws to retry (the retry resumes). */
+  runJob(
+    clinicId: ClinicId,
+    payload: Readonly<Record<string, unknown>>,
+  ): Promise<ReconciliationReport>;
+  /** Queues the clinic's next nightly run (idempotent); `undefined` when switched off. */
+  schedule(
+    clinicId: ClinicId,
+    now: Date,
+  ): Promise<{ readonly at: Date; readonly scope: ReconciliationScope } | undefined>;
+  /** Runs, most recent first. */
+  runs(clinicId: ClinicId, limit?: number): Promise<readonly ReconciliationRun[]>;
+  /** The audited repairs (of one run, or one patient, when given), in order. */
+  repairs(
+    clinicId: ClinicId,
+    query?: { readonly runId?: string; readonly patientId?: PatientId; readonly limit?: number },
+  ): Promise<readonly ReconciliationRepair[]>;
+}
+
 /**
  * The follow-up engine: the application services over the pure domain.
  * Every method is scoped to a clinic and runs in `UnitOfWork` transactions.
@@ -160,6 +208,10 @@ export interface FollowUpEngine {
   readonly backfill: BackfillCommands;
   readonly contacts: ContactCommands;
   readonly suppressions: SuppressionCommands;
+  /** Per-clinic rule overrides: deadlines and switches, versioned and audited. */
+  readonly ruleOverrides: RuleOverrideCommands;
+  /** The nightly safety net for lost or out-of-order events. */
+  readonly reconciliation: ReconciliationCommands;
   /** Per rule: how many cases the team found useful and why it dismissed the rest. */
   calibration(clinicId: ClinicId, options?: { readonly since?: Date }): Promise<CalibrationReport>;
   /**
@@ -190,9 +242,13 @@ export interface FollowUpEngine {
  */
 export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
   const settings: EngineSettings = { ...DEFAULT_ENGINE_SETTINGS, ...deps.settings };
+  // The clinic's stored overrides (a 10-day lab deadline, a rule switched
+  // off) layered over the validated rules.
+  const rules = new OverridingRuleSource(deps.rules, deps.ruleOverrides ?? deps.unitOfWork);
   async function loadCatalog(clinicId: ClinicId): Promise<Catalog> {
-    const [rules, protocols, policies, clinic] = await Promise.all([
-      deps.rules.listRules(clinicId),
+    const retired = await rules.listRetiredRules(clinicId);
+    const [enabledRules, protocols, policies, clinic] = await Promise.all([
+      rules.listRules(clinicId),
       deps.protocols.listProtocols(clinicId),
       deps.escalationPolicies?.listPolicies(clinicId) ?? Promise.resolve([]),
       deps.clinics.get(clinicId),
@@ -201,16 +257,18 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
     const enabled = clinic?.settings.enabledProtocols;
     const clinicPolicyId = clinic?.settings.escalationPolicyId;
     return new Catalog(
-      rules,
+      enabledRules,
       protocols.filter((protocol) => protocolEnabled(protocol.id, enabled)),
       {
         policies,
         ...(clinicPolicyId === undefined ? {} : { clinicPolicyId }),
+        ...(retired.length === 0 ? {} : { retiredRules: retired }),
       },
     );
   }
   const shared = { unitOfWork: deps.unitOfWork, ids: deps.ids, settings, loadCatalog };
   const ingestDeps = { ...shared, noteExtractor: deps.noteExtractor, clock: deps.clock };
+  const reconciliationDeps = { ...ingestDeps, clinics: deps.clinics };
 
   return {
     ingest: (batch) => ingest(ingestDeps, batch),
@@ -265,6 +323,24 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
         })),
     },
     suppressions: createSuppressionCommands({ ...shared, clock: deps.clock }),
+    ruleOverrides: createRuleOverrideCommands({
+      unitOfWork: deps.unitOfWork,
+      rules,
+      clock: deps.clock,
+    }),
+    reconciliation: {
+      run: (clinicId, options) => runReconciliation(reconciliationDeps, clinicId, options),
+      runJob: (clinicId, payload) => runReconciliationJob(reconciliationDeps, clinicId, payload),
+      schedule: (clinicId, now) => scheduleReconciliation(reconciliationDeps, clinicId, now),
+      runs: (clinicId, limit = 20) =>
+        deps.unitOfWork.withTransaction(clinicId, (stores) =>
+          stores.reconciliation.list(clinicId, { limit }),
+        ),
+      repairs: (clinicId, query = {}) =>
+        deps.unitOfWork.withTransaction(clinicId, (stores) =>
+          stores.reconciliation.listRepairs(clinicId, { limit: 1000, ...query }),
+        ),
+    },
     calibration: (clinicId, options) => calibrationReport(shared, clinicId, options),
     metrics: (clinicId, period) =>
       clinicMetrics({ unitOfWork: deps.unitOfWork, clock: deps.clock }, clinicId, period),

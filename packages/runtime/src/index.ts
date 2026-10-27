@@ -41,6 +41,7 @@ export {
   DEMO_SCOPES,
   generateApiKey,
   hashApiKey,
+  ADMIN_SCOPES,
   INBOX_SCOPES,
   INTEGRATION_SCOPES,
   isApiKeyScope,

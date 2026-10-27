@@ -18,6 +18,8 @@ export type * from './llm-usage-log.ts';
 export type * from './metrics-read-model.ts';
 export type * from './note-extractor.ts';
 export type * from './plan-item-review-log.ts';
+export type * from './reconciliation-store.ts';
+export type * from './rule-override-store.ts';
 export type * from './suppression-repository.ts';
 export type * from './unit-of-work.ts';
 export * from './llm.ts';

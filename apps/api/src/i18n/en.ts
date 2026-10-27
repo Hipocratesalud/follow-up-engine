@@ -579,4 +579,25 @@ export const EN = {
     signOffRequired: 'Going live needs the sign-off of whoever validated the category.',
     signOffRequiredField: 'Say who on the clinical team validated this category.',
   },
+  admin: {
+    fields: {
+      ruleId: 'This rule does not exist for the clinic. List the rules with GET /api/admin/rules.',
+      dueInDays: 'The deadline must be a whole number of days, from 1 to 3650.',
+      enabled: 'enabled must be true or false.',
+      override: 'Give dueInDays, enabled, or both (or override: null to reset the rule).',
+      reason: 'Say why the rule changes (1 to 500 characters): it is kept in the audit trail.',
+      actor: 'Say who makes the change (X-FollowUp-User): it is kept in the audit trail.',
+      unknownField: 'Only dueInDays and enabled can be overridden.',
+    },
+    invalid: 'The rule change is not valid.',
+    staleVersion:
+      'Someone changed this rule since you read it. Read it again and repeat the change.',
+    unchanged: 'The rule already runs like this: nothing changed.',
+    layers: {
+      universal: 'Universal',
+      doctor_plan: "Doctor's plan",
+      cadence: 'Visit pattern',
+      protocol: 'Protocol',
+    },
+  },
 } satisfies ApiMessages;

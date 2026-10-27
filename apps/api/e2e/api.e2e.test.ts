@@ -590,6 +590,68 @@ describe.skipIf(DATABASE_URL === undefined || DATABASE_URL === '').each(LOCALES)
       expect(webhooks.body.items).toEqual([]);
     });
 
+    it('changes a rule with an admin key, and the nightly reconciliation finds a clean clinic (HIP-141)', async () => {
+      // The admin scope is an operator's: neither the integration nor the inbox key has it.
+      expect((await call('/api/admin/rules')).status).toBe(403);
+      const admin = await runtime.issueApiKey({
+        clinicId: 'clinic-demo',
+        label: 'admin',
+        scopes: ['admin:rules'],
+      });
+      const changed = await call<{ changed: boolean; rule: { version: string } }>(
+        '/api/admin/rules',
+        {
+          method: 'PUT',
+          key: admin.apiKey,
+          headers: { 'x-followup-user': 'ops@clinic' },
+          body: {
+            ruleId: 'imaging_order_result_pending',
+            override: { dueInDays: 21 },
+            reason: 'Imaging reports take three weeks here',
+            expectedVersion: 0,
+          },
+        },
+      );
+      expect(changed.status).toBe(200);
+      expect(changed.body.changed).toBe(true);
+      expect(changed.body.rule.version).toMatch(/\+clinic\.1$/);
+      const history = await call<{ items: { actor: string; reason: string }[] }>(
+        '/api/admin/rules/history',
+        { key: admin.apiKey },
+      );
+      expect(history.body.items[0]).toMatchObject({
+        actor: 'ops@clinic',
+        reason: 'Imaging reports take three weeks here',
+      });
+
+      // Across the next night the worker runs the reconciliation: everything this
+      // suite sent (consultation, results, contact loop) is consistent, so it
+      // repairs nothing, and tells the host with a signed webhook.
+      expect((await call('/api/demo/clock/advance', { body: { days: 1 } })).status).toBe(200);
+      const runs = await eventually(async () => {
+        const done = (await runtime.engine.reconciliation.runs('clinic-demo' as never)).filter(
+          (run) => run.status === 'completed' && run.patientsScanned > 0,
+        );
+        return done.length > 0 ? done : undefined;
+      }, 'a completed reconciliation run');
+      expect(runs.every((run) => run.repairs === 0)).toBe(true);
+      const webhook = await eventually(
+        () =>
+          Promise.resolve(
+            sink
+              .list({ type: 'reconciliation.completed' })
+              .find((delivery) => delivery.signatureValid),
+          ),
+        'the reconciliation.completed webhook',
+      );
+      expect(webhook.payload).toMatchObject({
+        type: 'reconciliation.completed',
+        clinicId: 'clinic-demo',
+        data: { repairs: 0, patientsRepaired: 0, expectationCreated: 0 },
+      });
+      expect(sink.list({ type: 'reconciliation.repairs_found' })).toEqual([]);
+    });
+
     describe('clinical reviewer (HIP-112)', () => {
       const cohort = loadReviewerCohort();
 

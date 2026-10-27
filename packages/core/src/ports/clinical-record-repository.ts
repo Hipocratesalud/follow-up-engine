@@ -87,9 +87,23 @@ export interface ClinicalRecordRepository {
     sources: readonly ResourceRef[],
   ): Promise<readonly SourcePatient[]>;
 
-  /** Pages through every patient with at least one event, ordered by id (used by backfill). */
+  /**
+   * Pages through every patient with at least one event, ordered by id (the
+   * backfill, the reconciliation). With `changedAfter` (a watermark from
+   * {@link eventWatermark}), only patients with an event stored after it.
+   */
   listPatientIds(
     clinicId: ClinicId,
-    page: { readonly after?: PatientId; readonly limit: number },
+    page: {
+      readonly after?: PatientId;
+      readonly limit: number;
+      readonly changedAfter?: string;
+    },
   ): Promise<PatientIdPage>;
+
+  /**
+   * An opaque, monotonic position in the clinic's event log: what has been
+   * stored so far. `undefined` while the clinic has no event.
+   */
+  eventWatermark(clinicId: ClinicId): Promise<string | undefined>;
 }

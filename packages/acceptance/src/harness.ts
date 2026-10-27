@@ -9,6 +9,7 @@ import {
   MemoryDatabase,
   MemoryUnitOfWork,
   SequentialIdGenerator,
+  tenantKey,
 } from '@follow-up-engine/adapter-memory';
 import type { IsolatedDatabase } from '@follow-up-engine/adapter-postgres/testing';
 import {
@@ -25,6 +26,7 @@ import {
   type IngestReport,
   isOlderResourceVersion,
   type NoteExtractor,
+  type RuleOverrideStore,
   type TransactionalStores,
   type UnitOfWork,
 } from '@follow-up-engine/core';
@@ -44,6 +46,11 @@ export interface EngineHarness {
   read<TResult>(work: (stores: TransactionalStores) => Promise<TResult>): Promise<TResult>;
   /** Outbox events of the clinic not delivered yet, in insertion order. */
   pendingEvents(): Promise<readonly DomainEvent[]>;
+  /**
+   * Fault injection: deletes a case row behind the engine's back (no port
+   * deletes cases; the reconciliation must notice and repair it).
+   */
+  deleteCaseRow(caseId: string): Promise<void>;
 }
 
 export interface HarnessOptions {
@@ -67,10 +74,16 @@ function clinicOf(options: HarnessOptions): Clinic {
 
 function engineOver(
   options: HarnessOptions,
-  ports: { unitOfWork: UnitOfWork; clinics: ClinicDirectory; clock: FakeClock },
+  ports: {
+    unitOfWork: UnitOfWork;
+    clinics: ClinicDirectory;
+    clock: FakeClock;
+    ruleOverrides: RuleOverrideStore;
+  },
 ): FollowUpEngine {
   return createFollowUpEngine({
     unitOfWork: options.wrapUnitOfWork?.(ports.unitOfWork) ?? ports.unitOfWork,
+    ruleOverrides: ports.ruleOverrides,
     noteExtractor: options.extractor ?? new FakeNoteExtractor(),
     rules: new FileRuleSource(),
     protocols: new FileProtocolSource(),
@@ -93,11 +106,20 @@ export function memoryHarness(options: HarnessOptions): EngineHarness {
     adapter: 'memory',
     clinicId: options.clinicId,
     clock,
-    engine: engineOver(options, { unitOfWork, clinics, clock }),
+    engine: engineOver(options, {
+      unitOfWork,
+      clinics,
+      clock,
+      ruleOverrides: stores.ruleOverrides,
+    }),
     unitOfWork,
     clinics,
     read: (work) => unitOfWork.withTransaction(options.clinicId, work),
     pendingEvents: () => stores.outbox.pending(options.clinicId),
+    deleteCaseRow: (caseId) => {
+      db.deleteIn(db.state.cases, tenantKey(options.clinicId, caseId));
+      return Promise.resolve();
+    },
   };
 }
 
@@ -122,11 +144,20 @@ export async function postgresHarness(
       unitOfWork: adapters.unitOfWork,
       clinics: adapters.clinics,
       clock,
+      ruleOverrides: adapters.ruleOverrides,
     }),
     unitOfWork: adapters.unitOfWork,
     clinics: adapters.clinics,
     read: (work) => adapters.unitOfWork.withTransaction(options.clinicId, work),
     pendingEvents: () => adapters.outbox.pending(options.clinicId),
+    deleteCaseRow: async (caseId) => {
+      await adapters
+        .db()
+        .query(
+          `DELETE FROM "${database.schema}".follow_up_cases WHERE clinic_id = $1 AND id = $2`,
+          [options.clinicId, caseId],
+        );
+    },
   };
 }
 

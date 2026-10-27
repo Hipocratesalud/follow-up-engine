@@ -10,6 +10,7 @@ import { DOCS_UI_SCRIPT } from './openapi.ts';
  * The scope a request needs, from its method and path:
  * `/fhir/*` and `/jobs/*` → `fhir:write` (the host integration);
  * `GET /api/inbox/*` → `inbox:read`, other methods → `inbox:act`;
+ * `/api/admin/*` (the clinic's rule configuration) → `admin:rules`;
  * `GET /api/demo/clock` → `inbox:read` (the inbox shows the demo date);
  * the demo webhook feed and moving the shared clock → `demo:clock`;
  * saving a demo consultation → `demo:ingest` (and the route only accepts
@@ -23,6 +24,9 @@ export function requiredScope(method: string, path: string): ApiKeyScope | undef
   }
   if (path.startsWith('/api/inbox/')) {
     return read ? 'inbox:read' : 'inbox:act';
+  }
+  if (path === '/api/admin' || path.startsWith('/api/admin/')) {
+    return 'admin:rules';
   }
   if (path.startsWith('/api/demo/')) {
     if (path.startsWith('/api/demo/consultations')) {

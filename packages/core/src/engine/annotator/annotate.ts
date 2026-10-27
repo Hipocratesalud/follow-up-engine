@@ -4,11 +4,7 @@ import type { PatientCondition } from '../../domain/condition.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import { type CaseId, type ExpectationId, expectationId } from '../../domain/ids.ts';
 import { CaseWriter } from '../case-manager/case-writer.ts';
-import {
-  type BookingOrigin,
-  closeExpectation,
-  resolveSatisfiedCases,
-} from '../case-manager/reconcile.ts';
+import { closeExpectation, resolveSatisfiedCases } from '../case-manager/reconcile.ts';
 import {
   findFulfillment,
   fulfillmentReason,
@@ -33,7 +29,7 @@ import { protocolDrafts } from './layers/protocol.ts';
 import { plannedItems, universalDrafts } from './layers/universal.ts';
 import { suppressedRuleIds } from '../suppression/active.ts';
 import { recheckAtFor, recheckFulfilled } from './recheck.ts';
-import { originTypeOf, recordCaseBookings } from '../attribution/attribution.ts';
+import { bookingOriginsOf, recordCaseBookings } from '../attribution/attribution.ts';
 import { retractByLaterInformation } from './retract.ts';
 import {
   cancelWithdrawn,
@@ -225,24 +221,17 @@ export async function annotate(
   };
 }
 
-/** The origin type of each booking of the batch, by appointment (`Appointment/<id>`). */
-function bookingOriginsOf(events: readonly ClinicalEvent[]): ReadonlyMap<string, BookingOrigin> {
-  const origins = new Map<string, BookingOrigin>();
-  for (const event of events) {
-    if (event.type === 'appointment.booked') {
-      origins.set(refKey(event.source), {
-        type: originTypeOf(event),
-        ...(event.origin?.caseId === undefined ? {} : { caseId: event.origin.caseId }),
-      });
-    }
-  }
-  return origins;
-}
-
-/** In a replay, whether `expectation` was created by the step at `asOf` and was still open after it. */
+/**
+ * In a replay, whether `expectation`, drafted again by the step at `asOf`,
+ * was created by that step (or, live, only once its batch arrived, which is
+ * stamped later than the batch's clinical time) and was still open after it.
+ */
 function createdByThisReplayStep(expectation: Expectation, asOf: Date | undefined): boolean {
-  const at = asOf?.getTime();
-  if (at !== expectation.createdAt.getTime()) {
+  if (asOf === undefined) {
+    return false;
+  }
+  const at = asOf.getTime();
+  if (expectation.createdAt.getTime() < at) {
     return false;
   }
   return expectation.closedAt === undefined || expectation.closedAt.getTime() >= at;

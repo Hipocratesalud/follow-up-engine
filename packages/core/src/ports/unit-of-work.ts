@@ -15,6 +15,8 @@ import type { ExpectationRepository } from './expectation-repository.ts';
 import type { FeedbackRepository } from './feedback-repository.ts';
 import type { JobQueue, Outbox } from './job-queue.ts';
 import type { PlanItemReviewLog } from './plan-item-review-log.ts';
+import type { ReconciliationStore } from './reconciliation-store.ts';
+import type { RuleOverrideStore } from './rule-override-store.ts';
 import type { SuppressionRepository } from './suppression-repository.ts';
 
 /** Every store, bound to one transaction. */
@@ -37,6 +39,8 @@ export interface TransactionalStores {
   /** Read side of the clinic metrics (HIP-141). */
   readonly metrics: MetricsReadModel;
   readonly planItemReviews: PlanItemReviewLog;
+  readonly ruleOverrides: RuleOverrideStore;
+  readonly reconciliation: ReconciliationStore;
 }
 
 /**

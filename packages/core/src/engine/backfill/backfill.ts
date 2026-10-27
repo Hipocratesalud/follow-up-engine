@@ -351,6 +351,35 @@ async function pause(deps: BackfillDeps, progress: BackfillProgress): Promise<Ba
   });
 }
 
+/**
+ * The backfill replayed every patient through the same annotator the
+ * reconciliation replays them through: as of now the clinic is reconciled.
+ * Recorded as a completed full run (scanning nobody) at the current event
+ * watermark, so the first nightly reconciliation looks only at what arrives
+ * after the backfill instead of replaying the whole clinic again.
+ */
+async function recordReconciliationBaseline(
+  stores: TransactionalStores,
+  clinicId: ClinicId,
+  backfillRunId: string,
+  now: Date,
+): Promise<void> {
+  const runId = `baseline-${backfillRunId}`;
+  if (
+    (await stores.reconciliation.findRunning(clinicId)) !== undefined ||
+    (await stores.reconciliation.get(clinicId, runId)) !== undefined
+  ) {
+    return;
+  }
+  const watermark = await stores.clinicalRecords.eventWatermark(clinicId);
+  await stores.reconciliation.start(clinicId, runId, {
+    scope: 'all',
+    now,
+    ...(watermark === undefined ? {} : { watermark }),
+  });
+  await stores.reconciliation.finish(clinicId, runId, { status: 'completed', now });
+}
+
 async function complete(
   deps: BackfillDeps,
   progress: BackfillProgress,
@@ -365,6 +394,7 @@ async function complete(
       status: 'completed',
       now,
     });
+    await recordReconciliationBaseline(stores, clinicId, done.runId, now);
     await new CaseWriter(stores, deps.ids, clinicId).emit('backfill.completed', now, {
       runId: done.runId,
       shadow: done.shadow,

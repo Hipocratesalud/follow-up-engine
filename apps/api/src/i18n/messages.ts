@@ -91,6 +91,28 @@ export interface ValidationMessages {
   };
 }
 
+/** The rule configuration API (`/api/admin/rules`) and the `clinic:rules` CLI. */
+export interface AdminMessages {
+  /** By `ValidationError.field` of the rule override commands. */
+  readonly fields: {
+    readonly ruleId: string;
+    readonly dueInDays: string;
+    readonly enabled: string;
+    readonly override: string;
+    readonly reason: string;
+    readonly actor: string;
+    /** Any field an override does not have. */
+    readonly unknownField: string;
+  };
+  /** Summary of a 422. */
+  readonly invalid: string;
+  /** 409: another change landed since the version the request was based on. */
+  readonly staleVersion: string;
+  /** The rule already runs like that: no change was made. */
+  readonly unchanged: string;
+  readonly layers: Readonly<Record<ExpectationLayer, string>>;
+}
+
 export interface ApiMessages {
   /** The catalog's language (`en`, `es`). */
   readonly locale: 'en' | 'es';
@@ -238,4 +260,5 @@ export interface ApiMessages {
 
   readonly validation: ValidationMessages;
   readonly reviewer: ReviewerMessages;
+  readonly admin: AdminMessages;
 }
