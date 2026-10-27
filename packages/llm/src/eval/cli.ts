@@ -47,6 +47,7 @@ import {
 import { InMemoryLlmUsageLog } from '../usage-log.ts';
 import { loadGoldNotes, type GoldNote } from './gold.ts';
 import { renderReport, reportFileName, reportSidecar } from './report.ts';
+import { openSnapshotFile } from './snapshot-file.ts';
 import { runExtractionEval } from './run.ts';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -73,6 +74,9 @@ const HELP = `Usage: eval:extraction --provider <${PROVIDERS.join('|')}> [option
   --price-out <usd>        USD per 1M output tokens
   --allow-contributor      meta only: allow *-contributor models (Meta may train on the data; synthetic notes only)
   --fake-mode <mode>       baseline (rule-based, default) | oracle (returns the gold answer)
+  --snapshot <file>        replay the replies recorded in <file> and record the rest (live) into it,
+                           so a post-processing change is re-scored without calling the model again
+  --offline                with --snapshot: never call the model (a request not recorded is an error)
   --no-report              print the summary only
 `;
 
@@ -126,6 +130,8 @@ async function main(argv: readonly string[]): Promise<void> {
       'price-out': { type: 'string' },
       'fake-mode': { type: 'string', default: 'baseline' },
       'allow-contributor': { type: 'boolean', default: false },
+      snapshot: { type: 'string' },
+      offline: { type: 'boolean', default: false },
       'no-report': { type: 'boolean', default: false },
       help: { type: 'boolean', default: false },
     },
@@ -145,6 +151,13 @@ async function main(argv: readonly string[]): Promise<void> {
   const allNotes = await loadGoldNotes(goldDir);
   const notes: GoldNote[] = limit === undefined ? allNotes : allNotes.slice(0, limit);
   const mode = outputMode(values['output-mode']);
+  const snapshotPath = values.snapshot === undefined ? undefined : resolve(values.snapshot);
+  if (values.offline && snapshotPath === undefined) {
+    throw new LlmConfigError('--offline needs --snapshot <file>');
+  }
+  const offline = values.offline;
+  /** The key, or a placeholder when an offline replay never calls the model. */
+  const keyFrom = (...names: string[]): string => (offline ? 'offline' : requireEnv(...names));
 
   let provider: StructuredLlmProvider;
   let model: string;
@@ -155,7 +168,7 @@ async function main(argv: readonly string[]): Promise<void> {
       label = 'meta';
       model = values.model ?? META_DEFAULT_MODEL;
       provider = createMetaProvider({
-        apiKey: requireEnv('META_API_KEY', 'MODEL_API_KEY'),
+        apiKey: keyFrom('META_API_KEY', 'MODEL_API_KEY'),
         promptCacheKey: NOTE_EXTRACTION_PROMPT_VERSION,
         allowContributorMode: values['allow-contributor'],
         ...(mode ? { outputMode: mode } : {}),
@@ -168,7 +181,7 @@ async function main(argv: readonly string[]): Promise<void> {
       label = 'baseten';
       model = values.model ?? BASETEN_MUSE_SPARK_OPEN_MODEL;
       provider = createBasetenProvider({
-        apiKey: requireEnv('BASETEN_API_KEY'),
+        apiKey: keyFrom('BASETEN_API_KEY'),
         ...(values['base-url'] ? { baseUrl: values['base-url'] } : {}),
         ...(mode ? { outputMode: mode } : {}),
       });
@@ -179,7 +192,7 @@ async function main(argv: readonly string[]): Promise<void> {
       provider = createOpenAiCompatibleProvider({
         name: label,
         baseUrl: values['base-url'] ?? BASETEN_BASE_URL,
-        apiKey: requireEnv(values['api-key-env'] ?? 'BASETEN_API_KEY'),
+        apiKey: keyFrom(values['api-key-env'] ?? 'BASETEN_API_KEY'),
         ...(mode ? { outputMode: mode } : {}),
       });
       break;
@@ -218,6 +231,18 @@ async function main(argv: readonly string[]): Promise<void> {
     };
   }
 
+  const snapshot =
+    snapshotPath === undefined
+      ? undefined
+      : await openSnapshotFile({
+          path: snapshotPath,
+          label,
+          live: provider,
+          offline,
+          promptVersions: [NOTE_EXTRACTION_PROMPT_VERSION],
+        });
+  if (snapshot !== undefined) provider = snapshot.provider;
+
   const usageLog = new InMemoryLlmUsageLog();
   const gateway = createLlmGateway({
     providers: { [label]: provider },
@@ -244,6 +269,17 @@ async function main(argv: readonly string[]): Promise<void> {
       process.stdout.write(`  ${r.id} ${r.error ? `ERROR ${r.error}` : 'ok'}\n`);
     },
   });
+
+  if (snapshot !== undefined && snapshotPath !== undefined) {
+    const { hits, misses } = await snapshot.save();
+    process.stdout.write(
+      `Snapshot ${relative(REPO_ROOT, snapshotPath)}: ${String(hits)} replayed, ${String(misses)} ${offline ? 'missing' : 'live (recorded)'}\n`,
+    );
+    runNote = [
+      ...(runNote ? [runNote, ''] : []),
+      `> Model replies: ${String(hits)} replayed from \`${relative(REPO_ROOT, snapshotPath)}\` (recorded from ${label}/${model}; tokens and cost are those of the original calls, latency is the replay's), ${String(misses)} live.`,
+    ].join('\n');
+  }
 
   const { overall } = run.summary;
   process.stdout.write(

@@ -33,6 +33,25 @@ function fieldTable(aggregate: Aggregate): string[] {
   ];
 }
 
+/** Items the post-checks dropped or demoted, by field and reason. */
+function rejectionTable(aggregate: Aggregate): string[] {
+  const entries = Object.entries(aggregate.rejectedByReason ?? {}).sort(
+    ([a, x], [b, y]) => y - x || a.localeCompare(b),
+  );
+  if (entries.length === 0) return [];
+  return [
+    '## Dropped or demoted by the post-checks',
+    '',
+    '| Field | Reason | Items |',
+    '| --- | --- | ---: |',
+    ...entries.map(([key, count]) => {
+      const [field, reason] = key.split(':');
+      return `| ${field ?? ''} | \`${reason ?? ''}\` | ${String(count)} |`;
+    }),
+    '',
+  ];
+}
+
 /** Machine-readable summary written next to each report (no note text), read by `eval:compare`. */
 export interface ReportSidecar {
   readonly provider: string;
@@ -106,6 +125,7 @@ export function renderReport(run: EvalRun, notes?: string): string {
     `| Latency p50 | ${String(summary.latencyMs.p50)} ms |`,
     `| Latency p95 | ${String(summary.latencyMs.p95)} ms |`,
     '',
+    ...rejectionTable(overall),
     '## By specialty',
     '',
     '| Specialty | Notes | Conditions F1 | Medications F1 | Plan items F1 | hasPlan acc. | Errors |',

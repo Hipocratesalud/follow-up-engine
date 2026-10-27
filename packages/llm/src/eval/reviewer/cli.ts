@@ -10,7 +10,7 @@
  * cohort and writes `docs/evals/reviewer/<date>-<provider>-<model>.md`.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import type { ClinicalReviewAgent } from '@follow-up-engine/core';
@@ -30,6 +30,7 @@ import { createReviewAgent } from '../../reviewer/agent.ts';
 import { CLINICAL_REVIEW_PROMPT_VERSION, CLINICAL_REVIEW_TASK } from '../../reviewer/prompt.ts';
 import { FAKE_REVIEWER_MODEL, scriptedReviewerResponder } from '../../reviewer/scripted.ts';
 import { InMemoryLlmUsageLog } from '../../usage-log.ts';
+import { openSnapshotFile } from '../snapshot-file.ts';
 import { loadCohort, recordOf } from './cohort.ts';
 import { renderReviewerReport, reviewerReportFileName, reviewerSidecar } from './report.ts';
 import { runReviewerEval } from './run.ts';
@@ -48,6 +49,8 @@ const HELP = `Usage: eval:reviewer --provider <${PROVIDERS.join('|')}> [options]
   --base-url <url>       openai-compatible base URL (default ${BASETEN_BASE_URL})
   --api-key-env <VAR>    env var with the openai-compatible key (default BASETEN_API_KEY)
   --out <dir>            report directory (default docs/evals/reviewer)
+  --snapshot <file>      replay the agent steps recorded in <file>, record the rest (live) into it
+  --offline              with --snapshot: never call the model
   --no-report            print the summary only
 `;
 
@@ -69,6 +72,8 @@ async function main(argv: readonly string[]): Promise<void> {
       'base-url': { type: 'string' },
       'api-key-env': { type: 'string' },
       out: { type: 'string' },
+      snapshot: { type: 'string' },
+      offline: { type: 'boolean', default: false },
       'no-report': { type: 'boolean', default: false },
       help: { type: 'boolean', default: false },
     },
@@ -82,6 +87,13 @@ async function main(argv: readonly string[]): Promise<void> {
   if (!PROVIDERS.includes(kind))
     throw new LlmConfigError(`--provider must be one of ${PROVIDERS.join(', ')}`);
   const toolCalling = values['tool-calling'] === 'structured' ? 'structured' : 'native';
+  const snapshotPath = values.snapshot === undefined ? undefined : resolve(values.snapshot);
+  if (values.offline && snapshotPath === undefined) {
+    throw new LlmConfigError('--offline needs --snapshot <file>');
+  }
+  const offline = values.offline;
+  /** The key, or a placeholder when an offline replay never calls the model. */
+  const keyFrom = (...names: string[]): string => (offline ? 'offline' : requireEnv(...names));
 
   let provider: StructuredLlmProvider | undefined;
   let model: string;
@@ -89,20 +101,20 @@ async function main(argv: readonly string[]): Promise<void> {
     case 'meta':
       model = values.model ?? META_DEFAULT_MODEL;
       provider = createMetaProvider({
-        apiKey: requireEnv('META_API_KEY', 'MODEL_API_KEY'),
+        apiKey: keyFrom('META_API_KEY', 'MODEL_API_KEY'),
         toolCalling,
       });
       break;
     case 'baseten':
       model = values.model ?? BASETEN_MUSE_SPARK_OPEN_MODEL;
-      provider = createBasetenProvider({ apiKey: requireEnv('BASETEN_API_KEY') });
+      provider = createBasetenProvider({ apiKey: keyFrom('BASETEN_API_KEY') });
       break;
     case 'openai-compatible':
       model = values.model ?? BASETEN_MUSE_SPARK_OPEN_MODEL;
       provider = createOpenAiCompatibleProvider({
         name: 'openai-compatible',
         baseUrl: values['base-url'] ?? BASETEN_BASE_URL,
-        apiKey: requireEnv(values['api-key-env'] ?? 'BASETEN_API_KEY'),
+        apiKey: keyFrom(values['api-key-env'] ?? 'BASETEN_API_KEY'),
         toolCalling,
       });
       break;
@@ -114,6 +126,18 @@ async function main(argv: readonly string[]): Promise<void> {
       model = 'detectors-only';
       break;
   }
+
+  const snapshot =
+    snapshotPath === undefined || provider === undefined
+      ? undefined
+      : await openSnapshotFile({
+          path: snapshotPath,
+          label: kind,
+          live: provider,
+          offline,
+          promptVersions: [CLINICAL_REVIEW_PROMPT_VERSION],
+        });
+  if (snapshot !== undefined) provider = snapshot.provider;
 
   let agent: ClinicalReviewAgent | undefined;
   if (provider !== undefined) {
@@ -142,6 +166,14 @@ async function main(argv: readonly string[]): Promise<void> {
       );
     },
   });
+  let snapshotNote = '';
+  if (snapshot !== undefined && snapshotPath !== undefined) {
+    const { hits, misses } = await snapshot.save();
+    process.stdout.write(
+      `Snapshot ${relative(REPO_ROOT, snapshotPath)}: ${String(hits)} replayed, ${String(misses)} ${offline ? 'missing' : 'live (recorded)'}\n`,
+    );
+    snapshotNote = `> Agent steps: ${String(hits)} replayed from \`${relative(REPO_ROOT, snapshotPath)}\` (tokens and cost of the original calls; latency is the replay's), ${String(misses)} live.`;
+  }
   const { totals } = run;
   const pct = (value: number | undefined): string =>
     value === undefined ? 'n/a' : `${(value * 100).toFixed(1)}%`;
@@ -157,7 +189,11 @@ async function main(argv: readonly string[]): Promise<void> {
       kind === 'fake'
         ? "> Fake provider: the **scripted reviewer**, a deterministic agent that speaks the real tool protocol through the real gateway and loop (it checks each signal with the read-only tools and submits the confirmed ones with their verbatim evidence). It measures the detectors, the protocol and the engine's checks, not clinical judgment: a Meta model is expected to add findings the detectors miss."
         : '';
-    await writeFile(file, renderReviewerReport(run, note), 'utf8');
+    await writeFile(
+      file,
+      renderReviewerReport(run, [note, snapshotNote].filter((n) => n !== '').join('\n\n')),
+      'utf8',
+    );
     await writeFile(
       file.replace(/\.md$/, '.json'),
       `${JSON.stringify(reviewerSidecar(run), null, 2)}\n`,
