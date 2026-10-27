@@ -3,10 +3,12 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { CaseView, Layer } from '../../api/contract.ts';
 import {
+  DraftProtocolBadge,
   EscalationMeter,
   LayerChip,
   PriorityBadge,
   StatusBadge,
+  isDraftProtocol,
   overdueTone,
 } from '../../components/case-badges.tsx';
 import { Badge } from '../../components/ui.tsx';
@@ -56,6 +58,11 @@ export function releaseLabel(releaseAt: string | undefined, now: Date): string {
 
 function uniqueLayers(item: CaseView): Layer[] {
   return [...new Set(item.reasons.map((reason) => reason.layer))];
+}
+
+/** One of the case's reasons comes from a protocol the clinical team has not validated yet. */
+function hasDraftProtocol(item: CaseView): boolean {
+  return item.reasons.some((reason) => isDraftProtocol(reason.protocol));
 }
 
 export function CaseRow({
@@ -123,6 +130,7 @@ export function CaseRow({
           {uniqueLayers(item).map((layer) => (
             <LayerChip key={layer} layer={layer} />
           ))}
+          {hasDraftProtocol(item) ? <DraftProtocolBadge describe={false} /> : null}
         </span>
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
           {top ? (

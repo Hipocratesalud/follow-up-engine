@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Circle,
   ClipboardList,
+  FilePen,
   MessageCircle,
   PauseCircle,
   ShieldCheck,
@@ -13,7 +14,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { CaseStatus, EscalationView, Layer, PriorityLabel } from '../api/contract.ts';
+import type {
+  CaseStatus,
+  EscalationView,
+  Layer,
+  PriorityLabel,
+  ProtocolRef,
+} from '../api/contract.ts';
 import { cx } from '../lib/cx.ts';
 import { formatDate } from '../lib/format.ts';
 import {
@@ -164,6 +171,68 @@ export function EscalationMeter({
         </span>
       ) : null}
     </span>
+  );
+}
+
+export const DRAFT_PROTOCOL_LABEL = 'Protocolo en borrador · pendiente de validación clínica';
+export const DRAFT_PROTOCOL_HINT =
+  'Este protocolo aún no fue validado por el equipo clínico de tu consultorio.';
+
+export function isDraftProtocol(protocol: ProtocolRef | undefined): boolean {
+  return protocol?.status === 'draft';
+}
+
+/**
+ * Marks a reason that comes from a protocol the clinical team has not
+ * validated yet. The text says it (not color only); the hint is the
+ * tooltip and, with `describe`, is also read by screen readers. Inside a
+ * link (the case row) pass `describe={false}` to keep the link name short.
+ */
+export function DraftProtocolBadge({
+  describe = true,
+}: {
+  readonly describe?: boolean;
+}): ReactNode {
+  return (
+    <Badge
+      tone="warning"
+      wrap
+      title={DRAFT_PROTOCOL_HINT}
+      icon={<FilePen className="mt-0.5 size-3 shrink-0" aria-hidden="true" />}
+    >
+      <span>
+        {DRAFT_PROTOCOL_LABEL}
+        {describe ? <span className="sr-only">. {DRAFT_PROTOCOL_HINT}</span> : null}
+      </span>
+    </Badge>
+  );
+}
+
+/**
+ * Where a reason comes from when a protocol asks for it: the protocol's
+ * Spanish name and, for a draft, the draft badge. Nothing for other reasons.
+ */
+export function ReasonProtocol({
+  protocol,
+  withDraftBadge = true,
+}: {
+  readonly protocol: ProtocolRef | undefined;
+  /** Closed expectations of a patient's history keep the protocol name, without the badge. */
+  readonly withDraftBadge?: boolean;
+}): ReactNode {
+  const draft = withDraftBadge && isDraftProtocol(protocol);
+  if (protocol?.name === undefined && !draft) {
+    return null;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      {protocol?.name === undefined ? null : (
+        <span className="text-xs text-muted">
+          Protocolo: <span className="font-medium text-fg">{protocol.name}</span>
+        </span>
+      )}
+      {draft ? <DraftProtocolBadge /> : null}
+    </div>
   );
 }
 

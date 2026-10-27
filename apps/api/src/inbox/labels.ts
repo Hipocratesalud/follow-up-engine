@@ -97,6 +97,10 @@ const CLOSED_REASON_LABELS: Readonly<Record<string, string>> = {
   covered_by_plan: 'Ya lo cubre el plan del médico',
   covered_by_later_request: 'Ya se pidió en una orden o un plan posterior',
   condition_rejected: 'El equipo descartó el diagnóstico',
+  // Only an episodic protocol closes (today, pregnancy). Says the episode
+  // ended, never how (delivery or loss).
+  protocol_closed: 'El protocolo terminó: se registró el fin del embarazo',
+  rescheduled_by_protocol: 'Reprogramado: el protocolo pide el mismo control antes',
 };
 
 /** Spanish reason an expectation closed, or `undefined` for a code without copy. */

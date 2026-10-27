@@ -28,6 +28,7 @@ import type {
   PatientContact,
   PatientDetail,
   PatientExpectationView,
+  ProtocolRefView,
 } from '../http/schemas.ts';
 import { excerptAround, humanName, patientSummary, sourceDisplay } from './fhir-display.ts';
 import {
@@ -326,6 +327,29 @@ export class InboxPresenter {
     );
   }
 
+  /**
+   * The protocol behind a protocol layer expectation: the version that
+   * created it, with the Spanish name and the validation status of the
+   * protocol the clinic runs today. A protocol no longer enabled for the
+   * clinic only keeps its id and version (no name, no status: the inbox
+   * shows neither).
+   */
+  protocolRef(expectation: Expectation): ProtocolRefView | undefined {
+    if (expectation.layer !== 'protocol') {
+      return undefined;
+    }
+    const id = expectation.protocolId ?? this.#catalog.definition(expectation.ruleId)?.protocol?.id;
+    if (id === undefined) {
+      return undefined;
+    }
+    const protocol = this.#catalog.protocols.find((item) => item.id === id);
+    return {
+      id,
+      version: expectation.protocolVersion ?? expectation.ruleVersion,
+      ...(protocol === undefined ? {} : { name: protocol.reason.label, status: protocol.status }),
+    };
+  }
+
   /** Spanish reason label of a rule, from the catalog. Never contains a day count. */
   reasonLabel(ruleId: string | undefined, fallback?: Expectation): string {
     if (fallback?.layer === 'doctor_plan') {
@@ -527,11 +551,13 @@ export class InboxPresenter {
       this.resource(`${expectation.source.resourceType}/${expectation.source.id}`),
       this.#evidence(expectation, withExcerpt),
     ]);
+    const protocol = this.protocolRef(expectation);
     return {
       expectationId: expectation.id,
       ruleId: expectation.ruleId,
       layer: expectation.layer,
       label: this.reasonLabel(expectation.ruleId, expectation),
+      ...(protocol === undefined ? {} : { protocol }),
       dueAt: expectation.dueAt.toISOString(),
       overdueDays: Math.max(0, calendarDaysBetween(expectation.dueAt, this.now, this.#timeZone)),
       source: {
@@ -574,11 +600,13 @@ export class InboxPresenter {
 
   expectationView(expectation: Expectation): PatientExpectationView {
     const closedLabel = closedReasonLabel(expectation.closedReason);
+    const protocol = this.protocolRef(expectation);
     return {
       id: expectation.id,
       ruleId: expectation.ruleId,
       layer: expectation.layer,
       label: this.reasonLabel(expectation.ruleId, expectation),
+      ...(protocol === undefined ? {} : { protocol }),
       status: expectation.status,
       dueAt: expectation.dueAt.toISOString(),
       ...(closedLabel === undefined ? {} : { closedReason: closedLabel }),

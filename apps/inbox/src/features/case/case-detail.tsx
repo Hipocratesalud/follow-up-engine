@@ -29,6 +29,7 @@ import {
   EscalationMeter,
   LayerChip,
   PriorityBadge,
+  ReasonProtocol,
   StatusBadge,
   overdueTone,
 } from '../../components/case-badges.tsx';
@@ -82,6 +83,7 @@ function ReasonCard({
           Debía ocurrir antes del {formatDate(reason.dueAt)} · Origen: {sourceLabel(reason.source)}
         </p>
       </div>
+      <ReasonProtocol protocol={reason.protocol} />
       {reason.evidence ? <EvidenceExcerpt evidence={reason.evidence} /> : null}
     </li>
   );

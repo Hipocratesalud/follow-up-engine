@@ -15,6 +15,8 @@ const ENGINE_CLOSED_REASONS = [
   'covered_by_plan',
   'covered_by_later_request',
   'condition_rejected',
+  'protocol_closed',
+  'rescheduled_by_protocol',
 ];
 
 function resolvedBySystem(closedReasons: readonly string[]): CaseEvent {

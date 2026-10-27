@@ -152,13 +152,17 @@ export function registerDemoRoutes(
       extraction: extractionView(note.extraction, note.latencyMs ?? 0),
       expectationsCreated: reports
         .flatMap((report) => report.expectationsCreated)
-        .map((expectation) => ({
-          id: expectation.id,
-          ruleId: expectation.ruleId,
-          layer: expectation.layer,
-          label: presenter.reasonLabel(expectation.ruleId, expectation),
-          dueAt: expectation.dueAt.toISOString(),
-        })),
+        .map((expectation) => {
+          const protocol = presenter.protocolRef(expectation);
+          return {
+            id: expectation.id,
+            ruleId: expectation.ruleId,
+            layer: expectation.layer,
+            label: presenter.reasonLabel(expectation.ruleId, expectation),
+            ...(protocol === undefined ? {} : { protocol }),
+            dueAt: expectation.dueAt.toISOString(),
+          };
+        }),
     };
     return c.json(response, 201);
   });
