@@ -1,4 +1,10 @@
-import { type Clinic, type ClinicId, type Clock, FakeClock, type FollowUpEngine } from '@follow-up-engine/core';
+import {
+  type Clinic,
+  type ClinicId,
+  type Clock,
+  FakeClock,
+  type FollowUpEngine,
+} from '@follow-up-engine/core';
 import { IngestionService } from './ingestion.ts';
 import { ensureLabClinic as ensureLabClinicRecord, type EngineRuntime } from './runtime.ts';
 

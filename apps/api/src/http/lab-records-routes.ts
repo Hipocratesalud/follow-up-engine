@@ -91,7 +91,11 @@ function entrySummary(entry: LabRecordEntry): string {
 function requireEvaluator(c: Context<AppEnv>): string {
   const email = c.var.evaluatorEmail;
   if (email === undefined) {
-    throw new HttpError(403, 'lab_requires_evaluator', c.var.t.errors.insufficientScope('demo:ingest'));
+    throw new HttpError(
+      403,
+      'lab_requires_evaluator',
+      c.var.t.errors.insufficientScope('demo:ingest'),
+    );
   }
   return email;
 }
@@ -146,7 +150,11 @@ export function registerLabRecordRoutes(
       entityType: 'patient',
       entityId: patientId,
       patientId,
-      payload: { kind: body.entry.kind, summary: entrySummary(body.entry), recordDate: body.recordDate },
+      payload: {
+        kind: body.entry.kind,
+        summary: entrySummary(body.entry),
+        recordDate: body.recordDate,
+      },
     });
     c.var.log.info({ actor: actorId(c), kind: body.entry.kind }, 'lab record added');
     return c.json({ patientId, clinicId: clinic.id, expectationsCreated }, 201);
@@ -170,7 +178,9 @@ export function registerLabRecordRoutes(
         label: presenter.reasonLabel(expectation.ruleId, expectation),
         status: expectation.status,
         dueAt: expectation.dueAt.toISOString(),
-        ...(expectation.closedReason === undefined ? {} : { closedReason: expectation.closedReason }),
+        ...(expectation.closedReason === undefined
+          ? {}
+          : { closedReason: expectation.closedReason }),
       })),
     });
   });

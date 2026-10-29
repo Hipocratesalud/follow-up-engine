@@ -150,7 +150,7 @@ describe('the evaluator lab: structured records', () => {
     }
   });
 
-  it('rejects a record dated after the lab clinic\'s own current date', async () => {
+  it("rejects a record dated after the lab clinic's own current date", async () => {
     const { app, runtime: rt } = await harness();
     const patientId = `pat-${Math.random().toString(36).slice(2, 8)}`;
     await seedLabPatient(rt, patientId);
