@@ -107,6 +107,7 @@ function chooseProvider(config: LlmConfig, deps: ExtractorDeps): ProviderChoice 
           apiKey: config.metaApiKey ?? '',
           promptCacheKey: NOTE_EXTRACTION_PROMPT_VERSION,
           toolCalling: 'native',
+          ...(config.metaBaseUrl === undefined ? {} : { baseUrl: config.metaBaseUrl }),
           ...(deps.llmFetch === undefined ? {} : { fetch: deps.llmFetch }),
         }),
         info: { provider: 'meta', model: config.metaModel ?? META_DEFAULT_MODEL },

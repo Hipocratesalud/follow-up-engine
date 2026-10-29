@@ -220,7 +220,7 @@ The image is `apps/api/Dockerfile.demo` (the inbox is built inside it with `VITE
 
 The service settings also carry the build (Dockerfile path `apps/api/Dockerfile.demo`, health check `/healthz` with a 600 s window): a CLI upload built with Railpack until they were set on the service, `railway.json` alone was not enough. Both services run in `us-east4` (closest to the clinics in Latin America).
 
-**Live Muse Spark calls from Railway.** The Meta Model API answers Railway's egress addresses (EU and US alike) with an empty model list and 404 on `muse-spark-1.3`, while the same key works from a developer's machine. The seed is unaffected (it replays the recorded readings, labeled Muse Spark), but a consultation saved from the Demo page is read by the fake provider, labeled "simulated reading (no model)", until Meta allows those addresses (or the demo runs where Meta answers).
+**Live Muse Spark calls from Railway.** The Meta Model API answers Railway's egress addresses (EU and US alike) with an empty model list and 404 on `muse-spark-1.3`, while the same key works from a developer's machine. The seed is unaffected (it replays the recorded readings, labeled Muse Spark), but a consultation saved from the Demo page is read by the fake provider, labeled "simulated reading (no model)", until Meta allows those addresses (or the demo runs where Meta answers). `META_BASE_URL` routes Meta calls through a relay instead of `api.meta.ai` (must end before `/chat/completions`, e.g. `https://relay.example/v1`): set it on the Railway service once a relay is available from an address Meta does serve, with no other change to `LLM_PROVIDER=meta`.
 
 **Redeploy** after changes, from a checkout of the branch to ship:
 

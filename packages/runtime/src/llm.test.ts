@@ -34,6 +34,14 @@ describe('which model reads the notes by default', () => {
       loadRuntimeConfig({ META_API_KEY: 'key', LLM_PROVIDER: 'meta', CI: 'true' }).llm.provider,
     ).toBe('meta');
   });
+
+  it('reads META_BASE_URL, unset by default (the provider falls back to META_API_BASE_URL)', () => {
+    expect(loadRuntimeConfig({ META_API_KEY: 'key' }).llm.metaBaseUrl).toBeUndefined();
+    expect(
+      loadRuntimeConfig({ META_API_KEY: 'key', META_BASE_URL: 'https://relay.example/v1' }).llm
+        .metaBaseUrl,
+    ).toBe('https://relay.example/v1');
+  });
 });
 
 const EXTRACTION = {
@@ -166,6 +174,21 @@ describe('a recorded Muse Spark snapshot', () => {
       'fake:fake-extractor',
       'meta:muse-spark-1.3',
     ]);
+  });
+
+  it('calls META_BASE_URL instead of the default Meta Model API when set (relay for egress-blocked hosts)', async () => {
+    const config = loadRuntimeConfig({
+      META_API_KEY: 'key',
+      META_BASE_URL: 'https://relay.example/v1',
+    }).llm;
+    const recorder = metaFetch();
+    const configured = createConfiguredExtractor(config, {
+      ...deps(recorder.fetch),
+      snapshot: { snapshot: emptySnapshot('meta') },
+    });
+    await configured.extractor.extract(clinicId('c1'), NOTE);
+    expect(recorder.calls).toHaveLength(1);
+    expect(recorder.calls[0]).toMatch(/^https:\/\/relay\.example\/v1\/chat\/completions/);
   });
 
   it('is ignored with the fake provider', () => {
