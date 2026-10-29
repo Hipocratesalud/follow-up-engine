@@ -100,7 +100,7 @@ describe('a recorded Muse Spark snapshot', () => {
     llmFetch: fetch,
   });
 
-  it('replays a recorded reading under meta, priced as recorded, and calls the model on a miss', async () => {
+  it('replays a recorded reading under meta at no cost, and calls (and prices) the model on a miss', async () => {
     const config = loadRuntimeConfig({ META_API_KEY: 'key' }).llm;
     const recorder = metaFetch();
     const recorded: string[] = [];
@@ -131,12 +131,14 @@ describe('a recorded Muse Spark snapshot', () => {
     expect(second.info).toEqual({ provider: 'meta', model: 'muse-spark-1.3' });
     expect(extraction.model).toBe('muse-spark-1.3');
     expect(extraction.planItems.map((item) => item.evidenceQuote)).toEqual(['Ctrl en 3 meses']);
-    // Accounted as the Muse Spark call it replays: 3000 in, 400 out.
+    // Replayed, not a real call: accounted (so "notes read" still counts it)
+    // but at zero cost, so it never feeds the monthly budget or the cost the
+    // inbox shows (no real spend was made).
     const usage = await usageLog.summary(clinicId('c1'), new Date(0));
-    expect(usage).toMatchObject({ calls: 1, successfulCalls: 1 });
-    expect(usage.byModel).toMatchObject([{ provider: 'meta', model: 'muse-spark-1.3', calls: 1 }]);
-    // 3000 in, 400 out at Muse Spark list price.
-    expect(usage.costUsd).toBeCloseTo((3000 * 1.25 + 400 * 4.25) / 1_000_000, 6);
+    expect(usage).toMatchObject({ calls: 1, successfulCalls: 1, costUsd: 0 });
+    expect(usage.byModel).toMatchObject([
+      { provider: 'meta', model: 'muse-spark-1.3', calls: 1, costUsd: 0 },
+    ]);
 
     const other = await second.extractor.extract(clinicId('c1'), {
       ...NOTE,
@@ -145,6 +147,10 @@ describe('a recorded Muse Spark snapshot', () => {
     expect(other.planItems).toHaveLength(1);
     expect(replayer.calls).toHaveLength(1);
     expect(second.replay?.stats()).toEqual({ hits: 1, misses: 1 });
+    // A genuine miss calls the model live, and is priced as a real call:
+    // 3000 in, 400 out at Muse Spark list price.
+    const afterMiss = await usageLog.summary(clinicId('c1'), new Date(0));
+    expect(afterMiss.costUsd).toBeCloseTo((3000 * 1.25 + 400 * 4.25) / 1_000_000, 6);
   });
 
   it('replay-only: a miss is read by the fake provider and labeled fake, never called live', async () => {

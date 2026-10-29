@@ -179,6 +179,13 @@ export function createConfiguredExtractor(
       ? createSnapshotProvider({
           snapshot: deps.snapshot.snapshot,
           live: choice.provider,
+          // The demo seed (and `demo:record`) replay recorded replies for
+          // speed, not to reproduce spend: a replay costs the clinic nothing,
+          // so it must not count against the monthly LLM budget or the
+          // "cost of the month" the inbox shows (HIP regression: a $3 demo
+          // budget was exhausted by replayed snapshot calls alone, pausing
+          // the backfill before it released any case).
+          replayUsage: 'none',
           ...(deps.snapshot.onRecord === undefined ? {} : { onRecord: deps.snapshot.onRecord }),
           ...(deps.snapshot.onReplay === undefined ? {} : { onReplay: deps.snapshot.onReplay }),
           ...(deps.snapshot.allowLive === undefined ? {} : { allowLive: deps.snapshot.allowLive }),
