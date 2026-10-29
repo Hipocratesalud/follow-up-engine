@@ -599,6 +599,7 @@ export const EN = {
     webhookSinkUnavailable: 'The webhook receiver did not respond.',
     demoClinicOnly: 'Demo consultations are only saved in the demo clinic.',
     invalidConsultation: 'We could not build the consultation from that data.',
+    labFutureDate: "That date is after the lab clinic's own current date.",
     noteNotRead: (model, error) =>
       `The model (${model}) could not read the note: ${error ?? 'no response'}. The consultation ` +
       'was saved and reading its plan will be retried automatically.',

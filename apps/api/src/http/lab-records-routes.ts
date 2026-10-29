@@ -119,7 +119,7 @@ export function registerLabRecordRoutes(
     const patientId = toPatientId(body.patientId);
     const occurredAt = dayAsDate(body.recordDate);
     if (occurredAt.getTime() > clock.now().getTime()) {
-      throw new HttpError(422, 'lab_future_date', c.var.t.errors.invalidJson);
+      throw new HttpError(422, 'lab_future_date', c.var.t.errors.labFutureDate);
     }
     const bundle = buildRecordBundle({
       recordId: `lab-${randomUUID()}`,

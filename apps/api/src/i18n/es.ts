@@ -607,6 +607,7 @@ export const ES = {
     webhookSinkUnavailable: 'El receptor de webhooks no respondió.',
     demoClinicOnly: 'Las consultas de demostración solo se guardan en la clínica de demostración.',
     invalidConsultation: 'No pudimos armar la consulta con esos datos.',
+    labFutureDate: 'Esa fecha es posterior a la fecha actual de tu laboratorio.',
     noteNotRead: (model, error) =>
       `El modelo (${model}) no pudo leer la nota: ${error ?? 'sin respuesta'}. La consulta quedó ` +
       'guardada y la lectura del plan se reintentará automáticamente.',

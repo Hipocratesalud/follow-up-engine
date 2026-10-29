@@ -193,6 +193,10 @@ export interface ValidationMessages {
     readonly dismissReasonRequired: string;
     readonly dismissNoteRequired: string;
     readonly suppressNeedsNotApplicable: string;
+    /** The evaluator lab's document upload: one of `patientId`/`newPatient` is required. */
+    readonly labPatientRequired: string;
+    /** The evaluator lab's document upload: one of `text`/`dataBase64` is required. */
+    readonly labDocumentRequired: string;
   };
 }
 
@@ -366,6 +370,7 @@ export interface ApiMessages {
     readonly demoClinicOnly: string;
     readonly invalidConsultation: string;
     readonly noteNotRead: (model: string, error: string | undefined) => string;
+    readonly labFutureDate: string;
   };
 
   readonly validation: ValidationMessages;
@@ -380,10 +385,12 @@ export interface AccessGateMessages {
   readonly title: string;
   readonly heading: string;
   readonly intro: string;
+  readonly emailLabel: string;
   readonly codeLabel: string;
   readonly submit: string;
   readonly wrongCode: string;
+  readonly invalidEmail: string;
   readonly tooManyAttempts: string;
-  /** JSON error of an API call without the access cookie. */
+  /** JSON error of an API call without the access cookie or evaluator identity. */
   readonly required: string;
 }
