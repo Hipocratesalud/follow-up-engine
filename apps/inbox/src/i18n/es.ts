@@ -1229,101 +1229,331 @@ const engineTests: Messages['engineTests'] = {
     'note.received': 'Nota guardada',
     'plan.extracted': 'Plan extraído',
   },
+  startTest: 'Empezar la prueba',
+  starting: 'Empezando…',
+  stepOf: (step: number, total: number): string => `Paso ${String(step)} de ${String(total)}`,
+  whatShouldHappen: 'Qué debería pasar',
+  loadButton: 'Cargar',
+  saveButton: 'Guardar',
+  confirmButton: 'Confirmar',
+  viewRuleButton: 'Cargar la ficha de la regla',
+  startOver: 'Empezar de nuevo',
+  stepChecksTitle: 'Chequeos hasta ahora',
+  moveLabDateLabel: 'Mueve la fecha de tu laboratorio a',
+  ruleTimeframeLabel: 'Nuevo plazo (días)',
+  confirmPlanStepHint: 'Confirma como correcto el punto del plan de arriba.',
+  ruleCardStepHint: 'Lee la regla directo de su propia configuración — no hay nada que editar.',
+  diagnosisAttachedHint:
+    'Se adjunta a la misma nota, para que el paciente se inscriba en el protocolo.',
+  visitStepHint: 'Una consulta sola — sin documento, nada más que llenar.',
+  tryAnythingElse: {
+    title: 'Prueba cualquier otra cosa',
+    intro:
+      'Pide otro examen, agrega un resultado, indica un tratamiento o sube un documento — sobre el mismo paciente.',
+    loadButton: 'Cargar',
+  },
   scenarios: {
     'structured-no-llm': {
       title: 'Los datos estructurados no pasan por la IA',
       statement:
         'Una orden, una receta con duración y un resultado se leen cada uno por reglas — nunca por el modelo de lenguaje.',
+      steps: [
+        {
+          title: 'Pide un examen',
+          whatShouldHappen: 'La orden la lee reglas — sin modelo de lenguaje.',
+        },
+        {
+          title: 'Indica un tratamiento',
+          whatShouldHappen: 'La receta también la leen las reglas.',
+        },
+        {
+          title: 'Agrega el resultado',
+          whatShouldHappen:
+            'El resultado cierra la orden automáticamente, todavía con cero llamadas a IA.',
+        },
+      ],
     },
     'note-ai-once-per-save': {
       title: 'Una nota solo la lee la IA cuando se guarda',
       statement:
         'Guardar una nota la lee una vez con el modelo; mover el reloj hacia adelante después nunca la vuelve a leer.',
+      steps: [
+        {
+          title: 'Sube un informe o pega una nota',
+          whatShouldHappen: 'Guardar la nota la lee una vez con el modelo.',
+        },
+        {
+          title: 'Mueve la fecha de tu laboratorio hacia adelante',
+          whatShouldHappen: 'Mover el reloj solo no vuelve a leer la nota.',
+        },
+      ],
     },
     'note-extraction-quotes': {
       title: 'Diagnósticos, medicamentos y el plan vienen con citas',
       statement:
         'Un diagnóstico (CIE-10), un medicamento y el plan del médico se extraen cada uno de la nota con la cita exacta que los respalda.',
+      steps: [
+        {
+          title: 'Sube un informe o pega una nota',
+          whatShouldHappen:
+            'El diagnóstico, el medicamento y el plan vienen cada uno con la cita exacta que los respalda.',
+        },
+      ],
     },
     'plan-item-confirm': {
       title: 'El médico confirma un punto del plan con un clic',
       statement:
         'Un punto de seguimiento que la IA leyó de la nota se puede confirmar como correcto en una sola acción.',
+      steps: [
+        {
+          title: 'Sube un informe o pega una nota',
+          whatShouldHappen:
+            'El plan de la nota (“control en un mes”) abre un punto para confirmar.',
+        },
+        {
+          title: 'Confirma el punto del plan',
+          whatShouldHappen: 'El punto del plan queda confirmado por ti, con un clic.',
+        },
+      ],
     },
     'condition-inferred': {
       title: 'Una condición se puede inferir del tratamiento o de un resultado',
       statement:
         'Indicar metformina, o un HbA1c de 6.5% o más, sugieren diabetes por sí solos, sin que nadie haya escrito el diagnóstico en ningún lado.',
+      steps: [
+        {
+          title: 'Indica un tratamiento',
+          whatShouldHappen:
+            'La metformina sola sugiere diabetes, sin que nadie escriba el diagnóstico.',
+        },
+        {
+          title: 'Agrega un resultado',
+          whatShouldHappen: 'Un HbA1c de 6.5% o más sugiere diabetes por sí solo también.',
+        },
+      ],
     },
     'expectation-has-due-date': {
       title: 'Cada evento abre una expectativa con fecha de vencimiento',
       statement:
         'Cada evento clínico que el motor lee crea una expectativa con una fecha de vencimiento concreta.',
+      steps: [
+        {
+          title: 'Pide un examen',
+          whatShouldHappen: 'La orden abre una expectativa con una fecha de vencimiento concreta.',
+        },
+      ],
     },
     'universal-layer': {
       title: 'La capa universal detecta órdenes y tratamientos sin seguimiento',
       statement:
         'Una orden sin resultado, y un tratamiento corto sin control, abren cada uno su propia expectativa — para cualquier consultorio, cualquier especialidad.',
+      steps: [
+        {
+          title: 'Pide un examen',
+          whatShouldHappen: 'La orden sin resultado abre su propia expectativa.',
+        },
+        {
+          title: 'Indica un tratamiento corto',
+          whatShouldHappen:
+            'El tratamiento corto abre su propia expectativa también, independiente de la orden.',
+        },
+      ],
     },
     'doctor-plan-layer': {
       title: 'El plan del propio médico abre su propia expectativa',
       statement:
         'Una nota que dice "control en un mes" abre una expectativa que vence en unos 30 días.',
+      steps: [
+        {
+          title: 'Sube un informe o pega una nota',
+          whatShouldHappen: '“Control en un mes” abre una expectativa que vence en unos 30 días.',
+        },
+      ],
     },
     'cadence-break': {
       title: 'Un ritmo de consultas roto se vuelve un caso — pero solo con un patrón',
       statement:
         'Un paciente con dos o más consultas previas que rompe su ritmo abre un caso; una sola consulta previa no abre nada.',
+      steps: [
+        {
+          title: 'Registra una consulta',
+          whatShouldHappen: 'Una sola consulta todavía no abre nada.',
+        },
+        {
+          title: 'Mueve la fecha de tu laboratorio 30 días hacia adelante',
+          whatShouldHappen: 'Mover el reloj solo no cambia nada por sí mismo.',
+        },
+        {
+          title: 'Registra otra consulta',
+          whatShouldHappen:
+            'Una segunda consulta, 30 días después, abre una expectativa de ritmo roto.',
+        },
+        {
+          title: 'Mueve la fecha de tu laboratorio más allá del vencimiento',
+          whatShouldHappen: 'Vencida, la expectativa de ritmo roto vence y se vuelve un caso.',
+        },
+      ],
     },
     'protocol-fills-gaps': {
       title: 'Un protocolo de enfermedad crónica llena lo que el plan dejó abierto',
       statement:
         'Una vez inscrito en el protocolo de diabetes, los controles de rutina que el plan del médico no mencionó (un perfil lipídico, un examen de fondo de ojo, una consulta de rutina) igual quedan programados.',
+      steps: [
+        {
+          title: 'Sube una nota que inscribe al paciente',
+          whatShouldHappen: 'El plan del propio médico abre el control de HbA1c que pidió.',
+        },
+        {
+          title: 'Registra una consulta unos días después',
+          whatShouldHappen: 'El protocolo de diabetes llena lo que el plan no cubrió.',
+        },
+      ],
     },
     'plan-beats-protocol': {
       title: 'El plan del médico siempre tiene prioridad sobre el protocolo',
       statement:
         'Cuando el plan del propio médico ya pide un examen, el protocolo de enfermedad crónica nunca abre una segunda expectativa duplicada para lo mismo.',
+      steps: [
+        {
+          title: 'Sube una nota que inscribe al paciente',
+          whatShouldHappen: 'El plan del propio médico abre el control de HbA1c.',
+        },
+        {
+          title: 'Registra una consulta unos días después',
+          whatShouldHappen: 'El protocolo nunca abre un segundo control de HbA1c duplicado.',
+        },
+      ],
     },
     'auto-close-fulfilled': {
       title: 'Un resultado cierra su orden automáticamente',
       statement:
         'Una orden seguida de su resultado queda marcada como cumplida sin que nadie tenga que actuar.',
+      steps: [
+        {
+          title: 'Pide un examen',
+          whatShouldHappen: 'La orden abre su propia expectativa.',
+        },
+        {
+          title: 'Agrega el resultado',
+          whatShouldHappen:
+            'El resultado cierra la orden automáticamente — nadie tiene que actuar.',
+        },
+      ],
     },
     supersession: {
       title: 'Una orden repetida reemplaza a la anterior',
       statement:
         'Pedir el mismo examen otra vez marca la orden anterior como reemplazada y arranca una fecha de vencimiento nueva desde la orden nueva.',
+      steps: [
+        {
+          title: 'Pide un examen',
+          whatShouldHappen: 'La orden abre una expectativa nueva con fecha de vencimiento.',
+        },
+        {
+          title: 'Pide el mismo examen otra vez',
+          whatShouldHappen:
+            'La orden nueva reemplaza a la anterior y arranca su propio reloj de 15 días.',
+        },
+      ],
     },
     'independent-clocks': {
       title: 'Exámenes distintos llevan relojes separados',
       statement:
         'Dos exámenes distintos pedidos para el mismo paciente se siguen cada uno con su propia fecha de vencimiento, independiente uno del otro.',
+      steps: [
+        {
+          title: 'Pide un examen',
+          whatShouldHappen: 'La orden abre su propia expectativa, que vence en 15 días.',
+        },
+        {
+          title: 'Pide un examen distinto',
+          whatShouldHappen:
+            'El examen nuevo conserva su propio reloj de 15 días, independiente del primero.',
+        },
+      ],
     },
     'visit-closes-controls-not-tests': {
       title: 'Una consulta cierra controles pendientes, nunca exámenes pendientes',
       statement:
         'Una consulta cumple un control de seguimiento pendiente, pero un resultado de laboratorio o imagen pendiente todavía necesita su propio resultado para cerrar.',
+      steps: [
+        {
+          title: 'Pide un examen',
+          whatShouldHappen: 'La orden de laboratorio abre su propia expectativa.',
+        },
+        {
+          title: 'Indica un tratamiento corto',
+          whatShouldHappen: 'El tratamiento corto abre su propio control pendiente.',
+        },
+        {
+          title: 'Registra una consulta',
+          whatShouldHappen:
+            'La consulta cierra el control pendiente, pero el examen pendiente sigue abierto.',
+        },
+      ],
     },
     'note-without-plan-finding': {
       title: 'Una nota sin plan se vuelve un hallazgo de calidad',
       statement:
         'Una nota que no deja ningún plan de seguimiento se registra como un hallazgo de calidad de la documentación para el equipo clínico.',
+      steps: [
+        {
+          title: 'Sube un informe o pega una nota',
+          whatShouldHappen:
+            'Una nota sin plan de seguimiento se registra como un hallazgo de calidad de la documentación.',
+        },
+      ],
     },
     'rule-is-configuration': {
       title: 'Las reglas son configuración, no código',
       statement:
         'El disparador de cada regla, cómo se cumple y se reemplaza, su política de escalamiento y su versión se leen directo de la configuración de la propia regla.',
+      steps: [
+        {
+          title: 'Carga la ficha de la regla',
+          whatShouldHappen: 'Cada campo se lee directo de la configuración de la propia regla.',
+        },
+      ],
     },
     'case-keeps-rule-version': {
       title: 'Un caso conserva la versión de la regla con la que abrió',
       statement:
         'Una vez que un caso abre, conserva exactamente la versión de la regla que lo creó, incluso después de que el consultorio cambie esa regla más adelante.',
+      steps: [
+        {
+          title: 'Pide un examen',
+          whatShouldHappen:
+            'La orden abre una expectativa que lleva la versión actual de la regla.',
+        },
+        {
+          title: 'Mueve la fecha de tu laboratorio más allá del vencimiento',
+          whatShouldHappen: 'Vencida, la expectativa vence y se vuelve un caso.',
+        },
+        {
+          title: 'Cambia el plazo del consultorio',
+          whatShouldHappen:
+            'El caso conserva la versión de la regla con la que abrió, incluso después de que el consultorio cambie la regla.',
+        },
+      ],
     },
     'per-clinic-override': {
       title: 'Un consultorio puede ajustar sus propios plazos',
       statement:
         'El ajuste propio de esta clínica de prueba mueve la fecha de vencimiento de una regla (por ejemplo de 15 a 10 días), sin cambiarla para ningún otro consultorio.',
+      steps: [
+        {
+          title: 'Pide un examen',
+          whatShouldHappen: 'Antes de cualquier ajuste, aplica el plazo por defecto de la regla.',
+        },
+        {
+          title: 'Cambia el plazo del consultorio',
+          whatShouldHappen: 'El ajuste propio de este consultorio de prueba ya está activo.',
+        },
+        {
+          title: 'Pide el examen otra vez',
+          whatShouldHappen: 'Pedirlo otra vez ya usa el plazo propio de este consultorio.',
+        },
+      ],
     },
   },
 };
@@ -1347,6 +1577,7 @@ const EVALUATOR_ACTION_LABELS: Record<string, string> = {
   lab_date_viewed: 'Movió el reloj del laboratorio',
   case_viewed: 'Vio un caso',
   patient_documents_viewed: 'Vio los documentos de un paciente',
+  engine_test_step: 'Cargó un paso de una prueba del motor',
 };
 
 const lab: Messages['lab'] = {

@@ -8,7 +8,10 @@ import {
 import { useApi } from './queries.ts';
 import type {
   EngineTestCatalog,
-  EngineTestRunResult,
+  EngineTestFreeformRequest,
+  EngineTestStartResponse,
+  EngineTestStepOutcome,
+  EngineTestStepValue,
   EngineTestVerdictRequest,
 } from './engine-tests-contract.ts';
 
@@ -16,7 +19,7 @@ export const engineTestsQueryKeys = {
   catalog: ['engine-tests'] as const,
 };
 
-/** The engine tests catalog, with each test's review status and the overall progress. */
+/** The engine tests catalog, with each test's review status, step count and the overall progress. */
 export function useEngineTests(): UseQueryResult<EngineTestCatalog | null> {
   const api = useApi();
   return useQuery({
@@ -25,11 +28,49 @@ export function useEngineTests(): UseQueryResult<EngineTestCatalog | null> {
   });
 }
 
-/** Runs one scenario against the real engine, in the evaluator's own lab clinic. */
-export function useRunEngineTest(): UseMutationResult<EngineTestRunResult, Error, string> {
+/** Starts (or restarts) a scenario: a fresh fictitious patient and every step's pre-filled suggestion. */
+export function useStartEngineTest(): UseMutationResult<EngineTestStartResponse, Error, string> {
   const api = useApi();
   return useMutation({
-    mutationFn: (id: string) => api.runEngineTest(id),
+    mutationFn: (id: string) => api.startEngineTest(id),
+  });
+}
+
+export interface SubmitStepInput {
+  readonly id: string;
+  readonly step: number;
+  readonly day0: string;
+  readonly patientId: string;
+  readonly value: EngineTestStepValue;
+}
+
+/** Applies one step's (possibly edited) input through the real engine. */
+export function useSubmitEngineTestStep(): UseMutationResult<
+  EngineTestStepOutcome,
+  Error,
+  SubmitStepInput
+> {
+  const api = useApi();
+  return useMutation({
+    mutationFn: ({ id, step, day0, patientId, value }) =>
+      api.submitEngineTestStep(id, step, { day0, patientId, value }),
+  });
+}
+
+export interface SubmitFreeformInput {
+  readonly id: string;
+  readonly body: EngineTestFreeformRequest;
+}
+
+/** "Try anything else": a free-form record or document action, outside any numbered step. */
+export function useSubmitEngineTestFreeform(): UseMutationResult<
+  EngineTestStepOutcome,
+  Error,
+  SubmitFreeformInput
+> {
+  const api = useApi();
+  return useMutation({
+    mutationFn: ({ id, body }) => api.submitEngineTestFreeform(id, body),
   });
 }
 

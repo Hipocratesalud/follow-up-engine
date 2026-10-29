@@ -3,7 +3,7 @@ import { CONSULTATION_DOCUMENT_TYPES } from '@follow-up-engine/fhir';
 
 /** `YYYY-MM-DD`, the day on the engine's calendar (the clinic's date picker). */
 const CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/;
-const calendarDay = z
+export const calendarDay = z
   .string()
   .regex(CALENDAR_DAY)
   .refine((value) => !Number.isNaN(Date.parse(`${value}T12:00:00Z`)));

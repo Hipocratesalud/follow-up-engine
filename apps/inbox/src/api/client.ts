@@ -56,7 +56,10 @@ import type {
 import type { PlanItemCommand, PlanItemCorrectionRequest } from './plan-item-contract.ts';
 import type {
   EngineTestCatalog,
-  EngineTestRunResult,
+  EngineTestFreeformRequest,
+  EngineTestStartResponse,
+  EngineTestStepOutcome,
+  EngineTestStepRequest,
   EngineTestVerdictRequest,
 } from './engine-tests-contract.ts';
 
@@ -179,7 +182,19 @@ export interface ApiClient {
   ): Promise<PlanItemReviewResponse>;
   /** `undefined` when the API runs on a real clock (the demo endpoints answer 404). */
   getEngineTests(): Promise<EngineTestCatalog | undefined>;
-  runEngineTest(id: string): Promise<EngineTestRunResult>;
+  /** Starts (or restarts) a scenario on a fresh fictitious patient, with every step's pre-filled suggestion. */
+  startEngineTest(id: string): Promise<EngineTestStartResponse>;
+  /** Applies one step's (possibly edited) input through the real engine. */
+  submitEngineTestStep(
+    id: string,
+    step: number,
+    body: EngineTestStepRequest,
+  ): Promise<EngineTestStepOutcome>;
+  /** "Try anything else": a free-form record or document action, outside any numbered step. */
+  submitEngineTestFreeform(
+    id: string,
+    body: EngineTestFreeformRequest,
+  ): Promise<EngineTestStepOutcome>;
   submitEngineTestVerdict(id: string, body: EngineTestVerdictRequest): Promise<unknown>;
 
   // The evaluator lab (docs/deploy.md#hosted-demo) --------------------------
@@ -351,7 +366,13 @@ export function createApiClient(config: ApiConfig): ApiClient {
         throw error;
       }
     },
-    runEngineTest: (id) => request('POST', `/demo/engine-tests/${encodeURIComponent(id)}/run`),
+    startEngineTest: (id) => request('POST', `/demo/engine-tests/${encodeURIComponent(id)}/start`),
+    submitEngineTestStep: (id, step, body) =>
+      request('POST', `/demo/engine-tests/${encodeURIComponent(id)}/steps/${String(step)}`, {
+        body,
+      }),
+    submitEngineTestFreeform: (id, body) =>
+      request('POST', `/demo/engine-tests/${encodeURIComponent(id)}/freeform`, { body }),
     submitEngineTestVerdict: (id, body) =>
       request('POST', `/demo/engine-tests/${encodeURIComponent(id)}/verdict`, { body }),
 
