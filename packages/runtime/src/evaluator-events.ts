@@ -31,6 +31,8 @@ export const EVALUATOR_ACTIONS = [
   'patient_documents_viewed',
   /** A physician's verdict on one guided engine test (docs/deploy.md#engine-tests). */
   'engine_test_verdict',
+  /** One step of a guided engine test, loaded (or saved/confirmed) by the physician. */
+  'engine_test_step',
 ] as const;
 export type EvaluatorAction = (typeof EVALUATOR_ACTIONS)[number];
 

@@ -1241,102 +1241,330 @@ const engineTests = {
     'note.received': 'Note saved',
     'plan.extracted': 'Plan extracted',
   } as Record<string, string>,
+  startTest: 'Start the test',
+  starting: 'Starting…',
+  stepOf: (step: number, total: number): string => `Step ${String(step)} of ${String(total)}`,
+  whatShouldHappen: 'What should happen',
+  loadButton: 'Load',
+  saveButton: 'Save',
+  confirmButton: 'Confirm',
+  viewRuleButton: 'Load the rule card',
+  startOver: 'Start over',
+  stepChecksTitle: 'Checks so far',
+  moveLabDateLabel: "Move your lab's date to",
+  ruleTimeframeLabel: 'New timeframe (days)',
+  confirmPlanStepHint: 'Confirms the plan item above as correct.',
+  ruleCardStepHint: 'Reads the rule straight from its own configuration — nothing to edit.',
+  diagnosisAttachedHint: 'Attached to the same note, so the patient enrolls in the protocol.',
+  visitStepHint: 'A visit alone — no document, nothing else to fill in.',
+  tryAnythingElse: {
+    title: 'Try anything else',
+    intro:
+      'Order another test, add a result, prescribe a treatment, or upload a document — on the same patient.',
+    loadButton: 'Load',
+  },
   scenarios: {
     'structured-no-llm': {
       title: 'Structured data skips the AI',
       statement:
         'An order, a prescription with a duration and a result are each read by rules — never by the language model.',
+      steps: [
+        {
+          title: 'Order a test',
+          whatShouldHappen: 'The order is read by rules — no language model is involved.',
+        },
+        {
+          title: 'Prescribe a treatment',
+          whatShouldHappen: 'The prescription is read by rules too.',
+        },
+        {
+          title: 'Add the result',
+          whatShouldHappen: 'The result closes the order automatically, still with zero AI calls.',
+        },
+      ],
     },
     'note-ai-once-per-save': {
       title: 'A note is read by AI only when it is saved',
       statement:
         'Saving a note reads it once with the model; moving the clock forward afterward never reads it again.',
+      steps: [
+        {
+          title: 'Upload a report or paste a note',
+          whatShouldHappen: 'Saving the note reads it once with the model.',
+        },
+        {
+          title: "Move your lab's date forward",
+          whatShouldHappen: 'Moving the clock alone never reads the note again.',
+        },
+      ],
     },
     'note-extraction-quotes': {
       title: 'Diagnoses, medications and the plan come with quotes',
       statement:
         'A diagnosis (ICD-10), a medication and the doctor’s plan are each extracted from the note with the exact quote that supports them.',
+      steps: [
+        {
+          title: 'Upload a report or paste a note',
+          whatShouldHappen:
+            'The diagnosis, the medication and the plan each come back with the exact quote that supports them.',
+        },
+      ],
     },
     'plan-item-confirm': {
       title: 'The doctor confirms a plan item with one click',
       statement:
         'A follow-up item the AI read from the note can be confirmed as correct in one action.',
+      steps: [
+        {
+          title: 'Upload a report or paste a note',
+          whatShouldHappen: "The note's plan (“control in a month”) opens a plan item to confirm.",
+        },
+        {
+          title: 'Confirm the plan item',
+          whatShouldHappen: 'The plan item is marked confirmed by you, in one click.',
+        },
+      ],
     },
     'condition-inferred': {
       title: 'A condition can be inferred from treatment or a result',
       statement:
         'Prescribing metformin, or an HbA1c of 6.5% or higher, each suggest diabetes on their own, with no diagnosis typed anywhere.',
+      steps: [
+        {
+          title: 'Prescribe a treatment',
+          whatShouldHappen: 'Metformin alone suggests diabetes, with no diagnosis typed anywhere.',
+        },
+        {
+          title: 'Add a result',
+          whatShouldHappen: 'An HbA1c of 6.5% or higher suggests diabetes on its own too.',
+        },
+      ],
     },
     'expectation-has-due-date': {
       title: 'Every event opens an expectation with a due date',
       statement:
         'Each clinical event the engine reads creates an expectation with a concrete due date.',
+      steps: [
+        {
+          title: 'Order a test',
+          whatShouldHappen: 'The order opens an expectation with a concrete due date.',
+        },
+      ],
     },
     'universal-layer': {
       title: 'The universal layer catches orders and treatments with no follow-up',
       statement:
         'An order with no result, and a short treatment with no control visit, each open their own expectation — for any clinic, any specialty.',
+      steps: [
+        {
+          title: 'Order a test',
+          whatShouldHappen: 'The order with no result opens its own expectation.',
+        },
+        {
+          title: 'Prescribe a short treatment',
+          whatShouldHappen:
+            'The short treatment opens its own expectation too, independent of the order.',
+        },
+      ],
     },
     'doctor-plan-layer': {
       title: 'The doctor’s own plan opens its own expectation',
       statement: 'A note that says “control in a month” opens an expectation due in about 30 days.',
+      steps: [
+        {
+          title: 'Upload a report or paste a note',
+          whatShouldHappen: '“Control in a month” opens an expectation due in about 30 days.',
+        },
+      ],
     },
     'cadence-break': {
       title: 'A broken visit rhythm becomes a case — but only with a pattern',
       statement:
         'A patient with two or more prior visits who breaks their rhythm opens a case; a single prior visit opens nothing.',
+      steps: [
+        {
+          title: 'Record a visit',
+          whatShouldHappen: 'One visit alone opens nothing yet.',
+        },
+        {
+          title: "Move your lab's date forward 30 days",
+          whatShouldHappen: 'Moving the clock alone changes nothing by itself.',
+        },
+        {
+          title: 'Record another visit',
+          whatShouldHappen: 'A second visit, 30 days later, opens a cadence-break expectation.',
+        },
+        {
+          title: "Move your lab's date past its due date",
+          whatShouldHappen: 'Past due, the cadence expectation expires and becomes a case.',
+        },
+      ],
     },
     'protocol-fills-gaps': {
       title: 'A chronic-care protocol fills what the plan left open',
       statement:
         'Once enrolled in the diabetes protocol, routine checks the doctor’s plan did not mention (a lipid panel, an eye exam, a routine visit) still get scheduled.',
+      steps: [
+        {
+          title: 'Upload a note enrolling the patient',
+          whatShouldHappen: "The doctor's own plan opens the HbA1c control it asked for.",
+        },
+        {
+          title: 'Record a visit a few days later',
+          whatShouldHappen: 'The diabetes protocol fills what the plan did not cover.',
+        },
+      ],
     },
     'plan-beats-protocol': {
       title: 'The doctor’s plan always outranks the protocol',
       statement:
         'When the doctor’s own plan already asks for a test, the chronic-care protocol never opens a second, duplicate expectation for it.',
+      steps: [
+        {
+          title: 'Upload a note enrolling the patient',
+          whatShouldHappen: "The doctor's own plan opens the HbA1c control.",
+        },
+        {
+          title: 'Record a visit a few days later',
+          whatShouldHappen: 'The protocol never opens a second, duplicate HbA1c control.',
+        },
+      ],
     },
     'auto-close-fulfilled': {
       title: 'A result closes its order automatically',
       statement:
         'An order followed by its result is marked fulfilled with no one having to act on it.',
+      steps: [
+        {
+          title: 'Order a test',
+          whatShouldHappen: 'The order opens its own expectation.',
+        },
+        {
+          title: 'Add the result',
+          whatShouldHappen: 'The result closes the order automatically — no one has to act.',
+        },
+      ],
     },
     supersession: {
       title: 'A repeated order supersedes the one before it',
       statement:
         'Ordering the same test again marks the earlier order superseded and starts a brand-new due date from the new order.',
+      steps: [
+        {
+          title: 'Order a test',
+          whatShouldHappen: 'The order opens a new expectation with a due date.',
+        },
+        {
+          title: 'Order the same test again',
+          whatShouldHappen: 'The new order supersedes the old one and starts its own 15-day clock.',
+        },
+      ],
     },
     'independent-clocks': {
       title: 'Different tests keep separate clocks',
       statement:
         'Two different tests ordered for the same patient are each tracked on their own due date, independent of each other.',
+      steps: [
+        {
+          title: 'Order a test',
+          whatShouldHappen: 'The order opens its own expectation, due in 15 days.',
+        },
+        {
+          title: 'Order a different test',
+          whatShouldHappen: 'The new test keeps its own 15-day clock, independent of the first.',
+        },
+      ],
     },
     'visit-closes-controls-not-tests': {
       title: 'A visit closes pending controls, never pending tests',
       statement:
         'A visit fulfills a pending follow-up control, but a pending lab or imaging result still needs its own result to close.',
+      steps: [
+        {
+          title: 'Order a test',
+          whatShouldHappen: 'The lab order opens its own expectation.',
+        },
+        {
+          title: 'Prescribe a short treatment',
+          whatShouldHappen: 'The short treatment opens its own control expectation.',
+        },
+        {
+          title: 'Record a visit',
+          whatShouldHappen:
+            'The visit closes the pending control, but the pending lab test stays open.',
+        },
+      ],
     },
     'note-without-plan-finding': {
       title: 'A note with no plan becomes a quality finding',
       statement:
         'A note that states no follow-up plan at all is recorded as a documentation-quality finding for the clinical team.',
+      steps: [
+        {
+          title: 'Upload a report or paste a note',
+          whatShouldHappen:
+            'A note with no follow-up plan is recorded as a documentation-quality finding.',
+        },
+      ],
     },
     'rule-is-configuration': {
       title: 'Rules are configuration, not code',
       statement:
         'Every rule’s trigger, how it is fulfilled and superseded, its escalation policy and its version are read straight from the rule’s own configuration.',
+      steps: [
+        {
+          title: 'Load the rule card',
+          whatShouldHappen: "Every field reads straight from the rule's own configuration.",
+        },
+      ],
     },
     'case-keeps-rule-version': {
       title: 'A case keeps the rule version it opened with',
       statement:
         'Once a case opens, it keeps the exact rule version that created it, even after the clinic later changes that rule.',
+      steps: [
+        {
+          title: 'Order a test',
+          whatShouldHappen: "The order opens an expectation carrying today's rule version.",
+        },
+        {
+          title: "Move your lab's date past its due date",
+          whatShouldHappen: 'Past due, the expectation expires and becomes a case.',
+        },
+        {
+          title: "Change the clinic's timeframe",
+          whatShouldHappen:
+            "The case keeps the rule version it opened with, even after the clinic's rule changes.",
+        },
+      ],
     },
     'per-clinic-override': {
       title: 'A clinic can adjust its own timeframes',
       statement:
         'This lab clinic’s own override moves a rule’s due date (for example 15 days to 10), without changing it for any other clinic.',
+      steps: [
+        {
+          title: 'Order a test',
+          whatShouldHappen: "Before any override, the rule's own default timeframe applies.",
+        },
+        {
+          title: "Change the clinic's timeframe",
+          whatShouldHappen: "This lab clinic's own override is now active.",
+        },
+        {
+          title: 'Order the test again',
+          whatShouldHappen: "Ordering it again now uses this clinic's own timeframe.",
+        },
+      ],
     },
-  } as Record<string, { readonly title: string; readonly statement: string }>,
+  } as Record<
+    string,
+    {
+      readonly title: string;
+      readonly statement: string;
+      readonly steps: readonly { readonly title: string; readonly whatShouldHappen: string }[];
+    }
+  >,
 };
 
 const EVALUATOR_ACTION_LABELS = {
@@ -1358,6 +1586,7 @@ const EVALUATOR_ACTION_LABELS = {
   lab_date_viewed: 'Moved the lab clock',
   case_viewed: 'Viewed a case',
   patient_documents_viewed: 'Viewed a patient’s documents',
+  engine_test_step: 'Loaded an engine-test step',
 } as Record<string, string>;
 
 const lab = {

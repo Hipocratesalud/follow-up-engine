@@ -36,11 +36,12 @@ import {
 import type { App, AppEnv } from './context.ts';
 
 /** A `YYYY-MM-DD` calendar day, read as noon UTC (never a timezone boundary issue). */
-function dayAsDate(day: string): Date {
+export function dayAsDate(day: string): Date {
   return new Date(`${day}T12:00:00Z`);
 }
 
-function recordEntry(entry: LabRecordEntry): RecordEntryInput {
+/** Maps the API's `LabRecordEntry` wire shape onto the FHIR builder's `RecordEntryInput`. */
+export function recordEntry(entry: LabRecordEntry): RecordEntryInput {
   switch (entry.kind) {
     case 'order':
       return {
