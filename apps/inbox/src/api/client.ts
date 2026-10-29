@@ -271,7 +271,7 @@ export function createApiClient(config: ApiConfig): ApiClient {
     }
     const form = new FormData();
     for (const [key, value] of Object.entries(rest)) {
-      if (value !== undefined) form.set(key, String(value));
+      form.set(key, value);
     }
     if (newPatient !== undefined) form.set('newPatient', JSON.stringify(newPatient));
     form.set('file', file, file.name);
