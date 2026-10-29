@@ -84,9 +84,7 @@ export {
 // Builders and helpers
 export {
   buildConsultationBundle,
-  CONSULTATION_DOCUMENT_TYPES,
   type ConsultationDiagnosisInput,
-  type ConsultationDocumentType,
   type ConsultationInput,
   type ConsultationOrderInput,
   type ConsultationPrescriptionInput,

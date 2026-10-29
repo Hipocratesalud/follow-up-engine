@@ -3,7 +3,12 @@ import type { Bundle, BundleEntry, FhirResource } from '../fhir-types.ts';
 import { toFhirInstant } from '../support/datetime.ts';
 import { toFhirId } from '../support/hash.ts';
 import { encodeBase64Utf8 } from '../support/text.ts';
-import { ENGINE_CODE_SYSTEMS, SNOMED_SERVICE_CATEGORY, TERMINOLOGY } from '../terminology.ts';
+import {
+  type ConsultationDocumentType,
+  ENGINE_CODE_SYSTEMS,
+  SNOMED_SERVICE_CATEGORY,
+  TERMINOLOGY,
+} from '../terminology.ts';
 
 export interface ConsultationOrderInput {
   readonly loinc: string;
@@ -25,20 +30,11 @@ export interface ConsultationDiagnosisInput {
 }
 
 /**
- * What kind of document the note is (the evaluator lab's "document type"
- * picker): selects the `DocumentReference.type` LOINC code. Extraction
- * itself does not depend on it (`mapDocumentReference` reads any current,
- * final DocumentReference with text); it only labels the record.
+ * The `DocumentReference.type` LOINC code for each {@link ConsultationDocumentType}
+ * (`CONSULTATION_DOCUMENT_TYPES`, `../terminology.ts`). Extraction itself
+ * does not depend on it (`mapDocumentReference` reads any current, final
+ * DocumentReference with text); it only labels the record.
  */
-export const CONSULTATION_DOCUMENT_TYPES = [
-  'consultation_note',
-  'lab_result',
-  'imaging_report',
-  'prescription',
-  'other',
-] as const;
-export type ConsultationDocumentType = (typeof CONSULTATION_DOCUMENT_TYPES)[number];
-
 const DOCUMENT_TYPE_CODES: Readonly<
   Record<ConsultationDocumentType, { code: string; display: string }>
 > = {
