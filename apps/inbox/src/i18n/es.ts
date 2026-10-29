@@ -730,6 +730,8 @@ const extraction: Messages['extraction'] = {
   plan: 'Plan del médico',
   noPlanItems: 'La nota no indica próximos pasos.',
   dueConfidence: (date, percent) => `Antes del ${date} · ${percent} de confianza`,
+  // "Laboratorio: HbA1c", never two items both titled "Laboratorio".
+  planItemNamed: (kind, testName) => `${kind}: ${testName}`,
   conditions: 'Condiciones',
   probable: (percent) => `Probable · ${percent}`,
   medications: 'Medicamentos',

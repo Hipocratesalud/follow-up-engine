@@ -225,14 +225,48 @@ describe('the evaluator lab: documents', () => {
     });
     const body = (await response.json()) as {
       patientId: string;
+      documentDate: string;
+      documentType: string;
       extraction: { model: string; hasPlan: boolean; planItems: readonly unknown[] };
       expectationsCreated: readonly { ruleId: string; status: string }[];
     };
     expect(response.status).toBe(201);
     expect(body.patientId).toBe(patientId);
+    // Regression: the timeline (apps/inbox) dates and labels its entry from
+    // these, never from a plan item's due date, so the document's own date
+    // and type must come back exactly as submitted.
+    expect(body.documentDate).toBe('2026-01-05');
+    expect(body.documentType).toBe('consultation_note');
     expect(body.extraction.hasPlan).toBe(true);
     expect(body.extraction.planItems.length).toBeGreaterThan(0);
     expect(body.expectationsCreated.length).toBeGreaterThan(0);
+  });
+
+  it('names each lab plan item by its own test, so two orders in one note read differently', async () => {
+    const { app, runtime: rt } = await harness();
+    const patientId = `pat-${Math.random().toString(36).slice(2, 8)}`;
+    await seedLabPatient(rt, patientId);
+    const response = await app.request('/api/demo/lab/documents', {
+      method: 'POST',
+      headers: { ...authAndEvaluator(), 'accept-language': 'es' },
+      body: JSON.stringify({
+        patientId,
+        text: 'Paciente con DM2. Control en 3 meses con HbA1c y perfil lipídico.',
+        documentDate: '2026-01-05',
+        documentType: 'consultation_note',
+      }),
+    });
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as {
+      extraction: {
+        planItems: readonly { kind: string; testName?: string; evidenceQuote: string }[];
+      };
+    };
+    const labItems = body.extraction.planItems.filter((item) => item.kind === 'lab');
+    expect(labItems.length).toBe(2);
+    const testNames = labItems.map((item) => item.testName).sort();
+    // The same two tests the "Expectativas" list already names (`loinc` catalog).
+    expect(testNames).toEqual(['Hemoglobina glicosilada (HbA1c)', 'Perfil lipídico']);
   });
 
   it('creates a new patient inline when the upload carries `newPatient`', async () => {

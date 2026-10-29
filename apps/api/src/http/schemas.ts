@@ -612,6 +612,10 @@ export const DemoConsultationResponseSchema = z
           dueAt: isoDate,
           evidenceQuote: z.string(),
           confidence: z.number(),
+          testName: z.string().optional().meta({
+            description:
+              'The named test or procedure, in the response language, when the extractor mapped a known code (same table as the expectations list)',
+          }),
         }),
       ),
       costUsd: z.number(),

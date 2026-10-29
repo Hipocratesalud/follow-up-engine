@@ -245,16 +245,20 @@ export function ExtractionResult({
           <p className="text-sm text-muted">{t.extraction.noPlanItems}</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {extraction.planItems.map((item) => (
+            {extraction.planItems.map((item, index) => (
               <li
-                key={`${item.kind}-${item.evidenceQuote}`}
+                key={`${item.kind}-${item.testName ?? item.description}-${String(index)}`}
                 className="flex flex-col gap-1.5 rounded-lg border border-border p-3"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="flex items-center gap-2 text-sm font-medium text-fg">
                     <Stethoscope className="size-4 text-layer-plan" aria-hidden="true" />
-                    {/* The model's own description is a short English phrase (prompt): the kind reads in the UI language. */}
-                    {t.labels.planKinds[item.kind]}
+                    {/* The model's own description is a short English phrase (prompt): the kind
+                        reads in the UI language, with the named test when one was mapped (never
+                        two items both titled the same, like two lab orders in one plan). */}
+                    {item.testName === undefined
+                      ? t.labels.planKinds[item.kind]
+                      : t.extraction.planItemNamed(t.labels.planKinds[item.kind], item.testName)}
                   </span>
                   <span className="text-xs text-muted">
                     {t.extraction.dueConfidence(

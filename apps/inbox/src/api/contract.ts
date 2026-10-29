@@ -520,6 +520,8 @@ export interface ExtractedPlanItem {
   dueAt: string;
   evidenceQuote: string;
   confidence: number;
+  /** The named test or procedure, localized, when the extractor mapped a known code. */
+  testName?: string;
 }
 
 export interface ExtractedConditionView {

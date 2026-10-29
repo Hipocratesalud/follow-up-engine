@@ -66,6 +66,8 @@ const SAME_IN_BOTH = new Set([
   'metrics.funnel.summary',
   'metrics.extraction.legend',
   'metrics.ai.tokens',
+  // "<kind>: <test name>": punctuation only, both parameters are translated elsewhere.
+  'extraction.planItemNamed',
   // The evaluator lab: a clinical word the same in both languages, and an ICD-10 code.
   'lab.interpretations.normal',
   'lab.diagnosisCodePlaceholder',

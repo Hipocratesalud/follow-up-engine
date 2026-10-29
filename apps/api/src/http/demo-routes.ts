@@ -4,7 +4,7 @@ import { buildConsultationBundle } from '@follow-up-engine/fhir';
 import { DEMO_CLINIC, type EngineRuntime, Worker } from '@follow-up-engine/runtime';
 import type { ApiMessages } from '../i18n/index.ts';
 import { InboxPresenter } from '../inbox/presenter.ts';
-import { icd10Label } from '../inbox/terminology.ts';
+import { icd10Label, loincLabel } from '../inbox/terminology.ts';
 import type { App } from './context.ts';
 import { HttpError, readJson, readQuery } from './errors.ts';
 import { requireScope } from './security.ts';
@@ -15,6 +15,17 @@ import {
   WebhookQuerySchema,
   type WebhookDelivery,
 } from './schemas.ts';
+
+/** Terminology URI the extractor codes a named test against (`packages/llm`'s `LOINC_SYSTEM`). */
+const LOINC_SYSTEM = 'http://loinc.org';
+
+/** The named test or procedure a plan item codes, in the clinic's language, when known. */
+function planItemTestName(
+  t: ApiMessages,
+  code: { readonly system: string; readonly code: string } | undefined,
+): string | undefined {
+  return code?.system === LOINC_SYSTEM ? loincLabel(t, code.code) : undefined;
+}
 
 export function extractionView(
   t: ApiMessages,
@@ -40,13 +51,22 @@ export function extractionView(
       ...(medication.durationDays === undefined ? {} : { durationDays: medication.durationDays }),
       evidenceQuote: medication.evidenceQuote,
     })),
-    planItems: extraction.planItems.map((item) => ({
-      kind: item.kind,
-      description: item.description,
-      dueAt: item.dueAt.toISOString(),
-      evidenceQuote: item.evidenceQuote,
-      confidence: item.confidence,
-    })),
+    planItems: extraction.planItems.map((item) => {
+      // The named test, in the clinic's language, when the extractor
+      // mapped one: "Laboratorio: HbA1c" and "Laboratorio: Perfil
+      // lipídico" instead of two identical "Laboratorio" items, the same
+      // table the expectations list reads (`loincLabel`). Absent when the
+      // item is generic (a plain follow-up visit) or the code is unknown.
+      const testName = planItemTestName(t, item.code);
+      return {
+        kind: item.kind,
+        description: item.description,
+        dueAt: item.dueAt.toISOString(),
+        evidenceQuote: item.evidenceQuote,
+        confidence: item.confidence,
+        ...(testName === undefined ? {} : { testName }),
+      };
+    }),
     costUsd: extraction.costUsd,
     latencyMs,
   };

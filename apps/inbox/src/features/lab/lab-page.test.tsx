@@ -82,6 +82,25 @@ function labHandlers() {
                 evidenceQuote: 'Control en 3 meses',
                 confidence: 0.9,
               },
+              // Two lab items quoting the same phrase ("HbA1c y perfil
+              // lipídico"): the regression showed both titled plainly "Lab
+              // test", indistinguishable. `testName` must tell them apart.
+              {
+                kind: 'lab',
+                description: 'HbA1c',
+                dueAt: '2026-04-05T00:00:00.000Z',
+                evidenceQuote: 'Control en 3 meses con HbA1c y perfil lipídico',
+                confidence: 0.9,
+                testName: 'HbA1c',
+              },
+              {
+                kind: 'lab',
+                description: 'lipid panel',
+                dueAt: '2026-04-05T00:00:00.000Z',
+                evidenceQuote: 'Control en 3 meses con HbA1c y perfil lipídico',
+                confidence: 0.9,
+                testName: 'Lipid panel',
+              },
             ],
             costUsd: 0,
             latencyMs: 5,
@@ -154,6 +173,11 @@ describe('the Lab page', () => {
     expect(await screen.findByText('Document uploaded: Consultation note')).toBeInTheDocument();
     expect(screen.getByText('Jan 5, 2026')).toBeInTheDocument();
     expect(screen.queryByText('Apr 5, 2026')).not.toBeInTheDocument();
+
+    // Regression: two lab plan items quoting the same phrase must read as
+    // two different tests, not two identical "Lab test" entries.
+    expect(screen.getByText('Lab test: HbA1c')).toBeInTheDocument();
+    expect(screen.getByText('Lab test: Lipid panel')).toBeInTheDocument();
   });
 
   it("does not send a request when the diagnosis form's required field is empty", async () => {

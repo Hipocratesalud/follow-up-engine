@@ -741,6 +741,8 @@ const extraction = {
   plan: 'Doctor’s plan',
   noPlanItems: 'The note gives no next steps.',
   dueConfidence: (date: string, percent: string): string => `By ${date} · ${percent} confidence`,
+  // "Lab: HbA1c", never two items both titled "Lab".
+  planItemNamed: (kind: string, testName: string): string => `${kind}: ${testName}`,
   conditions: 'Conditions',
   probable: (percent: string): string => `Probable · ${percent}`,
   medications: 'Medications',
