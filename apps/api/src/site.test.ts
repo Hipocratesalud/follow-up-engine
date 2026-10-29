@@ -222,4 +222,47 @@ describe('shared access code', () => {
     expect(safeNextPath('/_access?next=/')).toBe('/');
     expect(safeNextPath(undefined)).toBe('/');
   });
+
+  it('rejects the right code with an invalid email, and keeps what was typed', async () => {
+    const app = await site({ DEMO_ACCESS_CODE: CODE });
+    const response = await app.request('/_access', {
+      method: 'POST',
+      body: new URLSearchParams({ code: CODE, email: 'not-an-email', next: '/metrics' }),
+    });
+    expect(response.status).toBe(422);
+    expect(response.headers.get('set-cookie')).toBeNull();
+    const body = await response.text();
+    expect(body).toContain('valid email');
+    expect(body).toContain('value="not-an-email"');
+  });
+
+  it('pre-fills the code page with the evaluator cookie\'s email ("Change")', async () => {
+    const app = await site({ DEMO_ACCESS_CODE: CODE });
+    const page = await app.request('/_access', { headers: cookie });
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain(`value="${EMAIL}"`);
+  });
+});
+
+describe('evaluator identity', () => {
+  it('reports who is evaluating and clears both cookies on logout', async () => {
+    const app = await site({ INBOX_DIST_DIR: dist, DEMO_ACCESS_CODE: CODE });
+    const me = await app.request('/api/evaluator/me', {
+      headers: { ...cookie, authorization: `Bearer ${KEY}` },
+    });
+    expect(me.status).toBe(200);
+    expect(await me.json()).toEqual({ email: EMAIL });
+
+    const logout = await app.request('/api/evaluator/logout', {
+      method: 'POST',
+      headers: { ...cookie, authorization: `Bearer ${KEY}` },
+    });
+    expect(logout.status).toBe(204);
+    // Hono's `deleteCookie` sets each cookie to empty with `Max-Age=0`: the
+    // browser drops both, so the next page load goes back to the code page.
+    const cleared = (logout.headers.get('set-cookie') ?? '').toLowerCase();
+    expect(cleared).toContain('fue_access=;');
+    expect(cleared).toContain('fue_evaluator=;');
+    expect(cleared).toContain('max-age=0');
+  });
 });

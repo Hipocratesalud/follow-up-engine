@@ -166,3 +166,168 @@ describe('the evaluator lab: structured records', () => {
     expect(response.status).toBe(422);
   });
 });
+
+describe('the evaluator lab: patients', () => {
+  it('creates a fictitious patient and lists it with the right age and sex', async () => {
+    const { app } = await harness();
+    const created = await app.request('/api/demo/lab/patients', {
+      method: 'POST',
+      headers: authAndEvaluator(),
+      body: JSON.stringify({ name: 'Ana Pérez', sex: 'female', age: 40, specialty: 'diabetology' }),
+    });
+    expect(created.status).toBe(201);
+    const patient = (await created.json()) as {
+      id: string;
+      name: string;
+      sex?: string;
+      age?: number;
+    };
+    expect(patient.name).toBe('Ana Pérez');
+    expect(patient.sex).toBe('female');
+
+    const listed = await app.request('/api/demo/lab/patients', { headers: authAndEvaluator() });
+    expect(listed.status).toBe(200);
+    const { items } = (await listed.json()) as {
+      items: { id: string; name: string; sex?: string; age?: number }[];
+    };
+    const found = items.find((item) => item.id === patient.id);
+    expect(found?.name).toBe('Ana Pérez');
+    expect(found?.sex).toBe('female');
+    expect(found?.age).toBeGreaterThanOrEqual(39);
+    expect(found?.age).toBeLessThanOrEqual(40);
+  });
+});
+
+describe('the evaluator lab: documents', () => {
+  it('reads a pasted document through the normal FHIR path and creates expectations', async () => {
+    const { app, runtime: rt } = await harness();
+    const patientId = `pat-${Math.random().toString(36).slice(2, 8)}`;
+    await seedLabPatient(rt, patientId);
+    const response = await app.request('/api/demo/lab/documents', {
+      method: 'POST',
+      headers: authAndEvaluator(),
+      body: JSON.stringify({
+        patientId,
+        text: 'Paciente con DM2. Control en 3 meses con HbA1c.',
+        documentDate: '2026-01-05',
+        documentType: 'consultation_note',
+      }),
+    });
+    const body = (await response.json()) as {
+      patientId: string;
+      extraction: { model: string; hasPlan: boolean; planItems: readonly unknown[] };
+      expectationsCreated: readonly { ruleId: string; status: string }[];
+    };
+    expect(response.status).toBe(201);
+    expect(body.patientId).toBe(patientId);
+    expect(body.extraction.hasPlan).toBe(true);
+    expect(body.extraction.planItems.length).toBeGreaterThan(0);
+    expect(body.expectationsCreated.length).toBeGreaterThan(0);
+  });
+
+  it('creates a new patient inline when the upload carries `newPatient`', async () => {
+    const { app } = await harness();
+    const response = await app.request('/api/demo/lab/documents', {
+      method: 'POST',
+      headers: authAndEvaluator(),
+      body: JSON.stringify({
+        newPatient: { name: 'Carlos Ruiz', sex: 'male', age: 55 },
+        text: 'Consulta de control. Sin plan por ahora.',
+        documentDate: '2026-01-05',
+        documentType: 'consultation_note',
+      }),
+    });
+    const body = (await response.json()) as { patientId: string };
+    expect(response.status).toBe(201);
+    const listed = await app.request('/api/demo/lab/patients', { headers: authAndEvaluator() });
+    const { items } = (await listed.json()) as { items: { id: string; name: string }[] };
+    expect(items.some((item) => item.id === body.patientId && item.name === 'Carlos Ruiz')).toBe(
+      true,
+    );
+  });
+
+  it('rejects an unsupported file type with a clear error', async () => {
+    const { app, runtime: rt } = await harness();
+    const patientId = `pat-${Math.random().toString(36).slice(2, 8)}`;
+    await seedLabPatient(rt, patientId);
+    const response = await app.request('/api/demo/lab/documents', {
+      method: 'POST',
+      headers: authAndEvaluator(),
+      body: JSON.stringify({
+        patientId,
+        filename: 'note.exe',
+        contentType: 'application/x-msdownload',
+        dataBase64: Buffer.from('not a document').toString('base64'),
+        documentDate: '2026-01-05',
+        documentType: 'other',
+      }),
+    });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('lab_document_unsupported_type');
+  });
+
+  it('refuses an image with a clear "not supported yet" error', async () => {
+    const { app, runtime: rt } = await harness();
+    const patientId = `pat-${Math.random().toString(36).slice(2, 8)}`;
+    await seedLabPatient(rt, patientId);
+    const response = await app.request('/api/demo/lab/documents', {
+      method: 'POST',
+      headers: authAndEvaluator(),
+      body: JSON.stringify({
+        patientId,
+        filename: 'scan.png',
+        contentType: 'image/png',
+        dataBase64: Buffer.from('fake png bytes').toString('base64'),
+        documentDate: '2026-01-05',
+        documentType: 'imaging_report',
+      }),
+    });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('lab_document_unsupported_image');
+  });
+});
+
+describe('the evaluator lab: date impact and cases', () => {
+  it('moves the lab clock forward, reports the impact and lists the opened case', async () => {
+    const { app, runtime: rt } = await harness();
+    const patientId = `pat-${Math.random().toString(36).slice(2, 8)}`;
+    await seedLabPatient(rt, patientId);
+    const order = await app.request('/api/demo/lab/records', {
+      method: 'POST',
+      headers: authAndEvaluator(),
+      body: JSON.stringify({
+        patientId,
+        recordDate: '2026-01-05',
+        entry: { kind: 'order', loinc: '4548-4', display: 'HbA1c' },
+      }),
+    });
+    expect(order.status).toBe(201);
+
+    const past = await app.request('/api/demo/lab/date', {
+      method: 'POST',
+      headers: authAndEvaluator(),
+      body: JSON.stringify({ date: '2026-01-04' }),
+    });
+    expect(past.status).toBe(422);
+
+    const advanced = await app.request('/api/demo/lab/date', {
+      method: 'POST',
+      headers: authAndEvaluator(),
+      body: JSON.stringify({ date: '2026-04-15' }),
+    });
+    const impact = (await advanced.json()) as {
+      expectationsExpired: number;
+      casesOpened: number;
+      casesEscalated: number;
+    };
+    expect(advanced.status).toBe(200);
+    expect(impact.expectationsExpired + impact.casesOpened).toBeGreaterThan(0);
+
+    const cases = await app.request('/api/demo/lab/cases', { headers: authAndEvaluator() });
+    expect(cases.status).toBe(200);
+    const { items } = (await cases.json()) as { items: readonly { patient: { id: string } }[] };
+    expect(items.some((item) => item.patient.id === patientId)).toBe(true);
+  });
+});
