@@ -71,6 +71,16 @@ const SAME_IN_BOTH = new Set([
   // The evaluator lab: a clinical word the same in both languages, and an ICD-10 code.
   'lab.interpretations.normal',
   'lab.diagnosisCodePlaceholder',
+  // Engine-test timeline details: punctuation only, every param (test name, category,
+  // interpretation, verification, medication) is itself translated or kept verbatim.
+  'engineTests.checks.detailServiceRequestCreated',
+  'engineTests.checks.detailResultReceived',
+  'engineTests.checks.detailMedicationPrescribed',
+  'engineTests.checks.detailMedicationPrescribedWithDuration',
+  'engineTests.checks.detailConditionRecorded',
+  // Cognates: the same word in both languages.
+  'common.no',
+  'engineTests.verification.provisional',
 ]);
 
 describe('catalogs', () => {

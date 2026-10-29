@@ -54,18 +54,30 @@ interface StartResponse {
   }[];
 }
 
+interface CheckMessage {
+  readonly code: string;
+  readonly params?: Readonly<Record<string, { readonly kind: string; readonly value?: unknown }>>;
+}
+
 interface StepResponse {
   readonly id: string;
   readonly patientId: string;
   readonly step: number;
-  readonly timeline: readonly unknown[];
+  readonly timeline: readonly { readonly type: string; readonly detail: CheckMessage }[];
   readonly expectations: readonly unknown[];
   readonly autoCheck: {
-    readonly expected: string;
-    readonly observed: string;
+    readonly expected: CheckMessage;
+    readonly observed: CheckMessage;
     readonly passed: boolean;
   };
   readonly ruleCard?: unknown;
+}
+
+/** A check message's own code, for failure messages (never literal English/Spanish text — see apps/inbox/src/i18n). */
+function describeCheck(message: CheckMessage): string {
+  return message.params === undefined
+    ? message.code
+    : `${message.code}(${JSON.stringify(message.params)})`;
 }
 
 /** Starts a scenario and walks every one of its steps with the server's own suggestions, unedited. */
@@ -149,7 +161,7 @@ describe.each(ENGINE_TESTS)('engine test: $id', (def) => {
     for (const [index, result] of results.entries()) {
       expect(
         result.autoCheck.passed,
-        `step ${String(index + 1)}: ${result.autoCheck.expected} :: ${result.autoCheck.observed}`,
+        `step ${String(index + 1)}: ${describeCheck(result.autoCheck.expected)} :: ${describeCheck(result.autoCheck.observed)}`,
       ).toBe(true);
     }
     expect(start.patientId.length).toBeGreaterThan(0);
@@ -191,9 +203,9 @@ describe('the guided engine tests: edited input is honored', () => {
       (item) => item.label,
     );
     expect(JSON.stringify(labels)).not.toContain('HbA1c');
-    const timelineDetails = (body.timeline as readonly { readonly detail: string }[]).map(
-      (entry) => entry.detail,
-    );
-    expect(timelineDetails.some((detail) => detail.includes('Glucose'))).toBe(true);
+    // The detail is a structured { code, params }, never a literal string: the edited test
+    // name travels through as a `text` param (`detailServiceRequestCreated.testName`).
+    expect(JSON.stringify(body.timeline)).toContain('Glucose');
+    expect(JSON.stringify(body.timeline)).not.toContain('HbA1c');
   });
 });

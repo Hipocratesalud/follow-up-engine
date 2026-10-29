@@ -2,9 +2,14 @@ import { randomUUID } from 'node:crypto';
 import {
   type ClinicalEvent,
   type ClinicId,
+  type ConditionVerification,
   type Expectation,
+  type ExpectationStatus,
   type FakeClock,
   type PatientId,
+  type PlanItem,
+  type ResultInterpretation,
+  type ServiceCategory,
   patientId as toPatientId,
 } from '@follow-up-engine/core';
 import {
@@ -20,6 +25,7 @@ import {
 } from '@follow-up-engine/runtime';
 import type { ApiMessages } from '../i18n/index.ts';
 import { InboxPresenter } from '../inbox/presenter.ts';
+import { icd10Label, loincLabel } from '../inbox/terminology.ts';
 import { extractDocumentText } from '../lab/extract-document.ts';
 import { HttpError } from './errors.ts';
 import { dayAsDate, recordEntry } from './lab-records-routes.ts';
@@ -79,17 +85,95 @@ export interface ExpectationRowView {
   readonly diff: ExpectationDiffTag;
 }
 
+/**
+ * One parameter of a {@link CheckMessage}, JSON-safe and typed by kind: the
+ * inbox resolves each into locale-correct text (a status label, a date
+ * formatted for the active locale, a pluralized count, ...) before
+ * interpolating it into the catalog's own sentence. `text` is the one kind
+ * already resolved here, from the same catalogs the rest of the inbox
+ * reads (`loincLabel`, `icd10Label`, `InboxPresenter.reasonLabel`): never a
+ * second translation table, in this file, for names the API already knows
+ * how to say.
+ */
+export type CheckParam =
+  | { readonly kind: 'status'; readonly value: ExpectationStatus | 'missing' }
+  | { readonly kind: 'eventType'; readonly value: string }
+  | { readonly kind: 'source'; readonly value: 'rules' | 'ai' | 'none' }
+  | { readonly kind: 'date'; readonly value: string }
+  | { readonly kind: 'days'; readonly value: number }
+  | {
+      readonly kind: 'plural';
+      readonly unit: 'calls' | 'findings' | 'ways' | 'items';
+      readonly value: number;
+    }
+  | { readonly kind: 'bool'; readonly value: boolean }
+  | { readonly kind: 'category'; readonly value: ServiceCategory }
+  | { readonly kind: 'interpretation'; readonly value: ResultInterpretation }
+  | { readonly kind: 'verification'; readonly value: ConditionVerification }
+  | { readonly kind: 'text'; readonly value: string };
+
+/**
+ * A sentence the inbox's own i18n catalog writes out (`engineTests.checks`,
+ * keyed by `code`), never literal text from the API: the physician reads
+ * the page in English or Spanish, and every automatic check's
+ * `expected`/`observed`, and every timeline entry's `detail`, must too
+ * (docs/deploy.md#engine-tests).
+ */
+export interface CheckMessage {
+  readonly code: string;
+  readonly params?: Readonly<Record<string, CheckParam>>;
+}
+
+const NONE_EVENT_TYPE = '__none__';
+
+function checkMsg(code: string, params?: Readonly<Record<string, CheckParam>>): CheckMessage {
+  return params === undefined ? { code } : { code, params };
+}
+function textParam(value: string): CheckParam {
+  return { kind: 'text', value };
+}
+function statusParam(value: ExpectationStatus | undefined): CheckParam {
+  return { kind: 'status', value: value ?? 'missing' };
+}
+function eventTypeParam(value: string | undefined): CheckParam {
+  return { kind: 'eventType', value: value ?? NONE_EVENT_TYPE };
+}
+function sourceParam(value: 'rules' | 'ai' | undefined): CheckParam {
+  return { kind: 'source', value: value ?? 'none' };
+}
+function dateParam(value: Date): CheckParam {
+  return { kind: 'date', value: value.toISOString() };
+}
+function daysParam(value: number): CheckParam {
+  return { kind: 'days', value };
+}
+function pluralParam(unit: 'calls' | 'findings' | 'ways' | 'items', value: number): CheckParam {
+  return { kind: 'plural', unit, value };
+}
+function boolParam(value: boolean): CheckParam {
+  return { kind: 'bool', value };
+}
+function categoryParam(value: ServiceCategory): CheckParam {
+  return { kind: 'category', value };
+}
+function interpretationParam(value: ResultInterpretation): CheckParam {
+  return { kind: 'interpretation', value };
+}
+function verificationParam(value: ConditionVerification): CheckParam {
+  return { kind: 'verification', value };
+}
+
 export interface TimelineEntryView {
   readonly type: string;
   readonly occurredAt: string;
   readonly source: 'rules' | 'ai';
-  readonly detail: string;
+  readonly detail: CheckMessage;
   readonly llm?: { readonly provider: string; readonly model: string };
 }
 
 export interface AutoCheckView {
-  readonly expected: string;
-  readonly observed: string;
+  readonly expected: CheckMessage;
+  readonly observed: CheckMessage;
   readonly passed: boolean;
 }
 
@@ -237,37 +321,75 @@ async function finalize(
   return { raw: after, view };
 }
 
-function eventDetail(event: ClinicalEvent): string {
+/** Terminology URI the extractor codes a named test against (mirrors `demo-routes.ts`'s own constant). */
+const LOINC_SYSTEM = 'http://loinc.org';
+
+/**
+ * A plan item's own name, in the request's language — the same table
+ * `extractionView` and the expectations list read (`loincLabel`), never the
+ * model's internal English `description`.
+ */
+function planItemDisplay(t: ApiMessages, item: PlanItem): string {
+  const testName = item.code?.system === LOINC_SYSTEM ? loincLabel(t, item.code.code) : undefined;
+  return testName ?? t.planItemKinds[item.kind];
+}
+
+function eventDetail(t: ApiMessages, event: ClinicalEvent): CheckMessage {
   switch (event.type) {
     case 'service_request.created':
-      return `${event.code.display ?? event.code.code} (${event.code.code}), ${event.category}`;
-    case 'result.received':
-      return `${event.code.display ?? event.code.code} (${event.code.code}): ${event.interpretation}${
-        event.value === undefined ? '' : ` ${String(event.value.value)}${event.value.unit ?? ''}`
-      }`;
+      return checkMsg('detailServiceRequestCreated', {
+        testName: textParam(
+          loincLabel(t, event.code.code) ?? event.code.display ?? event.code.code,
+        ),
+        code: textParam(event.code.code),
+        category: categoryParam(event.category),
+      });
+    case 'result.received': {
+      const valueSuffix =
+        event.value === undefined ? '' : ` ${String(event.value.value)}${event.value.unit ?? ''}`;
+      return checkMsg('detailResultReceived', {
+        testName: textParam(
+          loincLabel(t, event.code.code) ?? event.code.display ?? event.code.code,
+        ),
+        code: textParam(event.code.code),
+        interpretation: interpretationParam(event.interpretation),
+        value: textParam(valueSuffix),
+      });
+    }
     case 'medication.prescribed':
-      return `${event.medication.text}${
-        event.durationDays === undefined ? '' : `, ${String(event.durationDays)} days`
-      }`;
+      return event.durationDays === undefined
+        ? checkMsg('detailMedicationPrescribed', { medication: textParam(event.medication.text) })
+        : checkMsg('detailMedicationPrescribedWithDuration', {
+            medication: textParam(event.medication.text),
+            duration: daysParam(event.durationDays),
+          });
     case 'condition.recorded':
-      return `${event.code.display ?? event.code.code} (${event.code.code}), ${event.verification}`;
+      return checkMsg('detailConditionRecorded', {
+        diagnosis: textParam(icd10Label(t, event.code.code, event.code.display)),
+        code: textParam(event.code.code),
+        verification: verificationParam(event.verification),
+      });
     case 'encounter.finished':
-      return 'Visit completed';
+      return checkMsg('detailVisitCompleted');
     case 'appointment.booked':
-      return `Appointment booked for ${event.scheduledFor.toISOString().slice(0, 10)}`;
+      return checkMsg('detailAppointmentBooked', { date: dateParam(event.scheduledFor) });
     case 'appointment.cancelled':
-      return 'Appointment cancelled';
+      return checkMsg('detailAppointmentCancelled');
     case 'note.received':
-      return 'Clinical note saved';
+      return checkMsg('detailNoteSaved');
     case 'plan.extracted': {
-      const items = event.items.map((item) => item.description).join(', ');
-      return items === '' ? 'No follow-up plan found' : `Plan: ${items}`;
+      if (event.items.length === 0) return checkMsg('detailPlanNone');
+      const items = event.items.map((item) => planItemDisplay(t, item)).join(', ');
+      return checkMsg('detailPlanItems', { items: textParam(items) });
     }
     case 'allergy.recorded':
+      return checkMsg('detailAllergyRecorded');
     case 'patient.language_recorded':
+      return checkMsg('detailLanguageRecorded');
     case 'patient.opted_out':
+      return checkMsg('detailOptedOut');
     case 'record.withdrawn':
-      return event.type;
+      return checkMsg('detailRecordWithdrawn');
   }
 }
 
@@ -293,7 +415,7 @@ async function timelineOf(ctx: ScenarioContext): Promise<readonly TimelineEntryV
       type: event.type,
       occurredAt: event.occurredAt.toISOString(),
       source,
-      detail: eventDetail(event),
+      detail: eventDetail(ctx.t, event),
       ...(source === 'ai' ? { llm } : {}),
     };
   });
@@ -544,12 +666,17 @@ function ruleCardStep(ruleId: string): EngineTestStep {
         expectations: [],
         ...(ruleCard === undefined ? {} : { ruleCard }),
         autoCheck: {
-          expected:
-            'The rule card (trigger, fulfilment, supersession, escalation, version) reads straight from config/rules',
+          expected: checkMsg('ricExpected'),
           observed:
             ruleCard === undefined
-              ? 'Rule not found in config'
-              : `trigger=${ruleCard.trigger}, fulfilledBy=${String(ruleCard.fulfilledBy.length)} way(s), supersededBy=${String(ruleCard.supersededBy.length)} way(s), escalationPolicy=${ruleCard.escalationPolicy}, version=${ruleCard.version}`,
+              ? checkMsg('ricNotFound')
+              : checkMsg('ricFound', {
+                  trigger: textParam(ruleCard.trigger),
+                  fulfilledByCount: pluralParam('ways', ruleCard.fulfilledBy.length),
+                  supersededByCount: pluralParam('ways', ruleCard.supersededBy.length),
+                  escalationPolicy: textParam(ruleCard.escalationPolicy),
+                  version: textParam(ruleCard.version),
+                }),
           passed: ruleCard !== undefined,
         },
       };
@@ -590,8 +717,8 @@ const structuredNoLlm: readonly EngineTestStep[] = [
     ({ after }) => {
       const order = findExpectation(after, 'lab_order_result_pending');
       return {
-        expected: 'The order is read by rules; no language model is involved',
-        observed: `lab_order_result_pending: ${order?.status ?? 'missing'}`,
+        expected: checkMsg('snOrderExpected'),
+        observed: checkMsg('obsStatus', { status: statusParam(order?.status) }),
         passed: order?.status === 'open',
       };
     },
@@ -606,8 +733,11 @@ const structuredNoLlm: readonly EngineTestStep[] = [
       const timeline = await timelineOf(ctx);
       const latest = timeline.at(-1);
       return {
-        expected: 'The prescription is read by rules; no language model is involved',
-        observed: `most recent event: ${latest?.type ?? 'none'}, source = ${latest?.source ?? 'n/a'}`,
+        expected: checkMsg('snRxExpected'),
+        observed: checkMsg('snRxObserved', {
+          eventType: eventTypeParam(latest?.type),
+          source: sourceParam(latest?.source),
+        }),
         passed: latest?.type === 'medication.prescribed' && latest.source === 'rules',
       };
     },
@@ -621,8 +751,8 @@ const structuredNoLlm: readonly EngineTestStep[] = [
     ({ after }) => {
       const order = findExpectation(after, 'lab_order_result_pending');
       return {
-        expected: 'The result closes the order automatically — still zero AI calls so far',
-        observed: `lab_order_result_pending: ${order?.status ?? 'missing'}`,
+        expected: checkMsg('snResultExpected'),
+        observed: checkMsg('obsStatus', { status: statusParam(order?.status) }),
         passed: order?.status === 'fulfilled',
       };
     },
@@ -638,16 +768,18 @@ const noteAiOncePerSave: readonly EngineTestStep[] = [
       text: 'Paciente con diabetes tipo 2. Control en 1 mes.',
     }),
     ({ result }) => ({
-      expected: '1 note-extraction call on save',
-      observed: `${String(result.newNoteExtractionCalls)} call(s) on save`,
+      expected: checkMsg('naoSaveExpected'),
+      observed: checkMsg('naoSaveObserved', {
+        calls: pluralParam('calls', result.newNoteExtractionCalls),
+      }),
       passed: result.newNoteExtractionCalls === 1,
     }),
   ),
   clockStep(
     (day0) => ({ action: 'clock', targetDate: iso(plusDays(day0, 5)) }),
     () => ({
-      expected: '0 more note-extraction calls just from moving the clock forward',
-      observed: 'No new document was saved — no new call happens from advancing the clock alone',
+      expected: checkMsg('naoClockExpected'),
+      observed: checkMsg('naoClockObserved'),
       passed: true,
     }),
   ),
@@ -677,11 +809,15 @@ const noteExtractionQuotes: readonly EngineTestStep[] = [
         extraction.planItems.length > 0 &&
         (extraction.planItems[0]?.evidenceQuote.length ?? 0) > 0;
       return {
-        expected: 'A diagnosis (ICD-10), a medication and a plan item, each with a verbatim quote',
+        expected: checkMsg('neqExpected'),
         observed:
           extraction === undefined
-            ? 'No extraction was recorded'
-            : `${String(extraction.conditions.length)} diagnosis, ${String(extraction.medications.length)} medication, ${String(extraction.planItems.length)} plan item(s); quotes: diagnosis=${String(hasCondition)}, medication=${String(hasMedication)}, plan=${String(hasPlan)}`,
+            ? checkMsg('neqMissing')
+            : checkMsg('neqObserved', {
+                diagnosisOk: boolParam(hasCondition),
+                medicationOk: boolParam(hasMedication),
+                planOk: boolParam(hasPlan),
+              }),
         passed: hasCondition && hasMedication && hasPlan,
       };
     },
@@ -699,16 +835,21 @@ const planItemConfirm: readonly EngineTestStep[] = [
     ({ after }) => {
       const plan = after.find((expectation) => expectation.layer === 'doctor_plan');
       return {
-        expected: 'The note opens a doctor-plan expectation to confirm',
+        expected: checkMsg('picNoteExpected'),
         observed:
-          plan === undefined ? 'No doctor-plan expectation was created' : `status = ${plan.status}`,
+          plan === undefined
+            ? checkMsg('picNoPlan')
+            : checkMsg('obsStatus', { status: statusParam(plan.status) }),
         passed: plan !== undefined,
       };
     },
   ),
   confirmPlanStep(({ ctx, confirmedBy }) => ({
-    expected: 'The plan item is marked confirmed by the evaluator with one call',
-    observed: `confirmedBy = ${confirmedBy ?? 'none'}`,
+    expected: checkMsg('picConfirmExpected'),
+    observed:
+      confirmedBy === undefined
+        ? checkMsg('picNotConfirmed')
+        : checkMsg('picConfirmedBy', { who: textParam(confirmedBy) }),
     passed: confirmedBy === ctx.evaluatorEmail,
   })),
 ];
@@ -732,8 +873,8 @@ function conditionInferredSteps(): readonly EngineTestStep[] {
             condition.code.code.startsWith('E1'),
         );
         return {
-          expected: 'A diabetes condition is inferred from the metformin prescription',
-          observed: `inferred from medication: ${String(fromMedication)}`,
+          expected: checkMsg('ciMedExpected'),
+          observed: checkMsg(fromMedication ? 'ciMedFound' : 'ciNotFound'),
           passed: fromMedication,
         };
       },
@@ -760,8 +901,8 @@ function conditionInferredSteps(): readonly EngineTestStep[] {
             condition.sourceType === 'inferred_from_result' && condition.code.code.startsWith('E1'),
         );
         return {
-          expected: 'A diabetes condition is inferred from the HbA1c >= 6.5 result',
-          observed: `inferred from result: ${String(fromResult)}`,
+          expected: checkMsg('ciResultExpected'),
+          observed: checkMsg(fromResult ? 'ciResultFound' : 'ciNotFound'),
           passed: fromResult,
         };
       },
@@ -779,11 +920,11 @@ const expectationHasDueDate: readonly EngineTestStep[] = [
         (expectation) => expectation.ruleId === 'lab_order_result_pending',
       );
       return {
-        expected: 'The order creates an expectation with a concrete due date',
+        expected: checkMsg('ehdExpected'),
         observed:
           created === undefined
-            ? 'No expectation was created'
-            : `Due at ${created.dueAt.toISOString()}`,
+            ? checkMsg('obsNone')
+            : checkMsg('obsDueAt', { date: dateParam(created.dueAt) }),
         passed: created !== undefined,
       };
     },
@@ -796,8 +937,8 @@ const universalLayer: readonly EngineTestStep[] = [
     ({ after }) => {
       const order = findExpectation(after, 'lab_order_result_pending');
       return {
-        expected: 'An order with no result opens a universal-layer expectation',
-        observed: `lab_order_result_pending: ${order?.status ?? 'missing'}`,
+        expected: checkMsg('ulOrderExpected'),
+        observed: checkMsg('obsStatus', { status: statusParam(order?.status) }),
         passed: order?.status === 'open',
       };
     },
@@ -812,9 +953,11 @@ const universalLayer: readonly EngineTestStep[] = [
       const order = findExpectation(after, 'lab_order_result_pending');
       const treatment = findExpectation(after, 'short_treatment_followup');
       return {
-        expected:
-          'A short treatment with no control opens its own expectation, independent of the order',
-        observed: `lab_order_result_pending: ${order?.status ?? 'missing'}; short_treatment_followup: ${treatment?.status ?? 'missing'}`,
+        expected: checkMsg('ulRxExpected'),
+        observed: checkMsg('ulRxObserved', {
+          orderStatus: statusParam(order?.status),
+          treatmentStatus: statusParam(treatment?.status),
+        }),
         passed: order?.status === 'open' && treatment?.status === 'open',
       };
     },
@@ -833,11 +976,11 @@ const doctorPlanLayer: readonly EngineTestStep[] = [
       const plan = after.find((expectation) => expectation.layer === 'doctor_plan');
       const days = plan === undefined ? undefined : daysBetween(day0, plan.dueAt);
       return {
-        expected: 'The doctor\'s plan "control en 1 mes" opens an expectation due in about 30 days',
+        expected: checkMsg('dplExpected'),
         observed:
-          plan === undefined
-            ? 'No doctor-plan expectation was created'
-            : `Due in ${String(days)} day(s)`,
+          days === undefined
+            ? checkMsg('obsNone')
+            : checkMsg('obsDueInDays', { days: daysParam(days) }),
         passed: days !== undefined && days >= 25 && days <= 35,
       };
     },
@@ -851,16 +994,18 @@ function cadenceBreakSteps(): readonly EngineTestStep[] {
     recordStep(
       (day0) => ({ action: 'record', recordDate: iso(day0), entry: VISIT_ENTRY }),
       ({ after }) => ({
-        expected: 'One visit alone opens no cadence expectation yet',
-        observed: `cadence_break: ${findExpectation(after, CADENCE_RULE_ID)?.status ?? 'none'}`,
+        expected: checkMsg('cbVisit1Expected'),
+        observed: checkMsg('obsStatus', {
+          status: statusParam(findExpectation(after, CADENCE_RULE_ID)?.status),
+        }),
         passed: findExpectation(after, CADENCE_RULE_ID) === undefined,
       }),
     ),
     clockStep(
       (day0) => ({ action: 'clock', targetDate: iso(plusDays(day0, 30)) }),
       () => ({
-        expected: "The lab's date moves forward 30 days",
-        observed: 'Clock moved',
+        expected: checkMsg('cbClockExpected'),
+        observed: checkMsg('cbClockObserved'),
         passed: true,
       }),
     ),
@@ -869,8 +1014,8 @@ function cadenceBreakSteps(): readonly EngineTestStep[] {
       ({ after }) => {
         const cadence = findExpectation(after, CADENCE_RULE_ID);
         return {
-          expected: 'A second visit, 30 days after the first, opens a cadence-break expectation',
-          observed: `cadence_break: ${cadence?.status ?? 'missing'}`,
+          expected: checkMsg('cbVisit2Expected'),
+          observed: checkMsg('obsStatus', { status: statusParam(cadence?.status) }),
           passed: cadence?.status === 'open',
         };
       },
@@ -882,10 +1027,13 @@ function cadenceBreakSteps(): readonly EngineTestStep[] {
       },
       ({ after }) => {
         const cadence = findExpectation(after, CADENCE_RULE_ID);
-        const becameCase = cadence?.status === 'expired' && cadence.caseId !== undefined;
+        const caseOpened = cadence?.caseId !== undefined;
+        const becameCase = cadence?.status === 'expired' && caseOpened;
         return {
-          expected: 'Past its due date, the cadence expectation expires and becomes a case',
-          observed: `status = ${cadence?.status ?? 'missing'}; case opened = ${String(cadence?.caseId !== undefined)}`,
+          expected: checkMsg('cbExpireExpected'),
+          observed: checkMsg(caseOpened ? 'obsExpiredCaseOpened' : 'obsExpiredNoCase', {
+            status: statusParam(cadence?.status),
+          }),
           passed: becameCase,
         };
       },
@@ -930,18 +1078,22 @@ const protocolFillsGaps: readonly EngineTestStep[] = enrollmentSteps(
   ({ after }) => {
     const plan = after.find((expectation) => expectation.layer === 'doctor_plan');
     return {
-      expected: "The doctor's own plan opens the HbA1c control it asked for",
+      expected: checkMsg('pfgEnrollExpected'),
       observed:
-        plan === undefined ? 'No doctor-plan expectation was created' : `status = ${plan.status}`,
+        plan === undefined
+          ? checkMsg('obsNone')
+          : checkMsg('obsStatus', { status: statusParam(plan.status) }),
       passed: plan !== undefined,
     };
   },
   ({ after }) => {
     const protocolLayer = after.filter((expectation) => expectation.layer === 'protocol');
     return {
-      expected:
-        "The diabetes protocol fills what the doctor's plan did not cover (lipid panel, fundus exam, routine visit)",
-      observed: `protocol-layer expectations: ${protocolLayer.map((expectation) => expectation.ruleId).join(', ') || 'none'}`,
+      expected: checkMsg('pfgVisitExpected'),
+      observed:
+        protocolLayer.length > 0
+          ? checkMsg('pfgVisitFound', { count: pluralParam('items', protocolLayer.length) })
+          : checkMsg('pfgVisitNone'),
       passed: protocolLayer.length > 0,
     };
   },
@@ -951,9 +1103,11 @@ const planBeatsProtocol: readonly EngineTestStep[] = enrollmentSteps(
   ({ after }) => {
     const plan = after.find((expectation) => expectation.layer === 'doctor_plan');
     return {
-      expected: "The doctor's own plan opens the HbA1c control",
+      expected: checkMsg('pbpEnrollExpected'),
       observed:
-        plan === undefined ? 'No doctor-plan expectation was created' : `status = ${plan.status}`,
+        plan === undefined
+          ? checkMsg('obsNone')
+          : checkMsg('obsStatus', { status: statusParam(plan.status) }),
       passed: plan !== undefined,
     };
   },
@@ -963,9 +1117,11 @@ const planBeatsProtocol: readonly EngineTestStep[] = enrollmentSteps(
       (expectation) => expectation.layer === 'protocol' && expectation.ruleId.includes('hba1c'),
     );
     return {
-      expected:
-        "The doctor's own HbA1c control wins; the protocol does not open a second one for the same test",
-      observed: `doctor_plan expectation: ${String(plan !== undefined)}; protocol hba1c expectation: ${String(protocolHba1c !== undefined)}`,
+      expected: checkMsg('pbpVisitExpected'),
+      observed: checkMsg('pbpVisitObserved', {
+        planFound: boolParam(plan !== undefined),
+        protocolFound: boolParam(protocolHba1c !== undefined),
+      }),
       passed: plan !== undefined && protocolHba1c === undefined,
     };
   },
@@ -977,8 +1133,8 @@ const autoCloseFulfilled: readonly EngineTestStep[] = [
     ({ after }) => {
       const order = findExpectation(after, 'lab_order_result_pending');
       return {
-        expected: 'The order opens its own expectation',
-        observed: `status = ${order?.status ?? 'missing'}`,
+        expected: checkMsg('acfOrderExpected'),
+        observed: checkMsg('obsStatus', { status: statusParam(order?.status) }),
         passed: order?.status === 'open',
       };
     },
@@ -992,8 +1148,8 @@ const autoCloseFulfilled: readonly EngineTestStep[] = [
     ({ after }) => {
       const order = findExpectation(after, 'lab_order_result_pending');
       return {
-        expected: 'The result closes the order automatically: fulfilled, no human action',
-        observed: `status = ${order?.status ?? 'missing'}`,
+        expected: checkMsg('acfResultExpected'),
+        observed: checkMsg('obsStatus', { status: statusParam(order?.status) }),
         passed: order?.status === 'fulfilled',
       };
     },
@@ -1013,11 +1169,11 @@ const supersession: readonly EngineTestStep[] = [
           expectation.ruleId === 'lab_order_result_pending' && expectation.status === 'open',
       );
       return {
-        expected: 'The order opens a "New" expectation with a due date',
+        expected: checkMsg('supOrderExpected'),
         observed:
           created === undefined
-            ? 'No expectation was created'
-            : `due at ${created.dueAt.toISOString()}`,
+            ? checkMsg('obsNone')
+            : checkMsg('obsDueAt', { date: dateParam(created.dueAt) }),
         passed: created !== undefined,
       };
     },
@@ -1035,9 +1191,14 @@ const supersession: readonly EngineTestStep[] = [
       );
       const dueDays = newOne === undefined ? undefined : daysBetween(day0, newOne.dueAt);
       return {
-        expected:
-          "The new order supersedes the old one; its own 15-day clock starts from the new order's date",
-        observed: `old status = ${oldAfter?.status ?? 'missing'}; new due in ${dueDays === undefined ? 'n/a' : String(dueDays)} day(s) from the new order`,
+        expected: checkMsg('supSupersedeExpected'),
+        observed:
+          dueDays === undefined
+            ? checkMsg('supSupersedeObservedUnknown', { oldStatus: statusParam(oldAfter?.status) })
+            : checkMsg('supSupersedeObserved', {
+                oldStatus: statusParam(oldAfter?.status),
+                dueDays: daysParam(dueDays),
+              }),
         passed: oldAfter?.status === 'superseded' && dueDays === 15,
       };
     },
@@ -1051,8 +1212,11 @@ const independentClocks: readonly EngineTestStep[] = [
       const first = after.find((expectation) => expectation.ruleId === 'lab_order_result_pending');
       const days = first === undefined ? undefined : daysBetween(day0, first.dueAt);
       return {
-        expected: 'The HbA1c order opens its own expectation, due in 15 days',
-        observed: first === undefined ? 'missing' : `due in ${String(days)} day(s)`,
+        expected: checkMsg('icFirstExpected'),
+        observed:
+          days === undefined
+            ? checkMsg('obsNone')
+            : checkMsg('obsDueInDays', { days: daysParam(days) }),
         passed: days === 15,
       };
     },
@@ -1070,11 +1234,17 @@ const independentClocks: readonly EngineTestStep[] = [
       const secondDue =
         second === undefined ? undefined : daysBetween(plusDays(day0, 5), second.dueAt);
       return {
-        expected: "Each test keeps its own 15-day due date, independent of the other's clock",
+        expected: checkMsg('icSecondExpected'),
         observed:
-          first === undefined || second === undefined
-            ? 'One of the two expectations is missing'
-            : `HbA1c still due ${String(firstDue)}d after its own order; lipid panel due ${String(secondDue)}d after its own`,
+          first === undefined ||
+          second === undefined ||
+          firstDue === undefined ||
+          secondDue === undefined
+            ? checkMsg('icMissing')
+            : checkMsg('icBothDue', {
+                firstDue: daysParam(firstDue),
+                secondDue: daysParam(secondDue),
+              }),
         passed: firstDue === 15 && secondDue === 15 && first?.status === 'open',
       };
     },
@@ -1085,8 +1255,10 @@ const visitClosesControlsNotTests: readonly EngineTestStep[] = [
   recordStep(
     (day0) => ({ action: 'record', recordDate: iso(day0), entry: orderEntry('4548-4', 'HbA1c') }),
     ({ after }) => ({
-      expected: 'The lab order opens its own expectation',
-      observed: `lab_order_result_pending: ${findExpectation(after, 'lab_order_result_pending')?.status ?? 'missing'}`,
+      expected: checkMsg('vccOrderExpected'),
+      observed: checkMsg('obsStatus', {
+        status: statusParam(findExpectation(after, 'lab_order_result_pending')?.status),
+      }),
       passed: findExpectation(after, 'lab_order_result_pending')?.status === 'open',
     }),
   ),
@@ -1097,8 +1269,10 @@ const visitClosesControlsNotTests: readonly EngineTestStep[] = [
       entry: prescriptionEntry('Amoxicilina 500mg', 7),
     }),
     ({ after }) => ({
-      expected: 'The short treatment opens its own control expectation',
-      observed: `short_treatment_followup: ${findExpectation(after, 'short_treatment_followup')?.status ?? 'missing'}`,
+      expected: checkMsg('vccRxExpected'),
+      observed: checkMsg('obsStatus', {
+        status: statusParam(findExpectation(after, 'short_treatment_followup')?.status),
+      }),
       passed: findExpectation(after, 'short_treatment_followup')?.status === 'open',
     }),
   ),
@@ -1108,8 +1282,11 @@ const visitClosesControlsNotTests: readonly EngineTestStep[] = [
       const treatment = findExpectation(after, 'short_treatment_followup');
       const order = findExpectation(after, 'lab_order_result_pending');
       return {
-        expected: 'The visit closes the pending control but leaves the pending lab test open',
-        observed: `control (short_treatment_followup) = ${treatment?.status ?? 'missing'}; lab order (lab_order_result_pending) = ${order?.status ?? 'missing'}`,
+        expected: checkMsg('vccVisitExpected'),
+        observed: checkMsg('vccVisitObserved', {
+          controlStatus: statusParam(treatment?.status),
+          orderStatus: statusParam(order?.status),
+        }),
         passed: treatment?.status === 'fulfilled' && order?.status === 'open',
       };
     },
@@ -1130,8 +1307,8 @@ const noteWithoutPlanFinding: readonly EngineTestStep[] = [
         ctx.patientId,
       );
       return {
-        expected: 'A note with no follow-up plan is recorded as a documentation-quality finding',
-        observed: `${String(findings.length)} quality finding(s)`,
+        expected: checkMsg('nwpExpected'),
+        observed: checkMsg('nwpObserved', { count: pluralParam('findings', findings.length) }),
         passed: findings.length > 0,
       };
     },
@@ -1151,8 +1328,11 @@ function caseKeepsRuleVersionSteps(ruleId: string): readonly EngineTestStep[] {
       ({ after }) => {
         const created = findExpectation(after, ruleId);
         return {
-          expected: 'The order opens an expectation carrying the rule version it opened with',
-          observed: created === undefined ? 'missing' : `ruleVersion = ${created.ruleVersion}`,
+          expected: checkMsg('ckrvOrderExpected'),
+          observed:
+            created === undefined
+              ? checkMsg('obsNone')
+              : checkMsg('ckrvVersion', { version: textParam(created.ruleVersion) }),
           passed: created !== undefined,
         };
       },
@@ -1164,10 +1344,13 @@ function caseKeepsRuleVersionSteps(ruleId: string): readonly EngineTestStep[] {
       },
       ({ after }) => {
         const expired = findExpectation(after, ruleId);
+        const caseOpened = expired?.caseId !== undefined;
         return {
-          expected: 'Past its due date, the expectation expires and becomes a case',
-          observed: `status = ${expired?.status ?? 'missing'}; case = ${String(expired?.caseId !== undefined)}`,
-          passed: expired?.status === 'expired' && expired.caseId !== undefined,
+          expected: checkMsg('ckrvExpireExpected'),
+          observed: checkMsg(caseOpened ? 'obsExpiredCaseOpened' : 'obsExpiredNoCase', {
+            status: statusParam(expired?.status),
+          }),
+          passed: expired?.status === 'expired' && caseOpened,
         };
       },
     ),
@@ -1179,9 +1362,11 @@ function caseKeepsRuleVersionSteps(ruleId: string): readonly EngineTestStep[] {
         const expectation = findExpectation(after, ruleId);
         const unchanged = config !== undefined && expectation?.ruleVersion === config.version;
         return {
-          expected:
-            "The case's expectation keeps the rule version it opened with, even after the clinic's rules change",
-          observed: `expectation ruleVersion = ${expectation?.ruleVersion ?? 'n/a'}; config version = ${config?.version ?? 'n/a'}`,
+          expected: checkMsg('ckrvVersionKeptExpected'),
+          observed: checkMsg('ckrvVersionKeptObserved', {
+            expectationVersion: textParam(expectation?.ruleVersion ?? ''),
+            configVersion: textParam(config?.version ?? ''),
+          }),
           passed: unchanged,
         };
       },
@@ -1198,8 +1383,11 @@ function perClinicOverrideSteps(ruleId: string): readonly EngineTestStep[] {
         const created = findExpectation(after, ruleId);
         const days = created === undefined ? undefined : daysBetween(day0, created.dueAt);
         return {
-          expected: `Before any override, the rule's own default timeframe applies (${String(config?.dueInDays ?? 0)} days)`,
-          observed: days === undefined ? 'missing' : `due in ${String(days)} day(s)`,
+          expected: checkMsg('pcoDefaultExpected', { days: daysParam(config?.dueInDays ?? 0) }),
+          observed:
+            days === undefined
+              ? checkMsg('obsNone')
+              : checkMsg('obsDueInDays', { days: daysParam(days) }),
           passed: days === (config?.dueInDays ?? -1),
         };
       },
@@ -1208,8 +1396,11 @@ function perClinicOverrideSteps(ruleId: string): readonly EngineTestStep[] {
       ruleId,
       () => ({ action: 'rule_timeframe', dueInDays: 10 }),
       ({ result }) => ({
-        expected: "This lab clinic's own override is now active",
-        observed: `effective dueInDays = ${String(result.afterDueInDays)} (was ${String(result.beforeDueInDays)})`,
+        expected: checkMsg('pcoOverrideExpected'),
+        observed: checkMsg('pcoOverrideObserved', {
+          afterDays: daysParam(result.afterDueInDays),
+          beforeDays: daysParam(result.beforeDueInDays),
+        }),
         passed: result.afterDueInDays === 10,
       }),
       // The next step still needs this override in effect; it resets it once it's done.
@@ -1237,9 +1428,11 @@ function perClinicOverrideSteps(ruleId: string): readonly EngineTestStep[] {
             timeline,
             expectations: view,
             autoCheck: {
-              expected:
-                "Ordering the test again now uses this clinic's own override: due in 10 days",
-              observed: days === undefined ? 'missing' : `due in ${String(days)} day(s)`,
+              expected: checkMsg('pcoSecondOrderExpected'),
+              observed:
+                days === undefined
+                  ? checkMsg('obsNone')
+                  : checkMsg('obsDueInDays', { days: daysParam(days) }),
               passed: days === 10,
             },
           };
@@ -1306,8 +1499,8 @@ export async function applyFreeform(
     timeline,
     expectations: view,
     autoCheck: {
-      expected: 'Exploration — no fixed expectation for a free-form action',
-      observed: 'Applied to the real engine; see the timeline and expectations above',
+      expected: checkMsg('ffExpected'),
+      observed: checkMsg('ffObserved'),
       passed: true,
     },
   };

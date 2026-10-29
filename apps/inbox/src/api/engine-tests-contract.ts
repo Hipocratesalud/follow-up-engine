@@ -1,5 +1,7 @@
 /** The guided "Engine tests" page (docs/deploy.md#engine-tests): mirrors `apps/api/src/http/engine-tests-*`. */
 
+import type { Layer } from './contract.ts';
+
 export type EngineTestGroup = 'data_intake' | 'expectations' | 'rules';
 
 export interface EngineTestListItem {
@@ -18,28 +20,67 @@ export interface EngineTestCatalog {
 export type ExpectationDiffTag =
   'new' | 'fulfilled' | 'superseded' | 'expired' | 'cancelled' | 'still_open';
 
+export type ExpectationStatus = 'open' | 'fulfilled' | 'superseded' | 'expired' | 'cancelled';
+
 export interface ExpectationRowView {
   readonly id: string;
   readonly ruleId: string;
   readonly ruleVersion: string;
-  readonly layer: string;
+  readonly layer: Layer;
   readonly label: string;
   readonly status: string;
   readonly dueAt: string;
   readonly diff: ExpectationDiffTag;
 }
 
+/**
+ * One parameter of a {@link CheckMessage}, JSON-safe and already typed by
+ * kind: the inbox resolves each into locale-correct text (a status label,
+ * a formatted date, a pluralized count, ...) before interpolating it into
+ * the catalog's own sentence. `text` is the one kind the API has already
+ * resolved itself, from the same catalogs the rest of the inbox reads
+ * (rule, test and diagnosis names): never a second translation table for
+ * those here.
+ */
+export type CheckParam =
+  | { readonly kind: 'status'; readonly value: ExpectationStatus | 'missing' }
+  | { readonly kind: 'eventType'; readonly value: string }
+  | { readonly kind: 'source'; readonly value: 'rules' | 'ai' | 'none' }
+  | { readonly kind: 'date'; readonly value: string }
+  | { readonly kind: 'days'; readonly value: number }
+  | {
+      readonly kind: 'plural';
+      readonly unit: 'calls' | 'findings' | 'ways' | 'items';
+      readonly value: number;
+    }
+  | { readonly kind: 'bool'; readonly value: boolean }
+  | { readonly kind: 'category'; readonly value: 'laboratory' | 'imaging' | 'other' }
+  | { readonly kind: 'interpretation'; readonly value: 'normal' | 'abnormal' | 'unknown' }
+  | { readonly kind: 'verification'; readonly value: 'confirmed' | 'provisional' }
+  | { readonly kind: 'text'; readonly value: string };
+
+/**
+ * A sentence the inbox's own i18n catalog writes out, never literal text
+ * from the API: a code (`engineTests.checks.<code>`) plus the params it
+ * needs. Used for every automatic check's `expected`/`observed` and every
+ * timeline entry's `detail` (docs/deploy.md#engine-tests).
+ */
+export interface CheckMessage {
+  readonly code: string;
+  readonly params?: Readonly<Record<string, CheckParam>>;
+}
+
 export interface TimelineEntryView {
   readonly type: string;
   readonly occurredAt: string;
   readonly source: 'rules' | 'ai';
-  readonly detail: string;
+  readonly detail: CheckMessage;
   readonly llm?: { readonly provider: string; readonly model: string };
 }
 
 export interface AutoCheckView {
-  readonly expected: string;
-  readonly observed: string;
+  readonly expected: CheckMessage;
+  readonly observed: CheckMessage;
   readonly passed: boolean;
 }
 

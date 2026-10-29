@@ -50,6 +50,8 @@ const common = {
   languageNames: { en: 'English', es: 'Español' },
   /** "Preferred language: Spanish". */
   preferredLanguage: (language: string): string => `Preferred language: ${language}`,
+  yes: 'Yes',
+  no: 'No',
 };
 
 const nav = {
@@ -1182,6 +1184,9 @@ const why = {
   conditionQuote: 'Quote from the note',
 };
 
+/** Already-resolved param text for an `engineTests.checks` entry (see `check-message.ts`). */
+type CheckParams = Record<string, string>;
+
 const engineTests = {
   title: 'Engine tests',
   intro:
@@ -1209,6 +1214,15 @@ const engineTests = {
     pass: 'Automatic check: pass',
     fail: 'Automatic check: fail',
     notSupported: 'Not supported yet',
+    /** A status param whose expectation was not found. */
+    missing: 'Not found',
+    /** An event-type or source param with nothing to show. */
+    none: 'None',
+    source: { rules: 'rules', ai: 'the model', none: 'none' },
+    calls: (n: number): string => count(n, 'call', 'calls'),
+    findings: (n: number): string => count(n, 'quality finding', 'quality findings'),
+    ways: (n: number): string => count(n, 'way', 'ways'),
+    items: (n: number): string => count(n, 'protocol expectation', 'protocol expectations'),
   },
   timelineTitle: 'What happened',
   timelineEmpty: 'No events yet.',
@@ -1224,6 +1238,8 @@ const engineTests = {
   },
   columns: { rule: 'Rule', layer: 'Layer', version: 'Version', due: 'Due', status: 'Status' },
   readByRules: 'Read by rules',
+  readByAi: 'Read by AI',
+  verification: { confirmed: 'Confirmed', provisional: 'Provisional' },
   ruleCard: {
     trigger: 'Trigger',
     fulfilledBy: 'Fulfilled by',
@@ -1567,6 +1583,153 @@ const engineTests = {
       readonly steps: readonly { readonly title: string; readonly whatShouldHappen: string }[];
     }
   >,
+  /**
+   * Every automatic check's `expected`/`observed`, and every timeline
+   * entry's `detail` (docs/deploy.md#engine-tests): the API sends a code
+   * plus typed params (`CheckMessage`, `check-message.ts` resolves each
+   * into text), this catalog writes the sentence. Never literal English
+   * from the API.
+   */
+  checks: {
+    // structured-no-llm
+    snOrderExpected: 'The order is read by rules; no language model is involved.',
+    snRxExpected: 'The prescription is read by rules too; no language model is involved.',
+    snRxObserved: (p: CheckParams): string =>
+      `Most recent event: ${p['eventType'] ?? ''} (${p['source'] ?? ''}).`,
+    snResultExpected: 'The result closes the order automatically — still zero AI calls so far.',
+    // note-ai-once-per-save
+    naoSaveExpected: '1 note-extraction call on save.',
+    naoSaveObserved: (p: CheckParams): string => `${p['calls'] ?? ''} on save.`,
+    naoClockExpected: '0 more note-extraction calls just from moving the clock forward.',
+    naoClockObserved: 'No new document was saved — moving the clock alone triggers no new call.',
+    // note-extraction-quotes
+    neqExpected: 'A diagnosis (ICD-10), a medication and a plan item, each with a verbatim quote.',
+    neqMissing: 'No extraction was recorded.',
+    neqObserved: (p: CheckParams): string =>
+      `Diagnosis with quote: ${p['diagnosisOk'] ?? ''}. Medication with quote: ${p['medicationOk'] ?? ''}. Plan item with quote: ${p['planOk'] ?? ''}.`,
+    // plan-item-confirm
+    picNoteExpected: 'The note opens a doctor-plan expectation to confirm.',
+    picNoPlan: 'No doctor-plan expectation was created.',
+    picConfirmExpected: 'The plan item is marked confirmed by you with one action.',
+    picNotConfirmed: 'The plan item was not confirmed.',
+    picConfirmedBy: (p: CheckParams): string => `Confirmed by ${p['who'] ?? ''}.`,
+    // condition-inferred
+    ciMedExpected: 'A diabetes condition is inferred from the metformin prescription.',
+    ciMedFound: 'Found — inferred from the medication.',
+    ciResultExpected: 'A diabetes condition is inferred from the HbA1c result on its own.',
+    ciResultFound: 'Found — inferred from the result.',
+    ciNotFound: 'Not found.',
+    // expectation-has-due-date
+    ehdExpected: 'The order creates an expectation with a concrete due date.',
+    // universal-layer
+    ulOrderExpected: 'An order with no result opens a universal-layer expectation.',
+    ulRxExpected:
+      'A short treatment with no control opens its own expectation, independent of the order.',
+    ulRxObserved: (p: CheckParams): string =>
+      `Pending order: ${p['orderStatus'] ?? ''}. Short-treatment control: ${p['treatmentStatus'] ?? ''}.`,
+    // doctor-plan-layer
+    dplExpected:
+      'The doctor’s plan “control in a month” opens an expectation due in about 30 days.',
+    // cadence-break
+    cbVisit1Expected: 'One visit alone opens no cadence expectation yet.',
+    cbClockExpected: 'The lab’s date moves forward 30 days.',
+    cbClockObserved: 'Clock moved.',
+    cbVisit2Expected: 'A second visit, 30 days after the first, opens a cadence-break expectation.',
+    cbExpireExpected: 'Past its due date, the cadence expectation expires and becomes a case.',
+    // protocol-fills-gaps
+    pfgEnrollExpected: 'The doctor’s own plan opens the HbA1c control it asked for.',
+    pfgVisitExpected:
+      'The diabetes protocol fills what the doctor’s plan did not cover (lipid panel, fundus exam, routine visit).',
+    pfgVisitFound: (p: CheckParams): string => `${p['count'] ?? ''} from the protocol layer.`,
+    pfgVisitNone: 'No protocol-layer expectation opened.',
+    // plan-beats-protocol
+    pbpEnrollExpected: 'The doctor’s own plan opens the HbA1c control.',
+    pbpVisitExpected:
+      'The doctor’s own HbA1c control wins; the protocol does not open a second one for the same test.',
+    pbpVisitObserved: (p: CheckParams): string =>
+      `Doctor-plan expectation: ${p['planFound'] ?? ''}. Protocol HbA1c expectation: ${p['protocolFound'] ?? ''}.`,
+    // auto-close-fulfilled
+    acfOrderExpected: 'The order opens its own expectation.',
+    acfResultExpected: 'The result closes the order automatically: fulfilled, no human action.',
+    // supersession
+    supOrderExpected: 'The order opens a new expectation with a due date.',
+    supSupersedeExpected:
+      'The new order supersedes the old one; its own 15-day clock starts from the new order’s date.',
+    supSupersedeObserved: (p: CheckParams): string =>
+      `Old status: ${p['oldStatus'] ?? ''}. New due in ${p['dueDays'] ?? ''} from the new order.`,
+    supSupersedeObservedUnknown: (p: CheckParams): string =>
+      `Old status: ${p['oldStatus'] ?? ''}. The new expectation was not found.`,
+    // independent-clocks
+    icFirstExpected: 'The HbA1c order opens its own expectation, due in 15 days.',
+    icSecondExpected: 'Each test keeps its own 15-day due date, independent of the other’s clock.',
+    icMissing: 'One of the two expectations is missing.',
+    icBothDue: (p: CheckParams): string =>
+      `HbA1c still due ${p['firstDue'] ?? ''} after its own order; lipid panel due ${p['secondDue'] ?? ''} after its own.`,
+    // visit-closes-controls-not-tests
+    vccOrderExpected: 'The lab order opens its own expectation.',
+    vccRxExpected: 'The short treatment opens its own control expectation.',
+    vccVisitExpected: 'The visit closes the pending control but leaves the pending lab test open.',
+    vccVisitObserved: (p: CheckParams): string =>
+      `Follow-up control: ${p['controlStatus'] ?? ''}. Pending lab test: ${p['orderStatus'] ?? ''}.`,
+    // note-without-plan-finding
+    nwpExpected: 'A note with no follow-up plan is recorded as a documentation-quality finding.',
+    nwpObserved: (p: CheckParams): string => `${p['count'] ?? ''} recorded.`,
+    // rule-is-configuration
+    ricExpected:
+      'The rule card (trigger, fulfilment, supersession, escalation, version) reads straight from configuration.',
+    ricNotFound: 'Rule not found in configuration.',
+    ricFound: (p: CheckParams): string =>
+      `Trigger: ${p['trigger'] ?? ''}. Fulfilled by ${p['fulfilledByCount'] ?? ''}. Superseded by ${p['supersededByCount'] ?? ''}. Escalation policy: ${p['escalationPolicy'] ?? ''}. Version: ${p['version'] ?? ''}.`,
+    // case-keeps-rule-version
+    ckrvOrderExpected: 'The order opens an expectation carrying the rule version it opened with.',
+    ckrvVersion: (p: CheckParams): string => `Rule version: ${p['version'] ?? ''}.`,
+    ckrvExpireExpected: 'Past its due date, the expectation expires and becomes a case.',
+    ckrvVersionKeptExpected:
+      'The case’s expectation keeps the rule version it opened with, even after the clinic’s rules change.',
+    ckrvVersionKeptObserved: (p: CheckParams): string =>
+      `Expectation rule version: ${p['expectationVersion'] ?? ''}. Current config version: ${p['configVersion'] ?? ''}.`,
+    // per-clinic-override
+    pcoDefaultExpected: (p: CheckParams): string =>
+      `Before any override, the rule’s own default timeframe applies (${p['days'] ?? ''}).`,
+    pcoOverrideExpected: 'This lab clinic’s own override is now active.',
+    pcoOverrideObserved: (p: CheckParams): string =>
+      `Effective timeframe: ${p['afterDays'] ?? ''} (was ${p['beforeDays'] ?? ''}).`,
+    pcoSecondOrderExpected:
+      'Ordering the test again now uses this clinic’s own override: due in 10 days.',
+    // freeform ("try anything else")
+    ffExpected: 'Exploration — no fixed expectation for a free-form action.',
+    ffObserved: 'Applied to the real engine; see the timeline and expectations above.',
+    // generic, reused across scenarios
+    obsStatus: (p: CheckParams): string => `Status: ${p['status'] ?? ''}.`,
+    obsDueAt: (p: CheckParams): string => `Due at ${p['date'] ?? ''}.`,
+    obsDueInDays: (p: CheckParams): string => `Due in ${p['days'] ?? ''}.`,
+    obsNone: 'No expectation was created yet.',
+    obsExpiredCaseOpened: (p: CheckParams): string =>
+      `Status: ${p['status'] ?? ''}; a case opened.`,
+    obsExpiredNoCase: (p: CheckParams): string =>
+      `Status: ${p['status'] ?? ''}; no case opened yet.`,
+    // timeline details
+    detailServiceRequestCreated: (p: CheckParams): string =>
+      `${p['testName'] ?? ''} (${p['code'] ?? ''}) · ${p['category'] ?? ''}`,
+    detailResultReceived: (p: CheckParams): string =>
+      `${p['testName'] ?? ''} (${p['code'] ?? ''}): ${p['interpretation'] ?? ''}${p['value'] ?? ''}`,
+    detailMedicationPrescribed: (p: CheckParams): string => p['medication'] ?? '',
+    detailMedicationPrescribedWithDuration: (p: CheckParams): string =>
+      `${p['medication'] ?? ''} · ${p['duration'] ?? ''}`,
+    detailConditionRecorded: (p: CheckParams): string =>
+      `${p['diagnosis'] ?? ''} (${p['code'] ?? ''}) · ${p['verification'] ?? ''}`,
+    detailVisitCompleted: 'Visit completed.',
+    detailAppointmentBooked: (p: CheckParams): string =>
+      `Appointment booked for ${p['date'] ?? ''}.`,
+    detailAppointmentCancelled: 'Appointment cancelled.',
+    detailNoteSaved: 'Clinical note saved.',
+    detailPlanNone: 'No follow-up plan found.',
+    detailPlanItems: (p: CheckParams): string => `Plan: ${p['items'] ?? ''}.`,
+    detailAllergyRecorded: 'Allergy recorded.',
+    detailLanguageRecorded: 'Patient’s language recorded.',
+    detailOptedOut: 'Patient opted out.',
+    detailRecordWithdrawn: 'Record withdrawn.',
+  } as Record<string, string | ((p: CheckParams) => string)>,
 };
 
 const EVALUATOR_ACTION_LABELS = {
@@ -1658,11 +1821,11 @@ const lab = {
   orderLoinc: 'Test code (LOINC)',
   orderDisplay: 'Test name',
   orderCategory: 'Category',
-  orderCategories: { laboratory: 'Laboratory', imaging: 'Imaging' },
+  orderCategories: { laboratory: 'Laboratory', imaging: 'Imaging', other: 'Other' },
   resultValue: 'Value',
   resultUnit: 'Unit',
   resultInterpretation: 'Interpretation',
-  interpretations: { normal: 'Normal', abnormal: 'Abnormal' },
+  interpretations: { normal: 'Normal', abnormal: 'Abnormal', unknown: 'No interpretation' },
   resultBasedOnOrder: 'Fulfils an order (optional)',
   resultBasedOnOrderNone: 'No specific order',
   prescriptionDrug: 'Drug',

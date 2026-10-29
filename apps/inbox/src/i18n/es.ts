@@ -44,6 +44,8 @@ const common: Messages['common'] = {
   language: 'Idioma',
   languageNames: { en: 'English', es: 'Español' },
   preferredLanguage: (language) => `Idioma preferido: ${language}`,
+  yes: 'Sí',
+  no: 'No',
 };
 
 const nav: Messages['nav'] = {
@@ -1195,6 +1197,13 @@ const engineTests: Messages['engineTests'] = {
     pass: 'Chequeo automático: pasa',
     fail: 'Chequeo automático: falla',
     notSupported: 'Todavía no soportado',
+    missing: 'No encontrado',
+    none: 'Ninguno',
+    source: { rules: 'reglas', ai: 'el modelo', none: 'ninguno' },
+    calls: (n) => count(n, 'llamada', 'llamadas'),
+    findings: (n) => count(n, 'hallazgo de calidad', 'hallazgos de calidad'),
+    ways: (n) => count(n, 'forma', 'formas'),
+    items: (n) => count(n, 'expectativa de protocolo', 'expectativas de protocolo'),
   },
   timelineTitle: 'Qué pasó',
   timelineEmpty: 'Todavía no hay eventos.',
@@ -1210,6 +1219,8 @@ const engineTests: Messages['engineTests'] = {
   },
   columns: { rule: 'Regla', layer: 'Capa', version: 'Versión', due: 'Vence', status: 'Estado' },
   readByRules: 'Leído por reglas',
+  readByAi: 'Leído por IA',
+  verification: { confirmed: 'Confirmada', provisional: 'Provisional' },
   ruleCard: {
     trigger: 'Disparador',
     fulfilledBy: 'Se cumple con',
@@ -1556,6 +1567,151 @@ const engineTests: Messages['engineTests'] = {
       ],
     },
   },
+  checks: {
+    // structured-no-llm
+    snOrderExpected: 'La orden la lee reglas; no interviene ningún modelo de lenguaje.',
+    snRxExpected: 'La receta también la leen las reglas; no interviene ningún modelo de lenguaje.',
+    snRxObserved: (p) => `Evento más reciente: ${p['eventType'] ?? ''} (${p['source'] ?? ''}).`,
+    snResultExpected:
+      'El resultado cierra la orden automáticamente — todavía con cero llamadas a IA.',
+    // note-ai-once-per-save
+    naoSaveExpected: '1 llamada de extracción de nota al guardar.',
+    naoSaveObserved: (p) => `${p['calls'] ?? ''} al guardar.`,
+    naoClockExpected:
+      '0 llamadas más de extracción de nota solo por mover el reloj hacia adelante.',
+    naoClockObserved:
+      'No se guardó ningún documento nuevo — mover el reloj solo no dispara ninguna llamada nueva.',
+    // note-extraction-quotes
+    neqExpected:
+      'Un diagnóstico (CIE-10), un medicamento y un punto del plan, cada uno con una cita exacta.',
+    neqMissing: 'No se registró ninguna extracción.',
+    neqObserved: (p) =>
+      `Diagnóstico con cita: ${p['diagnosisOk'] ?? ''}. Medicamento con cita: ${p['medicationOk'] ?? ''}. Punto del plan con cita: ${p['planOk'] ?? ''}.`,
+    // plan-item-confirm
+    picNoteExpected: 'La nota abre un punto del plan del médico para confirmar.',
+    picNoPlan: 'No se creó ninguna expectativa del plan del médico.',
+    picConfirmExpected: 'El punto del plan queda confirmado por ti con una acción.',
+    picNotConfirmed: 'El punto del plan no quedó confirmado.',
+    picConfirmedBy: (p) => `Confirmado por ${p['who'] ?? ''}.`,
+    // condition-inferred
+    ciMedExpected: 'Una condición de diabetes se infiere de la receta de metformina.',
+    ciMedFound: 'Encontrada — inferida del medicamento.',
+    ciResultExpected: 'Una condición de diabetes se infiere del resultado de HbA1c por sí solo.',
+    ciResultFound: 'Encontrada — inferida del resultado.',
+    ciNotFound: 'No se encontró.',
+    // expectation-has-due-date
+    ehdExpected: 'La orden crea una expectativa con una fecha de vencimiento concreta.',
+    // universal-layer
+    ulOrderExpected: 'Una orden sin resultado abre una expectativa de la capa universal.',
+    ulRxExpected:
+      'Un tratamiento corto sin control abre su propia expectativa, independiente de la orden.',
+    ulRxObserved: (p) =>
+      `Orden pendiente: ${p['orderStatus'] ?? ''}. Control del tratamiento corto: ${p['treatmentStatus'] ?? ''}.`,
+    // doctor-plan-layer
+    dplExpected:
+      'El plan del médico "control en un mes" abre una expectativa que vence en unos 30 días.',
+    // cadence-break
+    cbVisit1Expected: 'Una sola consulta todavía no abre ninguna expectativa de ritmo.',
+    cbClockExpected: 'La fecha del laboratorio avanza 30 días.',
+    cbClockObserved: 'Reloj movido.',
+    cbVisit2Expected:
+      'Una segunda consulta, 30 días después de la primera, abre una expectativa de ritmo roto.',
+    cbExpireExpected: 'Vencida, la expectativa de ritmo roto vence y se vuelve un caso.',
+    // protocol-fills-gaps
+    pfgEnrollExpected: 'El plan del propio médico abre el control de HbA1c que pidió.',
+    pfgVisitExpected:
+      'El protocolo de diabetes llena lo que el plan del médico no cubrió (perfil lipídico, examen de fondo de ojo, consulta de rutina).',
+    pfgVisitFound: (p) => `${p['count'] ?? ''} de la capa de protocolo.`,
+    pfgVisitNone: 'No se abrió ninguna expectativa de la capa de protocolo.',
+    // plan-beats-protocol
+    pbpEnrollExpected: 'El plan del propio médico abre el control de HbA1c.',
+    pbpVisitExpected:
+      'El control de HbA1c del propio médico gana; el protocolo no abre un segundo para el mismo examen.',
+    pbpVisitObserved: (p) =>
+      `Expectativa del plan del médico: ${p['planFound'] ?? ''}. Expectativa de protocolo para HbA1c: ${p['protocolFound'] ?? ''}.`,
+    // auto-close-fulfilled
+    acfOrderExpected: 'La orden abre su propia expectativa.',
+    acfResultExpected: 'El resultado cierra la orden automáticamente: cumplida, sin acción humana.',
+    // supersession
+    supOrderExpected: 'La orden abre una expectativa nueva con fecha de vencimiento.',
+    supSupersedeExpected:
+      'La orden nueva reemplaza a la anterior; su propio reloj de 15 días arranca desde la fecha de la orden nueva.',
+    supSupersedeObserved: (p) =>
+      `Estado anterior: ${p['oldStatus'] ?? ''}. Nuevo vencimiento en ${p['dueDays'] ?? ''} desde la orden nueva.`,
+    supSupersedeObservedUnknown: (p) =>
+      `Estado anterior: ${p['oldStatus'] ?? ''}. No se encontró la expectativa nueva.`,
+    // independent-clocks
+    icFirstExpected: 'La orden de HbA1c abre su propia expectativa, que vence en 15 días.',
+    icSecondExpected:
+      'Cada examen conserva su propia fecha de vencimiento de 15 días, independiente del reloj del otro.',
+    icMissing: 'Falta una de las dos expectativas.',
+    icBothDue: (p) =>
+      `El HbA1c todavía vence en ${p['firstDue'] ?? ''} desde su propia orden; el perfil lipídico vence en ${p['secondDue'] ?? ''} desde la suya.`,
+    // visit-closes-controls-not-tests
+    vccOrderExpected: 'La orden de laboratorio abre su propia expectativa.',
+    vccRxExpected: 'El tratamiento corto abre su propia expectativa de control.',
+    vccVisitExpected:
+      'La consulta cierra el control pendiente pero deja el examen pendiente abierto.',
+    vccVisitObserved: (p) =>
+      `Control de seguimiento: ${p['controlStatus'] ?? ''}. Examen de laboratorio pendiente: ${p['orderStatus'] ?? ''}.`,
+    // note-without-plan-finding
+    nwpExpected:
+      'Una nota sin plan de seguimiento se registra como un hallazgo de calidad de la documentación.',
+    nwpObserved: (p) => `${p['count'] ?? ''} registrado(s).`,
+    // rule-is-configuration
+    ricExpected:
+      'La ficha de la regla (disparador, cumplimiento, reemplazo, escalamiento, versión) se lee directo de la configuración.',
+    ricNotFound: 'No se encontró la regla en la configuración.',
+    ricFound: (p) =>
+      `Disparador: ${p['trigger'] ?? ''}. Se cumple con ${p['fulfilledByCount'] ?? ''}. Se reemplaza con ${p['supersededByCount'] ?? ''}. Política de escalamiento: ${p['escalationPolicy'] ?? ''}. Versión: ${p['version'] ?? ''}.`,
+    // case-keeps-rule-version
+    ckrvOrderExpected:
+      'La orden abre una expectativa que lleva la versión de la regla con la que abrió.',
+    ckrvVersion: (p) => `Versión de la regla: ${p['version'] ?? ''}.`,
+    ckrvExpireExpected: 'Vencida, la expectativa vence y se vuelve un caso.',
+    ckrvVersionKeptExpected:
+      'La expectativa del caso conserva la versión de la regla con la que abrió, incluso después de que el consultorio cambie la regla.',
+    ckrvVersionKeptObserved: (p) =>
+      `Versión de la regla en la expectativa: ${p['expectationVersion'] ?? ''}. Versión actual de la configuración: ${p['configVersion'] ?? ''}.`,
+    // per-clinic-override
+    pcoDefaultExpected: (p) =>
+      `Antes de cualquier ajuste, aplica el plazo por defecto de la regla (${p['days'] ?? ''}).`,
+    pcoOverrideExpected: 'El ajuste propio de este consultorio de prueba ya está activo.',
+    pcoOverrideObserved: (p) =>
+      `Plazo efectivo: ${p['afterDays'] ?? ''} (antes ${p['beforeDays'] ?? ''}).`,
+    pcoSecondOrderExpected:
+      'Pedirlo otra vez ya usa el ajuste propio de este consultorio: vence en 10 días.',
+    // freeform ("probar cualquier otra cosa")
+    ffExpected: 'Exploración — sin expectativa fija para una acción libre.',
+    ffObserved: 'Se aplicó al motor real; mira la línea de tiempo y las expectativas arriba.',
+    // genéricos, reutilizados entre pruebas
+    obsStatus: (p) => `Estado: ${p['status'] ?? ''}.`,
+    obsDueAt: (p) => `Vence el ${p['date'] ?? ''}.`,
+    obsDueInDays: (p) => `Vence en ${p['days'] ?? ''}.`,
+    obsNone: 'Todavía no se creó ninguna expectativa.',
+    obsExpiredCaseOpened: (p) => `Estado: ${p['status'] ?? ''}; se abrió un caso.`,
+    obsExpiredNoCase: (p) => `Estado: ${p['status'] ?? ''}; todavía no se abrió ningún caso.`,
+    // detalles de la línea de tiempo
+    detailServiceRequestCreated: (p) =>
+      `${p['testName'] ?? ''} (${p['code'] ?? ''}) · ${p['category'] ?? ''}`,
+    detailResultReceived: (p) =>
+      `${p['testName'] ?? ''} (${p['code'] ?? ''}): ${p['interpretation'] ?? ''}${p['value'] ?? ''}`,
+    detailMedicationPrescribed: (p) => p['medication'] ?? '',
+    detailMedicationPrescribedWithDuration: (p) =>
+      `${p['medication'] ?? ''} · ${p['duration'] ?? ''}`,
+    detailConditionRecorded: (p) =>
+      `${p['diagnosis'] ?? ''} (${p['code'] ?? ''}) · ${p['verification'] ?? ''}`,
+    detailVisitCompleted: 'Consulta realizada.',
+    detailAppointmentBooked: (p) => `Cita agendada para el ${p['date'] ?? ''}.`,
+    detailAppointmentCancelled: 'Cita cancelada.',
+    detailNoteSaved: 'Nota clínica guardada.',
+    detailPlanNone: 'No se encontró ningún plan de seguimiento.',
+    detailPlanItems: (p) => `Plan del médico: ${p['items'] ?? ''}.`,
+    detailAllergyRecorded: 'Alergia registrada.',
+    detailLanguageRecorded: 'Idioma del paciente registrado.',
+    detailOptedOut: 'El paciente se dio de baja.',
+    detailRecordWithdrawn: 'Registro retirado.',
+  },
 };
 
 const EVALUATOR_ACTION_LABELS: Record<string, string> = {
@@ -1646,11 +1802,11 @@ const lab: Messages['lab'] = {
   orderLoinc: 'Código del estudio (LOINC)',
   orderDisplay: 'Nombre del estudio',
   orderCategory: 'Categoría',
-  orderCategories: { laboratory: 'Laboratorio', imaging: 'Imagen' },
+  orderCategories: { laboratory: 'Laboratorio', imaging: 'Imagen', other: 'Otro' },
   resultValue: 'Valor',
   resultUnit: 'Unidad',
   resultInterpretation: 'Interpretación',
-  interpretations: { normal: 'Normal', abnormal: 'Anormal' },
+  interpretations: { normal: 'Normal', abnormal: 'Anormal', unknown: 'Sin interpretación' },
   resultBasedOnOrder: 'Cumple una orden (opcional)',
   resultBasedOnOrderNone: 'Ninguna orden en particular',
   prescriptionDrug: 'Medicamento',

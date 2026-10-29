@@ -22,6 +22,7 @@ import { useT } from '../../i18n/index.ts';
 import type { Messages } from '../../i18n/index.ts';
 import { noteReader } from '../../lib/labels.ts';
 import { formatDateTime } from '../../lib/format.ts';
+import { renderCheckMessage } from './check-message.ts';
 import { EngineTestStepForm } from './engine-test-step-form.tsx';
 
 const DIFF_TONES: Record<ExpectationDiffTag, Tone> = {
@@ -58,7 +59,7 @@ function TimelineRow({
           </time>
         </span>
       </div>
-      <p className="text-xs text-muted">{entry.detail}</p>
+      <p className="text-xs text-muted">{renderCheckMessage(t, entry.detail)}</p>
     </li>
   );
 }
@@ -88,7 +89,7 @@ function StepExpectationsTable({
           {outcome.expectations.map((expectation) => (
             <tr key={expectation.id} className="border-t border-border">
               <td className="py-1.5 pr-3 font-medium text-fg">{expectation.label}</td>
-              <td className="py-1.5 pr-3 text-muted">{expectation.layer}</td>
+              <td className="py-1.5 pr-3 text-muted">{t.labels.layers[expectation.layer]}</td>
               <td className="py-1.5 pr-3 text-muted">
                 <time dateTime={expectation.dueAt}>{formatDateTime(expectation.dueAt)}</time>
               </td>
@@ -162,9 +163,9 @@ function AutoCheckLine({
       }
     >
       <strong className="font-semibold">{t.engineTests.autoCheck.expected}:</strong>{' '}
-      {outcome.autoCheck.expected} ·{' '}
+      {renderCheckMessage(t, outcome.autoCheck.expected)} ·{' '}
       <strong className="font-semibold">{t.engineTests.autoCheck.observed}:</strong>{' '}
-      {outcome.autoCheck.observed}
+      {renderCheckMessage(t, outcome.autoCheck.observed)}
     </p>
   );
 }
@@ -405,7 +406,7 @@ export function EngineTestCard({ id, reviewed }: EngineTestCardProps): ReactNode
                         {copy.steps[index]?.title ?? `Step ${String(index + 1)}`}
                       </span>
                       {' — '}
-                      {outcome.autoCheck.observed}
+                      {renderCheckMessage(t, outcome.autoCheck.observed)}
                     </span>
                   </li>
                 ))}
