@@ -190,7 +190,7 @@ On 2026-10-27, a team of practicing physicians reviewed the hosted demo against 
 | Cases rated not useful                       | 0            |
 | Session lead's overall verdict               | Satisfactory |
 
-This was a first pass, not the finished protocol. A structured evaluation continues against the clinical team guide, which asks physicians to check rule timeframes, the diabetes and hypertension protocols, the AI's extraction against the source notes, and patient message templates, aiming at a review of 100 test-mode cases. Every evaluator now signs in with their own email, and every action they take is recorded for later analysis — an evaluator lab purpose-built for this is being added.
+This was a first pass, not the finished protocol. A structured evaluation continues against the clinical team guide, which asks physicians to check rule timeframes, the diabetes and hypertension protocols, the AI's extraction against the source notes, and patient message templates, aiming at a review of 100 test-mode cases. From the next session on, every evaluator signs in with their own email and every action they take is recorded for analysis, through an evaluator lab built for this purpose.
 
 | Validation point                                         | Status                |
 | -------------------------------------------------------- | --------------------- |
