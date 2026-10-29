@@ -26,8 +26,19 @@ import type {
   DemoClock,
   DemoConsultationRequest,
   DemoConsultationResponse,
+  EvaluatorEventView,
+  EvaluatorIdentity,
+  EvaluatorSummaryView,
   FeedbackRequest,
   InboxStats,
+  LabDateImpact,
+  LabDocumentResponse,
+  LabDocumentUploadRequest,
+  LabExpectationView,
+  LabPatient,
+  LabPatientCreateRequest,
+  LabRecordAddRequest,
+  LabRecordResponse,
   OwnerView,
   Page,
   PatientDetail,
@@ -73,6 +84,13 @@ export const queryKeys = {
   finding: (id: string) => ['finding', id] as const,
   reviewMetrics: ['review-metrics'] as const,
   findingFlags: ['finding-flags'] as const,
+  evaluator: ['evaluator'] as const,
+  labPatients: ['lab-patients'] as const,
+  labPatientExpectations: (patientId: string) => ['lab-patient-expectations', patientId] as const,
+  labCases: ['lab-cases'] as const,
+  evaluators: ['evaluators'] as const,
+  evaluatorEvents: (evaluatorEmail: string | undefined) =>
+    ['evaluator-events', evaluatorEmail] as const,
 };
 
 /** The clinic the API key belongs to (its name titles the inbox). */
@@ -411,5 +429,160 @@ export function useFindingFlagUpdate(): UseMutationResult<
     onSuccess: () => {
       invalidateAfterFindingChange(queryClient);
     },
+  });
+}
+
+// The evaluator lab (docs/deploy.md#hosted-demo) --------------------------
+
+/** Empty (`data?.email === undefined`) outside the hosted demo. */
+export function useEvaluator(): UseQueryResult<EvaluatorIdentity> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.evaluator,
+    queryFn: () => api.getEvaluator(),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+}
+
+export function useLogoutEvaluator(): UseMutationResult<void, Error, void> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.logoutEvaluator(),
+    onSuccess: () => {
+      // The next page load goes back to the code page; nothing left to keep.
+      queryClient.clear();
+    },
+  });
+}
+
+/** The lab clinic's own "today": the records form's date pickers default here, never the shared clock's. */
+export function useLabClock(): UseQueryResult<DemoClock> {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['lab-clock'],
+    queryFn: () => api.getLabClock(),
+  });
+}
+
+export function useLabPatients(): UseQueryResult<{ items: LabPatient[] }> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.labPatients,
+    queryFn: () => api.listLabPatients(),
+  });
+}
+
+export function useCreateLabPatient(): UseMutationResult<
+  LabPatient,
+  Error,
+  LabPatientCreateRequest
+> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: LabPatientCreateRequest) => api.createLabPatient(request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.labPatients });
+    },
+  });
+}
+
+export const LAB_DOCUMENT_MUTATION_KEY = ['lab-document'] as const;
+
+/** "Add to the record" → Document: uploads it and shows what the AI (or the simulated reader) read. */
+export function useUploadLabDocument(): UseMutationResult<
+  LabDocumentResponse,
+  Error,
+  LabDocumentUploadRequest
+> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: LAB_DOCUMENT_MUTATION_KEY,
+    mutationFn: (request: LabDocumentUploadRequest) => api.uploadLabDocument(request),
+    onSuccess: (response) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.labPatients });
+      queryClient.setQueryData(queryKeys.labPatientExpectations(response.patientId), undefined);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.labPatientExpectations(response.patientId),
+      });
+    },
+  });
+}
+
+export const LAB_RECORD_MUTATION_KEY = ['lab-record'] as const;
+
+/** "Add to the record" → a structured entry (order, result, prescription, visit, diagnosis, appointment). */
+export function useAddLabRecord(): UseMutationResult<
+  LabRecordResponse,
+  Error,
+  LabRecordAddRequest
+> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: LAB_RECORD_MUTATION_KEY,
+    mutationFn: (request: LabRecordAddRequest) => api.addLabRecord(request),
+    onSuccess: (response) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.labPatients });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.labPatientExpectations(response.patientId),
+      });
+    },
+  });
+}
+
+export function useLabPatientExpectations(
+  patientId: string | undefined,
+): UseQueryResult<{ items: LabExpectationView[] }> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.labPatientExpectations(patientId ?? ''),
+    queryFn: () => api.getLabPatientExpectations(patientId ?? ''),
+    enabled: patientId !== undefined,
+  });
+}
+
+export function useLabCases(): UseQueryResult<{ items: CaseView[] }> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.labCases,
+    queryFn: () => api.getLabCases(),
+  });
+}
+
+/** "See the impact on a date": moves the lab clinic's own clock forward. */
+export function useAdvanceLabDate(): UseMutationResult<LabDateImpact, Error, string> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (date: string) => api.advanceLabDate(date),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['lab-clock'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.labCases });
+      // Every patient's expectations may have changed; refetch whichever is open.
+      void queryClient.invalidateQueries({ queryKey: ['lab-patient-expectations'] });
+    },
+  });
+}
+
+export function useEvaluators(): UseQueryResult<{ items: EvaluatorSummaryView[] }> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.evaluators,
+    queryFn: () => api.listEvaluators(),
+    refetchInterval: 15_000,
+  });
+}
+
+export function useEvaluatorEvents(
+  evaluatorEmail: string | undefined,
+): UseQueryResult<Page<EvaluatorEventView>> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.evaluatorEvents(evaluatorEmail),
+    queryFn: () =>
+      api.listEvaluatorEvents({ limit: 100, ...(evaluatorEmail ? { evaluatorEmail } : {}) }),
   });
 }

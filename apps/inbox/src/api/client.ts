@@ -16,8 +16,19 @@ import type {
   DemoClock,
   DemoConsultationRequest,
   DemoConsultationResponse,
+  EvaluatorEventView,
+  EvaluatorIdentity,
+  EvaluatorSummaryView,
   FeedbackRequest,
   InboxStats,
+  LabDateImpact,
+  LabDocumentResponse,
+  LabDocumentUploadRequest,
+  LabExpectationView,
+  LabPatient,
+  LabPatientCreateRequest,
+  LabRecordAddRequest,
+  LabRecordResponse,
   OwnerView,
   Page,
   PatientDetail,
@@ -161,6 +172,34 @@ export interface ApiClient {
     command: PlanItemCommand,
     body?: PlanItemCorrectionRequest,
   ): Promise<PlanItemReviewResponse>;
+
+  // The evaluator lab (docs/deploy.md#hosted-demo) --------------------------
+
+  /** Empty outside the hosted demo (no access gate configured). */
+  getEvaluator(): Promise<EvaluatorIdentity>;
+  /** "Change" in the header banner: back to the code page. */
+  logoutEvaluator(): Promise<void>;
+  /** The lab clinic's own "today" (never the shared clock's). */
+  getLabClock(): Promise<DemoClock>;
+  listLabPatients(): Promise<{ items: LabPatient[] }>;
+  createLabPatient(body: LabPatientCreateRequest): Promise<LabPatient>;
+  uploadLabDocument(body: LabDocumentUploadRequest): Promise<LabDocumentResponse>;
+  addLabRecord(body: LabRecordAddRequest): Promise<LabRecordResponse>;
+  getLabPatientExpectations(patientId: string): Promise<{ items: LabExpectationView[] }>;
+  /** "See the impact on a date": moves the lab clinic's own clock forward. */
+  advanceLabDate(date: string): Promise<LabDateImpact>;
+  getLabCases(): Promise<{ items: CaseView[] }>;
+  listEvaluators(): Promise<{ items: EvaluatorSummaryView[] }>;
+  listEvaluatorEvents(query: {
+    evaluatorEmail?: string;
+    limit?: number;
+  }): Promise<Page<EvaluatorEventView>>;
+  /**
+   * "Download CSV": fetched with the same Authorization header as every
+   * other call (a bare link would need the key in the query), as a blob
+   * the component saves with its own filename.
+   */
+  downloadEvaluatorEventsCsv(): Promise<Blob>;
 }
 
 export function createApiClient(config: ApiConfig): ApiClient {
@@ -197,7 +236,47 @@ export function createApiClient(config: ApiConfig): ApiClient {
       throw new ApiError(0, 'network_error', messages().errors.network);
     }
     if (!response.ok) throw await readErrorBody(response);
-    return (await response.json()) as T;
+    // 204 (`POST /evaluator/logout`): no body to parse.
+    return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+  }
+
+  /** `fetch` with the same headers `request` uses, for a body `request` cannot send (multipart, blobs). */
+  async function rawFetch(
+    method: 'GET' | 'POST',
+    path: string,
+    init: { readonly query?: Query; readonly body?: BodyInit } = {},
+  ): Promise<Response> {
+    const headers: Record<string, string> = {
+      Accept: '*/*',
+      'Accept-Language': getLocale(),
+      Authorization: `Bearer ${config.apiKey}`,
+    };
+    let response: Response;
+    try {
+      response = await fetch(
+        url(path, init.query),
+        init.body === undefined ? { method, headers } : { method, headers, body: init.body },
+      );
+    } catch {
+      throw new ApiError(0, 'network_error', messages().errors.network);
+    }
+    if (!response.ok) throw await readErrorBody(response);
+    return response;
+  }
+
+  async function uploadLabDocument(body: LabDocumentUploadRequest): Promise<LabDocumentResponse> {
+    const { file, newPatient, ...rest } = body;
+    if (file === undefined) {
+      return request('POST', '/demo/lab/documents', { body: { ...rest, newPatient } });
+    }
+    const form = new FormData();
+    for (const [key, value] of Object.entries(rest)) {
+      if (value !== undefined) form.set(key, String(value));
+    }
+    if (newPatient !== undefined) form.set('newPatient', JSON.stringify(newPatient));
+    form.set('file', file, file.name);
+    const response = await rawFetch('POST', '/demo/lab/documents', { body: form });
+    return (await response.json()) as LabDocumentResponse;
   }
 
   return {
@@ -255,5 +334,32 @@ export function createApiClient(config: ApiConfig): ApiClient {
         `/inbox/plan-items/${encodeURIComponent(expectationId)}/${command}`,
         body === undefined ? {} : { body },
       ),
+
+    getEvaluator: async () => {
+      try {
+        return await request<EvaluatorIdentity>('GET', '/evaluator/me');
+      } catch (error) {
+        if (isApiError(error) && error.status === 404) return {};
+        throw error;
+      }
+    },
+    logoutEvaluator: () => request('POST', '/evaluator/logout'),
+    getLabClock: async () => ({
+      ...(await request<{ now: string }>('GET', '/demo/lab/clock')),
+      fake: true,
+    }),
+    listLabPatients: () => request('GET', '/demo/lab/patients'),
+    createLabPatient: (body) => request('POST', '/demo/lab/patients', { body }),
+    uploadLabDocument,
+    addLabRecord: (body) => request('POST', '/demo/lab/records', { body }),
+    getLabPatientExpectations: (patientId) =>
+      request('GET', `/demo/lab/patients/${encodeURIComponent(patientId)}/expectations`),
+    advanceLabDate: (date) => request('POST', '/demo/lab/date', { body: { date } }),
+    getLabCases: () => request('GET', '/demo/lab/cases'),
+    listEvaluators: () => request('GET', '/demo/evaluators'),
+    listEvaluatorEvents: (query) =>
+      request('GET', '/demo/evaluator-events', { query: { ...query } }),
+    downloadEvaluatorEventsCsv: async () =>
+      (await rawFetch('GET', '/demo/evaluator-events', { query: { format: 'csv' } })).blob(),
   };
 }

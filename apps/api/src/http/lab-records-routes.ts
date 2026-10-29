@@ -189,6 +189,13 @@ export function registerLabRecordRoutes(
   runtime: EngineRuntime,
   labClocks: LabClockRegistry,
 ): void {
+  /** The lab clinic's own current date (its "today"): the records form's date pickers default here. */
+  app.get('/api/demo/lab/clock', async (c) => {
+    const evaluatorEmail = requireEvaluator(c);
+    const { clock } = await ensureLabClinicAndClock(runtime, labClocks, evaluatorEmail);
+    return c.json({ now: clock.now().toISOString() });
+  });
+
   app.post('/api/demo/lab/records', async (c) => {
     const evaluatorEmail = requireEvaluator(c);
     const body = await readJson(c, LabRecordAddSchema);

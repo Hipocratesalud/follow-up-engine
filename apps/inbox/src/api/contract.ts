@@ -580,3 +580,141 @@ export interface ApiFieldError {
 export interface ApiErrorBody {
   error: { code: string; message: string; fields?: ApiFieldError[] };
 }
+
+// The evaluator lab (docs/deploy.md#hosted-demo) --------------------------
+
+/** `GET /api/evaluator/me`: who is evaluating, from the signed cookie. Empty body outside the hosted demo. */
+export interface EvaluatorIdentity {
+  email?: string;
+}
+
+export interface LabPatient {
+  id: string;
+  name: string;
+  age?: number;
+  sex?: Sex;
+}
+
+export interface LabPatientCreateRequest {
+  name: string;
+  sex?: Sex;
+  age?: number;
+  specialty?: string;
+}
+
+export const LAB_DOCUMENT_TYPES = [
+  'consultation_note',
+  'lab_result',
+  'imaging_report',
+  'prescription',
+  'other',
+] as const;
+export type LabDocumentType = (typeof LAB_DOCUMENT_TYPES)[number];
+
+export interface LabNewPatientInput {
+  name: string;
+  sex?: Sex;
+  age?: number;
+}
+
+export interface LabDocumentUploadRequest {
+  patientId?: string;
+  newPatient?: LabNewPatientInput;
+  /** Pasted text, as an alternative to a file. */
+  text?: string;
+  file?: File;
+  /** `YYYY-MM-DD`. Defaults to the lab clinic's current date; past dates allowed, future rejected. */
+  documentDate: string;
+  documentType: LabDocumentType;
+  specialty?: string;
+}
+
+export interface LabDocumentResponse {
+  patientId: string;
+  clinicId: string;
+  extraction: DemoConsultationResponse['extraction'];
+  expectationsCreated: CreatedExpectation[];
+}
+
+export const LAB_RECORD_KINDS = [
+  'order',
+  'result',
+  'prescription',
+  'visit',
+  'diagnosis',
+  'appointment_booked',
+  'appointment_cancelled',
+] as const;
+export type LabRecordKind = (typeof LAB_RECORD_KINDS)[number];
+
+export type LabRecordEntry =
+  | { kind: 'order'; loinc: string; display: string; category?: 'laboratory' | 'imaging' }
+  | {
+      kind: 'result';
+      loinc: string;
+      display: string;
+      value?: number;
+      unit?: string;
+      interpretation?: 'normal' | 'abnormal';
+      basedOnOrderId?: string;
+    }
+  | { kind: 'prescription'; text: string; durationDays?: number }
+  | { kind: 'visit' }
+  | { kind: 'diagnosis'; icd10: string; display?: string }
+  | { kind: 'appointment_booked'; scheduledFor: string; specialty?: string }
+  | { kind: 'appointment_cancelled'; appointmentId: string; scheduledFor: string };
+
+export interface LabRecordAddRequest {
+  patientId: string;
+  /** `YYYY-MM-DD`. Defaults to the lab clinic's current date; past dates allowed, future rejected. */
+  recordDate: string;
+  entry: LabRecordEntry;
+}
+
+export interface LabRecordResponse {
+  patientId: string;
+  clinicId: string;
+  expectationsCreated: CreatedExpectation[];
+}
+
+export interface LabExpectationView {
+  id: string;
+  ruleId: string;
+  ruleVersion?: string;
+  layer: Layer;
+  label: string;
+  status: ExpectationStatus;
+  dueAt: string;
+  closedReason?: string;
+}
+
+export interface LabDateImpact {
+  from: string;
+  to: string;
+  expectationsExpired: number;
+  casesOpened: number;
+  casesEscalated: number;
+}
+
+/** Per evaluator, for the "Evaluators" admin page (`GET /api/demo/evaluators`). */
+export interface EvaluatorSummaryView {
+  evaluatorEmail: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  total: number;
+  byAction: Partial<Record<string, number>>;
+}
+
+/** One row of the evaluator lab's activity log (`GET /api/demo/evaluator-events`). */
+export interface EvaluatorEventView {
+  id: string;
+  clinicId: string;
+  evaluatorEmail: string;
+  action: string;
+  entityType?: string;
+  entityId?: string;
+  patientId?: string;
+  payload?: Record<string, unknown>;
+  simulatedAt: string;
+  occurredAt: string;
+}

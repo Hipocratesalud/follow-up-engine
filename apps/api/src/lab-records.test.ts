@@ -167,6 +167,16 @@ describe('the evaluator lab: structured records', () => {
   });
 });
 
+describe('the evaluator lab: clock', () => {
+  it("reports the lab clinic's own current date, starting at the shared clock's today", async () => {
+    const { app, runtime: rt } = await harness();
+    const response = await app.request('/api/demo/lab/clock', { headers: authAndEvaluator() });
+    expect(response.status).toBe(200);
+    const { now } = (await response.json()) as { now: string };
+    expect(now).toBe(rt.clock.now().toISOString());
+  });
+});
+
 describe('the evaluator lab: patients', () => {
   it('creates a fictitious patient and lists it with the right age and sex', async () => {
     const { app } = await harness();
