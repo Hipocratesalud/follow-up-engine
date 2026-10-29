@@ -16,6 +16,8 @@ export const INPUT_LIMITS = {
   patientName: 120,
   /** Note of a demo consultation. */
   noteText: 20_000,
+  /** Pasted text of a lab document. */
+  labDocumentText: 50_000,
 } as const;
 
 /** "2,000" / "20.000": a limit as the team reads it, in the active locale. */

@@ -637,6 +637,9 @@ const demo = {
   viewInbox: 'View the inbox',
   clockHint:
     'Each jump runs what the engine would do as the days go by: expectations fall due, cases open or merge, and they escalate.',
+  evaluatorAdvanceDisabled:
+    'As an evaluator, you move your own lab’s clock instead of the shared demo’s: it never changes what another evaluator sees.',
+  goToLab: 'Go to the Lab',
   signatureValid: 'Valid signature',
   signatureInvalid: 'Invalid signature',
   delivered: 'Delivered',
@@ -1253,6 +1256,7 @@ const lab = {
   diagnosisIcd10: 'Diagnosis (ICD-10)',
   diagnosisOther: 'Other (type the code)',
   diagnosisCode: 'ICD-10 code',
+  diagnosisCodePlaceholder: 'E11',
   diagnosisDisplay: 'Description',
   appointmentScheduledFor: 'Scheduled for',
   appointmentSpecialty: 'Specialty (optional)',

@@ -632,6 +632,8 @@ export interface LabDocumentUploadRequest {
 export interface LabDocumentResponse {
   patientId: string;
   clinicId: string;
+  /** The text that was read: pasted, or extracted from the uploaded file. */
+  text: string;
   extraction: DemoConsultationResponse['extraction'];
   expectationsCreated: CreatedExpectation[];
 }

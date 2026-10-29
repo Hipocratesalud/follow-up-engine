@@ -444,6 +444,9 @@ export function registerLabRecordRoutes(
       {
         patientId,
         clinicId: clinic.id,
+        // The text that was read (pasted, or extracted from the file): the
+        // readback highlights every quote in it, for a file upload too.
+        text,
         extraction: extractionView(c.var.t, note.extraction, note.latencyMs ?? 0),
         expectationsCreated,
       },

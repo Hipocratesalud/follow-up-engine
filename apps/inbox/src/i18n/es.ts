@@ -628,6 +628,9 @@ const demo: Messages['demo'] = {
   viewInbox: 'Ver la bandeja',
   clockHint:
     'Cada salto ejecuta lo que el motor haría con el paso de los días: vencer expectativas, abrir o agrupar casos y escalarlos.',
+  evaluatorAdvanceDisabled:
+    'Como evaluador, mueves el reloj de tu propio laboratorio en lugar del de la demo compartida: nunca cambia lo que ve otro evaluador.',
+  goToLab: 'Ir al laboratorio',
   signatureValid: 'Firma válida',
   signatureInvalid: 'Firma inválida',
   delivered: 'Entregado',
@@ -1242,6 +1245,7 @@ const lab: Messages['lab'] = {
   diagnosisIcd10: 'Diagnóstico (CIE-10)',
   diagnosisOther: 'Otro (escribe el código)',
   diagnosisCode: 'Código CIE-10',
+  diagnosisCodePlaceholder: 'E11',
   diagnosisDisplay: 'Descripción',
   appointmentScheduledFor: 'Agendada para',
   appointmentSpecialty: 'Especialidad (opcional)',

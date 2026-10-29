@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Beaker,
   CalendarClock,
   FlaskConical,
   HeartPulse,
@@ -13,6 +14,7 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 import {
   useClinic,
   useDemoClock,
+  useEvaluator,
   useOpenShadowFindings,
   useRecovery,
   useStats,
@@ -20,6 +22,7 @@ import {
 import { cx } from '../lib/cx.ts';
 import { useT } from '../i18n/index.ts';
 import { formatDate, formatShortDate } from '../lib/format.ts';
+import { EvaluatorBanner } from './evaluator-banner.tsx';
 import { LanguageSwitch } from './language-switch.tsx';
 import { ThemeToggle } from './theme.tsx';
 
@@ -142,6 +145,7 @@ export function Shell(): ReactNode {
   const stats = useStats();
   const recovery = useRecovery();
   const clock = useDemoClock();
+  const evaluator = useEvaluator();
   const findings = useOpenShadowFindings();
 
   const items: NavItem[] = [
@@ -161,7 +165,13 @@ export function Shell(): ReactNode {
     },
   ];
   items.push({ to: '/metrics', label: t.nav.metrics, icon: BarChart3 });
-  if (clock.data) items.push({ to: '/demo', label: t.nav.demo, icon: FlaskConical });
+  if (clock.data) {
+    items.push({ to: '/demo', label: t.nav.demo, icon: FlaskConical });
+    items.push({ to: '/lab', label: t.nav.lab, icon: Beaker });
+    if (evaluator.data?.email !== undefined) {
+      items.push({ to: '/evaluators', label: t.nav.evaluators, icon: UsersRound });
+    }
+  }
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[232px_1fr]">
@@ -206,6 +216,7 @@ export function Shell(): ReactNode {
               <Brand />
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <EvaluatorBanner />
               {clock.data ? <SimulatedDate now={clock.data.now} /> : null}
               <LanguageSwitch compact />
               <div className="lg:hidden">
