@@ -5,7 +5,7 @@ import {
   ensureLabClinicAndClock,
   type EngineRuntime,
   labIngestion,
-  LabClockRegistry,
+  type LabClockRegistry,
 } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { trackEvaluatorEvent } from './evaluator-tracking.ts';
