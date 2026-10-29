@@ -42,7 +42,12 @@ function labHandlers() {
       return HttpResponse.json(patient, { status: 201 });
     }),
     http.post('*/api/demo/lab/documents', async ({ request }) => {
-      const body = (await request.json()) as { patientId: string; text?: string };
+      const body = (await request.json()) as {
+        patientId: string;
+        text?: string;
+        documentDate?: string;
+        documentType?: string;
+      };
       const patientId = body.patientId;
       const created: LabExpectationView = {
         id: `exp-${String(nextExpectationId)}`,
@@ -61,6 +66,8 @@ function labHandlers() {
         {
           patientId,
           clinicId: 'lab-clinic',
+          documentDate: body.documentDate ?? '2026-01-05',
+          documentType: body.documentType ?? 'consultation_note',
           text: body.text ?? '',
           extraction: {
             model: 'fake-regex-extractor',
@@ -140,6 +147,13 @@ describe('the Lab page', () => {
     await screen.findAllByText(/Follow-up visit pending/);
     expect(screen.getByText('What the engine expects now')).toBeInTheDocument();
     expect(screen.getAllByText(/Control en 3 meses/).length).toBeGreaterThan(0);
+
+    // Regression: the timeline must show the document's own date (today in
+    // the lab's clock, Jan 5 2026) and a clear label naming its type, never
+    // the due date of a plan item it created (Apr 5 2026).
+    expect(await screen.findByText('Document uploaded: Consultation note')).toBeInTheDocument();
+    expect(screen.getByText('Jan 5, 2026')).toBeInTheDocument();
+    expect(screen.queryByText('Apr 5, 2026')).not.toBeInTheDocument();
   });
 
   it("does not send a request when the diagnosis form's required field is empty", async () => {

@@ -1436,6 +1436,7 @@ const lab: Messages['lab'] = {
   saving: 'Guardando…',
   readByTitle: (model) => `Leído por ${model}`,
   savedTitle: 'Guardado en el registro',
+  documentUploadedTitle: (documentType) => `Documento cargado: ${documentType}`,
   timelineTitle: 'Cronología',
   timelineEmpty: 'Todavía no hay nada en el registro de este paciente.',
   expectationsTitle: 'Expectativas',

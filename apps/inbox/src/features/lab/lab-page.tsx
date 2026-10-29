@@ -85,8 +85,8 @@ export function LabPage(): ReactNode {
     });
     addTimelineEntry(
       response.patientId,
-      response.extraction.planItems[0]?.dueAt.slice(0, 10) ?? '',
-      t.lab.savedTitle,
+      response.documentDate,
+      t.lab.documentUploadedTitle(t.lab.documentTypes[response.documentType]),
     );
   }
 

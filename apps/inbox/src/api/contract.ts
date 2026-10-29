@@ -632,6 +632,9 @@ export interface LabDocumentUploadRequest {
 export interface LabDocumentResponse {
   patientId: string;
   clinicId: string;
+  /** `YYYY-MM-DD`: the document's own date, as submitted (never a plan item's due date). */
+  documentDate: string;
+  documentType: LabDocumentType;
   /** The text that was read: pasted, or extracted from the uploaded file. */
   text: string;
   extraction: DemoConsultationResponse['extraction'];

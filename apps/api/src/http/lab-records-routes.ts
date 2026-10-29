@@ -445,6 +445,12 @@ export function registerLabRecordRoutes(
       {
         patientId,
         clinicId: clinic.id,
+        // The document's own date and type, echoed back: the timeline
+        // entry the lab page adds is labeled and dated from these, never
+        // from a plan item's due date (which is not when the document was
+        // written).
+        documentDate: upload.documentDate,
+        documentType: upload.documentType,
         // The text that was read (pasted, or extracted from the file): the
         // readback highlights every quote in it, for a file upload too.
         text,

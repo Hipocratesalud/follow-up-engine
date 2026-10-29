@@ -1450,6 +1450,7 @@ const lab = {
   saving: 'Saving…',
   readByTitle: (model: string): string => `Read by ${model}`,
   savedTitle: 'Saved to the record',
+  documentUploadedTitle: (documentType: string): string => `Document uploaded: ${documentType}`,
   timelineTitle: 'Timeline',
   timelineEmpty: 'Nothing in this patient’s record yet.',
   expectationsTitle: 'Expectations',
