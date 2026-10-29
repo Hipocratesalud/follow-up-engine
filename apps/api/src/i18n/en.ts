@@ -667,6 +667,8 @@ export const EN = {
       dismissNoteRequired: 'Write a note that explains the reason.',
       suppressNeedsNotApplicable:
         'You can only stop reminding a case that does not apply to this patient.',
+      labPatientRequired: 'Pick an existing lab patient or create a new one.',
+      labDocumentRequired: 'Upload a file or paste the document text.',
     },
   },
 
@@ -754,11 +756,13 @@ export const EN = {
   accessGate: {
     title: 'Clinical follow-up',
     heading: 'Clinical follow-up',
-    intro: 'This demo is private. Enter the access code you were given.',
+    intro: 'This demo is private. Enter your email and the access code you were given.',
+    emailLabel: 'Your email',
     codeLabel: 'Access code',
     submit: 'Enter',
     wrongCode: 'That code is not valid. Check it and try again.',
+    invalidEmail: 'Enter a valid email address.',
     tooManyAttempts: 'Too many attempts. Wait a minute and try again.',
-    required: 'Enter the access code first.',
+    required: 'Enter your email and the access code first.',
   },
 } satisfies ApiMessages;

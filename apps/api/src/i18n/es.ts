@@ -676,6 +676,8 @@ export const ES = {
       dismissNoteRequired: 'Escribe una nota que explique el motivo.',
       suppressNeedsNotApplicable:
         'Solo puedes dejar de recordar un caso que no aplica a este paciente.',
+      labPatientRequired: 'Elige un paciente de laboratorio existente o crea uno nuevo.',
+      labDocumentRequired: 'Sube un archivo o pega el texto del documento.',
     },
   },
 
@@ -766,11 +768,13 @@ export const ES = {
   accessGate: {
     title: 'Seguimiento clínico',
     heading: 'Seguimiento clínico',
-    intro: 'Esta demo es privada. Escribe el código de acceso que te compartieron.',
+    intro: 'Esta demo es privada. Escribe tu correo y el código de acceso que te compartieron.',
+    emailLabel: 'Tu correo',
     codeLabel: 'Código de acceso',
     submit: 'Entrar',
     wrongCode: 'Ese código no es válido. Revísalo e inténtalo de nuevo.',
+    invalidEmail: 'Escribe un correo válido.',
     tooManyAttempts: 'Demasiados intentos. Espera un minuto e inténtalo de nuevo.',
-    required: 'Primero escribe el código de acceso.',
+    required: 'Primero escribe tu correo y el código de acceso.',
   },
 } satisfies ApiMessages;
