@@ -21,6 +21,21 @@ import {
 
 const isoDate = z.string().meta({ format: 'date-time', example: '2026-01-21T12:00:00.000Z' });
 
+/** A comma-separated query value (`?layer=universal,doctor_plan`). */
+const csv = <T extends z.ZodType<string, string>>(item: T) =>
+  z
+    .string()
+    .transform((value) =>
+      value
+        .split(',')
+        .map((part) => part.trim())
+        .filter((part) => part !== ''),
+    )
+    .pipe(z.array(item).min(1))
+    .optional();
+
+const ProtocolIdSchema = z.string().trim().min(1).max(100);
+
 export const PatientQueueItemSchema = z
   .object({
     patient: PatientSummarySchema,
@@ -61,12 +76,42 @@ export const PatientQueueItemSchema = z
   })
   .meta({ id: 'PatientQueueItem' });
 
+export const LayerFacetSchema = z
+  .object({
+    layer: LayerSchema,
+    label: z.string().meta({ description: 'Localized ("Orders and results")' }),
+    count: z.number().int().meta({ description: 'Patients matching it, ignoring `layer`' }),
+  })
+  .meta({ id: 'LayerFacet' });
+
+export const ProtocolFacetSchema = z
+  .object({
+    id: z.string().meta({ example: 'pregnancy' }),
+    label: z.string().meta({ description: 'Localized protocol name, from the catalog' }),
+    count: z.number().int().meta({ description: 'Patients matching it, ignoring `protocol`' }),
+  })
+  .meta({ id: 'ProtocolFacet' });
+
+export const PatientQueueFacetsSchema = z
+  .object({
+    layers: z.array(LayerFacetSchema).meta({ description: 'Every reason layer, in engine order' }),
+    protocols: z
+      .array(ProtocolFacetSchema)
+      .meta({ description: 'Every protocol enabled for the clinic' }),
+  })
+  .meta({ id: 'PatientQueueFacets' });
+
 export const PatientQueuePageSchema = z
   .object({
     items: z.array(PatientQueueItemSchema),
     nextCursor: z.string().optional(),
     total: z.number().int().meta({ description: 'Patients matching the query, across all pages' }),
     totalCases: z.number().int().meta({ description: 'Their cases matching the query' }),
+    facets: PatientQueueFacetsSchema.meta({
+      description:
+        'Over the current view, search and owner, before `layer` and `protocol`: each facet ' +
+        'ignores only its own filter, so picking a layer never hides a protocol count and back',
+    }),
   })
   .meta({ id: 'PatientQueuePage' });
 
@@ -77,6 +122,13 @@ export const PatientQueueQuerySchema = z.object({
   assignee: z.string().max(120).optional(),
   /** Patient name or id contains this text. */
   q: z.string().trim().max(100).optional(),
+  /**
+   * Reason layer(s), comma-separated: a patient matches if any open reason
+   * (in the selected view) is in one of them.
+   */
+  layer: csv(LayerSchema),
+  /** Protocol id(s), comma-separated (from the catalog); same OR-match rule as `layer`. */
+  protocol: csv(ProtocolIdSchema),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional().default(50),
 });
@@ -99,4 +151,6 @@ export const PlanItemReviewResponseSchema = z
 
 export type PatientQueueItem = z.infer<typeof PatientQueueItemSchema>;
 export type PatientQueuePage = z.infer<typeof PatientQueuePageSchema>;
+export type PatientQueueFacets = z.infer<typeof PatientQueueFacetsSchema>;
+export type PatientQueueQuery = z.infer<typeof PatientQueueQuerySchema>;
 export type PlanItemReviewResponse = z.infer<typeof PlanItemReviewResponseSchema>;

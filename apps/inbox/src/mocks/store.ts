@@ -2390,7 +2390,7 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           limit: 200,
         }),
       );
-      return mockPatientQueuePage(views, query);
+      return mockPatientQueuePage(views, query, locale);
     },
 
     getPatientCard,

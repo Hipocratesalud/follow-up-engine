@@ -125,6 +125,12 @@ export const EN = {
     cadence: 'Stopped coming to their usual visits',
     protocol: 'Protocol check-up due',
   },
+  layerLabels: {
+    universal: 'Orders and results',
+    doctor_plan: "Doctor's plan",
+    cadence: 'Visit frequency',
+    protocol: 'Protocol',
+  },
   planItems: {
     follow_up_visit: 'Follow-up visit in the plan',
     lab: 'Lab test in the plan',

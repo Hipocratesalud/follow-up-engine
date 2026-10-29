@@ -443,12 +443,25 @@ const OPERATIONS: readonly Operation[] = [
     description:
       'Cases are selected by the filters, then grouped by patient; a page never splits a ' +
       'patient. Ordered by the most urgent case of each patient (closed view: oldest first). ' +
-      '`total` counts patients, `totalCases` their cases.',
+      '`total` counts patients, `totalCases` their cases. `facets` has the counts for the ' +
+      'filter bar, each ignoring only its own filter.',
     params: [
       { name: 'view', in: 'query', enum: ['active', 'closed', 'all'] },
       { name: 'origin', in: 'query', enum: ['live', 'backfill'] },
       { name: 'assignee', in: 'query', description: 'Owner id (from /api/inbox/owners)' },
       { name: 'q', in: 'query', description: 'Patient name or id contains this text' },
+      {
+        name: 'layer',
+        in: 'query',
+        description:
+          'Comma-separated reason layers (universal, doctor_plan, cadence, protocol): a ' +
+          'patient matches if any open reason is in one of them',
+      },
+      {
+        name: 'protocol',
+        in: 'query',
+        description: 'Comma-separated protocol ids from the catalog; same OR-match rule as layer',
+      },
       { name: 'cursor', in: 'query' },
       { name: 'limit', in: 'query', description: 'Patients per page (1-200, default 50)' },
     ],

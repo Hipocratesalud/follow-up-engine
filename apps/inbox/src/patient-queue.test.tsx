@@ -2,6 +2,8 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { LOCALES, type Locale, messagesFor } from './i18n/index.ts';
 import { mockApiCopy } from './mocks/api-copy.ts';
+import { LAYER_LABELS } from './mocks/patient-queue.ts';
+import { mockProtocolCatalog } from './mocks/seed.ts';
 import { createMockStore, type MockStore } from './mocks/store.ts';
 import { renderApp } from './test/render.tsx';
 
@@ -132,6 +134,44 @@ describe.each(LOCALES)('HIP-141 in %s', (locale: Locale) => {
           t.inbox.showingPatients(activePatients, activePatients, activeCases),
         ),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('the filter bar', () => {
+    it('filters by reason type and by condition together, then clears', async () => {
+      const { user } = renderApp('/inbox', { locale });
+      // Fernando Ríos: one reason, the hypertension protocol. María Fernanda
+      // Ortiz: a doctor's-plan and a universal reason, no protocol at all.
+      await screen.findByRole('link', { name: /Fernando Ríos/ });
+      expect(screen.getByRole('link', { name: /María Fernanda Ortiz/ })).toBeInTheDocument();
+
+      const protocolLabel = LAYER_LABELS[locale].protocol;
+      await user.click(screen.getByRole('button', { name: startingWith(protocolLabel) }));
+      await waitFor(() => {
+        expect(
+          screen.queryByRole('link', { name: /María Fernanda Ortiz/ }),
+        ).not.toBeInTheDocument();
+      });
+      expect(screen.getByRole('link', { name: /Fernando Ríos/ })).toBeInTheDocument();
+
+      const hypertensionLabel =
+        mockProtocolCatalog(locale).find((protocol) => protocol.id === 'hypertension')?.name ?? '';
+      await user.click(screen.getByRole('button', { name: startingWith(hypertensionLabel) }));
+      // Scoped to the queue list: the sidebar has its own links.
+      const patientLinks = () =>
+        screen
+          .getAllByRole('link')
+          .filter((link) => (link.getAttribute('href') ?? '').startsWith('/inbox/'));
+      await waitFor(() => {
+        expect(patientLinks()).toHaveLength(1);
+      });
+      expect(screen.getByRole('link', { name: /Fernando Ríos/ })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: t.inbox.filters.clear }));
+      await waitFor(() => {
+        expect(screen.getByRole('link', { name: /María Fernanda Ortiz/ })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('button', { name: t.inbox.filters.clear })).not.toBeInTheDocument();
     });
   });
 

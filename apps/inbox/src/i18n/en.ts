@@ -475,6 +475,15 @@ const inbox = {
   clearSearch: 'Clear search',
   ownerLabel: 'Owner',
   allOwners: 'All owners',
+  /** The reason-type and condition filter bar of the queue (HIP-141). */
+  filters: {
+    groupLabel: 'Filter the queue',
+    reasonType: 'Reason type',
+    condition: 'Condition',
+    clear: 'Clear filters',
+    title: 'No matches',
+    body: 'No patients match these filters in this view.',
+  },
   loading: 'Loading patients',
   error: 'We could not load the patients',
   showing: (shown: number, total: number): string =>

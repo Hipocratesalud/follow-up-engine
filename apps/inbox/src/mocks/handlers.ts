@@ -327,6 +327,8 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
         const origin = ORIGINS.find((candidate) => candidate === url.searchParams.get('origin'));
         const assignee = url.searchParams.get('assignee');
         const q = url.searchParams.get('q');
+        const layer = url.searchParams.get('layer');
+        const protocol = url.searchParams.get('protocol');
         const copy = mockApiCopy(locale);
         checkLength(copy, locale, 'q', q, INPUT_LIMITS.search, copy.errors.fields.search);
         const cursor = url.searchParams.get('cursor');
@@ -336,6 +338,8 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
           ...(origin ? { origin } : {}),
           ...(assignee ? { assignee } : {}),
           ...(q ? { q } : {}),
+          ...(layer ? { layer } : {}),
+          ...(protocol ? { protocol } : {}),
           ...(cursor ? { cursor } : {}),
           ...(limit === undefined ? {} : { limit }),
         });

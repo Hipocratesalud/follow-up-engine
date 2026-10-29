@@ -24,6 +24,7 @@ import {
   type PatientId,
   policyOf,
   practitionerId,
+  type Protocol,
   withoutSubsumedConditions,
 } from '@follow-up-engine/core';
 import { taskPriority } from '@follow-up-engine/fhir';
@@ -388,6 +389,11 @@ export class InboxPresenter {
         return expectation === undefined ? [] : [expectation];
       }),
     );
+  }
+
+  /** The protocols enabled for the clinic (the `protocol` filter options, HIP-141). */
+  get protocols(): readonly Protocol[] {
+    return this.#catalog.protocols;
   }
 
   /**

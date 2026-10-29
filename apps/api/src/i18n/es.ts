@@ -127,6 +127,12 @@ export const ES = {
     cadence: 'Dejó de venir a su control habitual',
     protocol: 'Control del protocolo pendiente',
   },
+  layerLabels: {
+    universal: 'Órdenes y resultados',
+    doctor_plan: 'Plan del médico',
+    cadence: 'Frecuencia de visitas',
+    protocol: 'Protocolo',
+  },
   planItems: {
     follow_up_visit: 'Control indicado en el plan',
     lab: 'Examen de laboratorio indicado en el plan',

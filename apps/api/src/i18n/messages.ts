@@ -234,6 +234,8 @@ export interface ApiMessages {
   readonly pendingFollowUp: string;
   readonly qualityFindings: Readonly<Record<QualityFindingKind, string>>;
   readonly layerFallbacks: Readonly<Record<ExpectationLayer, string>>;
+  /** Reason type filter chips of the patient queue (HIP-141): one per engine layer. */
+  readonly layerLabels: Readonly<Record<ExpectationLayer, string>>;
   readonly planItems: Readonly<Record<PlanItemKind, string>>;
   readonly planTest: string;
   readonly planTestNamed: (test: string) => string;

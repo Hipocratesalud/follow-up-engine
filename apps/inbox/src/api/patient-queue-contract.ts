@@ -51,6 +51,30 @@ export interface PatientQueueItem {
   cases: CaseView[];
 }
 
+/** One chip of the reason-type filter: an engine layer, with the patients it currently matches. */
+export interface LayerFacet {
+  layer: Layer;
+  label: string;
+  count: number;
+}
+
+/** One chip of the condition filter: a protocol of the catalog. */
+export interface ProtocolFacet {
+  id: string;
+  label: string;
+  count: number;
+}
+
+/**
+ * Counts for the filter bar, over the current view, search and owner: each
+ * ignores only its own filter, so picking a layer never hides a protocol
+ * count and back.
+ */
+export interface PatientQueueFacets {
+  layers: LayerFacet[];
+  protocols: ProtocolFacet[];
+}
+
 export interface PatientQueuePage {
   items: PatientQueueItem[];
   nextCursor?: string;
@@ -58,6 +82,7 @@ export interface PatientQueuePage {
   total: number;
   /** Their cases. */
   totalCases: number;
+  facets: PatientQueueFacets;
 }
 
 export interface PatientQueueQuery {
@@ -65,6 +90,10 @@ export interface PatientQueueQuery {
   origin?: Origin;
   assignee?: string;
   q?: string;
+  /** Comma-separated layer ids: a patient matches if any open reason is in one of them. */
+  layer?: string;
+  /** Comma-separated protocol ids (from the catalog); same OR-match rule as `layer`. */
+  protocol?: string;
   cursor?: string;
   limit?: number;
 }

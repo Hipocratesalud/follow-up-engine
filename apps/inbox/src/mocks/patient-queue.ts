@@ -1,5 +1,6 @@
-import type { CaseStatus, CaseView, Page } from '../api/contract.ts';
+import { LAYERS, type CaseStatus, type CaseView, type Page } from '../api/contract.ts';
 import type {
+  PatientQueueFacets,
   PatientQueueItem,
   PatientQueuePage,
   PatientQueueQuery,
@@ -9,6 +10,24 @@ import {
   type PlanItemView,
   type PlanItemViewKind,
 } from '../api/plan-item-contract.ts';
+import type { Locale } from '../i18n/index.ts';
+import { mockProtocolCatalog } from './seed.ts';
+
+/** The reason-type chip labels the mock API answers with, by locale (tests read these too). */
+export const LAYER_LABELS: Readonly<Record<Locale, Record<(typeof LAYERS)[number], string>>> = {
+  en: {
+    universal: 'Orders and results',
+    doctor_plan: "Doctor's plan",
+    cadence: 'Visit frequency',
+    protocol: 'Protocol',
+  },
+  es: {
+    universal: 'Órdenes y resultados',
+    doctor_plan: 'Plan del médico',
+    cadence: 'Frecuencia de visitas',
+    protocol: 'Protocolo',
+  },
+};
 
 /*
  * The mock API's patient queue and plan item review (HIP-141), built the way
@@ -150,30 +169,72 @@ export function mockPatientQueueItem(views: readonly CaseView[]): PatientQueueIt
   };
 }
 
-/** A page of the patient queue from every matching case view (offset cursor, like the mock's). */
+/** `value` is absent, or one of `present` is in it (comma-separated, OR within one filter). */
+function csvMatches(value: string | undefined, present: readonly string[]): boolean {
+  if (value === undefined || value.trim() === '') return true;
+  const selected = value
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part !== '');
+  return present.some((candidate) => selected.includes(candidate));
+}
+
+/**
+ * A page of the patient queue from every matching case view (offset cursor,
+ * like the mock's), filtered by `layer` and `protocol` and with their facet
+ * counts (each ignoring only its own filter), as the API does.
+ */
 export function mockPatientQueuePage(
   views: readonly CaseView[],
   query: PatientQueueQuery,
+  locale: Locale,
 ): PatientQueuePage {
   const byPatient = new Map<string, CaseView[]>();
   for (const view of views) {
     byPatient.set(view.patient.id, [...(byPatient.get(view.patient.id) ?? []), view]);
   }
-  const items = [...byPatient.values()]
-    .map(mockPatientQueueItem)
+  const entries = [...byPatient.values()]
+    .map((cases) => ({ item: mockPatientQueueItem(cases), cases: cases.length }))
     .sort(
       (left, right) =>
-        right.priority - left.priority || left.patient.name.localeCompare(right.patient.name),
+        right.item.priority - left.item.priority ||
+        left.item.patient.name.localeCompare(right.item.patient.name),
     );
+  const matchesLayer = (item: PatientQueueItem) => csvMatches(query.layer, item.layers);
+  const matchesProtocol = (item: PatientQueueItem) =>
+    csvMatches(
+      query.protocol,
+      item.protocols.map((protocol) => protocol.id),
+    );
+  const matching = entries.filter(
+    (entry) => matchesLayer(entry.item) && matchesProtocol(entry.item),
+  );
+  const layers = LAYERS.map((layer) => ({
+    layer,
+    label: LAYER_LABELS[locale][layer],
+    count: entries.filter(
+      (entry) => matchesProtocol(entry.item) && entry.item.layers.includes(layer),
+    ).length,
+  }));
+  const protocols = mockProtocolCatalog(locale).map((protocol) => ({
+    id: protocol.id,
+    label: protocol.name,
+    count: entries.filter(
+      (entry) =>
+        matchesLayer(entry.item) && entry.item.protocols.some((ref) => ref.id === protocol.id),
+    ).length,
+  }));
   const offset = query.cursor === undefined ? 0 : Number(query.cursor) || 0;
   const limit = query.limit ?? 50;
-  const page = items.slice(offset, offset + limit);
+  const page = matching.slice(offset, offset + limit);
   const next = offset + page.length;
+  const facets: PatientQueueFacets = { layers, protocols };
   return {
-    items: page,
-    total: items.length,
-    totalCases: views.length,
-    ...(next < items.length ? { nextCursor: String(next) } : {}),
+    items: page.map((entry) => entry.item),
+    total: matching.length,
+    totalCases: matching.reduce((sum, entry) => sum + entry.cases, 0),
+    ...(next < matching.length ? { nextCursor: String(next) } : {}),
+    facets,
   };
 }
 

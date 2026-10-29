@@ -3,8 +3,11 @@ import {
   type CaseFilter,
   type CaseStatus,
   type ClinicId,
+  EXPECTATION_LAYERS,
   type ExpectationId,
+  InvalidCursorError,
   NotFoundError,
+  type PatientCases,
   type PatientId,
   patientId as toPatientId,
   type PlanItemCorrection,
@@ -73,6 +76,52 @@ async function searchPatientIds(
     );
   }
   return patients.map((record) => toPatientId(record.id));
+}
+
+/** Patients fetched per store round trip while scanning every match of the base filter. */
+const SCAN_PAGE_SIZE = 200;
+
+/**
+ * Every patient and their cases matching the base filter (view, origin,
+ * assignee, search), across every store page: the universe the `layer` and
+ * `protocol` filters and the facet counts are computed over, in memory.
+ */
+async function listAllPatients(
+  runtime: EngineRuntime,
+  clinicId: ClinicId,
+  filter: CaseFilter,
+  orderBy: 'priority' | 'created_at',
+): Promise<PatientCases[]> {
+  const { stores } = runtime.storage;
+  const items: PatientCases[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await stores.cases.listPatients(clinicId, {
+      ...filter,
+      orderBy,
+      limit: SCAN_PAGE_SIZE,
+      ...(cursor === undefined ? {} : { cursor }),
+    });
+    items.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor !== undefined);
+  return items;
+}
+
+/** `selected` is absent (no filter), or `present` has one of its values (OR within one filter). */
+function matchesAny(selected: readonly string[] | undefined, present: readonly string[]): boolean {
+  return selected === undefined || present.some((value) => selected.includes(value));
+}
+
+/** The offset a patient queue page cursor carries, once the in-memory filters narrow the match set. */
+function offsetCursor(cursor: string | undefined): number {
+  if (cursor === undefined) {
+    return 0;
+  }
+  if (!/^\d{1,9}$/.test(cursor)) {
+    throw new InvalidCursorError();
+  }
+  return Number(cursor);
 }
 
 /** A command on a plan item, with the engine's refusals in the clinic's words. */
@@ -170,20 +219,46 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
         : { patientIds: await searchPatientIds(runtime, clinicId, query.q) }),
       releasedAsOf: presenter.now,
     };
-    const [page, count] = await Promise.all([
-      stores.cases.listPatients(clinicId, {
-        ...filter,
-        orderBy: query.view === 'closed' ? 'created_at' : 'priority',
-        limit: query.limit,
-        ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
-      }),
-      stores.cases.count(clinicId, filter),
-    ]);
+    const orderBy = query.view === 'closed' ? 'created_at' : 'priority';
+    const allPatients = await listAllPatients(runtime, clinicId, filter, orderBy);
+    const allItems = await patientQueueItems(presenter, allPatients);
+    const entries = allItems.map((item, index) => ({
+      item,
+      cases: allPatients[index]?.cases.length ?? 0,
+    }));
+    const matchesLayer = (item: PatientQueueItem): boolean => matchesAny(query.layer, item.layers);
+    const matchesProtocol = (item: PatientQueueItem): boolean =>
+      matchesAny(
+        query.protocol,
+        item.protocols.map((protocol) => protocol.id),
+      );
+    const matching = entries.filter(
+      (entry) => matchesLayer(entry.item) && matchesProtocol(entry.item),
+    );
+    const layers = EXPECTATION_LAYERS.map((layer) => ({
+      layer,
+      label: c.var.t.layerLabels[layer],
+      count: entries.filter(
+        (entry) => matchesProtocol(entry.item) && entry.item.layers.includes(layer),
+      ).length,
+    }));
+    const protocols = presenter.protocols.map((protocol) => ({
+      id: protocol.id,
+      label: presenter.ruleText(protocol.reason.code, protocol.reason.label),
+      count: entries.filter(
+        (entry) =>
+          matchesLayer(entry.item) && entry.item.protocols.some((ref) => ref.id === protocol.id),
+      ).length,
+    }));
+    const offset = offsetCursor(query.cursor);
+    const page = matching.slice(offset, offset + query.limit);
+    const next = offset + page.length;
     return c.json({
-      items: await patientQueueItems(presenter, page.items),
-      total: count.patients,
-      totalCases: count.cases,
-      ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
+      items: page.map((entry) => entry.item),
+      total: matching.length,
+      totalCases: matching.reduce((sum, entry) => sum + entry.cases, 0),
+      ...(next < matching.length ? { nextCursor: String(next) } : {}),
+      facets: { layers, protocols },
     });
   });
 

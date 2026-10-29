@@ -98,6 +98,102 @@ describe.each(STORAGES)('patient queue and plan item review (%s)', (storage) => 
     expect(garbage.status).toBe(400);
   });
 
+  it('filters by reason layer and by protocol, with facets that ignore only their own filter', async () => {
+    // Isolates each layer to its own patient: a pending lab (universal), a
+    // plan the doctor wrote with no order (doctor_plan), and a diabetic
+    // patient whose HbA1c comes due by the diabetes protocol (protocol).
+    // `q` scopes every assertion to these three, apart from Ana and Bruno.
+    const clockAtStart = await h.call<{ now: string }>('/api/demo/clock');
+    const diabetic = buildConsultationBundle({
+      consultationId: 'cons-filter-diabetes',
+      patient: { id: 'pat-filter-diabetes', name: 'Zeta Filtro Diabetes' },
+      specialty: 'internal_medicine',
+      occurredAt: new Date(clockAtStart.body.now),
+      noteText: 'Paciente estable, sin cambios.',
+      diagnoses: [{ icd10: 'E11', verification: 'confirmed' }],
+    });
+    expect((await h.call('/fhir?sync=true', { body: diabetic, fhir: true })).status).toBe(200);
+    // The diabetes HbA1c (due at 90 days) is overdue well before the lab and
+    // the plan item (due at 15 and 14 days), opened from here on.
+    await h.call('/api/demo/clock/advance', { body: { days: 80 } });
+
+    const clockLater = await h.call<{ now: string }>('/api/demo/clock');
+    const universal = buildConsultationBundle({
+      consultationId: 'cons-filter-universal',
+      patient: { id: 'pat-filter-universal', name: 'Zeta Filtro Universal' },
+      specialty: 'internal_medicine',
+      occurredAt: new Date(clockLater.body.now),
+      noteText: 'Paciente estable, sin cambios.',
+      orders: [{ loinc: '4548-4', display: 'HbA1c' }],
+    });
+    expect((await h.call('/fhir?sync=true', { body: universal, fhir: true })).status).toBe(200);
+    const plan = buildConsultationBundle({
+      consultationId: 'cons-filter-plan',
+      patient: { id: 'pat-filter-plan', name: 'Zeta Filtro Plan' },
+      specialty: 'internal_medicine',
+      occurredAt: new Date(clockLater.body.now),
+      noteText: 'Paciente estable. Control en 2 semanas.',
+    });
+    expect((await h.call('/fhir?sync=true', { body: plan, fhir: true })).status).toBe(200);
+    // By now every one of the three is overdue, its case only a few days old.
+    await h.call('/api/demo/clock/advance', { body: { days: 16 } });
+
+    const base = '/api/inbox/patients-queue?q=zeta%20filtro';
+    const all = await h.call<PatientQueuePage>(base);
+    expect(all.body.total).toBe(3);
+    const byLayer = (layer: string): number =>
+      all.body.facets.layers.find((facet) => facet.layer === layer)?.count ?? 0;
+    expect(byLayer('universal')).toBe(1);
+    expect(byLayer('doctor_plan')).toBe(1);
+    expect(byLayer('protocol')).toBe(1);
+    expect(byLayer('cadence')).toBe(0);
+    const diabetesFacet = all.body.facets.protocols.find((facet) => facet.id === 'diabetes');
+    expect(diabetesFacet).toMatchObject({ count: 1 });
+    expect(diabetesFacet?.label.length).toBeGreaterThan(0);
+
+    const universalOnly = await h.call<PatientQueuePage>(`${base}&layer=universal`);
+    expect(universalOnly.body.items.map((item) => item.patient.id)).toEqual([
+      'pat-filter-universal',
+    ]);
+    // The layers facet ignores only `layer`: selecting universal does not zero its own
+    // count, nor hide what the other layers would add (no `protocol` filter is active).
+    const universalOnlyLayer = (layer: string): number =>
+      universalOnly.body.facets.layers.find((facet) => facet.layer === layer)?.count ?? 0;
+    expect(universalOnlyLayer('universal')).toBe(1);
+    expect(universalOnlyLayer('doctor_plan')).toBe(1);
+    expect(universalOnlyLayer('protocol')).toBe(1);
+
+    const orLayers = await h.call<PatientQueuePage>(`${base}&layer=universal,doctor_plan`);
+    expect(new Set(orLayers.body.items.map((item) => item.patient.id))).toEqual(
+      new Set(['pat-filter-universal', 'pat-filter-plan']),
+    );
+
+    const byProtocol = await h.call<PatientQueuePage>(`${base}&protocol=diabetes`);
+    expect(byProtocol.body.items.map((item) => item.patient.id)).toEqual(['pat-filter-diabetes']);
+    // The protocols facet ignores only `protocol`: its own chip keeps counting the
+    // patient it just selected, rather than collapsing to zero.
+    expect(byProtocol.body.facets.protocols.find((facet) => facet.id === 'diabetes')?.count).toBe(
+      1,
+    );
+    // `layer` is a different filter kind, so the layers facet still respects it: only
+    // the layer the diabetic patient actually has shows up once `protocol` narrows to him.
+    const byProtocolLayer = (layer: string): number =>
+      byProtocol.body.facets.layers.find((facet) => facet.layer === layer)?.count ?? 0;
+    expect(byProtocolLayer('protocol')).toBe(1);
+    expect(byProtocolLayer('universal')).toBe(0);
+
+    // AND across filter kinds: a layer and a protocol that both hold narrow together.
+    const combined = await h.call<PatientQueuePage>(`${base}&layer=protocol&protocol=diabetes`);
+    expect(combined.body.items.map((item) => item.patient.id)).toEqual(['pat-filter-diabetes']);
+    const mismatched = await h.call<PatientQueuePage>(`${base}&layer=universal&protocol=diabetes`);
+    expect(mismatched.body.items).toEqual([]);
+
+    // A protocol never seen among the matches: zero, not an error.
+    const none = await h.call<PatientQueuePage>(`${base}&protocol=hypertension`);
+    expect(none.body.items).toEqual([]);
+    expect(none.body.total).toBe(0);
+  });
+
   it('keeps actions per case and asks for contact once per patient and window', async () => {
     const card = await h.call<PatientQueueItem>(`/api/inbox/patients-queue/${PATIENT}`);
     expect(card.status).toBe(200);

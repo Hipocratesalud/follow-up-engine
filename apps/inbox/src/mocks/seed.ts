@@ -110,7 +110,7 @@ export const CLINIC_NAME = 'Centro Médico Los Álamos';
  * reasons carry the draft badge); the two mock-only ones are validated, so
  * the inbox also shows protocol reasons without it.
  */
-const MOCK_PROTOCOLS: Readonly<
+export const MOCK_PROTOCOLS: Readonly<
   Record<
     string,
     { readonly name: Localized; readonly version: string; readonly status: ProtocolStatus }
@@ -150,6 +150,16 @@ export function mockProtocolRef(ruleId: string, locale: Locale): ProtocolRef | u
   return id === undefined || protocol === undefined
     ? undefined
     : { id, name: protocol.name[locale], version: protocol.version, status: protocol.status };
+}
+
+/** The mock clinic's protocols, by id, named in `locale` (the condition filter's options). */
+export function mockProtocolCatalog(
+  locale: Locale,
+): { readonly id: string; readonly name: string }[] {
+  return Object.entries(MOCK_PROTOCOLS).map(([id, protocol]) => ({
+    id,
+    name: protocol.name[locale],
+  }));
 }
 
 export const ASSIGNEES = {

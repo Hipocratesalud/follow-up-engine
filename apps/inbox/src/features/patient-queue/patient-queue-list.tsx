@@ -21,11 +21,22 @@ import { INPUT_LIMITS } from '../../lib/limits.ts';
 import { useT } from '../../i18n/index.ts';
 import { CaseRowSkeleton } from '../inbox/case-row.tsx';
 import { isNewPatient, PatientRow } from './patient-row.tsx';
+import { QueueFilters } from './queue-filters.tsx';
 
 const VIEWS: readonly CaseListView[] = ['active', 'closed', 'all'];
 
 function parseView(value: string | null): CaseListView {
   return VIEWS.find((view) => view === value) ?? 'active';
+}
+
+/** A comma-separated URL param, as the ids the chips carry (empty when absent). */
+function parseIds(value: string | null): string[] {
+  return value === null || value === '' ? [] : value.split(',');
+}
+
+/** `value`, with `id` added if it was missing or removed if it was there. */
+function toggled(values: readonly string[], id: string): string[] {
+  return values.includes(id) ? values.filter((value) => value !== id) : [...values, id];
 }
 
 function ViewFilter({
@@ -124,6 +135,10 @@ export function PatientQueueList(): ReactNode {
   const [searchParams, setSearchParams] = useSearchParams();
   const view = parseView(searchParams.get('view'));
   const assignee = searchParams.get('assignee') ?? '';
+  const layerParam = searchParams.get('layer');
+  const protocolParam = searchParams.get('protocol');
+  const selectedLayers = parseIds(layerParam);
+  const selectedProtocols = parseIds(protocolParam);
   // A shared link may carry a longer search than the box accepts.
   const [searchText, setSearchText] = useState(
     (searchParams.get('q') ?? '').slice(0, INPUT_LIMITS.search),
@@ -133,23 +148,43 @@ export function PatientQueueList(): ReactNode {
     view,
     ...(assignee ? { assignee } : {}),
     ...(search ? { q: search } : {}),
+    ...(layerParam ? { layer: layerParam } : {}),
+    ...(protocolParam ? { protocol: protocolParam } : {}),
     limit: PAGE_SIZE,
   });
   const owners = useOwners();
 
-  const updateParam = useCallback(
-    (key: string, value: string, fallback: string): void => {
+  /** Clears a set of params in one update, so clearing several at once never races. */
+  const clearParams = useCallback(
+    (...keys: readonly string[]): void => {
       setSearchParams(
         (previous) => {
           const next = new URLSearchParams(previous);
-          if (value === fallback) next.delete(key);
-          else next.set(key, value);
+          for (const key of keys) next.delete(key);
           return next;
         },
         { replace: true },
       );
     },
     [setSearchParams],
+  );
+
+  const updateParam = useCallback(
+    (key: string, value: string, fallback: string): void => {
+      if (value === fallback) {
+        clearParams(key);
+        return;
+      }
+      setSearchParams(
+        (previous) => {
+          const next = new URLSearchParams(previous);
+          next.set(key, value);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams, clearParams],
   );
 
   useEffect(() => {
@@ -162,6 +197,18 @@ export function PatientQueueList(): ReactNode {
 
   function handleAssigneeChange(event: ChangeEvent<HTMLSelectElement>): void {
     updateParam('assignee', event.target.value, '');
+  }
+
+  function handleToggleLayer(layer: string): void {
+    updateParam('layer', toggled(selectedLayers, layer).join(','), '');
+  }
+
+  function handleToggleProtocol(protocolId: string): void {
+    updateParam('protocol', toggled(selectedProtocols, protocolId).join(','), '');
+  }
+
+  function handleClearFilters(): void {
+    clearParams('layer', 'protocol');
   }
 
   function handleSearchChange(event: ChangeEvent<HTMLInputElement>): void {
@@ -187,12 +234,16 @@ export function PatientQueueList(): ReactNode {
   const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
   const total = queue.data?.pages[0]?.total;
   const totalCases = queue.data?.pages[0]?.totalCases;
+  const facets = queue.data?.pages[0]?.facets;
+  const filtersActive = selectedLayers.length > 0 || selectedProtocols.length > 0;
   const ownerName = owners.data?.items.find((owner) => owner.id === assignee)?.name;
   const emptyCopy = search
     ? t.inbox.noMatches(search)
-    : assignee
-      ? t.inbox.noOwnerCases(ownerName ?? t.inbox.thisOwner)
-      : t.inbox.empty[view].body;
+    : filtersActive
+      ? t.inbox.filters.body
+      : assignee
+        ? t.inbox.noOwnerCases(ownerName ?? t.inbox.thisOwner)
+        : t.inbox.empty[view].body;
 
   return (
     <section aria-labelledby="case-list-title" className="flex min-w-0 flex-col gap-3">
@@ -260,6 +311,14 @@ export function PatientQueueList(): ReactNode {
             </option>
           ))}
         </select>
+        <QueueFilters
+          facets={facets}
+          selectedLayers={selectedLayers}
+          selectedProtocols={selectedProtocols}
+          onToggleLayer={handleToggleLayer}
+          onToggleProtocol={handleToggleProtocol}
+          onClear={handleClearFilters}
+        />
       </div>
 
       {queue.isPending ? (
@@ -273,7 +332,13 @@ export function PatientQueueList(): ReactNode {
       ) : items.length === 0 ? (
         <EmptyState
           icon={<CheckCheck className="size-5" aria-hidden="true" />}
-          title={search ? t.inbox.noResults : t.inbox.empty[view].title}
+          title={
+            search
+              ? t.inbox.noResults
+              : filtersActive
+                ? t.inbox.filters.title
+                : t.inbox.empty[view].title
+          }
         >
           {emptyCopy}
         </EmptyState>
