@@ -64,7 +64,7 @@ export interface Storage {
   readonly readModel: ReadModel;
   /** Scoped API keys of every clinic. */
   readonly apiKeys: ApiKeyStore;
-  /** The hosted demo's evaluator lab action log (docs/deploy.md#evaluator-identity-and-tracking). */
+  /** The evaluator lab's append-only action log (docs/deploy.md#hosted-demo), cross-clinic. */
   readonly evaluatorEvents: EvaluatorEventStore;
   registerClinic(registration: ClinicRegistration): Promise<Clinic>;
   /** Delivers pending outbox events (every clinic) through `publisher`. */

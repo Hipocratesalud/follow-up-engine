@@ -16,7 +16,7 @@ import {
   type WebhookDelivery,
 } from './schemas.ts';
 
-function extractionView(
+export function extractionView(
   t: ApiMessages,
   extraction: NoteExtraction,
   latencyMs: number,

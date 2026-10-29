@@ -108,13 +108,17 @@ export class MemoryEvaluatorEventStore implements EvaluatorEventStore {
   }
 
   list(query: EvaluatorEventQuery): Promise<EvaluatorEventPage> {
+    // Newest first by insertion order (matches the Postgres store's `seq
+    // DESC`), not by comparing `occurredAt` Date objects: two events
+    // recorded in the same millisecond (two logins in a fast test, or two
+    // actions in the same request tick) must still sort deterministically.
     const matches = this.#events
       .filter((event) => query.clinicId === undefined || event.clinicId === query.clinicId)
       .filter(
         (event) =>
           query.evaluatorEmail === undefined || event.evaluatorEmail === query.evaluatorEmail,
       )
-      .sort((left, right) => right.occurredAt.getTime() - left.occurredAt.getTime());
+      .toReversed();
     const start = query.cursor === undefined ? 0 : Number(query.cursor);
     const end = start + query.limit;
     const items = matches.slice(start, end);

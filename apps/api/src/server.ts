@@ -3,7 +3,7 @@ import { type EngineRuntime, Worker } from '@follow-up-engine/runtime';
 import type { ApiConfig } from './config.ts';
 import { type AppOptions, createApp } from './http/app.ts';
 import type { App } from './http/context.ts';
-import { deriveSessionSecret, loadInboxSite } from './http/site.ts';
+import { loadInboxSite } from './http/site.ts';
 import { DEFAULT_API_LOCALE } from './i18n/index.ts';
 
 export interface ApiServer {
@@ -37,9 +37,7 @@ export function createApiServer(
             ? {}
             : { inbox: loadInboxSite(config.inboxDistDir, defaultLocale) }),
           ...(config.accessCode === undefined ? {} : { accessCode: config.accessCode }),
-          ...(config.accessCode === undefined
-            ? {}
-            : { evaluatorSecret: deriveSessionSecret(config.sessionSecret ?? config.accessCode) }),
+          ...(config.sessionSecret === undefined ? {} : { sessionSecret: config.sessionSecret }),
         };
   const app = createApp(runtime, {
     ...appOptions,

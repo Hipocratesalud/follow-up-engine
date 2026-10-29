@@ -5,29 +5,55 @@ import {
   type FindingStatus,
   IMPLEMENTED_FINDING_CATEGORIES,
   NotFoundError,
+  type PatientId,
   patientId as toPatientId,
 } from '@follow-up-engine/core';
 import { clinicalFindingToDetectedIssue } from '@follow-up-engine/fhir';
-import type { EngineRuntime } from '@follow-up-engine/runtime';
+import type { EngineRuntime, EvaluatorAction } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { FindingPresenter, runView } from '../inbox/reviewer-presenter.ts';
 import type { ApiMessages } from '../i18n/index.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
+import { trackEvaluatorEvent } from './evaluator-tracking.ts';
 import {
   type FindingFlagView,
   FindingFlagUpdateSchema,
   FindingListQuerySchema,
   FindingReviewRequestSchema,
 } from './reviewer-schemas.ts';
-import { followUpUser } from './security.ts';
+import { actorId } from './security.ts';
 
 const MS_PER_DAY = 86_400_000;
 /** The metrics window: the last 90 days of reviews. */
 const METRICS_DAYS = 90;
 
 function userOf(c: Context<AppEnv>): string {
-  return followUpUser(c) ?? 'inbox-user';
+  return actorId(c);
+}
+
+/** Evaluator lab tracking (migration 0016): a no-op outside the hosted demo. */
+function track(
+  runtime: EngineRuntime,
+  c: Context<AppEnv>,
+  action: EvaluatorAction,
+  extra: {
+    readonly entityType?: string;
+    readonly entityId?: string;
+    readonly patientId?: PatientId;
+    readonly payload?: Record<string, unknown>;
+  } = {},
+): Promise<void> {
+  const evaluatorEmail = c.var.evaluatorEmail;
+  if (evaluatorEmail === undefined) {
+    return Promise.resolve();
+  }
+  return trackEvaluatorEvent(runtime, {
+    clinicId: c.var.clinicId,
+    evaluatorEmail,
+    action,
+    ...extra,
+  });
 }
 
 async function requireFinding(
@@ -168,6 +194,15 @@ export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
         verdict: body.verdict,
         ...(body.reason === undefined || body.reason === '' ? {} : { reason: body.reason }),
         userId: userOf(c),
+      });
+      await track(runtime, c, 'finding_review', {
+        entityType: 'finding',
+        entityId: id,
+        patientId: reviewed.patientId,
+        payload: {
+          verdict: body.verdict,
+          ...(body.reason === undefined || body.reason === '' ? {} : { reason: body.reason }),
+        },
       });
       return c.json(await new FindingPresenter(runtime, clinicId, c.var.t).view(reviewed));
     } catch (error) {

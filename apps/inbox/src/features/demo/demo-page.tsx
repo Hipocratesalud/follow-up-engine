@@ -1,6 +1,7 @@
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
+  Beaker,
   CalendarClock,
   CheckCircle2,
   FastForward,
@@ -23,6 +24,7 @@ import {
   queryKeys,
   useAdvanceClock,
   useDemoClock,
+  useEvaluator,
   useNoteReader,
   useRecovery,
   useStats,
@@ -71,6 +73,11 @@ function ClockPanel({
   const stats = useStats();
   const recovery = useRecovery();
   const advance = useAdvanceClock();
+  const evaluator = useEvaluator();
+  // Every evaluator moves their own lab's clock (the Lab page) instead:
+  // the shared demo's clock is one process, so an evaluator moving it
+  // forward would change what every other evaluator sees too.
+  const evaluatorLocked = evaluator.data?.email !== undefined;
   const [summary, setSummary] = useState<AdvanceSummary>();
   const [pendingDays, setPendingDays] = useState<number>();
 
@@ -111,31 +118,43 @@ function ClockPanel({
             <time dateTime={now}>{formatLongDate(now)}</time>
           </p>
         </div>
-        <div className="flex flex-col gap-2">
-          <p className="text-xs font-medium text-muted" id="advance-label">
-            {t.demo.advance}
-          </p>
-          <div role="group" aria-labelledby="advance-label" className="flex flex-wrap gap-2">
-            {ADVANCE_OPTIONS.map((days) => (
-              <Button
-                key={days}
-                value={days}
-                size="sm"
-                variant="secondary"
-                loading={pendingDays === days}
-                disabled={advance.isPending}
-                onClick={handleAdvance}
-                icon={<FastForward className="size-3.5" aria-hidden="true" />}
-              >
-                {t.demo.daysButton(days)}
-              </Button>
-            ))}
+        {evaluatorLocked ? (
+          <Link
+            to="/lab"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm font-medium text-primary hover:bg-surface-2"
+          >
+            <Beaker className="size-3.5" aria-hidden="true" />
+            {t.demo.goToLab}
+          </Link>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-medium text-muted" id="advance-label">
+              {t.demo.advance}
+            </p>
+            <div role="group" aria-labelledby="advance-label" className="flex flex-wrap gap-2">
+              {ADVANCE_OPTIONS.map((days) => (
+                <Button
+                  key={days}
+                  value={days}
+                  size="sm"
+                  variant="secondary"
+                  loading={pendingDays === days}
+                  disabled={advance.isPending}
+                  onClick={handleAdvance}
+                  icon={<FastForward className="size-3.5" aria-hidden="true" />}
+                >
+                  {t.demo.daysButton(days)}
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
       <div className="flex flex-col gap-2 px-5 pb-4">
         <p aria-live="polite" className="text-sm text-muted">
-          {summary ? (
+          {evaluatorLocked ? (
+            t.demo.evaluatorAdvanceDisabled
+          ) : summary ? (
             <>
               {t.demo.passed(summary.days)}
               {t.demo.engineRan}

@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Beaker,
   CalendarClock,
   ClipboardCheck,
   FlaskConical,
@@ -14,6 +15,7 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 import {
   useClinic,
   useDemoClock,
+  useEvaluator,
   useOpenShadowFindings,
   useRecovery,
   useStats,
@@ -21,6 +23,7 @@ import {
 import { cx } from '../lib/cx.ts';
 import { useT } from '../i18n/index.ts';
 import { formatDate, formatShortDate } from '../lib/format.ts';
+import { EvaluatorBanner } from './evaluator-banner.tsx';
 import { LanguageSwitch } from './language-switch.tsx';
 import { ThemeToggle } from './theme.tsx';
 
@@ -143,10 +146,15 @@ export function Shell(): ReactNode {
   const stats = useStats();
   const recovery = useRecovery();
   const clock = useDemoClock();
+  const evaluator = useEvaluator();
   const findings = useOpenShadowFindings();
 
   const items: NavItem[] = [
     { to: '/inbox', label: t.nav.inbox, icon: Inbox, count: stats.data?.activePatients },
+  ];
+  // Lab is the evaluator's primary action: right after Inbox.
+  if (clock.data) items.push({ to: '/lab', label: t.nav.lab, icon: Beaker });
+  items.push(
     {
       to: '/recovery',
       label: t.nav.recovery,
@@ -160,11 +168,14 @@ export function Shell(): ReactNode {
       icon: Stethoscope,
       count: findings.data?.counts.byStatus.open,
     },
-  ];
+  );
   items.push({ to: '/metrics', label: t.nav.metrics, icon: BarChart3 });
-  if (clock.data) items.push({ to: '/demo', label: t.nav.demo, icon: FlaskConical });
   if (clock.data) {
+    items.push({ to: '/demo', label: t.nav.demo, icon: FlaskConical });
     items.push({ to: '/engine-tests', label: t.nav.engineTests, icon: ClipboardCheck });
+    if (evaluator.data?.email !== undefined) {
+      items.push({ to: '/evaluators', label: t.nav.evaluators, icon: UsersRound });
+    }
   }
 
   return (
@@ -210,6 +221,7 @@ export function Shell(): ReactNode {
               <Brand />
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <EvaluatorBanner />
               {clock.data ? <SimulatedDate now={clock.data.now} /> : null}
               <LanguageSwitch compact />
               <div className="lg:hidden">

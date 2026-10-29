@@ -16,7 +16,11 @@ import {
   SUPPRESSIBLE_LAYERS,
   type SuppressionId,
 } from '@follow-up-engine/core';
-import { type EngineRuntime, NOTE_EXTRACTION_TASK } from '@follow-up-engine/runtime';
+import {
+  type EngineRuntime,
+  type EvaluatorAction,
+  NOTE_EXTRACTION_TASK,
+} from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import { conditionView, InboxPresenter } from '../inbox/presenter.ts';
@@ -25,7 +29,8 @@ import type { ApiMessages } from '../i18n/index.ts';
 import { invalidTransitionMessage } from '../inbox/labels.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
-import { followUpUser } from './security.ts';
+import { trackEvaluatorEvent } from './evaluator-tracking.ts';
+import { actorId } from './security.ts';
 import {
   CalibrationQuerySchema,
   type CalibrationReportView,
@@ -51,7 +56,7 @@ function startOfUtcMonth(now: Date): Date {
  * decoded as UTF-8), for the audit trail.
  */
 function actor(c: Context<AppEnv>): CaseEventActor & { readonly id: string } {
-  return { type: 'user', id: followUpUser(c) ?? 'inbox-user' };
+  return { type: 'user', id: actorId(c) };
 }
 
 async function requireCase(
@@ -191,6 +196,32 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
   const { stores, readModel } = runtime.storage;
   const { engine } = runtime;
 
+  /**
+   * Evaluator lab tracking (migration 0016): a no-op outside the hosted
+   * demo (no evaluator identity, `c.var.evaluatorEmail` absent).
+   */
+  function track(
+    c: Context<AppEnv>,
+    action: EvaluatorAction,
+    extra: {
+      readonly entityType?: string;
+      readonly entityId?: string;
+      readonly patientId?: ReturnType<typeof toPatientId>;
+      readonly payload?: Record<string, unknown>;
+    } = {},
+  ): Promise<void> {
+    const evaluatorEmail = c.var.evaluatorEmail;
+    if (evaluatorEmail === undefined) {
+      return Promise.resolve();
+    }
+    return trackEvaluatorEvent(runtime, {
+      clinicId: c.var.clinicId,
+      evaluatorEmail,
+      action,
+      ...extra,
+    });
+  }
+
   app.get('/api/inbox/clinic', (c) => c.json({ id: c.var.clinic.id, name: c.var.clinic.name }));
 
   /**
@@ -321,6 +352,11 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
 
   app.get('/api/inbox/cases/:id', async (c) => {
     const followUpCase = await requireCase(runtime, c.var.t, c.var.clinicId, c.req.param('id'));
+    await track(c, 'case_viewed', {
+      entityType: 'case',
+      entityId: followUpCase.id,
+      patientId: followUpCase.patientId,
+    });
     const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
     return c.json(await presenter.caseDetail(followUpCase));
   });
@@ -373,6 +409,18 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
       );
     }
     c.var.log.info({ caseId, action: body.action, status: updated.status }, 'case action');
+    const trackedAction = {
+      notify: 'case_request_contact',
+      dismiss: 'case_dismiss',
+      resolve: 'case_resolve',
+      snooze: 'case_snooze',
+    } as const satisfies Record<typeof body.action, EvaluatorAction>;
+    await track(c, trackedAction[body.action], {
+      entityType: 'case',
+      entityId: caseId,
+      patientId: updated.patientId,
+      payload: { ...(body.reason === undefined ? {} : { reason: body.reason }) },
+    });
     const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
     return c.json(await presenter.caseDetail(updated));
   });
@@ -381,7 +429,7 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
   app.post('/api/inbox/cases/:id/call-outcome', async (c) => {
     const body = await readJson(c, CallOutcomeRequestSchema);
     const caseId = c.req.param('id') as CaseId;
-    await requireCase(runtime, c.var.t, c.var.clinicId, caseId);
+    const current = await requireCase(runtime, c.var.t, c.var.clinicId, caseId);
     const result = await engine.cases.recordCallOutcome(
       c.var.clinicId,
       caseId,
@@ -395,6 +443,12 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
       { caseId, outcome: body.outcome, reactions: result.reactions },
       'call outcome recorded',
     );
+    await track(c, 'case_call_outcome', {
+      entityType: 'case',
+      entityId: caseId,
+      patientId: current.patientId,
+      payload: { outcome: body.outcome },
+    });
     const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
     return c.json(
       await presenter.caseDetail(await requireCase(runtime, c.var.t, c.var.clinicId, caseId)),
@@ -413,6 +467,12 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
     }
     const revoked = await engine.suppressions.reactivate(c.var.clinicId, id, actor(c));
     c.var.log.info({ suppressionId: id, ruleId: revoked.ruleId }, 'suppression reactivated');
+    await track(c, 'suppression_reactivate', {
+      entityType: 'suppression',
+      entityId: id,
+      patientId: revoked.patientId,
+      payload: { ruleId: revoked.ruleId },
+    });
     const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
     return c.json(await presenter.suppressionView(revoked));
   });
@@ -451,12 +511,22 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
       throw error;
     });
     const caseId = c.req.param('id') as CaseId;
-    await requireCase(runtime, c.var.t, c.var.clinicId, caseId);
+    const current = await requireCase(runtime, c.var.t, c.var.clinicId, caseId);
     await engine.cases.recordFeedback(c.var.clinicId, caseId, {
       useful: body.useful,
       ...(body.reason === undefined ? {} : { reason: body.reason }),
       ...(body.comment === undefined || body.comment === '' ? {} : { comment: body.comment }),
       authorId: actor(c).id,
+    });
+    await track(c, 'case_feedback', {
+      entityType: 'case',
+      entityId: caseId,
+      patientId: current.patientId,
+      payload: {
+        useful: body.useful,
+        ...(body.reason === undefined ? {} : { reason: body.reason }),
+        ...(body.comment === undefined || body.comment === '' ? {} : { comment: body.comment }),
+      },
     });
     const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
     return c.json(
@@ -495,11 +565,13 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
 
   /** The "View documents" drawer: every document of the patient, oldest first (HIP-142). */
   app.get('/api/inbox/patients/:id/documents', async (c) => {
+    const patientId = toPatientId(c.req.param('id'));
     const presenter = await InboxPresenter.create(runtime, c.var.clinicId, c.var.t);
-    const items = await presenter.patientDocuments(toPatientId(c.req.param('id')));
+    const items = await presenter.patientDocuments(patientId);
     if (items === undefined) {
       throw notFound(c.var.t, c.var.t.errors.patientNotFound);
     }
+    await track(c, 'patient_documents_viewed', { entityType: 'patient', patientId });
     return c.json({ items });
   });
 

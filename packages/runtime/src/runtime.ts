@@ -461,36 +461,47 @@ export function reviewLocaleOf(locale: string | undefined): ReviewLocale {
   return REVIEW_LOCALES.find((candidate) => candidate === language) ?? DEFAULT_REVIEW_LOCALE;
 }
 
-/** Prefix of every evaluator lab sandbox clinic id (docs/deploy.md#the-document-lab-and-its-per-evaluator-sandbox-clock). */
-const LAB_CLINIC_ID_PREFIX = 'lab-';
+/**
+ * Active clinics, for the worker's ambient sweeps (the hourly watcher and
+ * escalation pass, and the default scope of `/api/demo/clock/advance`).
+ * Lab clinics ({@link isLabClinicId}) are excluded: an evaluator's sandbox
+ * only moves when its own "see the impact on a date" preview says so
+ * (`engine.runWatcher`/`runEscalation` called directly with the chosen
+ * date, scoped to that one clinic), never on the ambient clock's schedule.
+ * This is the "clinic-scoped clock" of the evaluator lab (docs/deploy.md#hosted-demo):
+ * core's `Clock` port is untouched, and the shared clinic's clock keeps
+ * sweeping exactly as before.
+ */
+export async function activeClinicIds(runtime: EngineRuntime): Promise<readonly ClinicId[]> {
+  return (await runtime.storage.clinics.listActive())
+    .map((clinic) => clinic.id)
+    .filter((id) => !isLabClinicId(id));
+}
+
+/** Prefix of a lab clinic's id ({@link labClinicId}). */
+export const LAB_CLINIC_PREFIX = 'lab-';
+
+/** Whether `id` is an evaluator's sandbox lab clinic, not a real (or the demo) clinic. */
+export function isLabClinicId(id: ClinicId): boolean {
+  return id.startsWith(LAB_CLINIC_PREFIX);
+}
 
 /**
- * Deterministic sandbox clinic id for an evaluator, from their email: same
- * email, same id, every time, with no lookup table —
- * `lab-<sha256 prefix of the lowercased, trimmed email>`. The one place that
- * turns an evaluator's identity into a clinic id; {@link ensureLabClinic}
- * and every lab route build on it, so a change to how evaluators are
- * identified (the email-identity work on another branch) only has to touch
- * this function.
+ * The sandbox clinic id of an evaluator's lab (docs/deploy.md#hosted-demo):
+ * deterministic from their email (a sha256 prefix), so the same evaluator
+ * always lands on the same, empty, lab clinic and two evaluators never
+ * collide.
  */
 export function labClinicId(evaluatorEmail: string): ClinicId {
-  const normalized = evaluatorEmail.trim().toLowerCase();
-  const digest = createHash('sha256').update(normalized).digest('hex').slice(0, 16);
-  return toClinicId(`${LAB_CLINIC_ID_PREFIX}${digest}`);
-}
-
-/** Whether `id` is an evaluator lab sandbox clinic (never a real one). */
-export function isLabClinicId(id: ClinicId): boolean {
-  return (id as string).startsWith(LAB_CLINIC_ID_PREFIX);
+  const hash = createHash('sha256').update(evaluatorEmail.trim().toLowerCase()).digest('hex');
+  return toClinicId(`${LAB_CLINIC_PREFIX}${hash.slice(0, 24)}`);
 }
 
 /**
- * Ensures (idempotent) the evaluator's own empty lab sandbox clinic and
- * returns it, registering it with every available protocol enabled the
- * first time this evaluator is seen. Patient contact stays off (a sandbox
- * never messages anyone). The registration's own API key is internal and
- * never handed to anyone: the lab is reached through the shared demo key
- * plus the evaluator's own identity, never its own key.
+ * Registers the evaluator's lab clinic the first time they use it: empty,
+ * no patient contact, every protocol enabled (so uploaded documents show
+ * every rule the engine can apply), the same escalation policy as the demo
+ * clinic. Idempotent: an existing lab clinic is returned unchanged.
  */
 export async function ensureLabClinic(
   runtime: EngineRuntime,
@@ -501,24 +512,18 @@ export async function ensureLabClinic(
   if (existing !== undefined) {
     return existing;
   }
-  const internalApiKey = `${id}-${createHash('sha256').update(`key:${id}`).digest('hex')}`;
   return runtime.registerClinic({
     id,
     name: `Lab (${evaluatorEmail})`,
-    apiKey: internalApiKey,
+    // Never used to authenticate: lab routes always address this clinic
+    // explicitly from the evaluator's signed session, not through an API key.
+    apiKey: generateApiKey(),
     settings: {
       allowPatientContact: false,
-      timezone: 'America/Caracas',
       locale: 'en-US',
       enabledProtocols: [...availableProtocolIds()],
-      reconciliation: { fullSweepWeekday: null },
+      escalationPolicyId: DEMO_ESCALATION_POLICY,
+      reconciliation: { fullSweepWeekday: null, enabled: false },
     },
   });
-}
-
-/** Active clinics, for the sweeps. Every evaluator's lab sandbox runs on its own clock (`lab.ts`) and never here. */
-export async function activeClinicIds(runtime: EngineRuntime): Promise<readonly ClinicId[]> {
-  return (await runtime.storage.clinics.listActive())
-    .map((clinic) => clinic.id)
-    .filter((id) => !isLabClinicId(id));
 }

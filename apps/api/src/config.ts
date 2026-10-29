@@ -14,8 +14,9 @@ export interface ApiConfig {
   /** Shared code in front of the whole site (`DEMO_ACCESS_CODE`, hosted demo). */
   readonly accessCode?: string;
   /**
-   * Signs the evaluator identity cookie (`DEMO_SESSION_SECRET`). Optional:
-   * without it, derived from {@link accessCode} (docs/deploy.md#evaluator-identity-and-tracking).
+   * Secret that signs the evaluator identity cookie (`DEMO_SESSION_SECRET`).
+   * Without it, derived from `DEMO_ACCESS_CODE` so an existing deployment
+   * keeps working with no new variable to set.
    */
   readonly sessionSecret?: string;
   /** The UI language a viewer of the hosted inbox gets until they pick one (`DEFAULT_UI_LOCALE`, default English). */

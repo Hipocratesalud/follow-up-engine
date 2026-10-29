@@ -90,6 +90,38 @@ function put(resource: FhirResource & { readonly id: string }): BundleEntry {
   return { resource, request: { method: 'PUT', url: `${resource.resourceType}/${resource.id}` } };
 }
 
+export interface PatientBundleInput {
+  readonly id: string;
+  readonly name: string;
+  readonly gender?: 'male' | 'female' | 'other' | 'unknown';
+  readonly birthDate?: string;
+}
+
+/**
+ * Builds a one-resource FHIR `transaction` Bundle that registers a Patient
+ * alone: the evaluator lab's "New patient" (docs/deploy.md#hosted-demo), a
+ * fictitious patient with no clinical history yet. Deliberately not a
+ * {@link buildRecordBundle} `visit` entry: creating the patient record must
+ * not also imply a visit happened (which would anchor visit-interval
+ * protocols from day one).
+ */
+export function buildPatientBundle(input: PatientBundleInput): Bundle {
+  return {
+    resourceType: 'Bundle',
+    id: toFhirId(`${input.id}-patient-bundle`),
+    type: 'transaction',
+    entry: [
+      put({
+        resourceType: 'Patient',
+        id: input.id,
+        name: [{ text: input.name }],
+        ...(input.gender === undefined ? {} : { gender: input.gender }),
+        ...(input.birthDate === undefined ? {} : { birthDate: input.birthDate }),
+      }),
+    ],
+  };
+}
+
 /**
  * Builds a one-resource FHIR `transaction` Bundle for a structured record
  * the evaluator lab adds directly (no note, no LLM reading): a lab/imaging

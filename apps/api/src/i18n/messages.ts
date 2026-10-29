@@ -15,6 +15,7 @@ import type {
   QualityFindingKind,
   AnchorRole,
 } from '@follow-up-engine/core';
+import type { DocumentExtractionError } from '../lab/extract-document.ts';
 
 /**
  * The shape of an API message catalog: every label and message the JSON API
@@ -373,6 +374,10 @@ export interface ApiMessages {
     readonly invalidConsultation: string;
     readonly noteNotRead: (model: string, error: string | undefined) => string;
     readonly labFutureDate: string;
+    /** "See the impact on a date": the lab clinic's own clock only moves forward. */
+    readonly labPastDate: string;
+    /** Why the evaluator lab could not read an uploaded document (`DocumentExtractionError`). */
+    readonly labDocumentErrors: Readonly<Record<DocumentExtractionError, string>>;
   };
 
   readonly validation: ValidationMessages;

@@ -15,7 +15,7 @@ import {
   type PlanItemReviewResult,
   ValidationError,
 } from '@follow-up-engine/core';
-import type { EngineRuntime } from '@follow-up-engine/runtime';
+import type { EngineRuntime, EvaluatorAction } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { humanName } from '../inbox/fhir-display.ts';
 import { patientQueueItem, patientQueueItems } from '../inbox/patient-queue-presenter.ts';
@@ -23,6 +23,7 @@ import { InboxPresenter } from '../inbox/presenter.ts';
 import type { ApiMessages } from '../i18n/index.ts';
 import type { App, AppEnv } from './context.ts';
 import { HttpError, readJson, readQuery } from './errors.ts';
+import { trackEvaluatorEvent } from './evaluator-tracking.ts';
 import {
   type PatientQueueItem,
   PatientContactRequestSchema,
@@ -30,7 +31,7 @@ import {
   type PlanItemReviewResponse,
 } from './patient-queue-schemas.ts';
 import { PlanItemCorrectionRequestSchema } from './plan-item-schemas.ts';
-import { followUpUser } from './security.ts';
+import { actorId } from './security.ts';
 
 const CLOSED_STATUSES: readonly CaseStatus[] = ['resolved', 'dismissed', 'lost_to_follow_up'];
 /** Closed cases a patient card keeps for context, newest first. */
@@ -46,7 +47,7 @@ function normalized(text: string): string {
 }
 
 function userId(c: Context<AppEnv>): string {
-  return followUpUser(c) ?? 'inbox-user';
+  return actorId(c);
 }
 
 /**
@@ -170,6 +171,29 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
   const { stores } = runtime.storage;
   const { engine } = runtime;
 
+  /** Evaluator lab tracking (migration 0016): a no-op outside the hosted demo. */
+  function track(
+    c: Context<AppEnv>,
+    action: EvaluatorAction,
+    extra: {
+      readonly entityType?: string;
+      readonly entityId?: string;
+      readonly patientId?: PatientId;
+      readonly payload?: Record<string, unknown>;
+    } = {},
+  ): Promise<void> {
+    const evaluatorEmail = c.var.evaluatorEmail;
+    if (evaluatorEmail === undefined) {
+      return Promise.resolve();
+    }
+    return trackEvaluatorEvent(runtime, {
+      clinicId: c.var.clinicId,
+      evaluatorEmail,
+      action,
+      ...extra,
+    });
+  }
+
   /** Every case of the patient released to the inbox: active ones, then the latest closed ones. */
   async function patientCard(
     t: ApiMessages,
@@ -290,6 +314,11 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
       { primaryCaseId: result.primaryCaseId, cases: result.cases.length },
       'patient contact requested',
     );
+    await track(c, 'case_request_contact', {
+      entityType: 'patient',
+      entityId: result.primaryCaseId,
+      patientId,
+    });
     return c.json(await patientCard(c.var.t, c.var.clinicId, patientId));
   });
 
@@ -314,6 +343,11 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
       engine.planItems.confirm(c.var.clinicId, id, userId(c)),
     );
     c.var.log.info({ expectationId: id }, 'plan item confirmed');
+    await track(c, 'plan_item_confirm', {
+      entityType: 'plan_item',
+      entityId: id,
+      patientId: result.expectation.patientId,
+    });
     return c.json(await reviewResponse(c.var.t, c.var.clinicId, result));
   });
 
@@ -331,6 +365,15 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
       { expectationId: id, replacementId: result.replacement?.id },
       'plan item corrected',
     );
+    await track(c, 'plan_item_correct', {
+      entityType: 'plan_item',
+      entityId: id,
+      patientId: result.expectation.patientId,
+      payload: {
+        ...(body.dueDate === undefined ? {} : { dueDate: body.dueDate }),
+        ...(body.kind === undefined ? {} : { kind: body.kind }),
+      },
+    });
     return c.json(await reviewResponse(c.var.t, c.var.clinicId, result));
   });
 
@@ -343,6 +386,11 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
       { expectationId: id, casesResolved: result.casesResolved.length },
       'plan item rejected',
     );
+    await track(c, 'plan_item_reject', {
+      entityType: 'plan_item',
+      entityId: id,
+      patientId: result.expectation.patientId,
+    });
     return c.json(await reviewResponse(c.var.t, c.var.clinicId, result));
   });
 }

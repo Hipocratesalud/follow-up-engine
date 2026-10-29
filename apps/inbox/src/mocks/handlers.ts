@@ -501,5 +501,13 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
         return store.listWebhooks(limit, url.searchParams.get('type') ?? undefined);
       }),
     ),
+    // The evaluator lab (docs/deploy.md#hosted-demo): no evaluator identity
+    // by default, same as a plain deployment with no access gate. Tests of
+    // the Lab and Evaluators pages override this through `renderApp`'s
+    // `handlers` option.
+    http.get(
+      '*/api/evaluator/me',
+      route(() => ({})),
+    ),
   ];
 }

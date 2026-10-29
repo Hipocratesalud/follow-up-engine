@@ -3,7 +3,9 @@ import { Navigate, useLocation, useParams, useSearchParams, type RouteObject } f
 import { Shell } from './components/shell.tsx';
 import { DemoPage } from './features/demo/demo-page.tsx';
 import { EngineTestsPage } from './features/engine-tests/engine-tests-page.tsx';
+import { EvaluatorsPage } from './features/evaluators/evaluators-page.tsx';
 import { InboxPage } from './features/inbox/inbox-page.tsx';
+import { LabPage } from './features/lab/lab-page.tsx';
 import { MetricsPage } from './features/metrics/metrics-page.tsx';
 import { NotFoundPage, PatientPage } from './features/patient/patient-page.tsx';
 import { PatientCasesPanel } from './features/patient-queue/patient-panel.tsx';
@@ -86,6 +88,8 @@ export const routes: RouteObject[] = [
       { path: 'metrics', element: <MetricsPage /> },
       { path: 'demo', element: <DemoPage /> },
       { path: 'engine-tests', element: <EngineTestsPage /> },
+      { path: 'lab', element: <LabPage /> },
+      { path: 'evaluators', element: <EvaluatorsPage /> },
       ...LEGACY_PREFIXES.map(([from]) => ({
         path: `${from.slice(1)}/*`,
         element: <LegacyRedirect />,
