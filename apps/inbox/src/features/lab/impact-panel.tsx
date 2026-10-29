@@ -24,13 +24,17 @@ export function ImpactPanel(): ReactNode {
   const clock = useLabClock();
   const advance = useAdvanceLabDate();
   const cases = useLabCases();
+  // Derived each render (not a one-time `useState(today)`): the field
+  // reflects the lab's own "today" once `useLabClock` resolves, instead of
+  // locking in an empty guess made before it loaded.
   const today = clock.data?.now.slice(0, 10) ?? '';
-  const [date, setDate] = useState(today);
+  const [dateOverride, setDateOverride] = useState<string>();
+  const date = dateOverride ?? today;
   const [dateError, setDateError] = useState<string>();
   const [result, setResult] = useState<LabDateImpact>();
 
   function handleDateChange(event: ChangeEvent<HTMLInputElement>): void {
-    setDate(event.target.value);
+    setDateOverride(event.target.value);
     setDateError(undefined);
   }
 

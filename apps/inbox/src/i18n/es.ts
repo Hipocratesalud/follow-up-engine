@@ -450,6 +450,7 @@ const inbox: Messages['inbox'] = {
   title: 'Bandeja de seguimiento',
   intro:
     'Pacientes con algo pendiente, ordenados por prioridad. Cada tarjeta reúne todos los motivos de un paciente; actúa sobre cada uno de sus casos desde ella.',
+  tryYourOwnDocuments: 'Para probar tus propios documentos, ve a',
   views: { active: 'Activos', closed: 'Cerrados', all: 'Todos' },
   viewGroup: 'Estado de los casos',
   empty: {
@@ -1180,13 +1181,14 @@ const EVALUATOR_ACTION_LABELS: Record<string, string> = {
 const lab: Messages['lab'] = {
   title: 'Laboratorio',
   intro:
-    'Tu propio consultorio de prueba: crea pacientes ficticios, agrega documentos y registros, y mira el impacto en una fecha, aislado de la demo compartida y de cualquier otro evaluador.',
+    'Tu propio consultorio de prueba: sube un documento, agrega registros y mira el impacto en una fecha, aislado de la demo compartida y de cualquier otro evaluador.',
   patientsTitle: 'Mis pacientes de laboratorio',
   loadingPatients: 'Cargando tus pacientes de laboratorio',
   patientsError: 'No pudimos cargar tus pacientes de laboratorio',
   noPatients: 'Todavía no has creado un paciente de laboratorio.',
   noPatientsBody: 'Crea uno para empezar a agregar documentos y registros.',
   newPatient: 'Nuevo paciente',
+  newPatientOption: '+ Nuevo paciente',
   newPatientTitle: 'Nuevo paciente de laboratorio',
   patientName: 'Nombre',
   patientNamePlaceholder: 'Nombre y apellido (ficticio)',
@@ -1199,10 +1201,23 @@ const lab: Messages['lab'] = {
   creatingPatient: 'Creando paciente…',
   selectPatient: 'Selecciona un paciente',
   noPatientSelected: 'Selecciona o crea un paciente de laboratorio para agregar a su registro.',
-  recordTitle: 'Agregar al registro',
+  uploadTitle: 'Cargar un informe o documento',
+  uploadIntro:
+    'Suelta un archivo, elígelo, o pega el texto. Se lee igual que lo haría un documento real.',
+  dropzoneHint: 'Arrastra y suelta un archivo aquí',
+  chooseFile: 'Elegir archivo',
+  orPasteText: 'o pega el texto',
+  backToFile: 'Subir un archivo en su lugar',
+  readDocument: 'Leer documento',
+  reading: 'Leyendo…',
+  resultTitle: 'Lo que el motor espera ahora',
+  addWithoutDocumentTitle: 'Agregar algo sin un documento',
+  addWithoutDocumentIntro:
+    'Una orden de laboratorio o imagen, un resultado, una receta, una consulta, un diagnóstico o una cita, sin documento y sin lectura de IA.',
+  showForm: 'Mostrar',
+  hideForm: 'Ocultar',
   recordType: 'Tipo',
   recordTypes: {
-    document: 'Documento',
     order: 'Orden de laboratorio o imagen',
     result: 'Resultado',
     prescription: 'Receta',
@@ -1214,7 +1229,7 @@ const lab: Messages['lab'] = {
   date: 'Fecha',
   dateHint:
     'Por defecto es la fecha actual de tu laboratorio. Se permiten fechas pasadas; no futuras.',
-  documentType: 'Tipo de documento',
+  documentType: 'Tipo',
   documentTypes: {
     consultation_note: 'Nota de consulta',
     lab_result: 'Informe de laboratorio',
@@ -1222,9 +1237,6 @@ const lab: Messages['lab'] = {
     prescription: 'Receta u orden',
     other: 'Otro',
   },
-  documentSource: 'Origen',
-  uploadFile: 'Subir un archivo',
-  pasteText: 'Pegar texto',
   fileLabel: 'Archivo',
   fileHint: 'PDF, DOCX o TXT, hasta 2 MB.',
   textLabel: 'Texto',
@@ -1263,7 +1275,7 @@ const lab: Messages['lab'] = {
   expectationsEmpty: 'Todavía no hay expectativas para este paciente.',
   due: (date) => `Vence el ${date}`,
   ruleVersion: (version) => `Regla ${version}`,
-  impactTitle: 'Ver el impacto en una fecha',
+  impactTitle: '¿Qué pasa en una fecha?',
   impactIntro:
     'Mueve el reloj de tu laboratorio (nunca el de la demo compartida). Las expectativas vencen, los casos se abren, se combinan y escalan, exactamente como lo haría el motor en ese tramo de tiempo.',
   impactDate: 'Fecha',

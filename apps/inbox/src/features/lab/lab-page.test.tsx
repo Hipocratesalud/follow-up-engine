@@ -17,8 +17,8 @@ afterEach(() => {
 });
 
 /**
- * A fresh evaluator lab, with no patients yet: the login, the "New patient"
- * dialog, "Add to the record" and the expectations GET are all handled, in
+ * A fresh evaluator lab, with no patients yet: the login, "+ New patient",
+ * the document upload and the structured record form are all handled, in
  * memory for the test's lifetime.
  */
 function labHandlers() {
@@ -41,6 +41,57 @@ function labHandlers() {
       patients.push(patient);
       return HttpResponse.json(patient, { status: 201 });
     }),
+    http.post('*/api/demo/lab/documents', async ({ request }) => {
+      const body = (await request.json()) as { patientId: string; text?: string };
+      const patientId = body.patientId;
+      const created: LabExpectationView = {
+        id: `exp-${String(nextExpectationId)}`,
+        ruleId: 'doctor_plan_followup',
+        layer: 'doctor_plan',
+        label: 'Follow-up visit pending',
+        status: 'open',
+        dueAt: '2026-04-05T00:00:00.000Z',
+      };
+      nextExpectationId += 1;
+      expectationsByPatient.set(patientId, [
+        ...(expectationsByPatient.get(patientId) ?? []),
+        created,
+      ]);
+      return HttpResponse.json(
+        {
+          patientId,
+          clinicId: 'lab-clinic',
+          text: body.text ?? '',
+          extraction: {
+            model: 'fake-regex-extractor',
+            hasPlan: true,
+            conditions: [],
+            medications: [],
+            planItems: [
+              {
+                kind: 'follow_up_visit',
+                description: 'Control en 3 meses',
+                dueAt: '2026-04-05T00:00:00.000Z',
+                evidenceQuote: 'Control en 3 meses',
+                confidence: 0.9,
+              },
+            ],
+            costUsd: 0,
+            latencyMs: 5,
+          },
+          expectationsCreated: [
+            {
+              id: created.id,
+              ruleId: created.ruleId,
+              layer: created.layer,
+              label: created.label,
+              dueAt: created.dueAt,
+            },
+          ],
+        },
+        { status: 201 },
+      );
+    }),
     http.post('*/api/demo/lab/records', async ({ request }) => {
       const body = (await request.json()) as LabRecordAddRequest;
       const created: LabExpectationView = {
@@ -52,8 +103,10 @@ function labHandlers() {
         dueAt: '2026-04-05T00:00:00.000Z',
       };
       nextExpectationId += 1;
-      const current = expectationsByPatient.get(body.patientId) ?? [];
-      expectationsByPatient.set(body.patientId, [...current, created]);
+      expectationsByPatient.set(body.patientId, [
+        ...(expectationsByPatient.get(body.patientId) ?? []),
+        created,
+      ]);
       return HttpResponse.json(
         { patientId: body.patientId, clinicId: 'lab-clinic', expectationsCreated: [created] },
         { status: 201 },
@@ -68,25 +121,25 @@ function labHandlers() {
 }
 
 describe('the Lab page', () => {
-  it('creates a lab patient, adds a visit record, and shows the new expectation', async () => {
+  it('creates a lab patient inline and reads a pasted document', async () => {
     const rendered = renderApp('/lab', { handlers: labHandlers });
 
-    await screen.findByText(/have not created a lab patient yet/i);
+    await screen.findByText(/Upload a report or document/i);
+    const patientSelect = await screen.findByLabelText('Select a patient');
+    await rendered.user.selectOptions(patientSelect, '+ New patient');
 
-    await rendered.user.click(screen.getByRole('button', { name: /New patient/i }));
-    const dialog = await screen.findByRole('dialog');
-    await rendered.user.type(within(dialog).getByLabelText('Name'), 'Ana Pérez');
-    await rendered.user.click(within(dialog).getByRole('button', { name: 'Create patient' }));
+    await rendered.user.type(screen.getByLabelText('Name'), 'Ana Pérez');
 
-    await screen.findByRole('button', { name: /Ana Pérez/ });
+    await rendered.user.click(screen.getByRole('button', { name: /or paste the text/i }));
+    await rendered.user.type(
+      screen.getByLabelText('Text'),
+      'Paciente con DM2. Control en 3 meses con HbA1c.',
+    );
+    await rendered.user.click(screen.getByRole('button', { name: 'Read document' }));
 
-    const typeSelect = await screen.findByLabelText('Type');
-    await rendered.user.selectOptions(typeSelect, 'visit');
-    await rendered.user.click(screen.getByRole('button', { name: 'Save' }));
-
-    await screen.findByText('Follow-up visit pending');
-    expect(screen.getByText('New')).toBeInTheDocument();
-    expect(screen.getByText(/Saved to the record/i)).toBeInTheDocument();
+    await screen.findAllByText(/Follow-up visit pending/);
+    expect(screen.getByText('What the engine expects now')).toBeInTheDocument();
+    expect(screen.getAllByText(/Control en 3 meses/).length).toBeGreaterThan(0);
   });
 
   it("does not send a request when the diagnosis form's required field is empty", async () => {
@@ -107,12 +160,19 @@ describe('the Lab page', () => {
       ],
     });
 
-    await rendered.user.click(await screen.findByRole('button', { name: /Test Patient/ }));
-    const typeSelect = await screen.findByLabelText('Type');
-    await rendered.user.selectOptions(typeSelect, 'diagnosis');
-    await rendered.user.selectOptions(screen.getByLabelText(/Diagnosis \(ICD-10\)/), '__other__');
+    const patientSelect = await screen.findByLabelText('Select a patient');
+    await screen.findByRole('option', { name: 'Test Patient' });
+    await rendered.user.selectOptions(patientSelect, 'Test Patient');
+
+    await rendered.user.click(screen.getByRole('button', { name: 'Show' }));
+    const form = await screen.findByRole('form', { name: /Add something without a document/i });
+    await rendered.user.selectOptions(within(form).getByLabelText('Type'), 'diagnosis');
+    await rendered.user.selectOptions(
+      within(form).getByLabelText(/Diagnosis \(ICD-10\)/),
+      '__other__',
+    );
     // The code field is left empty: the click must validate and refuse to submit.
-    await rendered.user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText('This field is required.')).toBeInTheDocument();
+    await rendered.user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(await within(form).findByText('This field is required.')).toBeInTheDocument();
   });
 });

@@ -465,6 +465,8 @@ const inbox = {
   title: 'Follow-up inbox',
   intro:
     'Patients with something pending, sorted by priority. Each card gathers every reason of one patient; act on each of their cases inside it.',
+  /** Evaluator lab hint, shown only to an identified evaluator (docs/deploy.md#hosted-demo). */
+  tryYourOwnDocuments: 'To try your own documents, go to',
   views: { active: 'Active', closed: 'Closed', all: 'All' },
   viewGroup: 'Case status',
   empty: {
@@ -1192,13 +1194,14 @@ const EVALUATOR_ACTION_LABELS = {
 const lab = {
   title: 'Lab',
   intro:
-    'Your own sandbox clinic: create fictitious patients, add documents and records, and see the impact on a date — isolated from the shared demo and from every other evaluator.',
+    'Your own sandbox clinic: upload a document, add records, and see the impact on a date — isolated from the shared demo and from every other evaluator.',
   patientsTitle: 'My lab patients',
   loadingPatients: 'Loading your lab patients',
   patientsError: 'We could not load your lab patients',
   noPatients: 'You have not created a lab patient yet.',
   noPatientsBody: 'Create one to start adding documents and records.',
   newPatient: 'New patient',
+  newPatientOption: '+ New patient',
   newPatientTitle: 'New lab patient',
   patientName: 'Name',
   patientNamePlaceholder: 'First and last name (fictional)',
@@ -1211,10 +1214,25 @@ const lab = {
   creatingPatient: 'Creating patient…',
   selectPatient: 'Select a patient',
   noPatientSelected: 'Select or create a lab patient to add to their record.',
-  recordTitle: 'Add to the record',
+  // "Upload a report or document": the Lab page's primary card.
+  uploadTitle: 'Upload a report or document',
+  uploadIntro:
+    'Drop a file, choose one, or paste the text. It is read the same way a real document would be.',
+  dropzoneHint: 'Drag and drop a file here',
+  chooseFile: 'Choose file',
+  orPasteText: 'or paste the text',
+  backToFile: 'Upload a file instead',
+  readDocument: 'Read document',
+  reading: 'Reading…',
+  resultTitle: 'What the engine expects now',
+  // The collapsed structured block, below the upload card.
+  addWithoutDocumentTitle: 'Add something without a document',
+  addWithoutDocumentIntro:
+    'A lab/imaging order, a result, a prescription, a visit, a diagnosis or an appointment, with no document and no AI reading.',
+  showForm: 'Show',
+  hideForm: 'Hide',
   recordType: 'Type',
   recordTypes: {
-    document: 'Document',
     order: 'Lab/imaging order',
     result: 'Result',
     prescription: 'Prescription',
@@ -1225,7 +1243,7 @@ const lab = {
   },
   date: 'Date',
   dateHint: 'Defaults to your lab’s current date. Past dates are allowed; future dates are not.',
-  documentType: 'Document type',
+  documentType: 'Type',
   documentTypes: {
     consultation_note: 'Consultation note',
     lab_result: 'Lab report',
@@ -1233,9 +1251,6 @@ const lab = {
     prescription: 'Prescription or order',
     other: 'Other',
   },
-  documentSource: 'Source',
-  uploadFile: 'Upload a file',
-  pasteText: 'Paste text',
   fileLabel: 'File',
   fileHint: 'PDF, DOCX or TXT, up to 2 MB.',
   textLabel: 'Text',
@@ -1274,7 +1289,7 @@ const lab = {
   expectationsEmpty: 'No expectations yet for this patient.',
   due: (date: string): string => `Due ${date}`,
   ruleVersion: (version: string): string => `Rule ${version}`,
-  impactTitle: 'See the impact on a date',
+  impactTitle: 'What happens on a date?',
   impactIntro:
     'Moves your lab’s own clock forward (never the shared demo’s). Expectations fall due, cases open, merge and escalate, exactly as the engine would over that stretch of time.',
   impactDate: 'Date',

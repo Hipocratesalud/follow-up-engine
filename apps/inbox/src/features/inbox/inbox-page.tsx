@@ -1,11 +1,27 @@
 import { MousePointerClick } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Outlet, useParams } from 'react-router';
+import { Link, Outlet, useParams } from 'react-router';
+import { useEvaluator } from '../../api/queries.ts';
 import { EmptyState } from '../../components/states.tsx';
 import { StatsBar } from '../../components/stats-bar.tsx';
 import { useT } from '../../i18n/index.ts';
 import { cx } from '../../lib/cx.ts';
 import { PatientQueueList } from '../patient-queue/patient-queue-list.tsx';
+
+/** "To try your own documents, go to Lab" — only for an identified evaluator (docs/deploy.md#hosted-demo). */
+function LabHint(): ReactNode {
+  const t = useT();
+  const evaluator = useEvaluator();
+  if (evaluator.data?.email === undefined) return null;
+  return (
+    <p className="text-sm text-muted">
+      {t.inbox.tryYourOwnDocuments}{' '}
+      <Link to="/lab" className="font-medium text-primary hover:underline">
+        {t.nav.lab}
+      </Link>
+    </p>
+  );
+}
 
 /**
  * The follow-up inbox: one card per patient (HIP-141) on the left, the
@@ -21,6 +37,7 @@ export function InboxPage(): ReactNode {
       <header className={cx('flex flex-col gap-0.5', hasSelection && 'sr-only lg:not-sr-only')}>
         <h1 className="text-xl font-semibold tracking-tight text-fg">{t.inbox.title}</h1>
         <p className="text-sm text-muted">{t.inbox.intro}</p>
+        <LabHint />
       </header>
       <div className={cx(hasSelection && 'hidden lg:block')}>
         <StatsBar />

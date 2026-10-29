@@ -150,6 +150,10 @@ export function Shell(): ReactNode {
 
   const items: NavItem[] = [
     { to: '/inbox', label: t.nav.inbox, icon: Inbox, count: stats.data?.activePatients },
+  ];
+  // Lab is the evaluator's primary action: right after Inbox.
+  if (clock.data) items.push({ to: '/lab', label: t.nav.lab, icon: Beaker });
+  items.push(
     {
       to: '/recovery',
       label: t.nav.recovery,
@@ -163,11 +167,10 @@ export function Shell(): ReactNode {
       icon: Stethoscope,
       count: findings.data?.counts.byStatus.open,
     },
-  ];
+  );
   items.push({ to: '/metrics', label: t.nav.metrics, icon: BarChart3 });
   if (clock.data) {
     items.push({ to: '/demo', label: t.nav.demo, icon: FlaskConical });
-    items.push({ to: '/lab', label: t.nav.lab, icon: Beaker });
     if (evaluator.data?.email !== undefined) {
       items.push({ to: '/evaluators', label: t.nav.evaluators, icon: UsersRound });
     }
