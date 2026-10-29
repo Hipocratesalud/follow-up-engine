@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate, useLocation, useParams, useSearchParams, type RouteObject } from 'react-router';
 import { Shell } from './components/shell.tsx';
 import { DemoPage } from './features/demo/demo-page.tsx';
+import { EngineTestsPage } from './features/engine-tests/engine-tests-page.tsx';
 import { InboxPage } from './features/inbox/inbox-page.tsx';
 import { MetricsPage } from './features/metrics/metrics-page.tsx';
 import { NotFoundPage, PatientPage } from './features/patient/patient-page.tsx';
@@ -84,6 +85,7 @@ export const routes: RouteObject[] = [
       },
       { path: 'metrics', element: <MetricsPage /> },
       { path: 'demo', element: <DemoPage /> },
+      { path: 'engine-tests', element: <EngineTestsPage /> },
       ...LEGACY_PREFIXES.map(([from]) => ({
         path: `${from.slice(1)}/*`,
         element: <LegacyRedirect />,

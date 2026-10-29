@@ -43,6 +43,11 @@ import type {
   PlanItemReviewResponse,
 } from './patient-queue-contract.ts';
 import type { PlanItemCommand, PlanItemCorrectionRequest } from './plan-item-contract.ts';
+import type {
+  EngineTestCatalog,
+  EngineTestRunResult,
+  EngineTestVerdictRequest,
+} from './engine-tests-contract.ts';
 
 /** An HTTP error from the API, with the contract's `{ error: { code, message } }` body when present. */
 export class ApiError extends Error {
@@ -161,6 +166,10 @@ export interface ApiClient {
     command: PlanItemCommand,
     body?: PlanItemCorrectionRequest,
   ): Promise<PlanItemReviewResponse>;
+  /** `undefined` when the API runs on a real clock (the demo endpoints answer 404). */
+  getEngineTests(): Promise<EngineTestCatalog | undefined>;
+  runEngineTest(id: string): Promise<EngineTestRunResult>;
+  submitEngineTestVerdict(id: string, body: EngineTestVerdictRequest): Promise<unknown>;
 }
 
 export function createApiClient(config: ApiConfig): ApiClient {
@@ -255,5 +264,16 @@ export function createApiClient(config: ApiConfig): ApiClient {
         `/inbox/plan-items/${encodeURIComponent(expectationId)}/${command}`,
         body === undefined ? {} : { body },
       ),
+    getEngineTests: async () => {
+      try {
+        return await request<EngineTestCatalog>('GET', '/demo/engine-tests');
+      } catch (error) {
+        if (isApiError(error) && error.status === 404) return undefined;
+        throw error;
+      }
+    },
+    runEngineTest: (id) => request('POST', `/demo/engine-tests/${encodeURIComponent(id)}/run`),
+    submitEngineTestVerdict: (id, body) =>
+      request('POST', `/demo/engine-tests/${encodeURIComponent(id)}/verdict`, { body }),
   };
 }

@@ -51,6 +51,7 @@ const nav: Messages['nav'] = {
   review: 'Revisión clínica',
   reviewShort: 'Revisión',
   demo: 'Demo',
+  engineTests: 'Pruebas del motor',
   simulatedDate: 'Fecha simulada:',
   simulatedDateTitle: 'La API usa un reloj simulado para la demostración',
 };
@@ -1151,6 +1152,166 @@ const why: Messages['why'] = {
   conditionQuote: 'Cita de la nota',
 };
 
+const engineTests: Messages['engineTests'] = {
+  title: 'Pruebas del motor',
+  intro:
+    'Verifica, un comportamiento a la vez, que el motor hace lo que el producto promete — construido en vivo en tu propia clínica de prueba, nunca una demo armada de antemano.',
+  progress: (reviewed: number, total: number): string =>
+    `${String(reviewed)} de ${String(total)} pruebas revisadas`,
+  groups: { data_intake: 'Entrada de datos', expectations: 'Expectativas', rules: 'Reglas' },
+  loading: 'Cargando las pruebas del motor',
+  loadError: 'No pudimos cargar las pruebas del motor',
+  runTest: 'Correr la prueba',
+  runAgain: 'Correr de nuevo',
+  running: 'Corriendo…',
+  tryOwnData: 'Probar con tus propios datos',
+  reviewed: 'Revisada',
+  worksAsExpected: 'Funciona como espero',
+  doesNotWork: 'No funciona',
+  savingVerdict: 'Guardando…',
+  verdictSaved: 'Veredicto guardado',
+  verdictError: 'No pudimos guardar tu veredicto',
+  commentLabel: 'Comentario (opcional)',
+  commentPlaceholder: 'Algo que notaste…',
+  autoCheck: {
+    expected: 'Esperado',
+    observed: 'Observado',
+    pass: 'Chequeo automático: pasa',
+    fail: 'Chequeo automático: falla',
+    notSupported: 'Todavía no soportado',
+  },
+  timelineTitle: 'Qué pasó',
+  timelineEmpty: 'Todavía no hay eventos.',
+  expectationsTitle: 'Expectativas',
+  expectationsEmpty: 'Todavía no hay expectativas.',
+  diffTags: {
+    new: 'Nueva',
+    fulfilled: 'Cumplida',
+    superseded: 'Reemplazada',
+    expired: 'Vencida',
+    cancelled: 'Cancelada',
+    still_open: 'Sigue abierta',
+  },
+  columns: { rule: 'Regla', layer: 'Capa', version: 'Versión', due: 'Vence', status: 'Estado' },
+  readByRules: 'Leído por reglas',
+  ruleCard: {
+    trigger: 'Disparador',
+    fulfilledBy: 'Se cumple con',
+    supersededBy: 'Se reemplaza con',
+    escalationPolicy: 'Política de escalamiento',
+    version: 'Versión',
+    dueInDays: (days: number): string => count(days, 'día', 'días'),
+  },
+  eventTypes: {
+    'service_request.created': 'Orden emitida',
+    'result.received': 'Resultado recibido',
+    'medication.prescribed': 'Medicamento indicado',
+    'condition.recorded': 'Diagnóstico registrado',
+    'encounter.finished': 'Consulta',
+    'appointment.booked': 'Cita agendada',
+    'appointment.cancelled': 'Cita cancelada',
+    'note.received': 'Nota guardada',
+    'plan.extracted': 'Plan extraído',
+  },
+  scenarios: {
+    'structured-no-llm': {
+      title: 'Los datos estructurados no pasan por la IA',
+      statement:
+        'Una orden, una receta con duración y un resultado se leen cada uno por reglas — nunca por el modelo de lenguaje.',
+    },
+    'note-ai-once-per-save': {
+      title: 'Una nota solo la lee la IA cuando se guarda',
+      statement:
+        'Guardar una nota la lee una vez con el modelo; mover el reloj hacia adelante después nunca la vuelve a leer.',
+    },
+    'note-extraction-quotes': {
+      title: 'Diagnósticos, medicamentos y el plan vienen con citas',
+      statement:
+        'Un diagnóstico (CIE-10), un medicamento y el plan del médico se extraen cada uno de la nota con la cita exacta que los respalda.',
+    },
+    'plan-item-confirm': {
+      title: 'El médico confirma un punto del plan con un clic',
+      statement:
+        'Un punto de seguimiento que la IA leyó de la nota se puede confirmar como correcto en una sola acción.',
+    },
+    'condition-inferred': {
+      title: 'Una condición se puede inferir del tratamiento o de un resultado',
+      statement:
+        'Indicar metformina, o un HbA1c de 6.5% o más, sugieren diabetes por sí solos, sin que nadie haya escrito el diagnóstico en ningún lado.',
+    },
+    'expectation-has-due-date': {
+      title: 'Cada evento abre una expectativa con fecha de vencimiento',
+      statement:
+        'Cada evento clínico que el motor lee crea una expectativa con una fecha de vencimiento concreta.',
+    },
+    'universal-layer': {
+      title: 'La capa universal detecta órdenes y tratamientos sin seguimiento',
+      statement:
+        'Una orden sin resultado, y un tratamiento corto sin control, abren cada uno su propia expectativa — para cualquier consultorio, cualquier especialidad.',
+    },
+    'doctor-plan-layer': {
+      title: 'El plan del propio médico abre su propia expectativa',
+      statement:
+        'Una nota que dice "control en un mes" abre una expectativa que vence en unos 30 días.',
+    },
+    'cadence-break': {
+      title: 'Un ritmo de consultas roto se vuelve un caso — pero solo con un patrón',
+      statement:
+        'Un paciente con dos o más consultas previas que rompe su ritmo abre un caso; una sola consulta previa no abre nada.',
+    },
+    'protocol-fills-gaps': {
+      title: 'Un protocolo de enfermedad crónica llena lo que el plan dejó abierto',
+      statement:
+        'Una vez inscrito en el protocolo de diabetes, los controles de rutina que el plan del médico no mencionó (un perfil lipídico, un examen de fondo de ojo, una consulta de rutina) igual quedan programados.',
+    },
+    'plan-beats-protocol': {
+      title: 'El plan del médico siempre tiene prioridad sobre el protocolo',
+      statement:
+        'Cuando el plan del propio médico ya pide un examen, el protocolo de enfermedad crónica nunca abre una segunda expectativa duplicada para lo mismo.',
+    },
+    'auto-close-fulfilled': {
+      title: 'Un resultado cierra su orden automáticamente',
+      statement:
+        'Una orden seguida de su resultado queda marcada como cumplida sin que nadie tenga que actuar.',
+    },
+    supersession: {
+      title: 'Una orden repetida reemplaza a la anterior',
+      statement:
+        'Pedir el mismo examen otra vez marca la orden anterior como reemplazada y arranca una fecha de vencimiento nueva desde la orden nueva.',
+    },
+    'independent-clocks': {
+      title: 'Exámenes distintos llevan relojes separados',
+      statement:
+        'Dos exámenes distintos pedidos para el mismo paciente se siguen cada uno con su propia fecha de vencimiento, independiente uno del otro.',
+    },
+    'visit-closes-controls-not-tests': {
+      title: 'Una consulta cierra controles pendientes, nunca exámenes pendientes',
+      statement:
+        'Una consulta cumple un control de seguimiento pendiente, pero un resultado de laboratorio o imagen pendiente todavía necesita su propio resultado para cerrar.',
+    },
+    'note-without-plan-finding': {
+      title: 'Una nota sin plan se vuelve un hallazgo de calidad',
+      statement:
+        'Una nota que no deja ningún plan de seguimiento se registra como un hallazgo de calidad de la documentación para el equipo clínico.',
+    },
+    'rule-is-configuration': {
+      title: 'Las reglas son configuración, no código',
+      statement:
+        'El disparador de cada regla, cómo se cumple y se reemplaza, su política de escalamiento y su versión se leen directo de la configuración de la propia regla.',
+    },
+    'case-keeps-rule-version': {
+      title: 'Un caso conserva la versión de la regla con la que abrió',
+      statement:
+        'Una vez que un caso abre, conserva exactamente la versión de la regla que lo creó, incluso después de que el consultorio cambie esa regla más adelante.',
+    },
+    'per-clinic-override': {
+      title: 'Un consultorio puede ajustar sus propios plazos',
+      statement:
+        'El ajuste propio de esta clínica de prueba mueve la fecha de vencimiento de una regla (por ejemplo de 15 a 10 días), sin cambiarla para ningún otro consultorio.',
+    },
+  },
+};
+
 export const es: Messages = {
   metrics,
   common,
@@ -1178,4 +1339,5 @@ export const es: Messages = {
   consultation,
   extraction,
   review,
+  engineTests,
 };

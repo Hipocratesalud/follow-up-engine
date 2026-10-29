@@ -54,6 +54,13 @@ const EnvSchema = z
     CI: optionalString,
     META_API_KEY: optionalString,
     META_MODEL: optionalString,
+    /**
+     * Meta Model API base URL, overriding `META_API_BASE_URL`. Meta's API is
+     * not served to some cloud providers' egress addresses (docs/deploy.md
+     * #hosted-demo): point this at a relay that forwards to it. Must end
+     * before `/chat/completions` (e.g. `https://relay.example/v1`).
+     */
+    META_BASE_URL: optionalString,
     BASETEN_API_KEY: optionalString,
     BASETEN_MODEL: optionalString,
     OPENAI_COMPATIBLE_BASE_URL: optionalString,
@@ -153,6 +160,7 @@ export interface LlmConfig {
   readonly provider: LlmProviderName;
   readonly metaApiKey?: string;
   readonly metaModel?: string;
+  readonly metaBaseUrl?: string;
   readonly basetenApiKey?: string;
   readonly basetenModel?: string;
   readonly openAiCompatible?: {
@@ -249,6 +257,7 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Runtime
       provider,
       ...defined('metaApiKey', e.META_API_KEY),
       ...defined('metaModel', e.META_MODEL),
+      ...defined('metaBaseUrl', e.META_BASE_URL),
       ...defined('basetenApiKey', e.BASETEN_API_KEY),
       ...defined('basetenModel', e.BASETEN_MODEL),
       ...openAiCompatible,

@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -5,11 +6,24 @@ import { createRuntime, type EngineRuntime, loadRuntimeConfig } from '@follow-up
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { loadApiConfig } from './config.ts';
 import type { App } from './http/context.ts';
-import { ACCESS_ATTEMPTS_PER_MINUTE, accessToken, safeNextPath } from './http/site.ts';
+import {
+  ACCESS_ATTEMPTS_PER_MINUTE,
+  accessToken,
+  deriveSessionSecret,
+  safeNextPath,
+} from './http/site.ts';
 import { createApiServer } from './server.ts';
 
 const KEY = 'site-test-clinic-key';
 const CODE = 'correct-horse-battery-staple';
+const EMAIL = 'doctor@example.com';
+
+/** Replicates `site.ts`'s private evaluator cookie signing. */
+function evaluatorCookie(email: string, code: string): string {
+  const secret = deriveSessionSecret(code);
+  const signature = createHmac('sha256', secret).update(email).digest('base64url');
+  return `fue_evaluator=${Buffer.from(email, 'utf8').toString('base64url')}.${signature}`;
+}
 const INDEX_HTML = `<!doctype html>
 <html lang="en">
   <head>
@@ -50,7 +64,9 @@ async function site(env: Record<string, string>): Promise<App> {
 }
 
 const html = { accept: 'text/html,application/xhtml+xml' };
-const cookie = { cookie: `fue_access=${accessToken(CODE)}` };
+const cookie = {
+  cookie: `fue_access=${accessToken(CODE)}; ${evaluatorCookie(EMAIL, CODE)}`,
+};
 
 describe('hosted inbox on the API origin', () => {
   it('serves the inbox with its default language, an SPA fallback and its own CSP', async () => {
@@ -155,12 +171,13 @@ describe('shared access code', () => {
 
     const right = await app.request('https://demo.example/_access', {
       method: 'POST',
-      body: new URLSearchParams({ code: ` ${CODE} `, next: '/metrics' }),
+      body: new URLSearchParams({ code: ` ${CODE} `, email: EMAIL, next: '/metrics' }),
     });
     expect(right.status).toBe(303);
     expect(right.headers.get('location')).toBe('/metrics');
     const setCookie = right.headers.get('set-cookie') ?? '';
     expect(setCookie).toContain(`fue_access=${accessToken(CODE)}`);
+    expect(setCookie).toContain('fue_evaluator=');
     expect(setCookie).toContain('HttpOnly');
     expect(setCookie).toContain('Secure');
     expect(setCookie).toContain('SameSite=Lax');
@@ -184,7 +201,7 @@ describe('shared access code', () => {
       app.request('/_access', {
         method: 'POST',
         headers: { 'x-forwarded-for': forwardedFor },
-        body: new URLSearchParams({ code }),
+        body: new URLSearchParams({ code, email: EMAIL }),
       });
     for (let index = 0; index < ACCESS_ATTEMPTS_PER_MINUTE; index += 1) {
       expect((await attempt('203.0.113.7')).status).toBe(401);

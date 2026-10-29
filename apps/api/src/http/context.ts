@@ -19,6 +19,13 @@ export interface AppEnv {
     locale: ApiLocale;
     /** The message catalog of {@link locale}. */
     t: ApiMessages;
+    /**
+     * The evaluator's own identity in the hosted demo (docs/deploy.md#evaluator-identity-and-tracking),
+     * from the signed `fue_evaluator` cookie: validated, lowercased email.
+     * Set only when the access gate is configured and the cookie verifies;
+     * routes that need it (the lab, the engine tests) check it themselves.
+     */
+    evaluatorEmail?: string;
   };
 }
 
