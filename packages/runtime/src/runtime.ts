@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   FileEscalationPolicySource,
   FileProtocolSource,
@@ -447,7 +448,69 @@ export function reviewLocaleOf(locale: string | undefined): ReviewLocale {
   return REVIEW_LOCALES.find((candidate) => candidate === language) ?? DEFAULT_REVIEW_LOCALE;
 }
 
-/** Active clinics, for the sweeps. */
+/**
+ * Active clinics, for the worker's ambient sweeps (the hourly watcher and
+ * escalation pass, and the default scope of `/api/demo/clock/advance`).
+ * Lab clinics ({@link isLabClinicId}) are excluded: an evaluator's sandbox
+ * only moves when its own "see the impact on a date" preview says so
+ * (`engine.runWatcher`/`runEscalation` called directly with the chosen
+ * date, scoped to that one clinic), never on the ambient clock's schedule.
+ * This is the "clinic-scoped clock" of the evaluator lab (docs/deploy.md#hosted-demo):
+ * core's `Clock` port is untouched, and the shared clinic's clock keeps
+ * sweeping exactly as before.
+ */
 export async function activeClinicIds(runtime: EngineRuntime): Promise<readonly ClinicId[]> {
-  return (await runtime.storage.clinics.listActive()).map((clinic) => clinic.id);
+  return (await runtime.storage.clinics.listActive())
+    .map((clinic) => clinic.id)
+    .filter((id) => !isLabClinicId(id));
+}
+
+/** Prefix of a lab clinic's id ({@link labClinicId}). */
+export const LAB_CLINIC_PREFIX = 'lab-';
+
+/** Whether `id` is an evaluator's sandbox lab clinic, not a real (or the demo) clinic. */
+export function isLabClinicId(id: ClinicId): boolean {
+  return id.startsWith(LAB_CLINIC_PREFIX);
+}
+
+/**
+ * The sandbox clinic id of an evaluator's lab (docs/deploy.md#hosted-demo):
+ * deterministic from their email (a sha256 prefix), so the same evaluator
+ * always lands on the same, empty, lab clinic and two evaluators never
+ * collide.
+ */
+export function labClinicId(evaluatorEmail: string): ClinicId {
+  const hash = createHash('sha256').update(evaluatorEmail.trim().toLowerCase()).digest('hex');
+  return toClinicId(`${LAB_CLINIC_PREFIX}${hash.slice(0, 24)}`);
+}
+
+/**
+ * Registers the evaluator's lab clinic the first time they use it: empty,
+ * no patient contact, every protocol enabled (so uploaded documents show
+ * every rule the engine can apply), the same escalation policy as the demo
+ * clinic. Idempotent: an existing lab clinic is returned unchanged.
+ */
+export async function ensureLabClinic(
+  runtime: EngineRuntime,
+  evaluatorEmail: string,
+): Promise<Clinic> {
+  const id = labClinicId(evaluatorEmail);
+  const existing = await runtime.storage.clinics.get(id);
+  if (existing !== undefined) {
+    return existing;
+  }
+  return runtime.registerClinic({
+    id,
+    name: `Lab (${evaluatorEmail})`,
+    // Never used to authenticate: lab routes always address this clinic
+    // explicitly from the evaluator's signed session, not through an API key.
+    apiKey: generateApiKey(),
+    settings: {
+      allowPatientContact: false,
+      locale: 'en-US',
+      enabledProtocols: [...availableProtocolIds()],
+      escalationPolicyId: DEMO_ESCALATION_POLICY,
+      reconciliation: { fullSweepWeekday: null, enabled: false },
+    },
+  });
 }

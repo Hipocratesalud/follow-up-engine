@@ -24,6 +24,31 @@ export interface ConsultationDiagnosisInput {
   readonly verification?: 'confirmed' | 'provisional';
 }
 
+/**
+ * What kind of document the note is (the evaluator lab's "document type"
+ * picker): selects the `DocumentReference.type` LOINC code. Extraction
+ * itself does not depend on it (`mapDocumentReference` reads any current,
+ * final DocumentReference with text); it only labels the record.
+ */
+export const CONSULTATION_DOCUMENT_TYPES = [
+  'consultation_note',
+  'lab_result',
+  'imaging_report',
+  'prescription',
+  'other',
+] as const;
+export type ConsultationDocumentType = (typeof CONSULTATION_DOCUMENT_TYPES)[number];
+
+const DOCUMENT_TYPE_CODES: Readonly<
+  Record<ConsultationDocumentType, { code: string; display: string }>
+> = {
+  consultation_note: { code: '11506-3', display: 'Progress note' },
+  lab_result: { code: '11502-2', display: 'Laboratory report' },
+  imaging_report: { code: '18748-4', display: 'Diagnostic imaging report' },
+  prescription: { code: '57833-6', display: 'Prescription record' },
+  other: { code: '34133-9', display: 'Summary of episode note' },
+};
+
 export interface ConsultationInput {
   /** Host id of the consultation; every resource id derives from it (`<id>-enc`, `<id>-note`, ...). */
   readonly consultationId: string;
@@ -40,6 +65,8 @@ export interface ConsultationInput {
   /** When the consultation ended and the note was signed. */
   readonly occurredAt: Date;
   readonly noteText: string;
+  /** Default `consultation_note` (the demo's free-text consultation form). */
+  readonly documentType?: ConsultationDocumentType;
   readonly orders?: readonly ConsultationOrderInput[];
   readonly prescriptions?: readonly ConsultationPrescriptionInput[];
   readonly diagnoses?: readonly ConsultationDiagnosisInput[];
@@ -110,6 +137,7 @@ export function buildConsultationBundle(input: ConsultationInput): Bundle {
     }),
   );
 
+  const documentType = DOCUMENT_TYPE_CODES[input.documentType ?? 'consultation_note'];
   entries.push(
     put({
       resourceType: 'DocumentReference',
@@ -117,7 +145,9 @@ export function buildConsultationBundle(input: ConsultationInput): Bundle {
       status: 'current',
       docStatus: 'final',
       type: {
-        coding: [{ system: TERMINOLOGY.loinc, code: '11506-3', display: 'Progress note' }],
+        coding: [
+          { system: TERMINOLOGY.loinc, code: documentType.code, display: documentType.display },
+        ],
       },
       subject: patientRef,
       date: at,

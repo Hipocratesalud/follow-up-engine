@@ -29,6 +29,10 @@ export {
   DEMO_ESCALATION_POLICY,
   availableProtocolIds,
   DEMO_INBOX_KEY_LABEL,
+  ensureLabClinic,
+  isLabClinicId,
+  LAB_CLINIC_PREFIX,
+  labClinicId,
   registerDemoClinic,
   type CreateRuntimeOptions,
   type EngineRuntime,
@@ -60,6 +64,25 @@ export {
   type IngestMode,
   type StoredEntry,
 } from './ingestion.ts';
+export {
+  EVALUATOR_ACTIONS,
+  isEvaluatorAction,
+  type EvaluatorAction,
+  type EvaluatorEvent,
+  type EvaluatorEventPage,
+  type EvaluatorEventQuery,
+  type EvaluatorEventStore,
+  type EvaluatorSummary,
+  type NewEvaluatorEvent,
+} from './evaluator-events.ts';
+export {
+  ensureLabClinicAndClock,
+  InvalidLabDateError,
+  labIngestion,
+  LabClockRegistry,
+  setLabClinicDate,
+  type LabClockAdvance,
+} from './lab.ts';
 export type { ExtractorInfo, LlmSnapshotOption } from './llm.ts';
 /** Gateway task names, for per-task LLM usage (notes read vs clinical reviews). */
 export { CLINICAL_REVIEW_TASK, NOTE_EXTRACTION_TASK } from '@follow-up-engine/llm';

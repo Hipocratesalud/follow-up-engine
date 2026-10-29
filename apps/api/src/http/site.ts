@@ -1,12 +1,15 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, relative, sep } from 'node:path';
+import { clinicId as toClinicId } from '@follow-up-engine/core';
+import { DEMO_CLINIC, type EngineRuntime } from '@follow-up-engine/runtime';
 import type { Context, MiddlewareHandler } from 'hono';
-import { getCookie, setCookie } from 'hono/cookie';
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { type ApiLocale, messagesFor } from '../i18n/index.ts';
 import type { App, AppEnv } from './context.ts';
 import { errorResponse } from './errors.ts';
 import { HttpError } from './errors.ts';
+import { trackEvaluatorEvent } from './evaluator-tracking.ts';
 import { RateLimiter } from './security.ts';
 
 /**
@@ -20,6 +23,12 @@ export interface SiteOptions {
   readonly inbox?: InboxSite;
   /** The shared code that opens the site (`DEMO_ACCESS_CODE`), 16+ characters. */
   readonly accessCode?: string;
+  /**
+   * Signs the evaluator identity cookie (`DEMO_SESSION_SECRET`, else
+   * derived from `accessCode` by {@link deriveSessionSecret}). Required
+   * together with `accessCode`.
+   */
+  readonly sessionSecret?: string;
   /** The UI language a viewer gets until they pick one (`DEFAULT_UI_LOCALE`). */
   readonly defaultLocale: ApiLocale;
 }
@@ -53,6 +62,63 @@ function sameSecret(given: string, expected: string): boolean {
   const left = createHash('sha256').update(given).digest();
   const right = createHash('sha256').update(expected).digest();
   return timingSafeEqual(left, right);
+}
+
+const EVALUATOR_COOKIE = 'fue_evaluator';
+/** Same lifetime as the access cookie: the code page is asked once per browser. */
+const EVALUATOR_COOKIE_MAX_AGE_S = ACCESS_COOKIE_MAX_AGE_S;
+/** Generous (RFC 5321's 254 plus headroom) and under the `evaluator_events` column's 320. */
+export const MAX_EVALUATOR_EMAIL_LENGTH = 254;
+/** Deliberately loose: a real address, not a strict RFC 5322 grammar. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Validates, trims and lowercases an evaluator email; `undefined` when it does not look like one. */
+export function normalizedEvaluatorEmail(raw: string): string | undefined {
+  const email = raw.trim().toLowerCase();
+  if (email.length < 3 || email.length > MAX_EVALUATOR_EMAIL_LENGTH) {
+    return undefined;
+  }
+  return EMAIL_PATTERN.test(email) ? email : undefined;
+}
+
+/**
+ * The session secret that signs the evaluator identity cookie when
+ * `DEMO_SESSION_SECRET` is not set: derived from the access code, so a
+ * deployment that only ever set `DEMO_ACCESS_CODE` keeps working with no
+ * new variable, and rotating the code also rotates this derived secret.
+ */
+export function deriveSessionSecret(accessCode: string): string {
+  return createHmac('sha256', accessCode).update('evaluator-session-v1').digest('hex');
+}
+
+/**
+ * The evaluator identity cookie's value: the email, HMAC-signed with the
+ * session secret so it cannot be forged or edited in the browser. The
+ * email itself is not secret (it is shown back to the evaluator as
+ * "Evaluating as ..."), only tamper-proof.
+ */
+function evaluatorToken(email: string, secret: string): string {
+  const signature = createHmac('sha256', secret).update(email).digest('base64url');
+  return `${Buffer.from(email, 'utf8').toString('base64url')}.${signature}`;
+}
+
+/** The email of a valid evaluator cookie value, `undefined` if missing, malformed or forged. */
+function verifyEvaluatorToken(token: string, secret: string): string | undefined {
+  const [encoded, signature] = token.split('.');
+  if (encoded === undefined || signature === undefined) {
+    return undefined;
+  }
+  let email: string;
+  try {
+    email = Buffer.from(encoded, 'base64url').toString('utf8');
+  } catch {
+    return undefined;
+  }
+  const expected = createHmac('sha256', secret).update(email).digest('base64url');
+  if (signature.length !== expected.length || !sameSecret(signature, expected)) {
+    return undefined;
+  }
+  return normalizedEvaluatorEmail(email);
 }
 
 /**
@@ -98,8 +164,13 @@ function escapeHtml(text: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function accessPage(locale: ApiLocale, next: string, error?: string): string {
+function accessPage(
+  locale: ApiLocale,
+  next: string,
+  options: { readonly error?: string; readonly email?: string } = {},
+): string {
   const t = messagesFor(locale).accessGate;
+  const { error, email } = options;
   return `<!doctype html>
 <html lang="${locale}">
 <head>
@@ -117,10 +188,10 @@ main{width:100%;max-width:380px;background:var(--card);border:1px solid var(--li
 h1{font-size:20px;margin:0 0 8px}
 p{margin:0 0 20px;color:var(--muted)}
 label{display:block;font-weight:600;margin-bottom:6px}
-input{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit}
+input{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;margin-bottom:16px}
 input:focus{outline:2px solid var(--accent);outline-offset:1px}
-button{margin-top:16px;width:100%;font:inherit;font-weight:600;padding:10px 12px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
-.error{color:var(--error);margin:12px 0 0}
+button{margin-top:4px;width:100%;font:inherit;font-weight:600;padding:10px 12px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+.error{color:var(--error);margin:-8px 0 16px}
 </style>
 </head>
 <body>
@@ -129,8 +200,10 @@ button{margin-top:16px;width:100%;font:inherit;font-weight:600;padding:10px 12px
 <p>${escapeHtml(t.intro)}</p>
 <form method="post" action="${ACCESS_PATH}">
 <input type="hidden" name="next" value="${escapeHtml(next)}">
+<label for="email">${escapeHtml(t.emailLabel)}</label>
+<input id="email" name="email" type="email" autocomplete="email" value="${escapeHtml(email ?? '')}" autofocus required>
 <label for="code">${escapeHtml(t.codeLabel)}</label>
-<input id="code" name="code" type="password" autocomplete="current-password" autofocus required>
+<input id="code" name="code" type="password" autocomplete="current-password" required>
 ${error === undefined ? '' : `<p class="error" role="alert">${escapeHtml(error)}</p>`}
 <button type="submit">${escapeHtml(t.submit)}</button>
 </form>
@@ -139,39 +212,73 @@ ${error === undefined ? '' : `<p class="error" role="alert">${escapeHtml(error)}
 </html>`;
 }
 
-function pageResponse(c: Context<AppEnv>, html: string, status: 200 | 401 | 429): Response {
+function pageResponse(c: Context<AppEnv>, html: string, status: 200 | 401 | 422 | 429): Response {
   c.header('content-security-policy', PAGE_CSP);
   c.header('cache-control', 'no-store');
   return c.html(html, status);
 }
 
 /**
- * The shared access code in front of the whole site. Without the cookie a
- * browser page load goes to the code page and an API call gets 401; the
- * health probes stay open for the platform. The code page sets an HttpOnly
- * cookie (an HMAC of the code, see {@link accessToken}) and returns to the
- * page asked for. Wrong codes are limited per client.
+ * The shared access code and evaluator email in front of the whole site.
+ * Without both cookies a browser page load goes to the code page and an
+ * API call gets 401; the health probes stay open for the platform. The
+ * code page sets two HttpOnly cookies (an HMAC of the code, see
+ * {@link accessToken}; the signed email, see {@link evaluatorToken}) and
+ * returns to the page asked for. Wrong codes are limited per client. The
+ * login is tracked (migration 0016, "Evaluators" admin page).
  */
-export function registerAccessGate(app: App, code: string, locale: ApiLocale): void {
+export function registerAccessGate(
+  app: App,
+  runtime: EngineRuntime,
+  code: string,
+  sessionSecret: string,
+  locale: ApiLocale,
+): void {
   const token = accessToken(code);
   const attempts = new RateLimiter();
 
-  app.get(ACCESS_PATH, (c) =>
-    pageResponse(c, accessPage(locale, safeNextPath(c.req.query('next'))), 200),
-  );
+  app.get(ACCESS_PATH, (c) => {
+    // A valid evaluator cookie pre-fills its email: "Change" (apps/inbox's
+    // header banner links here) re-enters the code but not the address.
+    const existing = getCookie(c, EVALUATOR_COOKIE);
+    const email =
+      existing === undefined ? undefined : verifyEvaluatorToken(existing, sessionSecret);
+    return pageResponse(
+      c,
+      accessPage(locale, safeNextPath(c.req.query('next')), email === undefined ? {} : { email }),
+      200,
+    );
+  });
   app.post(ACCESS_PATH, async (c) => {
     const form = await c.req.parseBody();
     const given = typeof form['code'] === 'string' ? form['code'].trim() : '';
+    const givenEmail = typeof form['email'] === 'string' ? form['email'] : '';
     const next = safeNextPath(typeof form['next'] === 'string' ? form['next'] : undefined);
     const t = messagesFor(locale).accessGate;
     if (!sameSecret(given, code)) {
       const attempt = attempts.take(clientOf(c), ACCESS_ATTEMPTS_PER_MINUTE);
       if (!attempt.ok) {
         c.header('retry-after', String(Math.max(1, attempt.retryAfter)));
-        return pageResponse(c, accessPage(locale, next, t.tooManyAttempts), 429);
+        return pageResponse(
+          c,
+          accessPage(locale, next, { error: t.tooManyAttempts, email: givenEmail }),
+          429,
+        );
       }
       c.var.log.warn({ alert: 'demo_access_denied' }, 'wrong demo access code');
-      return pageResponse(c, accessPage(locale, next, t.wrongCode), 401);
+      return pageResponse(
+        c,
+        accessPage(locale, next, { error: t.wrongCode, email: givenEmail }),
+        401,
+      );
+    }
+    const email = normalizedEvaluatorEmail(givenEmail);
+    if (email === undefined) {
+      return pageResponse(
+        c,
+        accessPage(locale, next, { error: t.invalidEmail, email: givenEmail }),
+        422,
+      );
     }
     setCookie(c, ACCESS_COOKIE, token, {
       path: '/',
@@ -180,12 +287,34 @@ export function registerAccessGate(app: App, code: string, locale: ApiLocale): v
       sameSite: 'Lax',
       maxAge: ACCESS_COOKIE_MAX_AGE_S,
     });
+    setCookie(c, EVALUATOR_COOKIE, evaluatorToken(email, sessionSecret), {
+      path: '/',
+      httpOnly: true,
+      secure: isSecure(c),
+      sameSite: 'Lax',
+      maxAge: EVALUATOR_COOKIE_MAX_AGE_S,
+    });
+    // Tracked under the shared demo clinic (migration 0016): a login
+    // precedes any clinic-specific action, so it has no other clinic to
+    // carry; the lab's own clinic is created lazily on first use.
+    await trackEvaluatorEvent(runtime, {
+      clinicId: toClinicId(DEMO_CLINIC.id),
+      evaluatorEmail: email,
+      action: 'login',
+    });
     return c.redirect(next, 303);
   });
 }
 
-/** The middleware half of {@link registerAccessGate}: mounted before every route. */
-export function accessGate(code: string): MiddlewareHandler<AppEnv> {
+/**
+ * The middleware half of {@link registerAccessGate}: mounted before every
+ * route. Requires both the access cookie (the shared code) and the
+ * evaluator cookie (the email): a browser that only ever proved the code
+ * (a session from before this feature) is sent back to the code page to
+ * also give its email, so every request past this point carries an
+ * evaluator identity (`c.var.evaluatorEmail`).
+ */
+export function accessGate(code: string, sessionSecret: string): MiddlewareHandler<AppEnv> {
   const token = accessToken(code);
   return async (c, next) => {
     if (OPEN_PATHS.has(c.req.path)) {
@@ -193,7 +322,13 @@ export function accessGate(code: string): MiddlewareHandler<AppEnv> {
       return;
     }
     const cookie = getCookie(c, ACCESS_COOKIE);
-    if (cookie !== undefined && sameSecret(cookie, token)) {
+    const evaluatorCookie = getCookie(c, EVALUATOR_COOKIE);
+    const email =
+      evaluatorCookie === undefined
+        ? undefined
+        : verifyEvaluatorToken(evaluatorCookie, sessionSecret);
+    if (cookie !== undefined && sameSecret(cookie, token) && email !== undefined) {
+      c.set('evaluatorEmail', email);
       await next();
       return;
     }
@@ -209,6 +344,17 @@ export function accessGate(code: string): MiddlewareHandler<AppEnv> {
     }
     return errorResponse(c, new HttpError(401, 'access_required', c.var.t.accessGate.required));
   };
+}
+
+/**
+ * Clears the evaluator identity cookie (and the access cookie, so the code
+ * is re-entered too, per the demo's design: no password, the code is the
+ * only re-entry cost). Used by `POST /api/evaluator/logout` ("Change" in
+ * apps/inbox): the next request redirects to the code page.
+ */
+export function clearEvaluatorSession(c: Context<AppEnv>): void {
+  deleteCookie(c, ACCESS_COOKIE, { path: '/' });
+  deleteCookie(c, EVALUATOR_COOKIE, { path: '/' });
 }
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {

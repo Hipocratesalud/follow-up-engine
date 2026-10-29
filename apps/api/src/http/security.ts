@@ -183,6 +183,16 @@ export function decodeHeaderText(raw: string): string {
   }
 }
 
+/**
+ * The clinic user acting, for the audit trail: the evaluator lab's
+ * identity (`c.var.evaluatorEmail`, set by the access gate) when the
+ * hosted demo is running, else `X-FollowUp-User`, else the generic
+ * `inbox-user` a host that sends neither gets.
+ */
+export function actorId(c: Context<AppEnv>): string {
+  return c.var.evaluatorEmail ?? followUpUser(c) ?? 'inbox-user';
+}
+
 /** Longest `X-FollowUp-User`, in characters. */
 export const MAX_USER_LENGTH = 120;
 /** Letters, marks, digits, punctuation, symbols and plain spaces: no controls, no invisible characters. */

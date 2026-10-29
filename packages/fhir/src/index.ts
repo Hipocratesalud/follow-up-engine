@@ -82,12 +82,20 @@ export {
 // Builders and helpers
 export {
   buildConsultationBundle,
+  CONSULTATION_DOCUMENT_TYPES,
   type ConsultationDiagnosisInput,
+  type ConsultationDocumentType,
   type ConsultationInput,
   type ConsultationOrderInput,
   type ConsultationPrescriptionInput,
 } from './builders/consultation-bundle.ts';
-export { buildRecordBundle, type RecordBundleInput, type RecordEntryInput } from './builders/record-bundle.ts';
+export {
+  buildPatientBundle,
+  buildRecordBundle,
+  type PatientBundleInput,
+  type RecordBundleInput,
+  type RecordEntryInput,
+} from './builders/record-bundle.ts';
 export {
   toOperationOutcome,
   type IssueCode,

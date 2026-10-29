@@ -600,9 +600,19 @@ export const EN = {
     demoClinicOnly: 'Demo consultations are only saved in the demo clinic.',
     invalidConsultation: 'We could not build the consultation from that data.',
     labFutureDate: "That date is after the lab clinic's own current date.",
+    labPastDate: "The lab clinic's date can only move forward.",
     noteNotRead: (model, error) =>
       `The model (${model}) could not read the note: ${error ?? 'no response'}. The consultation ` +
       'was saved and reading its plan will be retried automatically.',
+    labDocumentErrors: {
+      too_large: 'That file is larger than 2 MB.',
+      empty: 'That document has no text to read.',
+      unsupported_image:
+        'Images are not supported yet: paste the text or upload a PDF, DOCX or TXT.',
+      unsupported_type:
+        'That file type is not supported: upload a PDF, DOCX or TXT, or paste the text.',
+      unreadable: 'The file could not be read. Try another file, or paste the text.',
+    },
   },
 
   validation: {

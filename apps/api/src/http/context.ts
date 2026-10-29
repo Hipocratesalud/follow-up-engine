@@ -19,6 +19,14 @@ export interface AppEnv {
     locale: ApiLocale;
     /** The message catalog of {@link locale}. */
     t: ApiMessages;
+    /**
+     * The evaluator lab's identity (docs/deploy.md#hosted-demo): the email
+     * given at the access gate, validated and lowercased, from the signed
+     * `fue_evaluator` cookie. Set by {@link accessGate} before any route
+     * runs; `undefined` when the hosted demo's access gate is not
+     * configured (a plain API deployment has no evaluators).
+     */
+    evaluatorEmail?: string;
   };
 }
 

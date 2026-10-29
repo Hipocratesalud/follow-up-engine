@@ -25,6 +25,11 @@ import type {
   UnitOfWork,
 } from '@follow-up-engine/core';
 import { type ApiKeyStore, MemoryApiKeyStore, PostgresApiKeyStore } from './api-keys.ts';
+import {
+  type EvaluatorEventStore,
+  MemoryEvaluatorEventStore,
+  PostgresEvaluatorEventStore,
+} from './evaluator-events.ts';
 import { MemoryReadModel, PostgresReadModel, type ReadModel } from './read-model.ts';
 
 /** A clinic to register (provisioning, seeds, tests). */
@@ -59,6 +64,8 @@ export interface Storage {
   readonly readModel: ReadModel;
   /** Scoped API keys of every clinic. */
   readonly apiKeys: ApiKeyStore;
+  /** The evaluator lab's append-only action log (docs/deploy.md#hosted-demo), cross-clinic. */
+  readonly evaluatorEvents: EvaluatorEventStore;
   registerClinic(registration: ClinicRegistration): Promise<Clinic>;
   /** Delivers pending outbox events (every clinic) through `publisher`. */
   drainOutbox(publisher: EventPublisher, now: Date, limit: number): Promise<DrainResult>;
@@ -82,6 +89,7 @@ export function createMemoryStorage(clock: Clock): Storage & { readonly db: Memo
     llmUsage: new MemoryLlmUsageLog(db),
     readModel: new MemoryReadModel(db),
     apiKeys: new MemoryApiKeyStore(),
+    evaluatorEvents: new MemoryEvaluatorEventStore(),
     registerClinic(registration) {
       const clinic: Clinic = {
         id: registration.id,
@@ -148,6 +156,7 @@ export async function createPostgresStorage(
     llmUsage: adapters.llmUsage,
     readModel: new PostgresReadModel(adapters.db, options.schema),
     apiKeys: new PostgresApiKeyStore(adapters.db, options.schema),
+    evaluatorEvents: new PostgresEvaluatorEventStore(adapters.db, options.schema),
     registerClinic: (registration) =>
       adapters.clinics.register({
         id: registration.id,

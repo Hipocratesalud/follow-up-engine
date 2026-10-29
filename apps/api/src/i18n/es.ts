@@ -608,9 +608,19 @@ export const ES = {
     demoClinicOnly: 'Las consultas de demostración solo se guardan en la clínica de demostración.',
     invalidConsultation: 'No pudimos armar la consulta con esos datos.',
     labFutureDate: 'Esa fecha es posterior a la fecha actual de tu laboratorio.',
+    labPastDate: 'La fecha de tu laboratorio solo puede avanzar hacia adelante.',
     noteNotRead: (model, error) =>
       `El modelo (${model}) no pudo leer la nota: ${error ?? 'sin respuesta'}. La consulta quedó ` +
       'guardada y la lectura del plan se reintentará automáticamente.',
+    labDocumentErrors: {
+      too_large: 'Ese archivo pesa más de 2 MB.',
+      empty: 'Ese documento no tiene texto para leer.',
+      unsupported_image:
+        'Las imágenes todavía no son compatibles: pega el texto o sube un PDF, DOCX o TXT.',
+      unsupported_type:
+        'Ese tipo de archivo no es compatible: sube un PDF, DOCX o TXT, o pega el texto.',
+      unreadable: 'No pudimos leer el archivo. Prueba con otro archivo o pega el texto.',
+    },
   },
 
   validation: {

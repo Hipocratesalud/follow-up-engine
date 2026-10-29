@@ -37,6 +37,7 @@ export function createApiServer(
             ? {}
             : { inbox: loadInboxSite(config.inboxDistDir, defaultLocale) }),
           ...(config.accessCode === undefined ? {} : { accessCode: config.accessCode }),
+          ...(config.sessionSecret === undefined ? {} : { sessionSecret: config.sessionSecret }),
         };
   const app = createApp(runtime, {
     ...appOptions,

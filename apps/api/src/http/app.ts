@@ -1,4 +1,9 @@
-import { type EngineRuntime, hashApiKey, type Worker } from '@follow-up-engine/runtime';
+import {
+  type EngineRuntime,
+  hashApiKey,
+  LabClockRegistry,
+  type Worker,
+} from '@follow-up-engine/runtime';
 import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
@@ -8,14 +13,23 @@ import { registerAdminRoutes } from './admin-routes.ts';
 import type { App, AppEnv } from './context.ts';
 import { registerDemoRoutes } from './demo-routes.ts';
 import { errorResponse, HttpError, toHttpError } from './errors.ts';
+import { registerEvaluatorRoutes } from './evaluator-routes.ts';
 import { fhirErrorResponse, registerFhirRoutes } from './fhir-routes.ts';
 import { registerInboxRoutes } from './inbox-routes.ts';
+import { registerLabRecordRoutes } from './lab-records-routes.ts';
 import { registerMetricsRoutes } from '../metrics/metrics-routes.ts';
 import { registerJobRoutes } from './job-routes.ts';
 import { registerPatientQueueRoutes } from './patient-queue-routes.ts';
 import { registerReviewerDemoRoutes, registerReviewerRoutes } from './reviewer-routes.ts';
 import { docsPage, openApiDocument } from './openapi.ts';
-import { accessGate, inboxResponse, registerAccessGate, type SiteOptions } from './site.ts';
+import {
+  accessGate,
+  clearEvaluatorSession,
+  deriveSessionSecret,
+  inboxResponse,
+  registerAccessGate,
+  type SiteOptions,
+} from './site.ts';
 import {
   clientAddress,
   DEFAULT_RATE_LIMITS,
@@ -286,14 +300,25 @@ function accessLog(runtime: EngineRuntime): MiddlewareHandler<AppEnv> {
  */
 export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   const app = new Hono<AppEnv>();
+  // One registry for the whole process: every evaluator's lab clinic clock
+  // (docs/deploy.md#hosted-demo), shared by every route that touches the lab.
+  const labClocks = new LabClockRegistry();
 
   app.use('*', accessLog(runtime));
   app.use('*', localize());
   app.use('*', securityHeaders());
   const site = options.site;
   if (site?.accessCode !== undefined) {
-    app.use('*', accessGate(site.accessCode));
-    registerAccessGate(app, site.accessCode, site.defaultLocale);
+    const sessionSecret = site.sessionSecret ?? deriveSessionSecret(site.accessCode);
+    app.use('*', accessGate(site.accessCode, sessionSecret));
+    registerAccessGate(app, runtime, site.accessCode, sessionSecret, site.defaultLocale);
+    // "Evaluating as <email>" in apps/inbox's header banner.
+    app.get('/api/evaluator/me', (c) => c.json({ email: c.var.evaluatorEmail }));
+    // "Change" in the same banner: re-enter the code and email.
+    app.post('/api/evaluator/logout', (c) => {
+      clearEvaluatorSession(c);
+      return c.body(null, 204);
+    });
   }
   app.use(
     '*',
@@ -376,6 +401,8 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   if (runtime.fakeClock !== undefined) {
     registerDemoRoutes(app, runtime, runtime.fakeClock, options.worker);
     registerReviewerDemoRoutes(app, runtime);
+    registerLabRecordRoutes(app, runtime, labClocks);
+    registerEvaluatorRoutes(app, runtime);
   }
 
   app.notFound((c) => {

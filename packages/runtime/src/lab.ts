@@ -70,19 +70,39 @@ export function labIngestion(runtime: EngineRuntime, clock: Clock): IngestionSer
   return new IngestionService({ storage: runtime.storage, engine: runtime.engine, clock });
 }
 
+/** One watcher + escalation pass's effect on a lab clinic, for one simulated day. */
+interface DayImpact {
+  readonly expectationsExpired: number;
+  readonly casesOpened: number;
+  readonly casesEscalated: number;
+}
+
 /** One watcher + escalation pass for a lab clinic at a given simulated instant. */
 async function sweepLabClinic(
   engine: FollowUpEngine,
   clinicId: ClinicId,
   now: Date,
-): Promise<void> {
-  await engine.runWatcher(clinicId, now);
-  await engine.runEscalation(clinicId, now);
+): Promise<DayImpact> {
+  const watcherReport = await engine.runWatcher(clinicId, now);
+  const escalationReport = await engine.runEscalation(clinicId, now);
+  return {
+    expectationsExpired: watcherReport.expired,
+    casesOpened: watcherReport.casesOpened.length,
+    casesEscalated: new Set(
+      escalationReport.steps
+        .filter((step) => step.action === 'escalate_to_coordinator')
+        .map((step) => step.caseId),
+    ).size,
+  };
 }
 
 export interface LabClockAdvance {
   readonly from: Date;
   readonly to: Date;
+  /** Summed over every simulated day crossed, "the impact on a date" (docs/deploy.md#hosted-demo). */
+  readonly expectationsExpired: number;
+  readonly casesOpened: number;
+  readonly casesEscalated: number;
 }
 
 /** A lab clinic's date was asked to move to the past. */
@@ -115,11 +135,17 @@ export async function setLabClinicDate(
     throw new InvalidLabDateError();
   }
   let cursor = from.getTime();
+  let expectationsExpired = 0;
+  let casesOpened = 0;
+  let casesEscalated = 0;
   while (cursor < targetMs) {
     cursor = Math.min(cursor + ONE_DAY_MS, targetMs);
     const stepDate = new Date(cursor);
     clock.set(stepDate);
-    await sweepLabClinic(runtime.engine, clinicId, stepDate);
+    const impact = await sweepLabClinic(runtime.engine, clinicId, stepDate);
+    expectationsExpired += impact.expectationsExpired;
+    casesOpened += impact.casesOpened;
+    casesEscalated += impact.casesEscalated;
   }
-  return { from, to: clock.now() };
+  return { from, to: clock.now(), expectationsExpired, casesOpened, casesEscalated };
 }
