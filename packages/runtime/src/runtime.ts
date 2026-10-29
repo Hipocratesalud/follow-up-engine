@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   FileEscalationPolicySource,
   FileProtocolSource,
@@ -21,6 +22,7 @@ import {
   primaryLanguage,
   REVIEW_LOCALES,
   type ReviewLocale,
+  type Rule,
   shadowPilotFlags,
   SystemClock,
 } from '@follow-up-engine/core';
@@ -427,6 +429,18 @@ export function availableProtocolIds(): readonly string[] {
 }
 
 /**
+ * A rule's own configuration (config/rules/*.json), unversioned by any
+ * clinic override: trigger, how it is fulfilled and superseded, its
+ * escalation policy and base version. The engine tests page's "rules are
+ * configuration" card reads straight from this, next to
+ * {@link EngineRuntime.engine}'s per-clinic `ruleOverrides.list` for the
+ * effective (possibly overridden) due date and version.
+ */
+export function ruleConfigOf(ruleId: string): Rule | undefined {
+  return loadConfigDirectory().rules.find((rule) => rule.id === ruleId);
+}
+
+/**
  * The demo clinic runs the clinical reviewer's shadow pilot: every
  * implemented category on, in shadow (stored for the clinical team's batch
  * review, never shown to doctors nor sent to the host). Only on first boot:
@@ -447,7 +461,64 @@ export function reviewLocaleOf(locale: string | undefined): ReviewLocale {
   return REVIEW_LOCALES.find((candidate) => candidate === language) ?? DEFAULT_REVIEW_LOCALE;
 }
 
-/** Active clinics, for the sweeps. */
+/** Prefix of every evaluator lab sandbox clinic id (docs/deploy.md#the-document-lab-and-its-per-evaluator-sandbox-clock). */
+const LAB_CLINIC_ID_PREFIX = 'lab-';
+
+/**
+ * Deterministic sandbox clinic id for an evaluator, from their email: same
+ * email, same id, every time, with no lookup table —
+ * `lab-<sha256 prefix of the lowercased, trimmed email>`. The one place that
+ * turns an evaluator's identity into a clinic id; {@link ensureLabClinic}
+ * and every lab route build on it, so a change to how evaluators are
+ * identified (the email-identity work on another branch) only has to touch
+ * this function.
+ */
+export function labClinicId(evaluatorEmail: string): ClinicId {
+  const normalized = evaluatorEmail.trim().toLowerCase();
+  const digest = createHash('sha256').update(normalized).digest('hex').slice(0, 16);
+  return toClinicId(`${LAB_CLINIC_ID_PREFIX}${digest}`);
+}
+
+/** Whether `id` is an evaluator lab sandbox clinic (never a real one). */
+export function isLabClinicId(id: ClinicId): boolean {
+  return (id as string).startsWith(LAB_CLINIC_ID_PREFIX);
+}
+
+/**
+ * Ensures (idempotent) the evaluator's own empty lab sandbox clinic and
+ * returns it, registering it with every available protocol enabled the
+ * first time this evaluator is seen. Patient contact stays off (a sandbox
+ * never messages anyone). The registration's own API key is internal and
+ * never handed to anyone: the lab is reached through the shared demo key
+ * plus the evaluator's own identity, never its own key.
+ */
+export async function ensureLabClinic(
+  runtime: EngineRuntime,
+  evaluatorEmail: string,
+): Promise<Clinic> {
+  const id = labClinicId(evaluatorEmail);
+  const existing = await runtime.storage.clinics.get(id);
+  if (existing !== undefined) {
+    return existing;
+  }
+  const internalApiKey = `${id}-${createHash('sha256').update(`key:${id}`).digest('hex')}`;
+  return runtime.registerClinic({
+    id,
+    name: `Lab (${evaluatorEmail})`,
+    apiKey: internalApiKey,
+    settings: {
+      allowPatientContact: false,
+      timezone: 'America/Caracas',
+      locale: 'en-US',
+      enabledProtocols: [...availableProtocolIds()],
+      reconciliation: { fullSweepWeekday: null },
+    },
+  });
+}
+
+/** Active clinics, for the sweeps. Every evaluator's lab sandbox runs on its own clock (`lab.ts`) and never here. */
 export async function activeClinicIds(runtime: EngineRuntime): Promise<readonly ClinicId[]> {
-  return (await runtime.storage.clinics.listActive()).map((clinic) => clinic.id);
+  return (await runtime.storage.clinics.listActive())
+    .map((clinic) => clinic.id)
+    .filter((id) => !isLabClinicId(id));
 }

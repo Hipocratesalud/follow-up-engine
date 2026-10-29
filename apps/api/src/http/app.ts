@@ -1,4 +1,4 @@
-import { type EngineRuntime, hashApiKey, type Worker } from '@follow-up-engine/runtime';
+import { type EngineRuntime, hashApiKey, LabClockRegistry, type Worker } from '@follow-up-engine/runtime';
 import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
@@ -14,8 +14,17 @@ import { registerMetricsRoutes } from '../metrics/metrics-routes.ts';
 import { registerJobRoutes } from './job-routes.ts';
 import { registerPatientQueueRoutes } from './patient-queue-routes.ts';
 import { registerReviewerDemoRoutes, registerReviewerRoutes } from './reviewer-routes.ts';
+import { registerLabRecordRoutes } from './lab-records-routes.ts';
+import { registerEngineTestsRoutes } from './engine-tests-routes.ts';
 import { docsPage, openApiDocument } from './openapi.ts';
-import { accessGate, inboxResponse, registerAccessGate, type SiteOptions } from './site.ts';
+import {
+  accessGate,
+  deriveSessionSecret,
+  evaluatorIdentity,
+  inboxResponse,
+  registerAccessGate,
+  type SiteOptions,
+} from './site.ts';
 import {
   clientAddress,
   DEFAULT_RATE_LIMITS,
@@ -292,8 +301,10 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   app.use('*', securityHeaders());
   const site = options.site;
   if (site?.accessCode !== undefined) {
+    const evaluatorSecret = site.evaluatorSecret ?? deriveSessionSecret(site.accessCode);
     app.use('*', accessGate(site.accessCode));
-    registerAccessGate(app, site.accessCode, site.defaultLocale);
+    app.use('*', evaluatorIdentity(evaluatorSecret));
+    registerAccessGate(app, site.accessCode, site.defaultLocale, evaluatorSecret);
   }
   app.use(
     '*',
@@ -376,6 +387,9 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   if (runtime.fakeClock !== undefined) {
     registerDemoRoutes(app, runtime, runtime.fakeClock, options.worker);
     registerReviewerDemoRoutes(app, runtime);
+    const labClocks = new LabClockRegistry();
+    registerLabRecordRoutes(app, runtime, labClocks);
+    registerEngineTestsRoutes(app, runtime, labClocks);
   }
 
   app.notFound((c) => {

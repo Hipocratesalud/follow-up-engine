@@ -13,6 +13,11 @@ export interface ApiConfig {
   readonly inboxDistDir?: string;
   /** Shared code in front of the whole site (`DEMO_ACCESS_CODE`, hosted demo). */
   readonly accessCode?: string;
+  /**
+   * Signs the evaluator identity cookie (`DEMO_SESSION_SECRET`). Optional:
+   * without it, derived from {@link accessCode} (docs/deploy.md#evaluator-identity-and-tracking).
+   */
+  readonly sessionSecret?: string;
   /** The UI language a viewer of the hosted inbox gets until they pick one (`DEFAULT_UI_LOCALE`, default English). */
   readonly defaultUiLocale?: ApiLocale;
 }
@@ -46,6 +51,11 @@ const ApiEnvSchema = z.object({
     .refine((value) => value === undefined || value.length >= MIN_ACCESS_CODE_LENGTH, {
       message: `must be at least ${String(MIN_ACCESS_CODE_LENGTH)} characters`,
     }),
+  DEMO_SESSION_SECRET: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value === '' ? undefined : value)),
   DEFAULT_UI_LOCALE: z.enum(API_LOCALES).optional().default(DEFAULT_API_LOCALE),
 });
 
@@ -67,6 +77,9 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     ...(parsed.data.DEMO_ACCESS_CODE === undefined
       ? {}
       : { accessCode: parsed.data.DEMO_ACCESS_CODE }),
+    ...(parsed.data.DEMO_SESSION_SECRET === undefined
+      ? {}
+      : { sessionSecret: parsed.data.DEMO_SESSION_SECRET }),
     defaultUiLocale: parsed.data.DEFAULT_UI_LOCALE,
   };
 }

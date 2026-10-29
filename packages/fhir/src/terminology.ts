@@ -63,6 +63,20 @@ export const CASE_TASK_CODE = 'follow-up-case';
 export const NOTE_WITHOUT_PLAN_CODE = 'note-without-plan';
 /** `DetectedIssue.code` for a note too long to be read whole (its middle was not read). */
 export const NOTE_TRUNCATED_CODE = 'note-truncated';
+/**
+ * What a document the evaluator lab uploads is, at the edge, before it is
+ * ingested (docs/deploy.md#the-document-lab-and-its-per-evaluator-sandbox-clock):
+ * not a FHIR code, just the lab form's own choice of what kind of paper this is.
+ */
+export const CONSULTATION_DOCUMENT_TYPES = [
+  'consultation_note',
+  'lab_result',
+  'imaging_report',
+  'prescription',
+  'other',
+] as const;
+export type ConsultationDocumentType = (typeof CONSULTATION_DOCUMENT_TYPES)[number];
+
 /** `Consent.category` code (in {@link ENGINE_CODE_SYSTEMS.consent}) for a follow-up opt-out. */
 export const FOLLOW_UP_OPT_OUT_CONSENT_CODE = 'follow-up-opt-out';
 /** `Flag.category` code (in {@link ENGINE_CODE_SYSTEMS.flagCategory}) of a per-patient rule suppression. */

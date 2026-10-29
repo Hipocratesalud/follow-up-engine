@@ -208,6 +208,15 @@ export function followUpUser(c: Context<AppEnv>): string | undefined {
   return user;
 }
 
+/**
+ * Who is acting, for a log line: the evaluator's identity when the hosted
+ * demo's access gate set one, else {@link followUpUser}, else the generic
+ * `inbox-user`.
+ */
+export function actorId(c: Context<AppEnv>): string {
+  return c.var.evaluatorEmail ?? followUpUser(c) ?? 'inbox-user';
+}
+
 /** Content-Security-Policy of the JSON and FHIR API: nothing to load, not framable. */
 export const API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
 

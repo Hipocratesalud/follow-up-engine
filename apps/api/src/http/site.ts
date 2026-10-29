@@ -20,12 +20,26 @@ export interface SiteOptions {
   readonly inbox?: InboxSite;
   /** The shared code that opens the site (`DEMO_ACCESS_CODE`), 16+ characters. */
   readonly accessCode?: string;
+  /** Signs the evaluator identity cookie; derived from `accessCode` when absent. */
+  readonly evaluatorSecret?: string;
   /** The UI language a viewer gets until they pick one (`DEFAULT_UI_LOCALE`). */
   readonly defaultLocale: ApiLocale;
 }
 
 /** Shortest accepted access code. */
 export const MIN_ACCESS_CODE_LENGTH = 16;
+
+/**
+ * The HMAC secret the evaluator identity cookie is signed with
+ * (docs/deploy.md#evaluator-identity-and-tracking): `DEMO_SESSION_SECRET`
+ * when set, else derived from the access code, so a deployment that only
+ * ever set the access code keeps working with no new variable.
+ */
+export function deriveSessionSecret(secretOrAccessCode: string): string {
+  return createHmac('sha256', secretOrAccessCode)
+    .update('follow-up-engine evaluator session v1')
+    .digest('hex');
+}
 
 /** Paths that answer without the access code: the platform's health probes and the code page. */
 export const ACCESS_PATH = '/_access';
@@ -36,6 +50,17 @@ const ACCESS_COOKIE = 'fue_access';
 const ACCESS_COOKIE_MAX_AGE_S = 30 * 24 * 60 * 60;
 /** Wrong codes per client and minute. */
 export const ACCESS_ATTEMPTS_PER_MINUTE = 10;
+
+/**
+ * The evaluator's own identity (docs/deploy.md#evaluator-identity-and-tracking):
+ * a second cookie next to {@link ACCESS_COOKIE}, collected on the same page.
+ * Thirty days, like the access cookie.
+ */
+const EVALUATOR_COOKIE = 'fue_evaluator';
+const EVALUATOR_COOKIE_MAX_AGE_S = ACCESS_COOKIE_MAX_AGE_S;
+/** Loose but enough to keep typos and empty values out; the real check is the cookie's signature. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_EMAIL_LENGTH = 320;
 
 /** Paths the API owns: never answered with the inbox. */
 const API_PREFIXES = ['/api', '/fhir', '/jobs', '/docs', '/openapi.json', '/healthz', '/readyz'];
@@ -69,6 +94,70 @@ function clientOf(c: Context<AppEnv>): string {
   return last ?? 'direct';
 }
 
+/** Trimmed, lowercased, and shaped like an email; `undefined` otherwise. */
+function normalizeEmail(raw: string): string | undefined {
+  const email = raw.trim().toLowerCase();
+  return email.length > 0 && email.length <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(email)
+    ? email
+    : undefined;
+}
+
+/**
+ * The evaluator cookie's value: the email, readable (base64url, never
+ * encrypted — it is not a secret), and an HMAC over it so it cannot be
+ * forged or edited in the browser. Replicated by `apps/api/src/lab-records.test.ts`.
+ */
+function evaluatorToken(email: string, secret: string): string {
+  const signature = createHmac('sha256', secret).update(email).digest('base64url');
+  return `${Buffer.from(email, 'utf8').toString('base64url')}.${signature}`;
+}
+
+/** The email a cookie value carries, once its signature checks out against `secret`. */
+function parseEvaluatorToken(token: string, secret: string): string | undefined {
+  const dot = token.indexOf('.');
+  if (dot < 0) return undefined;
+  const encoded = token.slice(0, dot);
+  const signature = token.slice(dot + 1);
+  let email: string;
+  try {
+    email = Buffer.from(encoded, 'base64url').toString('utf8');
+  } catch {
+    return undefined;
+  }
+  const expected = createHmac('sha256', secret).update(email).digest('base64url');
+  return sameSecret(signature, expected) ? email : undefined;
+}
+
+function setEvaluatorCookie(c: Context<AppEnv>, email: string, secret: string): void {
+  setCookie(c, EVALUATOR_COOKIE, evaluatorToken(email, secret), {
+    path: '/',
+    httpOnly: true,
+    secure: isSecure(c),
+    sameSite: 'Lax',
+    maxAge: EVALUATOR_COOKIE_MAX_AGE_S,
+  });
+}
+
+/**
+ * The middleware half of the evaluator identity (next to {@link accessGate}):
+ * reads the signed `fue_evaluator` cookie and, when it verifies, sets
+ * `c.var.evaluatorEmail`. Never blocks by itself — routes that need an
+ * evaluator (the lab, the engine tests) check `c.var.evaluatorEmail`
+ * themselves, the same way {@link followUpUser} works.
+ */
+export function evaluatorIdentity(secret: string): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    const cookie = getCookie(c, EVALUATOR_COOKIE);
+    if (cookie !== undefined) {
+      const email = parseEvaluatorToken(cookie, secret);
+      if (email !== undefined) {
+        c.set('evaluatorEmail', email);
+      }
+    }
+    await next();
+  };
+}
+
 /** A same-site path to return to after the code page; anything else goes home. */
 export function safeNextPath(next: string | undefined): string {
   if (next === undefined || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) {
@@ -98,7 +187,12 @@ function escapeHtml(text: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function accessPage(locale: ApiLocale, next: string, error?: string): string {
+function accessPage(
+  locale: ApiLocale,
+  next: string,
+  error?: string,
+  prefillEmail?: string,
+): string {
   const t = messagesFor(locale).accessGate;
   return `<!doctype html>
 <html lang="${locale}">
@@ -116,7 +210,8 @@ body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:c
 main{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:28px}
 h1{font-size:20px;margin:0 0 8px}
 p{margin:0 0 20px;color:var(--muted)}
-label{display:block;font-weight:600;margin-bottom:6px}
+label{display:block;font-weight:600;margin-bottom:6px;margin-top:14px}
+label:first-of-type{margin-top:0}
 input{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit}
 input:focus{outline:2px solid var(--accent);outline-offset:1px}
 button{margin-top:16px;width:100%;font:inherit;font-weight:600;padding:10px 12px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
@@ -129,8 +224,10 @@ button{margin-top:16px;width:100%;font:inherit;font-weight:600;padding:10px 12px
 <p>${escapeHtml(t.intro)}</p>
 <form method="post" action="${ACCESS_PATH}">
 <input type="hidden" name="next" value="${escapeHtml(next)}">
+<label for="email">${escapeHtml(t.emailLabel)}</label>
+<input id="email" name="email" type="email" autocomplete="email" value="${escapeHtml(prefillEmail ?? '')}" required>
 <label for="code">${escapeHtml(t.codeLabel)}</label>
-<input id="code" name="code" type="password" autocomplete="current-password" autofocus required>
+<input id="code" name="code" type="password" autocomplete="current-password" required>
 ${error === undefined ? '' : `<p class="error" role="alert">${escapeHtml(error)}</p>`}
 <button type="submit">${escapeHtml(t.submit)}</button>
 </form>
@@ -139,20 +236,28 @@ ${error === undefined ? '' : `<p class="error" role="alert">${escapeHtml(error)}
 </html>`;
 }
 
-function pageResponse(c: Context<AppEnv>, html: string, status: 200 | 401 | 429): Response {
+function pageResponse(c: Context<AppEnv>, html: string, status: 200 | 401 | 422 | 429): Response {
   c.header('content-security-policy', PAGE_CSP);
   c.header('cache-control', 'no-store');
   return c.html(html, status);
 }
 
 /**
- * The shared access code in front of the whole site. Without the cookie a
- * browser page load goes to the code page and an API call gets 401; the
- * health probes stay open for the platform. The code page sets an HttpOnly
- * cookie (an HMAC of the code, see {@link accessToken}) and returns to the
- * page asked for. Wrong codes are limited per client.
+ * The shared access code in front of the whole site, with the evaluator's
+ * own email collected on the same page (docs/deploy.md#evaluator-identity-and-tracking).
+ * Without the cookies a browser page load goes to the code page and an API
+ * call gets 401; the health probes stay open for the platform. The code
+ * page sets two HttpOnly cookies, the access one (an HMAC of the code, see
+ * {@link accessToken}) and the evaluator one (the email, HMAC'd with
+ * `evaluatorSecret`), and returns to the page asked for. Wrong codes are
+ * limited per client.
  */
-export function registerAccessGate(app: App, code: string, locale: ApiLocale): void {
+export function registerAccessGate(
+  app: App,
+  code: string,
+  locale: ApiLocale,
+  evaluatorSecret: string,
+): void {
   const token = accessToken(code);
   const attempts = new RateLimiter();
 
@@ -162,16 +267,21 @@ export function registerAccessGate(app: App, code: string, locale: ApiLocale): v
   app.post(ACCESS_PATH, async (c) => {
     const form = await c.req.parseBody();
     const given = typeof form['code'] === 'string' ? form['code'].trim() : '';
+    const emailInput = typeof form['email'] === 'string' ? form['email'] : '';
     const next = safeNextPath(typeof form['next'] === 'string' ? form['next'] : undefined);
     const t = messagesFor(locale).accessGate;
+    const email = normalizeEmail(emailInput);
+    if (email === undefined) {
+      return pageResponse(c, accessPage(locale, next, t.invalidEmail, emailInput), 422);
+    }
     if (!sameSecret(given, code)) {
       const attempt = attempts.take(clientOf(c), ACCESS_ATTEMPTS_PER_MINUTE);
       if (!attempt.ok) {
         c.header('retry-after', String(Math.max(1, attempt.retryAfter)));
-        return pageResponse(c, accessPage(locale, next, t.tooManyAttempts), 429);
+        return pageResponse(c, accessPage(locale, next, t.tooManyAttempts, email), 429);
       }
       c.var.log.warn({ alert: 'demo_access_denied' }, 'wrong demo access code');
-      return pageResponse(c, accessPage(locale, next, t.wrongCode), 401);
+      return pageResponse(c, accessPage(locale, next, t.wrongCode, email), 401);
     }
     setCookie(c, ACCESS_COOKIE, token, {
       path: '/',
@@ -180,6 +290,7 @@ export function registerAccessGate(app: App, code: string, locale: ApiLocale): v
       sameSite: 'Lax',
       maxAge: ACCESS_COOKIE_MAX_AGE_S,
     });
+    setEvaluatorCookie(c, email, evaluatorSecret);
     return c.redirect(next, 303);
   });
 }

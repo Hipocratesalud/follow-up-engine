@@ -29,6 +29,8 @@ export const EVALUATOR_ACTIONS = [
   'lab_date_viewed',
   'case_viewed',
   'patient_documents_viewed',
+  /** A physician's verdict on one guided engine test (docs/deploy.md#engine-tests). */
+  'engine_test_verdict',
 ] as const;
 export type EvaluatorAction = (typeof EVALUATOR_ACTIONS)[number];
 

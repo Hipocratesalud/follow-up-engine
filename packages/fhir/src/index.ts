@@ -13,6 +13,7 @@ export const PACKAGE_NAME = '@follow-up-engine/fhir';
 export type * from './fhir-types.ts';
 export {
   CASE_TASK_CODE,
+  CONSULTATION_DOCUMENT_TYPES,
   ENGINE_CODE_SYSTEMS,
   ENGINE_EXTENSIONS,
   ENGINE_FHIR_BASE,
@@ -24,6 +25,7 @@ export {
   NOTE_WITHOUT_PLAN_CODE,
   SNOMED_SERVICE_CATEGORY,
   TERMINOLOGY,
+  type ConsultationDocumentType,
 } from './terminology.ts';
 
 // Inbound

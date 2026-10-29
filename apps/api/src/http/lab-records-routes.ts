@@ -88,7 +88,8 @@ function entrySummary(entry: LabRecordEntry): string {
   }
 }
 
-function requireEvaluator(c: Context<AppEnv>): string {
+/** The evaluator lab's gate: every lab route needs an evaluator identity. */
+export function requireEvaluator(c: Context<AppEnv>): string {
   const email = c.var.evaluatorEmail;
   if (email === undefined) {
     throw new HttpError(
