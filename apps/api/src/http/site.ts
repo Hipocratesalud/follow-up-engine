@@ -270,18 +270,18 @@ export function registerAccessGate(
     const emailInput = typeof form['email'] === 'string' ? form['email'] : '';
     const next = safeNextPath(typeof form['next'] === 'string' ? form['next'] : undefined);
     const t = messagesFor(locale).accessGate;
-    const email = normalizeEmail(emailInput);
-    if (email === undefined) {
-      return pageResponse(c, accessPage(locale, next, t.invalidEmail, emailInput), 422);
-    }
     if (!sameSecret(given, code)) {
       const attempt = attempts.take(clientOf(c), ACCESS_ATTEMPTS_PER_MINUTE);
       if (!attempt.ok) {
         c.header('retry-after', String(Math.max(1, attempt.retryAfter)));
-        return pageResponse(c, accessPage(locale, next, t.tooManyAttempts, email), 429);
+        return pageResponse(c, accessPage(locale, next, t.tooManyAttempts, emailInput), 429);
       }
       c.var.log.warn({ alert: 'demo_access_denied' }, 'wrong demo access code');
-      return pageResponse(c, accessPage(locale, next, t.wrongCode, email), 401);
+      return pageResponse(c, accessPage(locale, next, t.wrongCode, emailInput), 401);
+    }
+    const email = normalizeEmail(emailInput);
+    if (email === undefined) {
+      return pageResponse(c, accessPage(locale, next, t.invalidEmail, emailInput), 422);
     }
     setCookie(c, ACCESS_COOKIE, token, {
       path: '/',

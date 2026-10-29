@@ -89,7 +89,11 @@ export {
   type ConsultationOrderInput,
   type ConsultationPrescriptionInput,
 } from './builders/consultation-bundle.ts';
-export { buildRecordBundle, type RecordBundleInput, type RecordEntryInput } from './builders/record-bundle.ts';
+export {
+  buildRecordBundle,
+  type RecordBundleInput,
+  type RecordEntryInput,
+} from './builders/record-bundle.ts';
 export {
   toOperationOutcome,
   type IssueCode,

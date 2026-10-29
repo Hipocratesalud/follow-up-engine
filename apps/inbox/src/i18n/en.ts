@@ -56,6 +56,7 @@ const nav = {
   review: 'Clinical review',
   reviewShort: 'Review',
   demo: 'Demo',
+  engineTests: 'Engine tests',
   simulatedDate: 'Simulated date:',
   simulatedDateTitle: 'The API runs on a simulated clock for the demo',
 };
@@ -1154,6 +1155,165 @@ const why = {
   conditionQuote: 'Quote from the note',
 };
 
+const engineTests = {
+  title: 'Engine tests',
+  intro:
+    'Verify, one behavior at a time, that the engine does what the product promises — built live in your own lab clinic, never a canned demo.',
+  progress: (reviewed: number, total: number): string =>
+    `${String(reviewed)} of ${String(total)} tests reviewed`,
+  groups: { data_intake: 'Data intake', expectations: 'Expectations', rules: 'Rules' },
+  loading: 'Loading the engine tests',
+  loadError: 'We could not load the engine tests',
+  runTest: 'Run the test',
+  runAgain: 'Run again',
+  running: 'Running…',
+  tryOwnData: 'Try with my own data',
+  reviewed: 'Reviewed',
+  worksAsExpected: 'Works as I expect',
+  doesNotWork: 'Doesn’t work',
+  savingVerdict: 'Saving…',
+  verdictSaved: 'Verdict saved',
+  verdictError: 'We could not save your verdict',
+  commentLabel: 'Comment (optional)',
+  commentPlaceholder: 'Anything you noticed…',
+  autoCheck: {
+    expected: 'Expected',
+    observed: 'Observed',
+    pass: 'Automatic check: pass',
+    fail: 'Automatic check: fail',
+    notSupported: 'Not supported yet',
+  },
+  timelineTitle: 'What happened',
+  timelineEmpty: 'No events yet.',
+  expectationsTitle: 'Expectations',
+  expectationsEmpty: 'No expectations yet.',
+  diffTags: {
+    new: 'New',
+    fulfilled: 'Fulfilled',
+    superseded: 'Superseded',
+    expired: 'Expired',
+    cancelled: 'Cancelled',
+    still_open: 'Still open',
+  },
+  columns: { rule: 'Rule', layer: 'Layer', version: 'Version', due: 'Due', status: 'Status' },
+  readByRules: 'Read by rules',
+  ruleCard: {
+    trigger: 'Trigger',
+    fulfilledBy: 'Fulfilled by',
+    supersededBy: 'Superseded by',
+    escalationPolicy: 'Escalation policy',
+    version: 'Version',
+    dueInDays: (days: number): string => count(days, 'day', 'days'),
+  },
+  eventTypes: {
+    'service_request.created': 'Order placed',
+    'result.received': 'Result received',
+    'medication.prescribed': 'Medication prescribed',
+    'condition.recorded': 'Diagnosis recorded',
+    'encounter.finished': 'Visit',
+    'appointment.booked': 'Appointment booked',
+    'appointment.cancelled': 'Appointment cancelled',
+    'note.received': 'Note saved',
+    'plan.extracted': 'Plan extracted',
+  } as Record<string, string>,
+  scenarios: {
+    'structured-no-llm': {
+      title: 'Structured data skips the AI',
+      statement:
+        'An order, a prescription with a duration and a result are each read by rules — never by the language model.',
+    },
+    'note-ai-once-per-save': {
+      title: 'A note is read by AI only when it is saved',
+      statement:
+        'Saving a note reads it once with the model; moving the clock forward afterward never reads it again.',
+    },
+    'note-extraction-quotes': {
+      title: 'Diagnoses, medications and the plan come with quotes',
+      statement:
+        'A diagnosis (ICD-10), a medication and the doctor’s plan are each extracted from the note with the exact quote that supports them.',
+    },
+    'plan-item-confirm': {
+      title: 'The doctor confirms a plan item with one click',
+      statement:
+        'A follow-up item the AI read from the note can be confirmed as correct in one action.',
+    },
+    'condition-inferred': {
+      title: 'A condition can be inferred from treatment or a result',
+      statement:
+        'Prescribing metformin, or an HbA1c of 6.5% or higher, each suggest diabetes on their own, with no diagnosis typed anywhere.',
+    },
+    'expectation-has-due-date': {
+      title: 'Every event opens an expectation with a due date',
+      statement:
+        'Each clinical event the engine reads creates an expectation with a concrete due date.',
+    },
+    'universal-layer': {
+      title: 'The universal layer catches orders and treatments with no follow-up',
+      statement:
+        'An order with no result, and a short treatment with no control visit, each open their own expectation — for any clinic, any specialty.',
+    },
+    'doctor-plan-layer': {
+      title: 'The doctor’s own plan opens its own expectation',
+      statement: 'A note that says “control in a month” opens an expectation due in about 30 days.',
+    },
+    'cadence-break': {
+      title: 'A broken visit rhythm becomes a case — but only with a pattern',
+      statement:
+        'A patient with two or more prior visits who breaks their rhythm opens a case; a single prior visit opens nothing.',
+    },
+    'protocol-fills-gaps': {
+      title: 'A chronic-care protocol fills what the plan left open',
+      statement:
+        'Once enrolled in the diabetes protocol, routine checks the doctor’s plan did not mention (a lipid panel, an eye exam, a routine visit) still get scheduled.',
+    },
+    'plan-beats-protocol': {
+      title: 'The doctor’s plan always outranks the protocol',
+      statement:
+        'When the doctor’s own plan already asks for a test, the chronic-care protocol never opens a second, duplicate expectation for it.',
+    },
+    'auto-close-fulfilled': {
+      title: 'A result closes its order automatically',
+      statement:
+        'An order followed by its result is marked fulfilled with no one having to act on it.',
+    },
+    supersession: {
+      title: 'A repeated order supersedes the one before it',
+      statement:
+        'Ordering the same test again marks the earlier order superseded and starts a brand-new due date from the new order.',
+    },
+    'independent-clocks': {
+      title: 'Different tests keep separate clocks',
+      statement:
+        'Two different tests ordered for the same patient are each tracked on their own due date, independent of each other.',
+    },
+    'visit-closes-controls-not-tests': {
+      title: 'A visit closes pending controls, never pending tests',
+      statement:
+        'A visit fulfills a pending follow-up control, but a pending lab or imaging result still needs its own result to close.',
+    },
+    'note-without-plan-finding': {
+      title: 'A note with no plan becomes a quality finding',
+      statement:
+        'A note that states no follow-up plan at all is recorded as a documentation-quality finding for the clinical team.',
+    },
+    'rule-is-configuration': {
+      title: 'Rules are configuration, not code',
+      statement:
+        'Every rule’s trigger, how it is fulfilled and superseded, its escalation policy and its version are read straight from the rule’s own configuration.',
+    },
+    'case-keeps-rule-version': {
+      title: 'A case keeps the rule version it opened with',
+      statement:
+        'Once a case opens, it keeps the exact rule version that created it, even after the clinic later changes that rule.',
+    },
+    'per-clinic-override': {
+      title: 'A clinic can adjust its own timeframes',
+      statement:
+        'This lab clinic’s own override moves a rule’s due date (for example 15 days to 10), without changing it for any other clinic.',
+    },
+  } as Record<string, { readonly title: string; readonly statement: string }>,
+};
+
 export const en = {
   metrics,
   common,
@@ -1181,4 +1341,5 @@ export const en = {
   consultation,
   extraction,
   review,
+  engineTests,
 };

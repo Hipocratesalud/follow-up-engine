@@ -56,12 +56,7 @@ function freshPatient(): { readonly id: PatientId; readonly name: string } {
 }
 
 export type ExpectationDiffTag =
-  | 'new'
-  | 'fulfilled'
-  | 'superseded'
-  | 'expired'
-  | 'cancelled'
-  | 'still_open';
+  'new' | 'fulfilled' | 'superseded' | 'expired' | 'cancelled' | 'still_open';
 
 export interface ExpectationRowView {
   readonly id: string;
@@ -159,7 +154,10 @@ async function snapshot(ctx: ScenarioContext): Promise<readonly Expectation[]> {
   return ctx.runtime.storage.stores.expectations.listByPatient(ctx.clinicId, ctx.patientId);
 }
 
-function tagOf(beforeById: ReadonlyMap<string, Expectation>, after: Expectation): ExpectationDiffTag {
+function tagOf(
+  beforeById: ReadonlyMap<string, Expectation>,
+  after: Expectation,
+): ExpectationDiffTag {
   const prior = beforeById.get(after.id);
   if (prior === undefined) {
     return 'new';
@@ -218,7 +216,10 @@ function eventDetail(event: ClinicalEvent): string {
       const items = event.items.map((item) => item.description).join(', ');
       return items === '' ? 'No follow-up plan found' : `Plan: ${items}`;
     }
-    default:
+    case 'allergy.recorded':
+    case 'patient.language_recorded':
+    case 'patient.opted_out':
+    case 'record.withdrawn':
       return event.type;
   }
 }
@@ -272,7 +273,11 @@ async function structuredNoLlm(ctx: ScenarioContext): Promise<ScenarioOutcome> {
     day0,
     'Engine test patient',
   );
-  await ingestRecord(ctx, { kind: 'prescription', text: 'Metformina 850mg', durationDays: 90 }, day0);
+  await ingestRecord(
+    ctx,
+    { kind: 'prescription', text: 'Metformina 850mg', durationDays: 90 },
+    day0,
+  );
   await ingestRecord(
     ctx,
     { kind: 'result', loinc: '4548-4', display: 'HbA1c', value: 7.2, interpretation: 'abnormal' },
@@ -441,7 +446,8 @@ async function conditionInferred(ctx: ScenarioContext): Promise<ScenarioOutcome>
     timeline,
     expectations,
     autoCheck: {
-      expected: 'A diabetes condition is inferred both from a metformin prescription and from an HbA1c >= 6.5 result',
+      expected:
+        'A diabetes condition is inferred both from a metformin prescription and from an HbA1c >= 6.5 result',
       observed: `from medication: ${String(fromMedication)}; from result: ${String(fromResult)}`,
       passed: fromMedication && fromResult,
     },
@@ -484,10 +490,16 @@ async function universalLayer(ctx: ScenarioContext): Promise<ScenarioOutcome> {
     day0,
     'Engine test patient',
   );
-  await ingestRecord(ctx, { kind: 'prescription', text: 'Amoxicilina 500mg', durationDays: 7 }, day0);
+  await ingestRecord(
+    ctx,
+    { kind: 'prescription', text: 'Amoxicilina 500mg', durationDays: 7 },
+    day0,
+  );
   const { view: expectations } = await finalize(ctx, before);
   const timeline = await timelineOf(ctx);
-  const order = expectations.find((expectation) => expectation.ruleId === 'lab_order_result_pending');
+  const order = expectations.find(
+    (expectation) => expectation.ruleId === 'lab_order_result_pending',
+  );
   const treatment = expectations.find(
     (expectation) => expectation.ruleId === 'short_treatment_followup',
   );
@@ -521,7 +533,10 @@ async function doctorPlanLayer(ctx: ScenarioContext): Promise<ScenarioOutcome> {
     expectations,
     autoCheck: {
       expected: 'The doctor\'s plan "control en 1 mes" opens an expectation due in about 30 days',
-      observed: planRaw === undefined ? 'No doctor-plan expectation was created' : `Due in ${String(days)} day(s)`,
+      observed:
+        planRaw === undefined
+          ? 'No doctor-plan expectation was created'
+          : `Due in ${String(days)} day(s)`,
       passed: days !== undefined && days >= 25 && days <= 35,
     },
     supported: true,
@@ -641,7 +656,9 @@ async function autoCloseFulfilled(ctx: ScenarioContext): Promise<ScenarioOutcome
   );
   const { view: expectations } = await finalize(ctx, before);
   const timeline = await timelineOf(ctx);
-  const target = expectations.find((expectation) => expectation.ruleId === 'lab_order_result_pending');
+  const target = expectations.find(
+    (expectation) => expectation.ruleId === 'lab_order_result_pending',
+  );
   return {
     timeline,
     expectations,
@@ -680,7 +697,8 @@ async function supersession(ctx: ScenarioContext): Promise<ScenarioOutcome> {
     timeline,
     expectations,
     autoCheck: {
-      expected: "The new order supersedes the old one; its own 15-day clock starts from the new order's date",
+      expected:
+        "The new order supersedes the old one; its own 15-day clock starts from the new order's date",
       observed: `old status = ${oldOne?.status ?? 'missing'}; new due in ${dueDays === undefined ? 'n/a' : String(dueDays)} day(s) from the new order`,
       passed: oldOne?.status === 'superseded' && dueDays === 15,
     },
@@ -729,7 +747,11 @@ async function visitClosesControlsNotTests(ctx: ScenarioContext): Promise<Scenar
     day0,
     'Engine test patient',
   );
-  await ingestRecord(ctx, { kind: 'prescription', text: 'Amoxicilina 500mg', durationDays: 7 }, day0);
+  await ingestRecord(
+    ctx,
+    { kind: 'prescription', text: 'Amoxicilina 500mg', durationDays: 7 },
+    day0,
+  );
   const before = await snapshot(ctx);
   await visitOnly(ctx, plusDays(day0, 8));
   const { view: expectations } = await finalize(ctx, before);
@@ -737,7 +759,9 @@ async function visitClosesControlsNotTests(ctx: ScenarioContext): Promise<Scenar
   const treatment = expectations.find(
     (expectation) => expectation.ruleId === 'short_treatment_followup',
   );
-  const order = expectations.find((expectation) => expectation.ruleId === 'lab_order_result_pending');
+  const order = expectations.find(
+    (expectation) => expectation.ruleId === 'lab_order_result_pending',
+  );
   return {
     timeline,
     expectations,
@@ -800,7 +824,8 @@ async function ruleIsConfiguration(ctx: ScenarioContext): Promise<ScenarioOutcom
     timeline: [],
     expectations: [],
     autoCheck: {
-      expected: 'The rule card (trigger, fulfilment, supersession, escalation, version) reads straight from config/rules',
+      expected:
+        'The rule card (trigger, fulfilment, supersession, escalation, version) reads straight from config/rules',
       observed:
         ruleCard === undefined
           ? 'Rule not found in config'
@@ -821,7 +846,9 @@ async function caseKeepsRuleVersion(ctx: ScenarioContext): Promise<ScenarioOutco
     day0,
     'Engine test patient',
   );
-  const openExpectation = (await snapshot(ctx)).find((expectation) => expectation.ruleId === ruleId);
+  const openExpectation = (await snapshot(ctx)).find(
+    (expectation) => expectation.ruleId === ruleId,
+  );
   const originalVersion = openExpectation?.ruleVersion;
   await ctx.advanceTo(plusDays(day0, 20));
   const expired =
@@ -847,7 +874,8 @@ async function caseKeepsRuleVersion(ctx: ScenarioContext): Promise<ScenarioOutco
       timeline,
       expectations,
       autoCheck: {
-        expected: "The case's expectation keeps the rule version it opened with, even after the clinic's rules change",
+        expected:
+          "The case's expectation keeps the rule version it opened with, even after the clinic's rules change",
         observed: `opened with ${originalVersion ?? 'n/a'}, still ${afterOverride?.ruleVersion ?? 'n/a'} after the clinic override (now ${overrideResult.rule.version})`,
         passed: hasCase && versionUnchanged && originalVersion !== undefined,
       },
@@ -872,7 +900,9 @@ async function perClinicOverride(ctx: ScenarioContext): Promise<ScenarioOutcome>
       day0,
       'Engine test patient',
     );
-    const beforeOverride = (await snapshot(ctx)).find((expectation) => expectation.ruleId === ruleId);
+    const beforeOverride = (await snapshot(ctx)).find(
+      (expectation) => expectation.ruleId === ruleId,
+    );
     const daysBeforeOverride =
       beforeOverride === undefined ? undefined : daysBetween(day0, beforeOverride.dueAt);
 
@@ -903,7 +933,8 @@ async function perClinicOverride(ctx: ScenarioContext): Promise<ScenarioOutcome>
       timeline,
       expectations,
       autoCheck: {
-        expected: "The lab clinic's own override moves the due date from 15 to 10 days, scoped to this clinic only",
+        expected:
+          "The lab clinic's own override moves the due date from 15 to 10 days, scoped to this clinic only",
         observed: `before override: ${daysBeforeOverride === undefined ? 'n/a' : String(daysBeforeOverride)} day(s); after override: ${daysAfterOverride === undefined ? 'n/a' : String(daysAfterOverride)} day(s)`,
         passed: daysBeforeOverride === 15 && daysAfterOverride === 10,
       },
@@ -954,7 +985,11 @@ export async function runScenario(
       patientId: '',
       timeline: [],
       expectations: [],
-      autoCheck: { expected: 'The scenario is implemented', observed: 'Unknown scenario id', passed: false },
+      autoCheck: {
+        expected: 'The scenario is implemented',
+        observed: 'Unknown scenario id',
+        passed: false,
+      },
       supported: false,
     };
   }

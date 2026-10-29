@@ -98,7 +98,10 @@ export function registerEngineTestsRoutes(
         ...(body.comment === undefined ? {} : { comment: body.comment }),
       },
     });
-    c.var.log.info({ actor: actorId(c), scenarioId: def.id, verdict: body.verdict }, 'engine test verdict');
+    c.var.log.info(
+      { actor: actorId(c), scenarioId: def.id, verdict: body.verdict },
+      'engine test verdict',
+    );
     return c.json({ id: def.id, verdict: body.verdict }, 201);
   });
 }

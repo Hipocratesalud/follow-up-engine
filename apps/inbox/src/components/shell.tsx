@@ -1,6 +1,7 @@
 import {
   BarChart3,
   CalendarClock,
+  ClipboardCheck,
   FlaskConical,
   HeartPulse,
   Inbox,
@@ -162,6 +163,9 @@ export function Shell(): ReactNode {
   ];
   items.push({ to: '/metrics', label: t.nav.metrics, icon: BarChart3 });
   if (clock.data) items.push({ to: '/demo', label: t.nav.demo, icon: FlaskConical });
+  if (clock.data) {
+    items.push({ to: '/engine-tests', label: t.nav.engineTests, icon: ClipboardCheck });
+  }
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[232px_1fr]">

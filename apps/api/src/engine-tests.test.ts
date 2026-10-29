@@ -1,9 +1,5 @@
 import { createHmac } from 'node:crypto';
-import {
-  createRuntime,
-  type EngineRuntime,
-  loadRuntimeConfig,
-} from '@follow-up-engine/runtime';
+import { createRuntime, type EngineRuntime, loadRuntimeConfig } from '@follow-up-engine/runtime';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ENGINE_TESTS } from './http/engine-tests-catalog.ts';
 import type { App } from './http/context.ts';
@@ -50,7 +46,11 @@ interface RunResponse {
   readonly id: string;
   readonly patientId: string;
   readonly supported: boolean;
-  readonly autoCheck: { readonly expected: string; readonly observed: string; readonly passed: boolean };
+  readonly autoCheck: {
+    readonly expected: string;
+    readonly observed: string;
+    readonly passed: boolean;
+  };
   readonly timeline: readonly unknown[];
   readonly expectations: readonly unknown[];
 }
