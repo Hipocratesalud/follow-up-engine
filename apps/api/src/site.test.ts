@@ -148,15 +148,62 @@ describe('shared access code', () => {
     expect((await app.request('/readyz')).status).toBe(200);
   });
 
-  it('shows the code page in the default language', async () => {
-    const app = await site({ DEMO_ACCESS_CODE: CODE, DEFAULT_UI_LOCALE: 'es' });
-    const page = await app.request('/_access?next=/metrics');
+  it("shows the code page in the browser's language, whatever DEFAULT_UI_LOCALE says", async () => {
+    const app = await site({ DEMO_ACCESS_CODE: CODE, DEFAULT_UI_LOCALE: 'en' });
+    const page = await app.request('/_access?next=/metrics', {
+      headers: { 'accept-language': 'es-VE,es;q=0.9,en;q=0.5' },
+    });
     expect(page.status).toBe(200);
     const body = await page.text();
+    expect(body).toContain('<html lang="es">');
     expect(body).toContain('Código de acceso');
     expect(body).toContain('name="next" value="/metrics"');
+    expect(body).toContain('name="lang" value="es"');
+    expect(page.headers.get('vary')).toContain('Accept-Language');
     expect(page.headers.get('content-security-policy')).toContain("form-action 'self'");
     expect(page.headers.get('cache-control')).toBe('no-store');
+
+    // DEFAULT_UI_LOCALE=es does not make an English browser read Spanish, nor a browser with no preference.
+    const spanishDefault = await site({ DEMO_ACCESS_CODE: CODE, DEFAULT_UI_LOCALE: 'es' });
+    const english = await (
+      await spanishDefault.request('/_access', { headers: { 'accept-language': 'en-US,en' } })
+    ).text();
+    expect(english).toContain('<html lang="en">');
+    expect(english).toContain('Access code');
+    expect(english).not.toContain('Código de acceso');
+    expect(await (await spanishDefault.request('/_access')).text()).toContain('Access code');
+  });
+
+  it('has an EN / ES switch that keeps the page asked for and wins over the browser', async () => {
+    const app = await site({ DEMO_ACCESS_CODE: CODE });
+    const english = await (
+      await app.request('/_access?next=/lab', { headers: { 'accept-language': 'es' } })
+    ).text();
+    expect(english).toContain(
+      '<a href="/_access?lang=en&amp;next=%2Flab" hreflang="en" lang="en">EN</a>',
+    );
+    expect(english).toContain(
+      '<a href="/_access?lang=es&amp;next=%2Flab" hreflang="es" lang="es" aria-current="true">ES</a>',
+    );
+    expect(english).toContain('aria-label="Idioma"');
+
+    const switched = await (
+      await app.request('/_access?lang=en&next=/lab', { headers: { 'accept-language': 'es' } })
+    ).text();
+    expect(switched).toContain('<html lang="en">');
+    expect(switched).toContain('name="next" value="/lab"');
+    expect(switched).toContain('aria-label="Language"');
+
+    // The choice travels with the form: an error comes back in the same language.
+    const wrong = await app.request('/_access', {
+      method: 'POST',
+      headers: { 'accept-language': 'en' },
+      body: new URLSearchParams({ code: 'not-the-code', email: EMAIL, next: '/lab', lang: 'es' }),
+    });
+    expect(wrong.status).toBe(401);
+    const body = await wrong.text();
+    expect(body).toContain('Ese código no es válido');
+    expect(body).toContain('name="lang" value="es"');
   });
 
   it('lets the right code in with an HttpOnly cookie and returns to the page asked for', async () => {

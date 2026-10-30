@@ -311,7 +311,7 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   if (site?.accessCode !== undefined) {
     const sessionSecret = site.sessionSecret ?? deriveSessionSecret(site.accessCode);
     app.use('*', accessGate(site.accessCode, sessionSecret));
-    registerAccessGate(app, runtime, site.accessCode, sessionSecret, site.defaultLocale);
+    registerAccessGate(app, runtime, site.accessCode, sessionSecret);
     // "Evaluating as <email>" in apps/inbox's header banner.
     app.get('/api/evaluator/me', (c) => c.json({ email: c.var.evaluatorEmail }));
     // "Change" in the same banner: re-enter the code and email.
