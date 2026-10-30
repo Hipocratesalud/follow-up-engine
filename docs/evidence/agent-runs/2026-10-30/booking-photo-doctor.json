@@ -1,0 +1,2334 @@
+{
+  "path": "booking-photo-doctor",
+  "title": "Paths 1–4: reschedule, confirmation, a photo the engine closes, the result handed to the doctor",
+  "purpose": "María (synthetic) is offered a Tuesday, says she cannot on Tuesday and already had the test (path 2: new slots without Tuesday and an invitation to send the report), confirms option 2 (path 1: booked only on that explicit yes; the engine closes the visit order from the FHIR Appointment), sends a photo of her HbA1c report (path 3: Muse Spark vision reads it, the agent submits a FHIR Observation and the engine, not the agent, closes the HbA1c order), and the abnormal value goes to the doctor (path 4: clinical reviewer findings and a pre-visit question with citations), while María only hears that her doctor will review it.",
+  "driver": {
+    "email": "agent-evidence-booking@example.com",
+    "actions": [
+      {
+        "at": "2026-10-30T15:35:17.067Z",
+        "action": "start story maria (live, es)"
+      },
+      {
+        "at": "2026-10-30T15:35:39.636Z",
+        "action": "patient writes",
+        "detail": {
+          "text": "Hola. Ya me hice el examen la semana pasada, pero el martes no puedo."
+        }
+      },
+      {
+        "at": "2026-10-30T15:35:57.692Z",
+        "action": "checkpoint: new options offered",
+        "detail": {
+          "lastAgentMessage": "Entendido, María, dejamos fuera el martes. Para tu control te puedo ofrecer estas opciones, ¿te va bien alguna? Y de un examen de laboratorio aún te aparece pendiente, si ya te lo hiciste mándame la foto del informe para revisarlo.\n\n1. miércoles, 7 de enero, 9:00 a. m. · Dra. Elena Ruiz · Consultorio 2, sede principal\n2. jueves, 8 de enero, 8:00 a. m. · Dra. Elena Ruiz · Consultorio 2, sede principal\n\nRespóndeme con el número que te sirva."
+        }
+      },
+      {
+        "at": "2026-10-30T15:35:57.692Z",
+        "action": "patient writes",
+        "detail": {
+          "text": "La 2 me sirve"
+        }
+      },
+      {
+        "at": "2026-10-30T15:36:38.373Z",
+        "action": "patient sends the sample lab report photo"
+      }
+    ]
+  },
+  "run": {
+    "exportedAt": "2026-01-05T12:00:00.000Z",
+    "clinicId": "lab-c8cb92648404bda7f6073484",
+    "patientId": "pat-agent-maria-c738c8",
+    "timeZone": "America/Caracas",
+    "conversation": {
+      "mode": "live",
+      "language": "es",
+      "status": "done",
+      "phoneStatus": "ok",
+      "ladder": {
+        "track": "routine",
+        "anchorAt": "2026-01-05T12:00:00.000Z",
+        "done": ["routine:0d"]
+      },
+      "createdAt": "2026-01-05T12:00:00.000Z"
+    },
+    "orders": [
+      {
+        "orderId": "4163fcd1-c0c1-4f96-88ab-b11bc0f577b8",
+        "kind": "test",
+        "test": "HbA1c",
+        "source": "doctor_note",
+        "stage": "fulfilled",
+        "urgent": false,
+        "needsConfirmation": false
+      },
+      {
+        "orderId": "57220b3c-7eb1-484d-a22c-31f3e5cc9414",
+        "kind": "visit",
+        "source": "doctor_note",
+        "stage": "fulfilled",
+        "urgent": false,
+        "needsConfirmation": false
+      },
+      {
+        "orderId": "016789c0-2ed9-4505-9c09-426ecb9e4718",
+        "kind": "visit",
+        "source": "abnormal_result",
+        "stage": "fulfilled",
+        "urgent": true,
+        "needsConfirmation": true
+      }
+    ],
+    "messages": [
+      {
+        "id": "agent-message-cefa97c23ce4",
+        "direction": "outbound",
+        "kind": "text",
+        "text": "Hola María, te escribo de tu clínica para ayudarte a agendar un control que te dejó tu médico, y también tienes pendiente un examen de laboratorio. Para el control te puedo ofrecer estos horarios, ¿te va bien alguno?\n\n1. martes, 6 de enero, 8:00 a. m. · Dra. Elena Ruiz · Consultorio 2, sede principal\n2. miércoles, 7 de enero, 8:30 a. m. · Dra. Elena Ruiz · Consultorio 2, sede principal\n\nRespóndeme con el número que te sirva.",
+        "at": "2026-01-05T12:00:00.000Z",
+        "deliveryStatus": "delivered",
+        "offeredSlots": [
+          {
+            "id": "professional@20260106T1200Z",
+            "start": "2026-01-06T12:00:00.000Z"
+          },
+          {
+            "id": "professional@20260107T1230Z",
+            "start": "2026-01-07T12:30:00.000Z"
+          }
+        ],
+        "rung": "routine:0d",
+        "proactive": true
+      },
+      {
+        "id": "agent-message-a0f8f2a36d16",
+        "direction": "inbound",
+        "kind": "text",
+        "text": "Hola. Ya me hice el examen la semana pasada, pero el martes no puedo.",
+        "at": "2026-01-05T12:00:01.000Z"
+      },
+      {
+        "id": "agent-message-2637036bbaf4",
+        "direction": "outbound",
+        "kind": "text",
+        "text": "Entendido, María, dejamos fuera el martes. Para tu control te puedo ofrecer estas opciones, ¿te va bien alguna? Y de un examen de laboratorio aún te aparece pendiente, si ya te lo hiciste mándame la foto del informe para revisarlo.\n\n1. miércoles, 7 de enero, 9:00 a. m. · Dra. Elena Ruiz · Consultorio 2, sede principal\n2. jueves, 8 de enero, 8:00 a. m. · Dra. Elena Ruiz · Consultorio 2, sede principal\n\nRespóndeme con el número que te sirva.",
+        "at": "2026-01-05T12:00:02.000Z",
+        "deliveryStatus": "delivered",
+        "offeredSlots": [
+          {
+            "id": "professional@20260107T1300Z",
+            "start": "2026-01-07T13:00:00.000Z"
+          },
+          {
+            "id": "professional@20260108T1200Z",
+            "start": "2026-01-08T12:00:00.000Z"
+          }
+        ],
+        "proactive": false
+      },
+      {
+        "id": "agent-message-aa7150ca0e3f",
+        "direction": "inbound",
+        "kind": "text",
+        "text": "La 2 me sirve",
+        "at": "2026-01-05T12:00:03.000Z"
+      },
+      {
+        "id": "agent-message-1c2e2fd54284",
+        "direction": "outbound",
+        "kind": "text",
+        "text": "Listo María, tu control quedó agendado. Y de un examen de laboratorio aún te aparece pendiente, si ya te lo hiciste mándame la foto del informe para revisarlo.",
+        "at": "2026-01-05T12:00:04.000Z",
+        "deliveryStatus": "delivered",
+        "proactive": false
+      },
+      {
+        "id": "agent-message-6cb5ee60e6a1",
+        "direction": "inbound",
+        "kind": "image",
+        "text": "",
+        "at": "2026-01-05T12:00:05.000Z",
+        "media": {
+          "id": "agent-media-5297e439f1b5",
+          "contentType": "image/jpeg"
+        },
+        "reading": {
+          "isLabReport": true,
+          "tests": [
+            {
+              "name": "Hemoglobina glicosilada (HbA1c)",
+              "value": 8.4,
+              "unit": "%",
+              "referenceLow": 4,
+              "referenceHigh": 5.6
+            },
+            {
+              "name": "Glucosa en ayunas",
+              "value": 162,
+              "unit": "mg/dL",
+              "referenceLow": 70,
+              "referenceHigh": 99
+            }
+          ]
+        }
+      },
+      {
+        "id": "agent-message-5ca4ad178073",
+        "direction": "outbound",
+        "kind": "text",
+        "text": "Gracias María, ya recibimos la foto de tu examen. Tu médico la va a revisar.",
+        "at": "2026-01-05T12:00:06.000Z",
+        "deliveryStatus": "delivered",
+        "proactive": false
+      }
+    ],
+    "steps": [
+      {
+        "seq": 1,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "ok",
+        "event": "ownership_taken",
+        "params": {
+          "orders": 2,
+          "ignoredEngineItems": 2,
+          "track": "routine",
+          "mode": "live"
+        }
+      },
+      {
+        "seq": 2,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "turn_started",
+        "runId": "agent-run-b9789304b165",
+        "params": {
+          "trigger": "take_ownership",
+          "rung": "routine:0d",
+          "mode": "live"
+        }
+      },
+      {
+        "seq": 3,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-b9789304b165",
+        "tool": "list_open_orders",
+        "reason": "Voy a revisar tus indicaciones para proponerte horarios disponibles.",
+        "params": {
+          "index": 1,
+          "repaired": false,
+          "tool": "list_open_orders",
+          "callId": "f11a5a39-3c8d-462d-a166-c45ac12f0ad0"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.005416,
+        "latencyMs": 1956,
+        "inputTokens": 3938,
+        "outputTokens": 116
+      },
+      {
+        "seq": 4,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "orders_listed",
+        "runId": "agent-run-b9789304b165",
+        "tool": "list_open_orders",
+        "arguments": {},
+        "read": ["expectations", "appointments"],
+        "reason": "Voy a revisar tus indicaciones para proponerte horarios disponibles.",
+        "params": {
+          "open": 2,
+          "ignoredEngineItems": 2,
+          "awaitingDoctor": 0
+        }
+      },
+      {
+        "seq": 5,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-b9789304b165",
+        "tool": "get_contact_policy",
+        "reason": "Entendido, reviso las órdenes y preparo la propuesta.",
+        "params": {
+          "index": 2,
+          "repaired": false,
+          "tool": "get_contact_policy",
+          "callId": "d13b8b72-3796-47ea-a9b9-d14e7a85888e"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001292,
+        "latencyMs": 1445,
+        "inputTokens": 4175,
+        "outputTokens": 66
+      },
+      {
+        "seq": 6,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "policy_read",
+        "runId": "agent-run-b9789304b165",
+        "tool": "get_contact_policy",
+        "arguments": {},
+        "read": ["messages", "conversation"],
+        "reason": "Entendido, reviso las órdenes y preparo la propuesta.",
+        "params": {
+          "canSend": true,
+          "sendKind": "proactive",
+          "proactiveRemaining": 2
+        }
+      },
+      {
+        "seq": 7,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-b9789304b165",
+        "tool": "get_available_slots",
+        "reason": "Recibiendo sus citas pendientes para ofrecerle horarios.",
+        "params": {
+          "index": 3,
+          "repaired": true,
+          "tool": "get_available_slots",
+          "callId": "19afd4c3-d0b4-4838-99e5-9a63fbd11df9"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.003047,
+        "latencyMs": 1935,
+        "inputTokens": 8736,
+        "outputTokens": 293
+      },
+      {
+        "seq": 8,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "slots_found",
+        "runId": "agent-run-b9789304b165",
+        "tool": "get_available_slots",
+        "arguments": {
+          "orderId": "57220b3c-7eb1-484d-a22c-31f3e5cc9414",
+          "preference": null,
+          "excludeWeekdays": null
+        },
+        "read": ["schedule", "appointments", "messages"],
+        "reason": "Recibiendo sus citas pendientes para ofrecerle horarios.",
+        "params": {
+          "count": 3,
+          "preference": "earliest",
+          "slotIds": [
+            "professional@20260106T1200Z",
+            "professional@20260107T1230Z",
+            "professional@20260108T1200Z"
+          ]
+        }
+      },
+      {
+        "seq": 9,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-b9789304b165",
+        "tool": "propose_slots",
+        "reason": "Voy a ofrecerte dos horarios para tu control y mencionar tu examen pendiente.",
+        "params": {
+          "index": 4,
+          "repaired": false,
+          "tool": "propose_slots",
+          "callId": "874d85bc-22da-45dc-9552-b87ff4bb9d98"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.002361,
+        "latencyMs": 1344,
+        "inputTokens": 4532,
+        "outputTokens": 312
+      },
+      {
+        "seq": 10,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "slots_offered",
+        "runId": "agent-run-b9789304b165",
+        "tool": "propose_slots",
+        "arguments": {
+          "orderId": "57220b3c-7eb1-484d-a22c-31f3e5cc9414",
+          "slotIds": ["professional@20260106T1200Z", "professional@20260107T1230Z"],
+          "text": "Hola {first_name}, te escribo de tu clínica para ayudarte a agendar un control que te dejó tu médico, y también tienes pendiente un examen de laboratorio. Para el control te puedo ofrecer estos horarios, ¿te va bien alguno?"
+        },
+        "read": ["contact_policy", "outbound_safety"],
+        "reason": "Voy a ofrecerte dos horarios para tu control y mencionar tu examen pendiente.",
+        "params": {
+          "messageId": "agent-message-cefa97c23ce4",
+          "sendKind": "proactive",
+          "slots": ["professional@20260106T1200Z", "professional@20260107T1230Z"]
+        }
+      },
+      {
+        "seq": 11,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "rejected",
+        "event": "call_rejected",
+        "runId": "agent-run-b9789304b165",
+        "tool": "prose",
+        "reason": "",
+        "params": {
+          "error": "prose_reminded",
+          "detail": "replied in prose, not a tool call"
+        }
+      },
+      {
+        "seq": 12,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-b9789304b165",
+        "tool": "end_turn",
+        "reason": "Voy a cerrar este contacto inicial.",
+        "params": {
+          "index": 6,
+          "repaired": false,
+          "tool": "end_turn",
+          "callId": "5ee767c2-a6d9-4b55-8916-88bddedf0295"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001242,
+        "latencyMs": 1171,
+        "inputTokens": 4760,
+        "outputTokens": 81
+      },
+      {
+        "seq": 13,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "turn_ended",
+        "runId": "agent-run-b9789304b165",
+        "tool": "end_turn",
+        "arguments": {
+          "summary": "First contact: proposed 2 slots for visit, mentioned lab pending"
+        },
+        "read": [],
+        "reason": "Voy a cerrar este contacto inicial.",
+        "params": {
+          "summary": "First contact: proposed 2 slots for visit, mentioned lab pending"
+        }
+      },
+      {
+        "seq": 14,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "patient_message_received",
+        "params": {
+          "messageId": "agent-message-a0f8f2a36d16",
+          "kind": "text"
+        }
+      },
+      {
+        "seq": 15,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "turn_started",
+        "runId": "agent-run-9887f2669a3e",
+        "params": {
+          "trigger": "inbound_message",
+          "mode": "live"
+        }
+      },
+      {
+        "seq": 16,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-9887f2669a3e",
+        "tool": "list_open_orders",
+        "reason": "Voy a revisar tus pendientes y buscarte otro horario.",
+        "params": {
+          "index": 1,
+          "repaired": false,
+          "tool": "list_open_orders",
+          "callId": "b3153176-ee3f-4856-9ff0-24c83d35697b"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001715,
+        "latencyMs": 1388,
+        "inputTokens": 4323,
+        "outputTokens": 122
+      },
+      {
+        "seq": 17,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "orders_listed",
+        "runId": "agent-run-9887f2669a3e",
+        "tool": "list_open_orders",
+        "arguments": {},
+        "read": ["expectations", "appointments"],
+        "reason": "Voy a revisar tus pendientes y buscarte otro horario.",
+        "params": {
+          "open": 2,
+          "ignoredEngineItems": 2,
+          "awaitingDoctor": 0
+        }
+      },
+      {
+        "seq": 18,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-9887f2669a3e",
+        "tool": "get_available_slots",
+        "reason": "Voy a buscarte otros horarios para el control y a revisar lo del examen.",
+        "params": {
+          "index": 2,
+          "repaired": false,
+          "tool": "get_available_slots",
+          "callId": "98206e89-d658-4b61-b921-733cfd6d3913"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.00225,
+        "latencyMs": 1990,
+        "inputTokens": 4562,
+        "outputTokens": 277
+      },
+      {
+        "seq": 19,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "slots_found",
+        "runId": "agent-run-9887f2669a3e",
+        "tool": "get_available_slots",
+        "arguments": {
+          "orderId": "57220b3c-7eb1-484d-a22c-31f3e5cc9414",
+          "preference": null,
+          "excludeWeekdays": ["tuesday"]
+        },
+        "read": ["schedule", "appointments", "messages"],
+        "reason": "Voy a buscarte otros horarios para el control y a revisar lo del examen.",
+        "params": {
+          "count": 3,
+          "preference": "earliest",
+          "slotIds": [
+            "professional@20260107T1300Z",
+            "professional@20260108T1200Z",
+            "professional@20260109T1200Z"
+          ]
+        }
+      },
+      {
+        "seq": 20,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-9887f2669a3e",
+        "tool": "propose_slots",
+        "reason": "Entendido que el martes no puedes — buscaré otros horarios para tu control.",
+        "params": {
+          "index": 3,
+          "repaired": false,
+          "tool": "propose_slots",
+          "callId": "3a9828c3-623d-44ae-a69d-03370c61c84c"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.003,
+        "latencyMs": 2706,
+        "inputTokens": 4806,
+        "outputTokens": 448
+      },
+      {
+        "seq": 21,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "slots_offered",
+        "runId": "agent-run-9887f2669a3e",
+        "tool": "propose_slots",
+        "arguments": {
+          "orderId": "57220b3c-7eb1-484d-a22c-31f3e5cc9414",
+          "slotIds": ["professional@20260107T1300Z", "professional@20260108T1200Z"],
+          "text": "Entendido, {first_name}, dejamos fuera el martes. Para tu control te puedo ofrecer estas opciones, ¿te va bien alguna? Y de un examen de laboratorio aún te aparece pendiente, si ya te lo hiciste mándame la foto del informe para revisarlo."
+        },
+        "read": ["contact_policy", "outbound_safety"],
+        "reason": "Entendido que el martes no puedes — buscaré otros horarios para tu control.",
+        "params": {
+          "messageId": "agent-message-2637036bbaf4",
+          "sendKind": "reply",
+          "slots": ["professional@20260107T1300Z", "professional@20260108T1200Z"]
+        }
+      },
+      {
+        "seq": 22,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "rejected",
+        "event": "call_rejected",
+        "runId": "agent-run-9887f2669a3e",
+        "tool": "prose",
+        "reason": "",
+        "params": {
+          "error": "prose_reminded",
+          "detail": "replied in prose, not a tool call"
+        }
+      },
+      {
+        "seq": 23,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-9887f2669a3e",
+        "tool": "end_turn",
+        "reason": "Terminando el turno tras proponer nuevas opciones.",
+        "params": {
+          "index": 5,
+          "repaired": false,
+          "tool": "end_turn",
+          "callId": "33acdf98-2425-48ae-a3a4-94451f8d4165"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001174,
+        "latencyMs": 791,
+        "inputTokens": 5040,
+        "outputTokens": 82
+      },
+      {
+        "seq": 24,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "turn_ended",
+        "runId": "agent-run-9887f2669a3e",
+        "tool": "end_turn",
+        "arguments": {
+          "summary": "Proposed visit slots excluding Tuesday, asked for lab photo"
+        },
+        "read": [],
+        "reason": "Terminando el turno tras proponer nuevas opciones.",
+        "params": {
+          "summary": "Proposed visit slots excluding Tuesday, asked for lab photo"
+        }
+      },
+      {
+        "seq": 25,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "ladder_reanchored",
+        "runId": "agent-run-9887f2669a3e",
+        "params": {
+          "track": "routine"
+        }
+      },
+      {
+        "seq": 26,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "patient_message_received",
+        "params": {
+          "messageId": "agent-message-aa7150ca0e3f",
+          "kind": "text"
+        }
+      },
+      {
+        "seq": 27,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "turn_started",
+        "runId": "agent-run-dfba257057d2",
+        "params": {
+          "trigger": "inbound_message",
+          "mode": "live"
+        }
+      },
+      {
+        "seq": 28,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-dfba257057d2",
+        "tool": "create_appointment",
+        "reason": "Voy a confirmar tu elección y agendar el control.",
+        "params": {
+          "index": 1,
+          "repaired": false,
+          "tool": "create_appointment",
+          "callId": "da8e36ab-edad-4c8d-9d85-42184ff02a0a"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.003762,
+        "latencyMs": 2449,
+        "inputTokens": 4662,
+        "outputTokens": 504
+      },
+      {
+        "seq": 29,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "appointment_booked",
+        "runId": "agent-run-dfba257057d2",
+        "tool": "create_appointment",
+        "arguments": {
+          "orderId": "57220b3c-7eb1-484d-a22c-31f3e5cc9414",
+          "slotId": "professional@20260108T1200Z",
+          "confirmationMessageId": "agent-message-aa7150ca0e3f"
+        },
+        "read": ["messages", "schedule", "appointments"],
+        "reason": "Voy a confirmar tu elección y agendar el control.",
+        "params": {
+          "appointmentId": "agent-appointment-a4b82f08c71a",
+          "slotId": "professional@20260108T1200Z",
+          "resource": "professional"
+        }
+      },
+      {
+        "seq": 30,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "engine",
+        "outcome": "ok",
+        "event": "expectation_fulfilled",
+        "runId": "agent-run-dfba257057d2",
+        "params": {
+          "expectationId": "57220b3c-7eb1-484d-a22c-31f3e5cc9414",
+          "order": "visit",
+          "owned": true,
+          "reason": "fulfilled_by_appointment",
+          "by": "Appointment/agent-appointment-a4b82f08c71a",
+          "trigger": "Appointment/agent-appointment-a4b82f08c71a"
+        }
+      },
+      {
+        "seq": 31,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "engine",
+        "outcome": "ok",
+        "event": "expectation_fulfilled",
+        "runId": "agent-run-dfba257057d2",
+        "params": {
+          "expectationId": "806ac901-944d-497a-8195-3d66c2d73bd4",
+          "order": "visit",
+          "owned": false,
+          "reason": "fulfilled_by_appointment",
+          "by": "Appointment/agent-appointment-a4b82f08c71a",
+          "trigger": "Appointment/agent-appointment-a4b82f08c71a"
+        }
+      },
+      {
+        "seq": 32,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "engine",
+        "outcome": "info",
+        "event": "expectation_created",
+        "runId": "agent-run-dfba257057d2",
+        "params": {
+          "expectationId": "806ac901-944d-497a-8195-3d66c2d73bd4",
+          "ruleId": "protocol_diabetes_visit"
+        }
+      },
+      {
+        "seq": 33,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "engine",
+        "outcome": "ok",
+        "event": "clinical_review_completed",
+        "runId": "agent-run-dfba257057d2",
+        "params": {
+          "on": "booking",
+          "reviewRunId": "169f1d3b-235b-429a-b5ed-483251e6dc01",
+          "status": "completed",
+          "findings": 5,
+          "categories": ["missing_screening", "pre_visit_question", "abnormal_result_no_followup"]
+        }
+      },
+      {
+        "seq": 34,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-dfba257057d2",
+        "tool": "list_open_orders",
+        "reason": "Voy a confirmar tu control agendado.",
+        "params": {
+          "index": 2,
+          "repaired": false,
+          "tool": "list_open_orders",
+          "callId": "8e0dcc13-5057-4d69-a766-05e359df8ee0"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.003087,
+        "latencyMs": 3091,
+        "inputTokens": 4886,
+        "outputTokens": 478
+      },
+      {
+        "seq": 35,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "orders_listed",
+        "runId": "agent-run-dfba257057d2",
+        "tool": "list_open_orders",
+        "arguments": {},
+        "read": ["expectations", "appointments"],
+        "reason": "Voy a confirmar tu control agendado.",
+        "params": {
+          "open": 1,
+          "ignoredEngineItems": 2,
+          "awaitingDoctor": 0
+        }
+      },
+      {
+        "seq": 36,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-dfba257057d2",
+        "tool": "send_message",
+        "reason": "Reservé tu control — ahora te confirmo y te recuerdo lo del laboratorio.",
+        "params": {
+          "index": 3,
+          "repaired": false,
+          "tool": "send_message",
+          "callId": "9e61446d-67c8-4998-820c-d63e35d2c3bb"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.002725,
+        "latencyMs": 2310,
+        "inputTokens": 5080,
+        "outputTokens": 402
+      },
+      {
+        "seq": 37,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "message_sent",
+        "runId": "agent-run-dfba257057d2",
+        "tool": "send_message",
+        "arguments": {
+          "text": "Listo {first_name}, tu control quedó agendado. Y de un examen de laboratorio aún te aparece pendiente, si ya te lo hiciste mándame la foto del informe para revisarlo."
+        },
+        "read": ["contact_policy", "outbound_safety"],
+        "reason": "Reservé tu control — ahora te confirmo y te recuerdo lo del laboratorio.",
+        "params": {
+          "messageId": "agent-message-1c2e2fd54284",
+          "sendKind": "reply"
+        }
+      },
+      {
+        "seq": 38,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-dfba257057d2",
+        "tool": "end_turn",
+        "reason": "Reservé tu espacio y te avisé del pendiente — cierro el turno.",
+        "params": {
+          "index": 4,
+          "repaired": false,
+          "tool": "end_turn",
+          "callId": "df99a6c3-b280-4b12-90fa-ff9999744eaa"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001395,
+        "latencyMs": 1604,
+        "inputTokens": 5186,
+        "outputTokens": 91
+      },
+      {
+        "seq": 39,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "turn_ended",
+        "runId": "agent-run-dfba257057d2",
+        "tool": "end_turn",
+        "arguments": {
+          "summary": "Booked visit slot 2, confirmed booking and reminded lab photo pending"
+        },
+        "read": [],
+        "reason": "Reservé tu espacio y te avisé del pendiente — cierro el turno.",
+        "params": {
+          "summary": "Booked visit slot 2, confirmed booking and reminded lab photo pending"
+        }
+      },
+      {
+        "seq": 40,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "ladder_reanchored",
+        "runId": "agent-run-dfba257057d2",
+        "params": {
+          "track": "routine"
+        }
+      },
+      {
+        "seq": 41,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "patient_message_received",
+        "params": {
+          "messageId": "agent-message-6cb5ee60e6a1",
+          "kind": "image"
+        }
+      },
+      {
+        "seq": 42,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "turn_started",
+        "runId": "agent-run-77acfc402a1c",
+        "params": {
+          "trigger": "inbound_message",
+          "mode": "live"
+        }
+      },
+      {
+        "seq": 43,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "vision",
+        "outcome": "ok",
+        "event": "photo_read",
+        "runId": "agent-run-77acfc402a1c",
+        "params": {
+          "messageId": "agent-message-6cb5ee60e6a1",
+          "isLabReport": true,
+          "tests": [
+            "Hemoglobina glicosilada (HbA1c): 8.4 % (ref 4–5.6)",
+            "Glucosa en ayunas: 162 mg/dL (ref 70–99)"
+          ],
+          "reportDate": "2025-12-29"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001593,
+        "latencyMs": 2458
+      },
+      {
+        "seq": 44,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-77acfc402a1c",
+        "tool": "list_open_orders",
+        "reason": "Recibí tu foto del examen; la reviso ahora mismo.",
+        "params": {
+          "index": 1,
+          "repaired": false,
+          "tool": "list_open_orders",
+          "callId": "bbf75e97-9d8a-44cf-9533-830291a644be"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.002232,
+        "latencyMs": 1507,
+        "inputTokens": 4781,
+        "outputTokens": 109
+      },
+      {
+        "seq": 45,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "orders_listed",
+        "runId": "agent-run-77acfc402a1c",
+        "tool": "list_open_orders",
+        "arguments": {},
+        "read": ["expectations", "appointments"],
+        "reason": "Recibí tu foto del examen; la reviso ahora mismo.",
+        "params": {
+          "open": 1,
+          "ignoredEngineItems": 2,
+          "awaitingDoctor": 0
+        }
+      },
+      {
+        "seq": 46,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-77acfc402a1c",
+        "tool": "match_result_to_order",
+        "reason": "Recibí tu foto y la proceso para tu examen pendiente.",
+        "params": {
+          "index": 2,
+          "repaired": false,
+          "tool": "match_result_to_order",
+          "callId": "b171723a-ed15-49a0-a17f-be3c48dafd40"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001438,
+        "latencyMs": 763,
+        "inputTokens": 4975,
+        "outputTokens": 97
+      },
+      {
+        "seq": 47,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "result_matched",
+        "runId": "agent-run-77acfc402a1c",
+        "tool": "match_result_to_order",
+        "arguments": {
+          "messageId": "agent-message-6cb5ee60e6a1"
+        },
+        "read": [
+          "message:agent-message-6cb5ee60e6a1",
+          "vision_reading",
+          "expectations",
+          "lab_test_catalog"
+        ],
+        "reason": "Recibí tu foto y la proceso para tu examen pendiente.",
+        "params": {
+          "matches": ["HbA1c"],
+          "unmatched": ["fasting glucose"],
+          "nameCheck": "matches"
+        }
+      },
+      {
+        "seq": 48,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-77acfc402a1c",
+        "tool": "submit_fhir_result",
+        "reason": "Voy a registrar tu examen para que tu médico pueda revisarlo.",
+        "params": {
+          "index": 3,
+          "repaired": false,
+          "tool": "submit_fhir_result",
+          "callId": "872f2fbc-fb92-4b80-9637-fafc25988469"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001614,
+        "latencyMs": 1422,
+        "inputTokens": 5103,
+        "outputTokens": 134
+      },
+      {
+        "seq": 49,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "result_submitted",
+        "runId": "agent-run-77acfc402a1c",
+        "tool": "submit_fhir_result",
+        "arguments": {
+          "orderId": "4163fcd1-c0c1-4f96-88ab-b11bc0f577b8",
+          "messageId": "agent-message-6cb5ee60e6a1"
+        },
+        "read": ["message:agent-message-6cb5ee60e6a1", "vision_reading"],
+        "reason": "Voy a registrar tu examen para que tu médico pueda revisarlo.",
+        "params": {
+          "resource": "Observation/agent-obs-6cb5ee60e6a1-hba1c",
+          "test": "HbA1c"
+        }
+      },
+      {
+        "seq": 50,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "engine",
+        "outcome": "ok",
+        "event": "expectation_fulfilled",
+        "runId": "agent-run-77acfc402a1c",
+        "params": {
+          "expectationId": "4163fcd1-c0c1-4f96-88ab-b11bc0f577b8",
+          "order": "HbA1c",
+          "owned": true,
+          "reason": "fulfilled_by_result",
+          "by": "Observation/agent-obs-6cb5ee60e6a1-hba1c",
+          "trigger": "Observation/agent-obs-6cb5ee60e6a1-hba1c"
+        }
+      },
+      {
+        "seq": 51,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "engine",
+        "outcome": "ok",
+        "event": "expectation_fulfilled",
+        "runId": "agent-run-77acfc402a1c",
+        "params": {
+          "expectationId": "016789c0-2ed9-4505-9c09-426ecb9e4718",
+          "order": "visit",
+          "owned": true,
+          "reason": "fulfilled_by_appointment",
+          "by": "Appointment/agent-appointment-a4b82f08c71a",
+          "trigger": "Observation/agent-obs-6cb5ee60e6a1-hba1c"
+        }
+      },
+      {
+        "seq": 52,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "engine",
+        "outcome": "info",
+        "event": "expectation_created",
+        "runId": "agent-run-77acfc402a1c",
+        "params": {
+          "expectationId": "016789c0-2ed9-4505-9c09-426ecb9e4718",
+          "ruleId": "abnormal_result_followup"
+        }
+      },
+      {
+        "seq": 53,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "engine",
+        "outcome": "info",
+        "event": "expectation_created",
+        "runId": "agent-run-77acfc402a1c",
+        "params": {
+          "expectationId": "d844f866-237e-4e12-8df1-3447da2826f6",
+          "ruleId": "protocol_diabetes_hba1c"
+        }
+      },
+      {
+        "seq": 54,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "engine",
+        "outcome": "ok",
+        "event": "clinical_review_completed",
+        "runId": "agent-run-77acfc402a1c",
+        "params": {
+          "on": "result",
+          "reviewRunId": "498aaa9c-94bc-43d5-83ef-8f57321c488f",
+          "status": "completed",
+          "findings": 4,
+          "categories": ["lab_trend", "missing_screening", "pre_visit_question"]
+        }
+      },
+      {
+        "seq": 55,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-77acfc402a1c",
+        "tool": "send_message",
+        "reason": "Procesando tu informe de laboratorio — lo confirmo ahora.",
+        "params": {
+          "index": 4,
+          "repaired": true,
+          "tool": "send_message",
+          "callId": "3a159d34-5eff-4374-b3e4-4f523608a4ab"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.002947,
+        "latencyMs": 835,
+        "inputTokens": 10731,
+        "outputTokens": 180
+      },
+      {
+        "seq": 56,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "message_sent",
+        "runId": "agent-run-77acfc402a1c",
+        "tool": "send_message",
+        "arguments": {
+          "text": "Gracias {first_name}, ya recibimos la foto de tu examen. Tu médico la va a revisar."
+        },
+        "read": ["contact_policy", "outbound_safety"],
+        "reason": "Procesando tu informe de laboratorio — lo confirmo ahora.",
+        "params": {
+          "messageId": "agent-message-5ca4ad178073",
+          "sendKind": "reply"
+        }
+      },
+      {
+        "seq": 57,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "rejected",
+        "event": "call_rejected",
+        "runId": "agent-run-77acfc402a1c",
+        "tool": "prose",
+        "reason": "",
+        "params": {
+          "error": "prose_reminded",
+          "detail": "replied in prose, not a tool call"
+        }
+      },
+      {
+        "seq": 58,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "turn_ended",
+        "runId": "agent-run-77acfc402a1c",
+        "tool": "end_turn",
+        "arguments": {
+          "summary": "loop:prose_end"
+        },
+        "read": [],
+        "reason": "",
+        "params": {
+          "summary": "loop:prose_end"
+        }
+      },
+      {
+        "seq": 59,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "ok",
+        "event": "all_orders_covered",
+        "runId": "agent-run-77acfc402a1c",
+        "params": {}
+      }
+    ],
+    "runs": [
+      {
+        "id": "agent-run-b9789304b165",
+        "trigger": "take_ownership",
+        "status": "completed",
+        "mode": "live",
+        "model": "meta:muse-spark-1.3",
+        "rung": "routine:0d",
+        "startedAt": "2026-01-05T12:00:00.000Z",
+        "modelCalls": 5,
+        "toolCalls": 5,
+        "inputTokens": 26141,
+        "outputTokens": 868,
+        "costUsd": 0.013358,
+        "stopReason": "end_turn"
+      },
+      {
+        "id": "agent-run-9887f2669a3e",
+        "trigger": "inbound_message",
+        "status": "completed",
+        "mode": "live",
+        "model": "meta:muse-spark-1.3",
+        "inboundMessageId": "agent-message-a0f8f2a36d16",
+        "startedAt": "2026-01-05T12:00:00.000Z",
+        "modelCalls": 4,
+        "toolCalls": 4,
+        "inputTokens": 18731,
+        "outputTokens": 929,
+        "costUsd": 0.008139,
+        "stopReason": "end_turn"
+      },
+      {
+        "id": "agent-run-dfba257057d2",
+        "trigger": "inbound_message",
+        "status": "completed",
+        "mode": "live",
+        "model": "meta:muse-spark-1.3",
+        "inboundMessageId": "agent-message-aa7150ca0e3f",
+        "startedAt": "2026-01-05T12:00:00.000Z",
+        "modelCalls": 4,
+        "toolCalls": 4,
+        "inputTokens": 19814,
+        "outputTokens": 1475,
+        "costUsd": 0.010969,
+        "stopReason": "end_turn"
+      },
+      {
+        "id": "agent-run-77acfc402a1c",
+        "trigger": "inbound_message",
+        "status": "completed",
+        "mode": "live",
+        "model": "meta:muse-spark-1.3",
+        "inboundMessageId": "agent-message-6cb5ee60e6a1",
+        "startedAt": "2026-01-05T12:00:00.000Z",
+        "modelCalls": 4,
+        "toolCalls": 5,
+        "inputTokens": 25590,
+        "outputTokens": 520,
+        "costUsd": 0.008231,
+        "stopReason": "end_turn"
+      }
+    ],
+    "tasks": [],
+    "appointments": [
+      {
+        "id": "agent-appointment-a4b82f08c71a",
+        "orderId": "57220b3c-7eb1-484d-a22c-31f3e5cc9414",
+        "slotId": "professional@20260108T1200Z",
+        "start": "2026-01-08T12:00:00.000Z",
+        "resourceKind": "professional",
+        "confirmationMessageId": "agent-message-aa7150ca0e3f",
+        "bookedAt": "2026-01-05T12:00:00.000Z",
+        "fhirAppointmentId": "Appointment/agent-appointment-a4b82f08c71a",
+        "originCaseId": "14cf429c-3bed-414e-b5fc-dbfcaa941ee3"
+      }
+    ],
+    "findings": [
+      {
+        "id": "cb1351a8-8460-42a9-8f1a-a41a7f828582",
+        "category": "lab_trend",
+        "severity": "high",
+        "summary": "HbA1c en ascenso sostenido 6,6 → 7,1 → 8,4 %",
+        "suggestion": "Considera revisar la HbA1c y el tratamiento en la próxima consulta.",
+        "mode": "shadow",
+        "modelId": "meta:muse-spark-1.3",
+        "createdAt": "2026-01-05T12:00:00.000Z",
+        "routine": false,
+        "citations": [
+          {
+            "docId": "Observation/pat-agent-maria-c738c8-hba1c-0-obs",
+            "kind": "result",
+            "quote": "HbA1c: 6.6 %",
+            "date": "2024-12-10T13:00:00.000Z",
+            "title": "HbA1c"
+          },
+          {
+            "docId": "Observation/pat-agent-maria-c738c8-hba1c-1-obs",
+            "kind": "result",
+            "quote": "HbA1c: 7.1 %",
+            "date": "2025-08-05T13:00:00.000Z",
+            "title": "HbA1c"
+          },
+          {
+            "docId": "Observation/agent-obs-6cb5ee60e6a1-hba1c",
+            "kind": "result",
+            "quote": "HbA1c: 8.4 %",
+            "date": "2026-01-05T12:00:00.000Z",
+            "title": "HbA1c"
+          }
+        ]
+      },
+      {
+        "id": "38403be3-6e19-42f0-bf4a-1aa754367c5a",
+        "category": "abnormal_result_no_followup",
+        "severity": "medium",
+        "summary": "HbA1c por encima de objetivo sin control posterior registrado",
+        "suggestion": "Considera revisar si se realizó el control con HbA1c previsto y reprogramarlo si procede.",
+        "mode": "shadow",
+        "modelId": "meta:muse-spark-1.3",
+        "createdAt": "2026-01-05T12:00:00.000Z",
+        "routine": false,
+        "citations": [
+          {
+            "docId": "DocumentReference/pat-agent-maria-c738c8-visit-note",
+            "kind": "note",
+            "quote": "HbA1c 7,1 % (previa 6,6 %). Glicemia en ayunas 138 mg/dL.",
+            "date": "2025-08-12T13:00:00.000Z",
+            "title": "Internal medicine note"
+          },
+          {
+            "docId": "DocumentReference/pat-agent-maria-c738c8-visit-note",
+            "kind": "note",
+            "quote": "Control en 3 meses con HbA1c.",
+            "date": "2025-08-12T13:00:00.000Z",
+            "title": "Internal medicine note"
+          }
+        ]
+      },
+      {
+        "id": "72ab399c-7f27-421c-aefb-da960e3d647e",
+        "category": "pre_visit_question",
+        "severity": "low",
+        "summary": "Pregunta por adherencia, dieta y actividad ante HbA1c elevada",
+        "suggestion": "Pregunta si ha olvidado dosis, efectos adversos, dieta y actividad desde la última consulta.",
+        "mode": "shadow",
+        "modelId": "meta:muse-spark-1.3",
+        "createdAt": "2026-01-05T12:00:00.000Z",
+        "routine": false,
+        "citations": [
+          {
+            "docId": "Observation/agent-obs-6cb5ee60e6a1-hba1c",
+            "kind": "result",
+            "quote": "HbA1c: 8.4 %",
+            "date": "2026-01-05T12:00:00.000Z",
+            "title": "HbA1c"
+          }
+        ]
+      },
+      {
+        "id": "bad37abd-aae3-4444-bec8-091a2d83d34f",
+        "category": "pre_visit_question",
+        "severity": "low",
+        "summary": "Pregunta si ha notado hormigueo, ardor o adormecimiento en los pies",
+        "suggestion": "Pregunta si ha notado hormigueo, ardor o adormecimiento en los pies en la próxima consulta.",
+        "mode": "shadow",
+        "modelId": "meta:muse-spark-1.3",
+        "createdAt": "2026-01-05T12:00:00.000Z",
+        "routine": false,
+        "citations": [
+          {
+            "docId": "Condition/pat-agent-maria-c738c8-dx-dx",
+            "kind": "condition",
+            "quote": "E11.9 Diabetes mellitus tipo 2",
+            "date": "2024-11-20T13:00:00.000Z",
+            "title": "Type 2 diabetes mellitus"
+          }
+        ]
+      },
+      {
+        "id": "f268214a-3879-47e4-912e-187e93e28d10",
+        "category": "missing_screening",
+        "severity": "low",
+        "summary": "Paciente con diabetes sin albuminuria registrada en el último año",
+        "suggestion": "Considera solicitar cociente albúmina/creatinina en orina anual.",
+        "mode": "shadow",
+        "modelId": "meta:muse-spark-1.3",
+        "createdAt": "2026-01-05T12:00:00.000Z",
+        "routine": true,
+        "citations": [
+          {
+            "docId": "Condition/pat-agent-maria-c738c8-dx-dx",
+            "kind": "condition",
+            "quote": "E11.9 Diabetes mellitus tipo 2",
+            "date": "2024-11-20T13:00:00.000Z",
+            "title": "Type 2 diabetes mellitus"
+          }
+        ]
+      },
+      {
+        "id": "c8d5eeee-f549-4081-ac90-c3099214930f",
+        "category": "missing_screening",
+        "severity": "low",
+        "summary": "Diabetes sin examen de pies registrado en el último año",
+        "suggestion": "Considera examinar los pies en la próxima consulta.",
+        "mode": "shadow",
+        "modelId": "meta:muse-spark-1.3",
+        "createdAt": "2026-01-05T12:00:00.000Z",
+        "routine": true,
+        "citations": [
+          {
+            "docId": "Condition/pat-agent-maria-c738c8-dx-dx",
+            "kind": "condition",
+            "quote": "Diabetes mellitus tipo 2",
+            "date": "2024-11-20T13:00:00.000Z",
+            "title": "Diabetes mellitus tipo 2"
+          }
+        ]
+      },
+      {
+        "id": "4f57d6d1-cbdd-463d-bc71-86171b5ddaa3",
+        "category": "missing_screening",
+        "severity": "low",
+        "summary": "Paciente con diabetes sin examen de pies registrado en el último año",
+        "suggestion": "Considera examinar los pies en la próxima consulta.",
+        "mode": "shadow",
+        "modelId": "meta:muse-spark-1.3",
+        "createdAt": "2026-01-05T12:00:00.000Z",
+        "routine": true,
+        "citations": [
+          {
+            "docId": "Condition/pat-agent-maria-c738c8-dx-dx",
+            "kind": "condition",
+            "quote": "E11.9 Diabetes mellitus tipo 2",
+            "date": "2024-11-20T13:00:00.000Z",
+            "title": "Type 2 diabetes mellitus"
+          },
+          {
+            "docId": "DocumentReference/pat-agent-maria-c738c8-visit-note",
+            "kind": "note",
+            "quote": "Control de DM2. Paciente de 58 años en tratamiento con metformina 850 mg cada 12 horas, refiere buena adherencia. HbA1c 7,1 % (previa 6,6 %). Glicemia en ayunas 138 mg/dL. Sin hipoglicemias. Plan: continuar metformina, reforzar dieta. Control en 3 meses con HbA1c.",
+            "date": "2025-08-12T13:00:00.000Z",
+            "title": "Internal medicine note"
+          }
+        ]
+      },
+      {
+        "id": "3e4ef976-dd54-493b-86de-d15e4a4f99f2",
+        "category": "missing_screening",
+        "severity": "medium",
+        "summary": "Diabetes sin fondo de ojo registrado en el último año",
+        "suggestion": "Considera solicitar fondo de ojo anual.",
+        "mode": "shadow",
+        "modelId": "meta:muse-spark-1.3",
+        "createdAt": "2026-01-05T12:00:00.000Z",
+        "routine": true,
+        "citations": [
+          {
+            "docId": "Condition/pat-agent-maria-c738c8-dx-dx",
+            "kind": "condition",
+            "quote": "Diabetes mellitus tipo 2",
+            "date": "2024-11-20T13:00:00.000Z",
+            "title": "Diabetes mellitus tipo 2"
+          }
+        ]
+      },
+      {
+        "id": "0b95c0ed-0b38-4261-8b43-ea5fa5575577",
+        "category": "missing_screening",
+        "severity": "medium",
+        "summary": "Paciente con diabetes sin fondo de ojo registrado en el último año",
+        "suggestion": "Considera solicitar fondo de ojo anual.",
+        "mode": "shadow",
+        "modelId": "meta:muse-spark-1.3",
+        "createdAt": "2026-01-05T12:00:00.000Z",
+        "routine": true,
+        "citations": [
+          {
+            "docId": "Condition/pat-agent-maria-c738c8-dx-dx",
+            "kind": "condition",
+            "quote": "E11.9 Diabetes mellitus tipo 2",
+            "date": "2024-11-20T13:00:00.000Z",
+            "title": "Type 2 diabetes mellitus"
+          },
+          {
+            "docId": "DocumentReference/pat-agent-maria-c738c8-visit-note",
+            "kind": "note",
+            "quote": "Control de DM2. Paciente de 58 años en tratamiento con metformina 850 mg cada 12 horas, refiere buena adherencia. HbA1c 7,1 % (previa 6,6 %). Glicemia en ayunas 138 mg/dL. Sin hipoglicemias. Plan: continuar metformina, reforzar dieta. Control en 3 meses con HbA1c.",
+            "date": "2025-08-12T13:00:00.000Z",
+            "title": "Internal medicine note"
+          }
+        ]
+      }
+    ],
+    "llmUsage": [
+      {
+        "callId": "973347b8-6b65-417b-bc68-e315d84d6bd6",
+        "task": "note_extraction",
+        "promptVersion": "note-extraction@5",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 3852,
+        "outputTokens": 927,
+        "costUsd": 0.004547,
+        "latencyMs": 3733,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "f11a5a39-3c8d-462d-a166-c45ac12f0ad0",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 3938,
+        "outputTokens": 116,
+        "costUsd": 0.005416,
+        "latencyMs": 1956,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "d13b8b72-3796-47ea-a9b9-d14e7a85888e",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4175,
+        "outputTokens": 66,
+        "costUsd": 0.001292,
+        "latencyMs": 1445,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "11b8ccb5-49d0-40f6-81de-4c51919a6cbc",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4293,
+        "outputTokens": 142,
+        "costUsd": 0.001481,
+        "latencyMs": 1729,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "19afd4c3-d0b4-4838-99e5-9a63fbd11df9",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4443,
+        "outputTokens": 151,
+        "costUsd": 0.001566,
+        "latencyMs": 1935,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "874d85bc-22da-45dc-9552-b87ff4bb9d98",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4532,
+        "outputTokens": 312,
+        "costUsd": 0.002361,
+        "latencyMs": 1344,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "96206320-9ec0-44e9-9847-7f19a2aeb77b",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4702,
+        "outputTokens": 51,
+        "costUsd": 0.001183,
+        "latencyMs": 748,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "3124cdca-faf7-4543-83f0-3306eb715a60",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4805,
+        "outputTokens": 97,
+        "costUsd": 0.001366,
+        "latencyMs": 1310,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "5ee767c2-a6d9-4b55-8916-88bddedf0295",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4760,
+        "outputTokens": 81,
+        "costUsd": 0.001242,
+        "latencyMs": 1171,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "b3153176-ee3f-4856-9ff0-24c83d35697b",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4323,
+        "outputTokens": 122,
+        "costUsd": 0.001715,
+        "latencyMs": 1388,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "98206e89-d658-4b61-b921-733cfd6d3913",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4562,
+        "outputTokens": 277,
+        "costUsd": 0.00225,
+        "latencyMs": 1990,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "3a9828c3-623d-44ae-a69d-03370c61c84c",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4806,
+        "outputTokens": 448,
+        "costUsd": 0.003,
+        "latencyMs": 2706,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "eb99db57-7ae2-4faa-8aca-31677c1dcfb4",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4982,
+        "outputTokens": 46,
+        "costUsd": 0.00123,
+        "latencyMs": 1240,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "855eed2a-c420-4c07-94df-ab3f9b5849ce",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5080,
+        "outputTokens": 112,
+        "costUsd": 0.001351,
+        "latencyMs": 2098,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "33acdf98-2425-48ae-a3a4-94451f8d4165",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5040,
+        "outputTokens": 82,
+        "costUsd": 0.001174,
+        "latencyMs": 791,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "da8e36ab-edad-4c8d-9d85-42184ff02a0a",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4662,
+        "outputTokens": 504,
+        "costUsd": 0.003762,
+        "latencyMs": 2449,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "ee5bfa58-609f-4c2a-ab05-0b5e84756e9d",
+        "task": "clinical_review",
+        "promptVersion": "clinical-review@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 3866,
+        "outputTokens": 277,
+        "costUsd": 0.002788,
+        "latencyMs": 2046,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "cad88e9d-40e9-4495-9900-cd38289f7277",
+        "task": "clinical_review",
+        "promptVersion": "clinical-review@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4041,
+        "outputTokens": 355,
+        "costUsd": 0.002353,
+        "latencyMs": 2257,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "6435bb84-4f81-418b-998e-250f34c146b2",
+        "task": "clinical_review",
+        "promptVersion": "clinical-review@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4096,
+        "outputTokens": 808,
+        "costUsd": 0.004206,
+        "latencyMs": 3596,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "61175e81-4805-4ce3-a7cb-412187d7eac5",
+        "task": "clinical_review",
+        "promptVersion": "clinical-review@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4149,
+        "outputTokens": 914,
+        "costUsd": 0.004582,
+        "latencyMs": 4840,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "18b43051-372a-4365-91e9-6c41d116a690",
+        "task": "clinical_review",
+        "promptVersion": "clinical-review@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4204,
+        "outputTokens": 736,
+        "costUsd": 0.003894,
+        "latencyMs": 4361,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "6b7118de-41c3-4e76-b612-d422f5730db3",
+        "task": "clinical_review",
+        "promptVersion": "clinical-review@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4370,
+        "outputTokens": 1791,
+        "costUsd": 0.008585,
+        "latencyMs": 6643,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "8e0dcc13-5057-4d69-a766-05e359df8ee0",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4886,
+        "outputTokens": 478,
+        "costUsd": 0.003087,
+        "latencyMs": 3091,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "9e61446d-67c8-4998-820c-d63e35d2c3bb",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5080,
+        "outputTokens": 402,
+        "costUsd": 0.002725,
+        "latencyMs": 2310,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "df99a6c3-b280-4b12-90fa-ff9999744eaa",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5186,
+        "outputTokens": 91,
+        "costUsd": 0.001395,
+        "latencyMs": 1604,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "9dc680de-da3e-4cf4-9734-9c2864ebf08c",
+        "task": "lab_photo_reading",
+        "promptVersion": "lab-photo@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 1357,
+        "outputTokens": 303,
+        "costUsd": 0.001593,
+        "latencyMs": 2458,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "bbf75e97-9d8a-44cf-9533-830291a644be",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4781,
+        "outputTokens": 109,
+        "costUsd": 0.002232,
+        "latencyMs": 1507,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "b171723a-ed15-49a0-a17f-be3c48dafd40",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4975,
+        "outputTokens": 97,
+        "costUsd": 0.001438,
+        "latencyMs": 763,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "872f2fbc-fb92-4b80-9637-fafc25988469",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5103,
+        "outputTokens": 134,
+        "costUsd": 0.001614,
+        "latencyMs": 1422,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "695f3db8-4c2b-4c6f-a52c-427d4b0258b4",
+        "task": "clinical_review",
+        "promptVersion": "clinical-review@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4206,
+        "outputTokens": 267,
+        "costUsd": 0.00317,
+        "latencyMs": 1886,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "94158e62-3d63-4508-a9ff-45a6726e7dc2",
+        "task": "clinical_review",
+        "promptVersion": "clinical-review@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4418,
+        "outputTokens": 512,
+        "costUsd": 0.003209,
+        "latencyMs": 2714,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "d034dbba-3c76-4b41-9299-3ab2dda46394",
+        "task": "clinical_review",
+        "promptVersion": "clinical-review@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4473,
+        "outputTokens": 728,
+        "costUsd": 0.003915,
+        "latencyMs": 3242,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "db81a9d2-a739-4066-89fe-b2066c48994a",
+        "task": "clinical_review",
+        "promptVersion": "clinical-review@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4526,
+        "outputTokens": 306,
+        "costUsd": 0.002047,
+        "latencyMs": 2128,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "6288bf9a-1b78-4290-b2ad-9bb989fdf36b",
+        "task": "clinical_review",
+        "promptVersion": "clinical-review@1",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4581,
+        "outputTokens": 1688,
+        "costUsd": 0.007989,
+        "latencyMs": 6201,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "764e7486-36a3-498e-be4f-c6b3069b3609",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5309,
+        "outputTokens": 83,
+        "costUsd": 0.001514,
+        "latencyMs": 1364,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "3a159d34-5eff-4374-b3e4-4f523608a4ab",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5422,
+        "outputTokens": 97,
+        "costUsd": 0.001433,
+        "latencyMs": 835,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "a84efab6-6f82-438a-a76b-2642b8b0b474",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5393,
+        "outputTokens": 100,
+        "costUsd": 0.00141,
+        "latencyMs": 1186,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "554ea597-9e57-4a3c-8ef1-12ae2cfa51ab",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5526,
+        "outputTokens": 121,
+        "costUsd": 0.001525,
+        "latencyMs": 876,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "ec9b37a8-499d-4c9d-9306-ebcb4a610578",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5451,
+        "outputTokens": 40,
+        "costUsd": 0.001087,
+        "latencyMs": 972,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "7f0b93f7-4e0f-45c2-997d-4e41e0e17636",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5542,
+        "outputTokens": 94,
+        "costUsd": 0.00143,
+        "latencyMs": 647,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      }
+    ],
+    "engine": {
+      "expectations": [
+        {
+          "id": "68d1c685-f995-4a68-8210-c5d4085e181c",
+          "ruleId": "protocol_diabetes_hba1c",
+          "layer": "protocol",
+          "status": "fulfilled",
+          "matchKey": "loinc:4548-4",
+          "dueAt": "2025-02-18T13:00:00.000Z",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedBy": "Observation/pat-agent-maria-c738c8-hba1c-0-obs",
+          "closedReason": "fulfilled_by_result",
+          "agentOwned": false
+        },
+        {
+          "id": "fbb1e47c-b86d-4657-9a71-f8ff2e9a2c13",
+          "ruleId": "protocol_diabetes_hba1c",
+          "layer": "protocol",
+          "status": "fulfilled",
+          "matchKey": "loinc:4548-4",
+          "dueAt": "2025-03-10T13:00:00.000Z",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedBy": "Observation/pat-agent-maria-c738c8-hba1c-1-obs",
+          "closedReason": "fulfilled_by_result",
+          "agentOwned": false
+        },
+        {
+          "id": "bee5f52a-a1d9-42eb-9d17-69d81ba5c47c",
+          "ruleId": "protocol_diabetes_visit",
+          "layer": "protocol",
+          "status": "fulfilled",
+          "matchKey": "visit",
+          "dueAt": "2025-05-19T13:00:00.000Z",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedBy": "Encounter/pat-agent-maria-c738c8-visit-enc",
+          "closedReason": "fulfilled_by_encounter",
+          "agentOwned": false
+        },
+        {
+          "id": "db6e635e-0b93-4e8b-a3db-9795d04c27e5",
+          "ruleId": "protocol_diabetes_hba1c",
+          "layer": "protocol",
+          "status": "cancelled",
+          "matchKey": "loinc:4548-4",
+          "dueAt": "2025-11-03T13:00:00.000Z",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedReason": "covered_by_later_request",
+          "agentOwned": false
+        },
+        {
+          "id": "4163fcd1-c0c1-4f96-88ab-b11bc0f577b8",
+          "ruleId": "doctor_plan_followup",
+          "layer": "doctor_plan",
+          "status": "fulfilled",
+          "matchKey": "loinc:4548-4",
+          "dueAt": "2025-11-12T13:00:00.000Z",
+          "caseId": "14cf429c-3bed-414e-b5fc-dbfcaa941ee3",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedBy": "Observation/agent-obs-6cb5ee60e6a1-hba1c",
+          "closedReason": "fulfilled_by_result",
+          "agentOwned": true
+        },
+        {
+          "id": "57220b3c-7eb1-484d-a22c-31f3e5cc9414",
+          "ruleId": "doctor_plan_followup",
+          "layer": "doctor_plan",
+          "status": "fulfilled",
+          "matchKey": "visit",
+          "dueAt": "2025-11-12T13:00:00.000Z",
+          "caseId": "14cf429c-3bed-414e-b5fc-dbfcaa941ee3",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedBy": "Appointment/agent-appointment-a4b82f08c71a",
+          "closedReason": "fulfilled_by_appointment",
+          "agentOwned": true
+        },
+        {
+          "id": "d1a4ca05-91c4-485e-8753-647e0a7bb1c1",
+          "ruleId": "protocol_diabetes_fundus",
+          "layer": "protocol",
+          "status": "expired",
+          "matchKey": "code:https://hipocratesalud.com/fhir/CodeSystem/procedure|fundus-exam",
+          "dueAt": "2025-11-20T13:00:00.000Z",
+          "caseId": "14cf429c-3bed-414e-b5fc-dbfcaa941ee3",
+          "agentOwned": false
+        },
+        {
+          "id": "e68cc30e-3ee4-44eb-9c98-d32190cdcfaa",
+          "ruleId": "protocol_diabetes_lipids",
+          "layer": "protocol",
+          "status": "expired",
+          "matchKey": "loinc:24331-1",
+          "dueAt": "2025-11-20T13:00:00.000Z",
+          "caseId": "14cf429c-3bed-414e-b5fc-dbfcaa941ee3",
+          "agentOwned": false
+        },
+        {
+          "id": "016789c0-2ed9-4505-9c09-426ecb9e4718",
+          "ruleId": "abnormal_result_followup",
+          "layer": "universal",
+          "status": "fulfilled",
+          "matchKey": "visit",
+          "dueAt": "2026-01-12T12:00:00.000Z",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedBy": "Appointment/agent-appointment-a4b82f08c71a",
+          "closedReason": "fulfilled_by_appointment",
+          "agentOwned": true
+        },
+        {
+          "id": "806ac901-944d-497a-8195-3d66c2d73bd4",
+          "ruleId": "protocol_diabetes_visit",
+          "layer": "protocol",
+          "status": "fulfilled",
+          "matchKey": "visit",
+          "dueAt": "2026-02-08T13:00:00.000Z",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedBy": "Appointment/agent-appointment-a4b82f08c71a",
+          "closedReason": "fulfilled_by_appointment",
+          "agentOwned": false
+        },
+        {
+          "id": "d844f866-237e-4e12-8df1-3447da2826f6",
+          "ruleId": "protocol_diabetes_hba1c",
+          "layer": "protocol",
+          "status": "open",
+          "matchKey": "loinc:4548-4",
+          "dueAt": "2026-04-05T12:00:00.000Z",
+          "agentOwned": false
+        }
+      ],
+      "clinicalEvents": [
+        {
+          "type": "encounter.finished",
+          "source": "Encounter/pat-agent-maria-c738c8-dx-enc",
+          "occurredAt": "2024-11-20T13:00:00.000Z"
+        },
+        {
+          "type": "condition.recorded",
+          "source": "Condition/pat-agent-maria-c738c8-dx-dx",
+          "occurredAt": "2024-11-20T13:00:00.000Z"
+        },
+        {
+          "type": "result.received",
+          "source": "Observation/pat-agent-maria-c738c8-hba1c-0-obs",
+          "occurredAt": "2024-12-10T13:00:00.000Z"
+        },
+        {
+          "type": "result.received",
+          "source": "Observation/pat-agent-maria-c738c8-hba1c-1-obs",
+          "occurredAt": "2025-08-05T13:00:00.000Z"
+        },
+        {
+          "type": "encounter.finished",
+          "source": "Encounter/pat-agent-maria-c738c8-visit-enc",
+          "occurredAt": "2025-08-12T13:00:00.000Z"
+        },
+        {
+          "type": "note.received",
+          "source": "DocumentReference/pat-agent-maria-c738c8-visit-note",
+          "occurredAt": "2025-08-12T13:00:00.000Z"
+        },
+        {
+          "type": "medication.prescribed",
+          "source": "MedicationRequest/pat-agent-maria-c738c8-visit-mr-1",
+          "occurredAt": "2025-08-12T13:00:00.000Z"
+        },
+        {
+          "type": "plan.extracted",
+          "source": "DocumentReference/pat-agent-maria-c738c8-visit-note",
+          "occurredAt": "2025-08-12T13:00:00.000Z"
+        },
+        {
+          "type": "condition.recorded",
+          "source": "DocumentReference/pat-agent-maria-c738c8-visit-note",
+          "occurredAt": "2025-08-12T13:00:00.000Z"
+        },
+        {
+          "type": "appointment.booked",
+          "source": "Appointment/agent-appointment-a4b82f08c71a",
+          "occurredAt": "2026-01-05T12:00:00.000Z"
+        },
+        {
+          "type": "result.received",
+          "source": "Observation/agent-obs-6cb5ee60e6a1-hba1c",
+          "occurredAt": "2026-01-05T12:00:00.000Z"
+        }
+      ],
+      "cases": [
+        {
+          "id": "14cf429c-3bed-414e-b5fc-dbfcaa941ee3",
+          "status": "open",
+          "audit": [
+            {
+              "type": "opened",
+              "actor": {
+                "type": "rule",
+                "id": "doctor_plan_followup"
+              },
+              "payload": {
+                "expectationId": "4163fcd1-c0c1-4f96-88ab-b11bc0f577b8",
+                "ruleId": "doctor_plan_followup",
+                "layer": "doctor_plan"
+              },
+              "at": "2026-01-05T12:00:00.000Z"
+            },
+            {
+              "type": "reason_added",
+              "actor": {
+                "type": "rule",
+                "id": "doctor_plan_followup"
+              },
+              "payload": {
+                "expectationId": "57220b3c-7eb1-484d-a22c-31f3e5cc9414",
+                "ruleId": "doctor_plan_followup",
+                "layer": "doctor_plan"
+              },
+              "at": "2026-01-05T12:00:00.000Z"
+            },
+            {
+              "type": "reason_added",
+              "actor": {
+                "type": "rule",
+                "id": "protocol_diabetes_fundus"
+              },
+              "payload": {
+                "expectationId": "d1a4ca05-91c4-485e-8753-647e0a7bb1c1",
+                "ruleId": "protocol_diabetes_fundus",
+                "layer": "protocol"
+              },
+              "at": "2026-01-05T12:00:00.000Z"
+            },
+            {
+              "type": "reason_added",
+              "actor": {
+                "type": "rule",
+                "id": "protocol_diabetes_lipids"
+              },
+              "payload": {
+                "expectationId": "e68cc30e-3ee4-44eb-9c98-d32190cdcfaa",
+                "ruleId": "protocol_diabetes_lipids",
+                "layer": "protocol"
+              },
+              "at": "2026-01-05T12:00:00.000Z"
+            },
+            {
+              "type": "appointment_booked",
+              "actor": {
+                "type": "system"
+              },
+              "payload": {
+                "appointmentId": "agent-appointment-a4b82f08c71a",
+                "originType": "follow_up_case",
+                "scheduledFor": "2026-01-08T12:00:00.000Z",
+                "fulfilledReasons": 1
+              },
+              "at": "2026-01-05T12:00:00.000Z"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

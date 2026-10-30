@@ -22,7 +22,8 @@ import { parseArgs } from 'node:util';
  * Paths: `booking` = (2) reschedule "not Tuesday", (1) confirmation, (3) a
  * photo the engine closes, (4) the abnormal result handed to the doctor;
  * `voice` = (5) a voice note; `ladder` = (6) the no-response ladder to a
- * staff call; `undelivered` = (7) an undelivered message to a phone-fix task.
+ * staff call; `undelivered` = (7) an undelivered message to a phone-fix task;
+ * `urgent` = an abnormal result's visit the doctor confirms before the agent acts.
  */
 
 const { values } = parseArgs({
@@ -30,7 +31,7 @@ const { values } = parseArgs({
     base: { type: 'string', default: 'http://localhost:4391' },
     code: { type: 'string' },
     out: { type: 'string' },
-    paths: { type: 'string', default: 'booking,voice,ladder,undelivered' },
+    paths: { type: 'string', default: 'booking,voice,ladder,undelivered,urgent' },
     mode: { type: 'string', default: 'live' },
     'api-key': { type: 'string', default: 'demo-inbox-key' },
     'email-prefix': { type: 'string', default: 'agent-evidence' },
@@ -111,6 +112,7 @@ function act(session: Session, action: string, detail?: unknown): void {
 
 interface Page {
   readonly conversation: { readonly busy: boolean; readonly status: string } | null;
+  readonly orders: readonly { readonly orderId: string; readonly stage: string }[];
   readonly messages: readonly {
     readonly id: string;
     readonly direction: string;
@@ -146,10 +148,14 @@ async function settle(session: Session, patientId: string, timeoutMs = 300_000):
   }
 }
 
-async function startStory(session: Session, language: 'en' | 'es'): Promise<string> {
-  act(session, `start story maria (${mode}, ${language})`);
+async function startStory(
+  session: Session,
+  language: 'en' | 'es',
+  story: 'maria' | 'maria_urgent' = 'maria',
+): Promise<string> {
+  act(session, `start story ${story} (${mode}, ${language})`);
   const { patientId } = await api<{ patientId: string }>(session, '/api/demo/agent/story', {
-    json: { story: 'maria', mode, language },
+    json: { story, mode, language },
   });
   await settle(session, patientId);
   return patientId;
@@ -529,6 +535,33 @@ if (paths.has('undelivered')) {
     'undelivered-phone-fix',
     'Path 7: an undelivered message, a same-day task to fix the phone',
     'The first contact (a live Muse Spark turn) comes back undelivered from the channel. Code stops messaging at once and creates a same-day task for reception to update the phone number; no model call decides it.',
+  );
+}
+
+if (paths.has('urgent')) {
+  const session = await login(`${prefix}-urgent@example.com`);
+  const patientId = await startStory(session, 'es', 'maria_urgent');
+  const page = await api<Page>(session, `/api/demo/agent?patientId=${patientId}`);
+  const awaiting = page.orders.find((order) => order.stage === 'awaiting_doctor');
+  if (awaiting === undefined) throw new Error('no order awaiting the doctor');
+  act(session, 'checkpoint: the engine’s visit waits for the doctor; nothing urgent was sent', {
+    orderId: awaiting.orderId,
+    outbound: page.messages.filter((message) => message.direction === 'outbound').length,
+  });
+  act(session, 'the doctor confirms the follow-up visit in For the doctor', {
+    orderId: awaiting.orderId,
+  });
+  await api(session, `/api/demo/agent/patients/${patientId}/orders/${awaiting.orderId}/confirm`, {
+    method: 'POST',
+  });
+  await sleep(1_500);
+  await settle(session, patientId);
+  spent += await save(
+    session,
+    patientId,
+    'urgent-doctor-confirms',
+    'Path 4b: an abnormal result asks for a visit; the doctor confirms before the agent writes about it',
+    'The lab sent María’s HbA1c (8.4 %, flagged abnormal) three days ago. The clinical reviewer runs first (findings with citations for the doctor) and the engine asks for a visit (abnormal_result_followup): that order waits for the doctor (awaiting_doctor, a high-priority notice), while the agent contacts María only about what the doctor wrote. The doctor confirms (recorded with the doctor’s id and the time); only then does the agent run the urgent track.',
   );
 }
 
