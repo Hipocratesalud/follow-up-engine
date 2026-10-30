@@ -295,11 +295,15 @@ export function mapDiagnosticReport(
       {
         ...ctx.base(
           'result.received',
+          // Clinically real date first (when the sample was collected /
+          // imaging was done): `issued` is only when the report was typed
+          // up, which can lag the real event by days. Fall back to it only
+          // when there is no effective date at all.
           firstDate(
-            report.issued,
             report.effectiveDateTime,
             report.effectivePeriod?.end,
             report.effectivePeriod?.start,
+            report.issued,
           ),
         ),
         code,
@@ -371,12 +375,16 @@ export function mapObservation(
       {
         ...ctx.base(
           'result.received',
+          // Clinically real date first (when the sample was collected /
+          // imaging was done): `issued` is only when the report was typed
+          // up, which can lag the real event by days. Fall back to it only
+          // when there is no effective date at all.
           firstDate(
-            observation.issued,
             observation.effectiveDateTime,
             observation.effectiveInstant,
             observation.effectivePeriod?.end,
             observation.effectivePeriod?.start,
+            observation.issued,
           ),
         ),
         code,

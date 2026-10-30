@@ -261,8 +261,71 @@ describe('other host events', () => {
       ['DiagnosticReport/dr-hba1c-0115', '4548-4', 'abnormal', DM_HBA1C_ORDER],
       ['Observation/obs-ldl-0115', '18262-6', 'normal', undefined],
     ]);
-    expect(results[0]?.occurredAt).toEqual(new Date('2026-01-15T14:20:00Z'));
+    // The fixture's `issued` (2026-01-15T10:20:00-04:00) is later than its
+    // `effectiveDateTime` (2026-01-14T07:30:00-04:00): the clinically real
+    // date wins, not the report's typed-up date.
+    expect(results[0]?.occurredAt).toEqual(new Date('2026-01-14T11:30:00Z'));
+    expect(results[1]?.occurredAt).toEqual(new Date('2026-01-14T11:30:00Z'));
     expect(results[2]?.occurredAt).toEqual(new Date('2026-01-14T11:30:00Z'));
+  });
+
+  it('results: cited with the clinically real date, not the receipt date, a week apart', () => {
+    // María's lab report: the sample was drawn on 2025-12-29 but the photo of
+    // it only reaches the clinic 7 days later. The cited (`occurredAt`) date
+    // must be the printed report date, falling back to `issued` only when
+    // there is no effective date at all.
+    const observedAt = '2025-12-29T13:00:00Z';
+    const ingestedAt = '2026-01-05T13:00:00Z';
+    const bundle = {
+      resourceType: 'Bundle',
+      type: 'batch',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Observation',
+            id: 'obs-late-ingest',
+            status: 'final',
+            code: { coding: [{ system: 'http://loinc.org', code: '4548-4' }] },
+            subject: { reference: 'Patient/p-1' },
+            effectiveDateTime: observedAt,
+            issued: ingestedAt,
+            valueQuantity: { value: 8.4, unit: '%' },
+          },
+          request: { method: 'PUT', url: 'Observation/obs-late-ingest' },
+        },
+        {
+          resource: {
+            resourceType: 'DiagnosticReport',
+            id: 'dr-late-ingest',
+            status: 'final',
+            code: { coding: [{ system: 'http://loinc.org', code: '4548-4' }] },
+            subject: { reference: 'Patient/p-1' },
+            effectiveDateTime: observedAt,
+            issued: ingestedAt,
+            result: [{ reference: 'Observation/obs-late-ingest' }],
+          },
+          request: { method: 'PUT', url: 'DiagnosticReport/dr-late-ingest' },
+        },
+        {
+          // No effective date at all: only then does `issued` decide.
+          resource: {
+            resourceType: 'Observation',
+            id: 'obs-no-effective',
+            status: 'final',
+            code: { coding: [{ system: 'http://loinc.org', code: '18262-6' }] },
+            subject: { reference: 'Patient/p-1' },
+            issued: ingestedAt,
+            valueQuantity: { value: 96, unit: 'mg/dL' },
+          },
+          request: { method: 'PUT', url: 'Observation/obs-no-effective' },
+        },
+      ],
+    };
+    const results = eventsOf(onlyBatch(map(bundle)), 'result.received');
+    const byId = new Map(results.map((result) => [result.source.id, result]));
+    expect(byId.get('obs-late-ingest')?.occurredAt).toEqual(new Date(observedAt));
+    expect(byId.get('dr-late-ingest')?.occurredAt).toEqual(new Date(observedAt));
+    expect(byId.get('obs-no-effective')?.occurredAt).toEqual(new Date(ingestedAt));
   });
 
   it('results: critical (HH, LL, AA, "panic") and mild abnormal flags set the severity (HIP-124)', () => {
