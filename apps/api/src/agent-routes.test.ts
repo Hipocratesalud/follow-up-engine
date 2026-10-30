@@ -109,7 +109,12 @@ async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
 
   async function call(
     path: string,
-    init: { method?: string; body?: unknown; headers?: Record<string, string>; form?: FormData } = {},
+    init: {
+      method?: string;
+      body?: unknown;
+      headers?: Record<string, string>;
+      form?: FormData;
+    } = {},
   ): Promise<{ status: number; body: unknown }> {
     if (init.form !== undefined) {
       // Multipart: the runtime sets the boundary; only the auth headers are ours.
