@@ -73,6 +73,12 @@ export interface Expectation {
   /** Present for `doctor_plan` expectations: the quote from the note. */
   readonly evidence?: Evidence;
   /**
+   * `doctor_plan` only: how confidently the extractor read the item from the
+   * note (0 to 1). An item inside the clinic's ambiguous band goes to the
+   * adjudicator (see `domain/adjudication.ts`).
+   */
+  readonly confidence?: number;
+  /**
    * A clinician confirmed what the AI read (`doctor_plan` only, HIP-141):
    * their host user id. A correction is confirmed by whoever made it.
    */

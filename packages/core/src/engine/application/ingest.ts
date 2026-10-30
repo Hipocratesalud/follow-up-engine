@@ -35,6 +35,8 @@ import {
   type NoteExtractionJobPayload,
 } from './note-extraction.ts';
 import { scheduleReviewAfterIngest } from '../reviewer/service.ts';
+import { scheduleAdjudications } from '../adjudicator/service.ts';
+import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
 import { withListedResultWithdrawals } from './report-withdrawals.ts';
 import { verifyAppointmentOrigins } from '../attribution/attribution.ts';
 
@@ -45,6 +47,8 @@ export interface IngestDeps {
   readonly ids: IdGenerator;
   readonly settings: EngineSettings;
   readonly loadCatalog: (clinicId: ClinicId) => Promise<Catalog>;
+  /** The clinic's settings: an ambiguous plan item queues the adjudicator when it is on. */
+  readonly clinics?: ClinicDirectory;
 }
 
 /** What happened to one note of the batch. */
@@ -321,6 +325,7 @@ export async function ingest(deps: IngestDeps, batch: ClinicalBatch): Promise<In
           return extractedNotes([...history, ...batch.events]);
         });
   const pass = await extractNotes(deps, clinicId, notes, alreadyExtracted);
+  const adjudicator = (await deps.clinics?.get(clinicId))?.settings.adjudicator;
 
   return deps.unitOfWork.withTransaction(clinicId, async (stores) => {
     const outcomes = [...pass.outcomes];
@@ -354,6 +359,12 @@ export async function ingest(deps: IngestDeps, batch: ClinicalBatch): Promise<In
         now: deps.clock.now(),
       });
     }
+    // Ambiguous plan items get the adjudicator's decision (when the clinic runs it).
+    await scheduleAdjudications(stores, {
+      clinicId,
+      settings: adjudicator,
+      expectations: applied.expectationsCreated,
+    });
     return { ...applied, eventsReceived: batch.events.length, notes: outcomes };
   });
 }
@@ -400,6 +411,7 @@ export async function runNoteExtractionJob(
   if (failure !== undefined) {
     throw new Error(pass.outcomes[0]?.error ?? `Extraction of ${failure.documentId} failed`);
   }
+  const adjudicator = (await deps.clinics?.get(clinicId))?.settings.adjudicator;
   return deps.unitOfWork.withTransaction(clinicId, async (stores) => {
     const applied = await applyInTransaction(deps, stores, {
       clinicId,
@@ -407,6 +419,11 @@ export async function runNoteExtractionJob(
       catalog,
       events: [],
       derived: pass.derived,
+    });
+    await scheduleAdjudications(stores, {
+      clinicId,
+      settings: adjudicator,
+      expectations: applied.expectationsCreated,
     });
     return { ...applied, eventsReceived: 0, notes: pass.outcomes };
   });

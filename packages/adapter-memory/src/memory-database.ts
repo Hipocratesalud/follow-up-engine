@@ -1,4 +1,5 @@
 import type {
+  Adjudication,
   BackfillProgress,
   CaseEvent,
   CaseFeedback,
@@ -90,6 +91,7 @@ export interface MemoryState {
   readonly ruleOverrideHistory: RuleOverrideChange[];
   readonly reconciliationRuns: Map<string, ReconciliationRun>;
   readonly reconciliationRepairs: ReconciliationRepair[];
+  readonly adjudications: Map<string, Adjudication>;
   sequence: number;
 }
 
@@ -121,6 +123,7 @@ function emptyState(): MemoryState {
     ruleOverrideHistory: [],
     reconciliationRuns: new Map(),
     reconciliationRepairs: [],
+    adjudications: new Map(),
     sequence: 0,
   };
 }

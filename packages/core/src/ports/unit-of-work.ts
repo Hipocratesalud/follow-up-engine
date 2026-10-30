@@ -1,4 +1,5 @@
 import type { ClinicId } from '../domain/ids.ts';
+import type { AdjudicationRepository } from './adjudication-repository.ts';
 import type { AuditLog } from './audit-log.ts';
 import type { BackfillProgressStore } from './backfill-progress.ts';
 import type { CaseRepository } from './case-repository.ts';
@@ -41,6 +42,8 @@ export interface TransactionalStores {
   readonly planItemReviews: PlanItemReviewLog;
   readonly ruleOverrides: RuleOverrideStore;
   readonly reconciliation: ReconciliationStore;
+  /** The adjudicator's decisions on ambiguous plan items (PRD V2). */
+  readonly adjudications: AdjudicationRepository;
 }
 
 /**

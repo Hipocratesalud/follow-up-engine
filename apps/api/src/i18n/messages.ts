@@ -1,4 +1,6 @@
 import type {
+  AdjudicationDecision,
+  AdjudicationReasonCode,
   AppointmentOriginType,
   CallOutcome,
   CaseResolutionKind,
@@ -318,6 +320,18 @@ export interface ApiMessages {
       readonly plan_item_corrected: (kind: string) => string;
       readonly plan_item_rejected: (kind: string) => string;
     };
+    /** The adjudicator decided on a reason (`decision` already labeled); `shadow`: nothing changed. */
+    readonly adjudicated: (decision: string, shadow: boolean) => string;
+    /** A doctor overrode the adjudicator (`decision` already labeled). */
+    readonly adjudicationOverridden: (decision: string) => string;
+  };
+
+  /** The adjudicator of ambiguous plan items (PRD V2). */
+  readonly adjudication: {
+    readonly decisions: Readonly<Record<AdjudicationDecision, string>>;
+    readonly reasons: Readonly<Record<AdjudicationReasonCode, string>>;
+    readonly notFound: string;
+    readonly alreadyOverridden: string;
   };
 
   /** The patient queue and the plan item review (HIP-141). */

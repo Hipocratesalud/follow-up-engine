@@ -1,3 +1,9 @@
+import type {
+  AdjudicationList,
+  AdjudicationListQuery,
+  AdjudicationOverrideRequest,
+  AdjudicationOverrideResponse,
+} from './adjudication-contract.ts';
 import type { ClinicMetricsView, MetricsQuery } from '../features/metrics/contract.ts';
 import type { ApiConfig } from '../config.ts';
 import { getLocale, messages } from '../i18n/index.ts';
@@ -183,6 +189,12 @@ export interface ApiClient {
     command: PlanItemCommand,
     body?: PlanItemCorrectionRequest,
   ): Promise<PlanItemReviewResponse>;
+  /** The adjudicator's decisions on ambiguous plan items (PRD V2). */
+  listAdjudications(query: AdjudicationListQuery): Promise<AdjudicationList>;
+  overrideAdjudication(
+    id: string,
+    body: AdjudicationOverrideRequest,
+  ): Promise<AdjudicationOverrideResponse>;
   /** `undefined` when the API runs on a real clock (the demo endpoints answer 404). */
   getEngineTests(): Promise<EngineTestCatalog | undefined>;
   /** Starts (or restarts) a scenario on a fresh fictitious patient, with every step's pre-filled suggestion. */
@@ -363,6 +375,9 @@ export function createApiClient(config: ApiConfig): ApiClient {
         `/inbox/plan-items/${encodeURIComponent(expectationId)}/${command}`,
         body === undefined ? {} : { body },
       ),
+    listAdjudications: (query) => request('GET', '/inbox/adjudications', { query: { ...query } }),
+    overrideAdjudication: (id, body) =>
+      request('POST', `/inbox/adjudications/${encodeURIComponent(id)}/override`, { body }),
     getEngineTests: async () => {
       try {
         return await request<EngineTestCatalog>('GET', '/demo/engine-tests');

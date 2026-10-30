@@ -51,6 +51,18 @@ export function provenanceAgent(actor: CaseEventActor): ProvenanceAgent {
           },
         },
       };
+    case 'adjudicator':
+      return {
+        type,
+        who: {
+          type: 'Device',
+          display: `${ENGINE_DISPLAY} adjudicator`,
+          identifier: {
+            system: ENGINE_IDENTIFIER_SYSTEMS.engine,
+            value: actor.id === undefined ? 'adjudicator' : `adjudicator:${actor.id}`,
+          },
+        },
+      };
   }
 }
 

@@ -1,3 +1,4 @@
+import type { AdjudicatorSettings } from '../domain/adjudication.ts';
 import type { ClinicId } from '../domain/ids.ts';
 
 /** Per-clinic settings that change engine behavior. */
@@ -47,6 +48,12 @@ export interface ClinicSettings {
   readonly recordCapabilities?: readonly RecordCapability[];
   /** When the nightly reconciliation runs (defaults: `DEFAULT_RECONCILIATION_SCHEDULE`). */
   readonly reconciliation?: ReconciliationSchedule;
+  /**
+   * The adjudicator of ambiguous plan items (PRD V2, docs/adjudicator.md).
+   * Absent: off. Real clinics turn it on (`shadow` first) once their
+   * clinical team validated it; the demo and lab sandboxes run it in shadow.
+   */
+  readonly adjudicator?: AdjudicatorSettings;
 }
 
 /**

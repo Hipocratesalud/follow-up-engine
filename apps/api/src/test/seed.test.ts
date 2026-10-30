@@ -3,6 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../http/app.ts';
 import type { App } from '../http/context.ts';
 import type { InboxStats } from '../http/schemas.ts';
+import type { AdjudicationList } from '../http/adjudication-schemas.ts';
+import { seedAdjudicatorPilot } from './seed-adjudicator.ts';
 import { seedSyntheticClinic, type SeedReport } from './seed.ts';
 
 const KEY = 'seed-test-key';
@@ -58,5 +60,17 @@ describe('demo seed through the initial backfill', () => {
       casesOpened: report.casesOpened,
       casesReleased: report.casesReleased,
     });
+  });
+
+  it('decides a few ambiguous plan items of the inbox patients, in shadow (adjudicator pilot)', async () => {
+    const pilot = await seedAdjudicatorPilot(runtime);
+    expect(pilot.decided).toBeGreaterThanOrEqual(2);
+    const listed = await get<AdjudicationList>('/api/inbox/adjudications?limit=50');
+    expect(listed.settings.mode).toBe('shadow');
+    expect(listed.items).toHaveLength(pilot.decided);
+    expect(listed.items.every((item) => item.mode === 'shadow' && !item.applied)).toBe(true);
+    expect(listed.items.every((item) => item.provider === 'fake')).toBe(true);
+    // Seeding again decides nothing new: a decision is never re-run.
+    expect((await seedAdjudicatorPilot(runtime)).decided).toBe(0);
   });
 });

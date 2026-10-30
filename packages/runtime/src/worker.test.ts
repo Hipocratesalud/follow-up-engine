@@ -112,7 +112,9 @@ describe('worker over the memory runtime', () => {
       [],
     );
 
-    expect(await worker.runJobs()).toEqual({ completed: 1, failed: 0 });
+    // The bundle, then the adjudication of its ambiguous plan item (the demo
+    // clinic runs the adjudicator in shadow).
+    expect(await worker.runJobs()).toEqual({ completed: 2, failed: 0 });
     const expectations = await rt.storage.stores.expectations.listByPatient(
       clinicId,
       PATIENT as never,

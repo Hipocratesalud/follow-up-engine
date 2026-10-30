@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import './schemas.ts';
 import './reviewer-schemas.ts';
+import './adjudication-schemas.ts';
 import '../metrics/schemas.ts';
 import './patient-queue-schemas.ts';
 import './plan-item-schemas.ts';
@@ -575,6 +576,34 @@ const OPERATIONS: readonly Operation[] = [
     ],
     response: 'FindingPage',
     errors: [422],
+  },
+  {
+    method: 'get',
+    path: '/api/inbox/adjudications',
+    tag: 'Inbox',
+    summary: "The adjudicator's decisions on ambiguous plan items, newest first",
+    description:
+      'By case (`caseId`: the decisions on its reasons) or across the clinic (optionally one ' +
+      'patient or one decision). Each decision carries its probability, reason codes, rationale, ' +
+      'the verbatim quotes the engine checked and its provenance (model, prompt version, cost).',
+    params: [
+      { name: 'caseId', in: 'query' },
+      { name: 'patientId', in: 'query' },
+      { name: 'decision', in: 'query', enum: ['open', 'discard', 'needs_human'] },
+      { name: 'limit', in: 'query' },
+    ],
+    response: 'AdjudicationList',
+    errors: [404, 422],
+  },
+  {
+    method: 'post',
+    path: '/api/inbox/adjudications/{id}/override',
+    tag: 'Inbox',
+    summary: "A doctor's override of a decision: open (keep and confirm) or discard (reject)",
+    params: [id('Adjudication id')],
+    body: 'AdjudicationOverrideRequest',
+    response: 'AdjudicationOverrideResponse',
+    errors: [404, 409, 422],
   },
   {
     method: 'get',

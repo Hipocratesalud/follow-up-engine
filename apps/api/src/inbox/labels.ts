@@ -1,4 +1,5 @@
 import type {
+  AdjudicationDecision,
   AppointmentOriginType,
   CaseEvent,
   CaseResolutionKind,
@@ -239,5 +240,18 @@ export function timelineLabel(
     }
     case 'appointment_attended':
       return line.appointmentAttended;
+    case 'adjudicated': {
+      const decision = adjudicationDecisionLabel(t, text(payload['decision']));
+      return line.adjudicated(decision, text(payload['mode']) === 'shadow');
+    }
+    case 'adjudication_overridden':
+      return line.adjudicationOverridden(adjudicationDecisionLabel(t, text(payload['override'])));
   }
+}
+
+/** "the note asks for it", ... for a stored decision; the raw value if unknown. */
+export function adjudicationDecisionLabel(t: ApiMessages, decision: string | undefined): string {
+  return decision !== undefined && decision in t.adjudication.decisions
+    ? t.adjudication.decisions[decision as AdjudicationDecision]
+    : (decision ?? '');
 }

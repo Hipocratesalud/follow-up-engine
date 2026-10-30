@@ -10,7 +10,8 @@ export type IdKind =
   | 'suppression'
   | 'clinical_finding'
   | 'review_run'
-  | 'plan_item_review';
+  | 'plan_item_review'
+  | 'adjudication';
 
 /**
  * Mints unique identifiers. A port so the engine stays free of randomness:
