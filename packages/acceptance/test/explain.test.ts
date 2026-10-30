@@ -194,7 +194,7 @@ function explainScenarios(makeHarness: (options: HarnessOptions) => Promise<Engi
         condition: { code: { code: 'E14' }, sourceType: 'inferred_from_medication' },
       },
     });
-    expect(why.protocol?.status).toMatch(/draft|validated/);
+    expect(why.protocol?.status).toMatch(/draft|ready_for_signoff|validated/);
     expect(why.protocol?.enrollment.evidence).toEqual([
       expect.objectContaining({
         type: 'medication.prescribed',

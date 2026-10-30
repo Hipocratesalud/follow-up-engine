@@ -235,17 +235,17 @@ A rule declares a **trigger**, what **fulfils** it, what **supersedes** it, and 
 
 Escalation policies are named and versioned too: `default_v1` (notify day 0, contact day 14, coordinator day 21, lost day 35) and `default_v2` (the demo clinic's: WhatsApp day 14, front-desk call day 21 if unanswered, coordinator day 21, second WhatsApp day 28, lost day 35). A case keeps the policy it opened with.
 
-Every care protocol is `draft` by design: a draft runs only for a clinic that opts in, and every reason it produces is labeled "pending clinical validation" until a clinical team signs it off ([docs/protocols.md](docs/protocols.md)).
+No care protocol is validated by a clinical team yet: every one opts in per clinic and every reason it produces is labeled "pending clinical validation" until a clinical team signs it off ([docs/protocols.md](docs/protocols.md)). Diabetes and hypertension are `ready_for_signoff`: a generated sign-off package lets a physician approve them in one sitting ([docs/protocols/signoff/](docs/protocols/signoff/), `pnpm protocols:signoff`); the rest are plain `draft`.
 
-| Protocol                            | Id                       | Version | Status | On by default |
-| ----------------------------------- | ------------------------ | ------- | ------ | ------------- |
-| Diabetes                            | `diabetes`               | 1.2.1   | draft  | yes (legacy)  |
-| Hypertension                        | `hypertension`           | 1.1.1   | draft  | yes (legacy)  |
-| Pregnancy and postpartum            | `pregnancy`              | 0.1.0   | draft  | no            |
-| Depression and anxiety on treatment | `treatment_followup`     | 0.2.0   | draft  | no            |
-| Hypothyroidism                      | `hypothyroidism`         | 0.1.0   | draft  | no            |
-| Dyslipidemia                        | `dyslipidemia`           | 0.1.0   | draft  | no            |
-| Chronic kidney disease              | `chronic_kidney_disease` | 0.1.0   | draft  | no            |
+| Protocol                            | Id                       | Version | Status            | On by default |
+| ----------------------------------- | ------------------------ | ------- | ----------------- | ------------- |
+| Diabetes                            | `diabetes`               | 1.2.1   | ready_for_signoff | yes (legacy)  |
+| Hypertension                        | `hypertension`           | 1.1.1   | ready_for_signoff | yes (legacy)  |
+| Pregnancy and postpartum            | `pregnancy`              | 0.1.0   | draft             | no            |
+| Depression and anxiety on treatment | `treatment_followup`     | 0.2.0   | draft             | no            |
+| Hypothyroidism                      | `hypothyroidism`         | 0.1.0   | draft             | no            |
+| Dyslipidemia                        | `dyslipidemia`           | 0.1.0   | draft             | no            |
+| Chronic kidney disease              | `chronic_kidney_disease` | 0.1.0   | draft             | no            |
 
 ## Run it locally
 
