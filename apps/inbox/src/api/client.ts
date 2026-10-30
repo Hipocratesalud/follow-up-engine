@@ -54,6 +54,7 @@ import type {
   PlanItemReviewResponse,
 } from './patient-queue-contract.ts';
 import type { PlanItemCommand, PlanItemCorrectionRequest } from './plan-item-contract.ts';
+import type { AgentMessageView, AgentPageView, AgentStoryRequest } from './agent-contract.ts';
 import type {
   EngineTestCatalog,
   EngineTestFreeformRequest,
@@ -224,6 +225,28 @@ export interface ApiClient {
    * the component saves with its own filename.
    */
   downloadEvaluatorEventsCsv(): Promise<Blob>;
+
+  // The order-to-completion agent (docs/agent/order-to-completion.md) -------
+
+  /** The lab clinic's agent page: the given (or latest) patient's conversation, trace, orders and tasks. */
+  getAgent(patientId?: string): Promise<AgentPageView>;
+  startAgentStory(body: AgentStoryRequest): Promise<{ patientId: string }>;
+  sendAgentText(patientId: string, text: string): Promise<AgentMessageView>;
+  /** A voice note (WAV) or a photo, as multipart. */
+  sendAgentFile(patientId: string, file: File): Promise<AgentMessageView>;
+  sendAgentSample(
+    patientId: string,
+    sample: 'lab_report' | 'voice_note',
+  ): Promise<AgentMessageView>;
+  setAgentDelivery(
+    messageId: string,
+    status: 'delivered' | 'read' | 'undelivered',
+  ): Promise<AgentMessageView>;
+  fixAgentPhone(patientId: string): Promise<void>;
+  /** Jumps the lab clinic's own clock (the agent's ladder runs day by day). */
+  advanceAgentClock(days: number): Promise<{ from: string; to: string }>;
+  /** A voice note or photo, fetched with the API key (an <img> cannot send it). */
+  getAgentMedia(mediaId: string): Promise<Blob>;
 }
 
 export function createApiClient(config: ApiConfig): ApiClient {
@@ -402,5 +425,36 @@ export function createApiClient(config: ApiConfig): ApiClient {
       request('GET', '/demo/evaluator-events', { query: { ...query } }),
     downloadEvaluatorEventsCsv: async () =>
       (await rawFetch('GET', '/demo/evaluator-events', { query: { format: 'csv' } })).blob(),
+
+    getAgent: (patientId) =>
+      request('GET', '/demo/agent', { query: patientId === undefined ? {} : { patientId } }),
+    startAgentStory: (body) => request('POST', '/demo/agent/story', { body }),
+    sendAgentText: (patientId, text) =>
+      request('POST', `/demo/agent/patients/${encodeURIComponent(patientId)}/messages`, {
+        body: { text },
+      }),
+    sendAgentFile: async (patientId, file) => {
+      const form = new FormData();
+      form.set('file', file, file.name);
+      const response = await rawFetch(
+        'POST',
+        `/demo/agent/patients/${encodeURIComponent(patientId)}/messages`,
+        { body: form },
+      );
+      return (await response.json()) as AgentMessageView;
+    },
+    sendAgentSample: (patientId, sample) =>
+      request('POST', `/demo/agent/patients/${encodeURIComponent(patientId)}/samples`, {
+        body: { sample },
+      }),
+    setAgentDelivery: (messageId, status) =>
+      request('POST', `/demo/agent/messages/${encodeURIComponent(messageId)}/status`, {
+        body: { status },
+      }),
+    fixAgentPhone: (patientId) =>
+      request('POST', `/demo/agent/patients/${encodeURIComponent(patientId)}/phone-fixed`),
+    advanceAgentClock: (days) => request('POST', '/demo/agent/clock', { body: { days } }),
+    getAgentMedia: async (mediaId) =>
+      (await rawFetch('GET', `/demo/agent/media/${encodeURIComponent(mediaId)}`)).blob(),
   };
 }

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation, useParams, useSearchParams, type RouteObject } from 'react-router';
 import { Shell } from './components/shell.tsx';
+import { AgentPage } from './features/agent/agent-page.tsx';
 import { DemoPage } from './features/demo/demo-page.tsx';
 import { EngineTestsPage } from './features/engine-tests/engine-tests-page.tsx';
 import { EvaluatorsPage } from './features/evaluators/evaluators-page.tsx';
@@ -89,6 +90,7 @@ export const routes: RouteObject[] = [
       { path: 'demo', element: <DemoPage /> },
       { path: 'engine-tests', element: <EngineTestsPage /> },
       { path: 'lab', element: <LabPage /> },
+      { path: 'agent', element: <AgentPage /> },
       { path: 'evaluators', element: <EvaluatorsPage /> },
       ...LEGACY_PREFIXES.map(([from]) => ({
         path: `${from.slice(1)}/*`,

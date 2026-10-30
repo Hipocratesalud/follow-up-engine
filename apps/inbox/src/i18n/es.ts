@@ -57,6 +57,7 @@ const nav: Messages['nav'] = {
   demo: 'Demo',
   engineTests: 'Pruebas del motor',
   lab: 'Laboratorio',
+  agent: 'Agente',
   evaluators: 'Evaluadores',
   simulatedDate: 'Fecha simulada:',
   simulatedDateTitle: 'La API usa un reloj simulado para la demostración',
@@ -1870,6 +1871,337 @@ const evaluators: Messages['evaluators'] = {
   action: EVALUATOR_ACTION_LABELS,
 };
 
+type AgentParams = Readonly<Record<string, string | number | boolean | null | readonly string[]>>;
+type Params = AgentParams;
+
+function str(value: unknown): string {
+  return typeof value === 'string' ? value : typeof value === 'number' ? String(value) : '';
+}
+function num(value: unknown): string {
+  return typeof value === 'number' ? numbers.format(value) : '0';
+}
+function list(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
+}
+
+/** Códigos que lleva la traza del agente (disparadores, pistas, rechazos, categorías), en palabras. */
+const AGENT_CODES: Readonly<Record<string, string>> = {
+  take_ownership: 'toma de las órdenes',
+  inbound_message: 'un mensaje de María',
+  ladder_rung: 'un escalón de la escalera',
+  phone_fixed: 'teléfono actualizado',
+  routine: 'pista de rutina',
+  urgent: 'pista urgente',
+  undelivered: 'no entregado',
+  reply: 'una respuesta',
+  proactive: 'proactivo',
+  earliest: 'lo más pronto',
+  other_time: 'otro horario',
+  saturday: 'sábado',
+  nearer_lab: 'laboratorio más cercano',
+  opted_out: 'pidió no recibir mensajes',
+  phone_undelivered: 'teléfono sin entrega',
+  cap_reached: 'tope semanal alcanzado',
+  reply_limit: 'límite de respuestas alcanzado',
+  not_an_open_order: 'no es una de las órdenes abiertas',
+  unknown_or_taken_slot: 'horario desconocido u ocupado',
+  not_a_photo_message: 'no es una foto',
+  photo_does_not_answer_order: 'la foto no responde a esta orden',
+  name_on_report_does_not_match: 'el nombre del informe no coincide',
+  unknown_tool: 'herramienta desconocida',
+  invalid_arguments: 'argumentos inválidos',
+  no_tool_call: 'respondió en texto, así que el turno termina',
+  message_not_found: 'mensaje no encontrado',
+  not_inbound: 'no es un mensaje de la paciente',
+  not_latest_inbound: 'no es su último mensaje',
+  slot_not_offered: 'horario nunca ofrecido',
+  offer_for_other_order: 'ofrecido para otra orden',
+  slot_not_free: 'el horario ya no está libre',
+  not_affirmative: 'no es un sí explícito',
+  ambiguous_choice: 'no eligió una sola opción',
+  matches: 'coincide',
+  mismatch: 'no coincide',
+  absent: 'no aparece',
+  delivered: 'entregado',
+  read: 'leído',
+  call_patient: 'llamar a la paciente',
+  update_phone: 'actualizar el teléfono',
+  call_other_contact: 'llamar a otro contacto',
+  doctor_notice: 'aviso al médico',
+  normal: 'normal',
+  high: 'alta',
+  result_value: 'un valor de resultado',
+  result_judgement: 'un juicio sobre un resultado',
+  condition_term: 'el nombre de una condición',
+  diagnosis_word: 'un diagnóstico',
+  medical_advice: 'un consejo médico',
+  missing_screening: 'tamizaje pendiente',
+  pre_visit_question: 'pregunta para la consulta',
+  lab_trend: 'tendencia de laboratorio',
+  abnormal_result_no_followup: 'resultado anormal sin seguimiento',
+  abnormal_result_followup: 'seguimiento de un resultado anormal',
+  doctor_plan_followup: 'plan del médico',
+  protocol_diabetes_hba1c: 'protocolo de diabetes: HbA1c',
+  protocol_diabetes_visit: 'protocolo de diabetes: consulta',
+};
+
+function code(value: unknown): string {
+  const raw = str(value);
+  return AGENT_CODES[raw] ?? raw.replace(/_/g, ' ');
+}
+
+const agent = {
+  title: 'Agente de órdenes hasta completarlas',
+  subtitle:
+    'El agente se hace cargo de cada orden que escribió el médico hasta que el motor dice que está cumplida. El agente actúa, el motor verifica, el médico decide.',
+  storyTitle: 'La historia de María',
+  storyBody:
+    'María (sintética) tiene diabetes tipo 2. En su última consulta, hace meses, su médico le pidió una HbA1c y un control en tres meses, y no volvió. Inicia la historia: el agente toma sus órdenes abiertas en tu propia clínica de prueba, con su propio reloj.',
+  modeLabel: 'Modelo del agente',
+  modes: { live: 'Muse Spark (en vivo)', scripted: 'Guionado (sin conexión)' } as Record<
+    string,
+    string
+  >,
+  modeHints: {
+    live: 'Llamadas reales a Muse Spark, Muse Voice y visión a través del gateway, dentro del presupuesto de la demo.',
+    scripted:
+      'Un reproductor determinista de la misma historia, con las mismas herramientas y salvaguardas. No necesita clave.',
+  } as Record<string, string>,
+  liveUnavailable: 'El modo en vivo necesita una clave de Meta en el servidor.',
+  languageLabel: 'María escribe en',
+  start: 'Iniciar la historia',
+  restart: 'Reiniciar con una nueva María',
+  starting: 'Cargando la historia clínica de María y entregando sus órdenes al agente…',
+  modelBadge: (model: string): string => `Modelo: ${model}`,
+  phone: {
+    title: 'WhatsApp simulado',
+    contact: 'Seguimiento de la clínica',
+    subtitle: 'Tú eres María',
+    working: 'El agente está trabajando…',
+    placeholder: 'Escribe como María…',
+    send: 'Enviar',
+    sampleVoice: 'Nota de voz de ejemplo',
+    samplePhoto: 'Foto de examen de ejemplo',
+    uploadVoice: 'Subir una nota de voz WAV',
+    uploadPhoto: 'Subir una foto',
+    attachments: 'Enviar archivos',
+    suggested: 'Respuestas sugeridas',
+    voiceNote: 'Nota de voz',
+    transcriptLabel: 'Transcripción',
+    transcribing: 'Transcribiendo…',
+    photo: 'Foto',
+    photoAlt: 'Foto que envió María',
+    reading: 'Leyendo la foto…',
+    statuses: {
+      sent: 'Enviado',
+      delivered: 'Entregado',
+      read: 'Leído',
+      undelivered: 'No entregado',
+    } as Record<string, string>,
+    markRead: 'Marcar como leído',
+    markUndelivered: 'Marcar como no entregado',
+    statusActions: 'Estado de entrega',
+    undeliveredBanner: 'Un mensaje no llegó a este teléfono: el agente dejó de escribir.',
+    fixPhone: 'Recepción actualizó el teléfono',
+    optedOutBanner: 'María pidió que no la contacten: el agente se detuvo.',
+    doneBanner: 'Todas las órdenes están agendadas o cumplidas: el agente queda a la espera.',
+    unreachableBanner: (date: string): string =>
+      `Sin respuesta: las órdenes siguen abiertas, se reintenta el ${date}.`,
+    flagBanner:
+      'Sin respuesta en la pista urgente: marcada para su próximo contacto con la clínica.',
+    empty: 'Todavía no hay mensajes.',
+  },
+  console: {
+    title: 'Consola del agente en vivo',
+    subtitle: 'Cada llamada al modelo, a una herramienta y cada evento del motor, en el momento.',
+    empty: 'Inicia la historia para ver trabajar al agente.',
+    reason: 'Motivo',
+    read: 'Leyó',
+    args: 'Argumentos',
+    tokens: (input: number, output: number): string =>
+      `${String(input)} tokens de entrada / ${String(output)} de salida`,
+    runTotal: (cost: string, calls: number): string =>
+      `${String(calls)} llamadas al modelo · ${cost}`,
+    kinds: {
+      model: 'Modelo',
+      tool: 'Herramienta',
+      engine: 'Motor',
+      transcription: 'Voz',
+      vision: 'Visión',
+      guardrail: 'Salvaguarda',
+      ladder: 'Escalera',
+      policy: 'Política',
+    } as Record<string, string>,
+    outcomes: { ok: 'OK', rejected: 'Rechazado', error: 'Error', info: 'Info' } as Record<
+      string,
+      string
+    >,
+  },
+  orders: {
+    title: 'Las órdenes del médico',
+    visit: 'Consulta de control',
+    test: (name: string): string => `Examen de ${name}`,
+    unknownTest: 'Examen de laboratorio',
+    due: (date: string): string => `Vence el ${date}`,
+    urgent: 'Urgente',
+    sources: {
+      doctor_note: 'De la nota del médico',
+      doctor_order: 'Orden del médico',
+      abnormal_result: 'Pedida por un resultado anormal',
+    } as Record<string, string>,
+    stages: {
+      open: 'Abierta',
+      contacted: 'Contactada',
+      booked: 'Agendada',
+      result_received: 'Resultado recibido',
+      fulfilled: 'Cumplida según el motor',
+      unreachable: 'Sin respuesta',
+    } as Record<string, string>,
+    closedBy: (resource: string): string => `Cerrada por ${resource}`,
+    ignored: (count: number): string =>
+      `${String(count)} ${count === 1 ? 'sugerencia del motor' : 'sugerencias del motor'} (ítems de protocolo) sin perseguir: solo órdenes del médico.`,
+    empty: 'No hay órdenes abiertas.',
+  },
+  clock: {
+    title: 'Reloj de la clínica',
+    today: (date: string): string => `Hoy en tu clínica de prueba: ${date}`,
+    jump: (days: number): string => `+${String(days)} ${days === 1 ? 'día' : 'días'}`,
+    hint: 'La escalera corre con este reloj, día a día: adelántalo para ver qué pasa si María no responde.',
+    ladder: 'Escalera sin respuesta',
+    tracks: {
+      routine: 'Pista de rutina',
+      urgent: 'Pista urgente',
+      undelivered: 'Pista de no entregado',
+    } as Record<string, string>,
+    actions: {
+      message: 'Mensaje',
+      call_task: 'Tarea de llamada para recepción',
+      doctor_notice: 'Aviso al médico',
+      update_phone_task: 'Tarea: actualizar el teléfono',
+      other_contact_task: 'Llamar a otro contacto',
+      unreachable: 'Sin respuesta',
+    } as Record<string, string>,
+    rungDone: 'Hecho',
+    stopped: 'Detenida: todas las órdenes están agendadas o cumplidas.',
+  },
+  doctor: {
+    title: 'Para el médico',
+    subtitle:
+      'Lo que encontró el revisor clínico cuando llegó el resultado: sugerencias para el médico, nunca enviadas a María.',
+    empty: 'Nada todavía.',
+    shadow: 'Modo sombra',
+  },
+  tasks: {
+    title: 'Tareas del equipo',
+    empty: 'No hay tareas.',
+    kinds: {
+      call_patient: 'Llamar a la paciente',
+      update_phone: 'Actualizar el número de teléfono',
+      call_other_contact: 'Llamar a otro contacto',
+      doctor_notice: 'Aviso para el médico',
+    } as Record<string, string>,
+    high: 'Prioridad alta',
+    due: (date: string): string => `Vence el ${date}`,
+    ordersLine: (orders: string): string => `Órdenes abiertas: ${orders}.`,
+    noOrders: 'No quedan órdenes abiertas.',
+    outreachLine: (
+      count: number,
+      last: string | undefined,
+      status: string | undefined,
+      replied: boolean,
+    ): string =>
+      `${String(count)} ${count === 1 ? 'mensaje enviado' : 'mensajes enviados'}${last === undefined ? '' : `, el último el ${last}`}${status === undefined ? '' : ` (${status})`}; ${replied ? 'ya respondió antes' : 'sin respuesta'}.`,
+    asks: {
+      book_orders:
+        'Llámala para agendar la consulta y el examen; ofrece un sábado o el laboratorio más cercano.',
+      update_phone: 'Los mensajes no se entregan: consigue hoy un número que funcione.',
+      reach_other_contact:
+        'Sigue sin un teléfono que funcione: prueba con sus otros datos de contacto.',
+      patient_unreachable:
+        'Sin respuesta tras tres semanas: las órdenes siguen abiertas, el agente reintenta en un mes.',
+      urgent_unanswered: 'Orden urgente sin respuesta: contáctala hoy.',
+      patient_question: 'Preguntó algo que solo el equipo puede responder: devuélvele la llamada.',
+      opted_out: 'Pidió no recibir mensajes: haz el seguimiento por teléfono si hace falta.',
+    } as Record<string, string>,
+  },
+  events: {
+    ownership_taken: (p: Params): string =>
+      `Tomó ${num(p['orders'])} órdenes del médico (ignoró ${num(p['ignoredEngineItems'])} sugerencias del motor), ${code(p['track'])}.`,
+    turn_started: (p: Params): string =>
+      `Turno iniciado: ${code(p['trigger'])}${p['rung'] === undefined ? '' : ` (escalón ${str(p['rung'])})`}.`,
+    model_called: (p: Params): string =>
+      `El modelo eligió ${str(p['tool']) || 'su siguiente herramienta'}.`,
+    orders_listed: (p: Params): string => `Leyó ${num(p['open'])} órdenes abiertas.`,
+    patient_summary_read: (): string => 'Leyó un resumen seudónimo (sin nombre ni teléfono).',
+    policy_read: (p: Params): string =>
+      p['canSend'] === true
+        ? `Puede enviar (${code(p['sendKind'])}); le quedan ${num(p['proactiveRemaining'])} mensajes proactivos esta semana.`
+        : 'No puede enviar ahora.',
+    slots_found: (p: Params): string =>
+      `${num(p['count'])} horarios libres calculados por código (${code(p['preference'])}).`,
+    message_sent: (p: Params): string => `Mensaje enviado (${code(p['sendKind'])}).`,
+    slots_offered: (p: Params): string =>
+      `Ofreció ${String(list(p['slots']).length)} horario(s) (${code(p['sendKind'])}).`,
+    send_blocked: (p: Params): string =>
+      `Envío bloqueado por la política de contacto: ${code(p['block'])}.`,
+    unsafe_message_blocked: (p: Params): string =>
+      `Mensaje rechazado por el control de seguridad (${list(p['kinds']).map(code).join(', ')}): el modelo debe reescribirlo.`,
+    tool_refused: (p: Params): string => `Herramienta rechazada: ${code(p['error'])}.`,
+    booking_refused: (p: Params): string =>
+      `Reserva rechazada por el código: ${code(p['reason'])}.`,
+    appointment_booked: (): string => 'Cita agendada con la confirmación explícita de la paciente.',
+    appointment_already_booked: (): string =>
+      'Ya estaba agendada con esta confirmación (idempotente).',
+    photo_not_a_report: (): string => 'La foto no es un informe de laboratorio.',
+    result_matched: (p: Params): string =>
+      `Foto asociada a ${list(p['matches']).join(', ') || 'ninguna orden'}; nombre en el informe: ${code(p['nameCheck'])}.`,
+    result_submitted: (p: Params): string => `Observation FHIR enviada: ${str(p['resource'])}.`,
+    expectation_fulfilled: (p: Params): string =>
+      `Motor: expectativa de ${p['order'] === 'visit' ? 'consulta de control' : str(p['order'])} cumplida por ${str(p['by'])}${p['owned'] === false ? ' (un ítem del motor)' : ''}.`,
+    expectation_created: (p: Params): string => `Motor: nueva expectativa (${code(p['ruleId'])}).`,
+    expectation_still_open: (): string =>
+      'Motor: la orden sigue abierta (el resultado no la cumple).',
+    clinical_review_completed: (p: Params): string =>
+      `El revisor clínico corrió: ${num(p['findings'])} hallazgos para el médico (${list(p['categories']).map(code).join(', ')}).`,
+    clinical_review_failed: (): string =>
+      'Falló el revisor clínico; el resultado quedó guardado igual.',
+    handed_to_staff: (): string => 'Pasado al equipo de la clínica.',
+    turn_ended: (p: Params): string => `Turno terminado: ${str(p['summary'])}`,
+    call_rejected: (p: Params): string =>
+      `Llamada rechazada antes de ejecutarse: ${code(p['error'])}.`,
+    voice_transcribed: (p: Params): string => `Nota de voz transcrita: “${str(p['transcript'])}”`,
+    photo_read: (p: Params): string =>
+      `Foto leída: ${list(p['tests']).join('; ') || 'sin resultados'}.`,
+    media_unreadable: (): string => 'No se pudo leer el archivo.',
+    budget_fallback_scripted: (): string =>
+      'Se alcanzó el presupuesto de la demo: este turno corre con el reproductor guionado.',
+    turn_failed: (p: Params): string => `El turno falló: ${str(p['error'])}`,
+    patient_message_received: (p: Params): string =>
+      `María envió ${str(p['kind']) === 'text' ? 'un mensaje' : str(p['kind']) === 'voice' ? 'una nota de voz' : 'una foto'}.`,
+    ladder_reanchored: (): string => 'La escalera se reinicia desde esta respuesta.',
+    all_orders_covered: (): string =>
+      'Todas las órdenes están agendadas o cumplidas: la escalera se detiene.',
+    rung_due: (p: Params): string => `Toca un escalón de la escalera: ${str(p['rung'])}.`,
+    rung_skipped: (p: Params): string =>
+      `Escalón omitido por la política de contacto: ${code(p['block'])}.`,
+    staff_task_created: (p: Params): string =>
+      `Tarea creada para el equipo (${code(p['kind'])}, prioridad ${code(p['priority'])}).`,
+    patient_unreachable: (p: Params): string =>
+      p['urgent'] === true
+        ? 'Sin respuesta: marcada para su próximo contacto.'
+        : 'Sin respuesta: las órdenes siguen abiertas, se reintenta en un mes.',
+    retry_started: (): string => 'Un mes después: el agente lo intenta de nuevo.',
+    opted_out: (): string => 'El código detectó que pidió no recibir mensajes: no se envían más.',
+    delivery_status: (p: Params): string => `Estado de entrega: ${code(p['status'])}.`,
+    messaging_stopped_undelivered: (): string =>
+      'No entregado: se dejó de escribir, probablemente un número equivocado.',
+    phone_fixed: (): string => 'Teléfono actualizado: la escalera vuelve a empezar.',
+  } as Record<string, (params: Params) => string>,
+  unknownEvent: (event: string): string => code(event),
+};
+
 export const es: Messages = {
   metrics,
   common,
@@ -1900,4 +2232,5 @@ export const es: Messages = {
   engineTests,
   lab,
   evaluators,
+  agent,
 };
