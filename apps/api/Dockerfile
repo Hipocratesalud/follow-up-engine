@@ -19,6 +19,7 @@ COPY packages/adapter-memory/package.json packages/adapter-memory/
 COPY packages/adapter-postgres/package.json packages/adapter-postgres/
 COPY packages/llm/package.json packages/llm/
 COPY packages/testkit/package.json packages/testkit/
+COPY packages/simulation/package.json packages/simulation/
 COPY packages/runtime/package.json packages/runtime/
 COPY apps/api/package.json apps/api/
 COPY apps/worker/package.json apps/worker/

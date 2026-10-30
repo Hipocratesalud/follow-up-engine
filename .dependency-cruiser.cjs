@@ -60,6 +60,16 @@ module.exports = {
       to: { path: '^(packages|apps)/', pathNot: '^packages/(core|fhir|testkit)/' },
     },
     {
+      name: 'simulation-depends-only-on-core',
+      severity: 'error',
+      comment:
+        'packages/simulation is a pure model of patients and of the arms (docs/simulation.md): it ' +
+        'imports core only. The engine it drives is a port the runtime implements over the real ' +
+        'FHIR ingestion and the memory adapters.',
+      from: { path: '^packages/simulation/' },
+      to: { path: '^(packages|apps)/', pathNot: '^packages/(core|simulation)/' },
+    },
+    {
       name: 'adapters-depend-only-on-core-and-fhir',
       severity: 'error',
       comment:
@@ -94,7 +104,7 @@ module.exports = {
       from: { path: '^packages/runtime/', pathNot: TEST_FILE },
       to: {
         path: '^(packages|apps)/',
-        pathNot: '^packages/(core|fhir|llm|adapter-[^/]+|runtime)/',
+        pathNot: '^packages/(core|fhir|llm|adapter-[^/]+|simulation|runtime)/',
       },
     },
     {

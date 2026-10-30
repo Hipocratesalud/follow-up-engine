@@ -1,0 +1,940 @@
+{
+  "reportVersion": "simulation-report.v1",
+  "configVersion": "simulation.v1",
+  "fingerprint": "sim-model.v1:807bfd55",
+  "notice": "Simulation with synthetic patients and stated assumptions; not a clinical trial.",
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+  "cohort": {
+    "patientsPerArm": 400,
+    "controlShare": 0.5,
+    "enrolmentDays": 30,
+    "horizonDays": 90,
+    "start": "2026-01-05T09:00:00Z",
+    "timeZone": "America/Caracas",
+    "seeds": 20
+  },
+  "arms": {
+    "control": {
+      "patients": {
+        "mean": 400,
+        "low": 400,
+        "high": 400
+      },
+      "orders": {
+        "mean": 452.9,
+        "low": 440.475,
+        "high": 462.525
+      },
+      "fulfilled": {
+        "mean": 229.3,
+        "low": 211.95,
+        "high": 247.67499999999998
+      },
+      "fulfilledShare": {
+        "mean": 0.5062610368896231,
+        "low": 0.46833632376395534,
+        "high": 0.5452797394072011
+      },
+      "medianDaysToFulfilment": {
+        "mean": 23.257241570312495,
+        "low": 21.27460472945602,
+        "high": 25.423545637876156
+      },
+      "byKind": {
+        "lab": {
+          "orders": {
+            "mean": 178.35,
+            "low": 159.9,
+            "high": 201.29999999999998
+          },
+          "fulfilledShare": {
+            "mean": 0.5374824491032986,
+            "low": 0.4768516042780749,
+            "high": 0.5952388779311857
+          }
+        },
+        "imaging": {
+          "orders": {
+            "mean": 47,
+            "low": 30.425,
+            "high": 60.05
+          },
+          "fulfilledShare": {
+            "mean": 0.5494345904228198,
+            "low": 0.47105555555555556,
+            "high": 0.65119940029985
+          }
+        },
+        "visit": {
+          "orders": {
+            "mean": 152,
+            "low": 135.9,
+            "high": 170.67499999999998
+          },
+          "fulfilledShare": {
+            "mean": 0.5065226893749397,
+            "low": 0.4563664596273292,
+            "high": 0.5532909657909658
+          }
+        },
+        "urgent": {
+          "orders": {
+            "mean": 75.55,
+            "low": 64.475,
+            "high": 85.57499999999999
+          },
+          "fulfilledShare": {
+            "mean": 0.4097431755477271,
+            "low": 0.3082236842105263,
+            "high": 0.5043333333333333
+          }
+        }
+      },
+      "urgentOrders": {
+        "mean": 75.55,
+        "low": 64.475,
+        "high": 85.57499999999999
+      },
+      "urgentWithin7Share": {
+        "mean": 0.03374667459856691,
+        "low": 0,
+        "high": 0.06568910256410256
+      },
+      "urgentWithin14Share": {
+        "mean": 0.1663332780026512,
+        "low": 0.07913760304375396,
+        "high": 0.22009557344064384
+      },
+      "unreachableShare": {
+        "mean": 0.266625,
+        "low": 0.22868750000000002,
+        "high": 0.300125
+      },
+      "markedUnreachableShare": {
+        "mean": 0,
+        "low": 0,
+        "high": 0
+      },
+      "optedOutShare": {
+        "mean": 0.024125,
+        "low": 0.011187500000000001,
+        "high": 0.03643749999999999
+      },
+      "tasksPer100": {
+        "call_patient": {
+          "mean": 0,
+          "low": 0,
+          "high": 0
+        },
+        "doctor_notice": {
+          "mean": 0,
+          "low": 0,
+          "high": 0
+        },
+        "update_phone": {
+          "mean": 0,
+          "low": 0,
+          "high": 0
+        },
+        "call_other_contact": {
+          "mean": 0,
+          "low": 0,
+          "high": 0
+        },
+        "total": {
+          "mean": 0,
+          "low": 0,
+          "high": 0
+        }
+      },
+      "callsAnsweredPer100": {
+        "mean": 0,
+        "low": 0,
+        "high": 0
+      },
+      "messagesPerPatient": {
+        "mean": 1.7912500000000002,
+        "low": 1.726875,
+        "high": 1.8464375
+      },
+      "proactivePerPatient": {
+        "mean": 1.7912500000000002,
+        "low": 1.726875,
+        "high": 1.8464375
+      },
+      "consultationsBookedPer100": {
+        "mean": 16.9375,
+        "low": 14.475,
+        "high": 20.143749999999997
+      },
+      "consultationsAttendedPer100": {
+        "mean": 27.45,
+        "low": 24.2125,
+        "high": 31.93125
+      },
+      "labVisitsAttendedPer100": {
+        "mean": 31.325,
+        "low": 27.975,
+        "high": 35.037499999999994
+      },
+      "paths": {
+        "agent": {
+          "mean": 0,
+          "low": 0,
+          "high": 0
+        },
+        "staff": {
+          "mean": 0,
+          "low": 0,
+          "high": 0
+        },
+        "photo": {
+          "mean": 0,
+          "low": 0,
+          "high": 0
+        },
+        "reminder": {
+          "mean": 0.20861225210420503,
+          "low": 0.16811744899980194,
+          "high": 0.25031332980554244
+        },
+        "self": {
+          "mean": 0.2976487847854181,
+          "low": 0.26442569987538145,
+          "high": 0.3421416874885303
+        }
+      },
+      "maxProactiveIn7Days": 2,
+      "agentActions": 0
+    },
+    "agent": {
+      "patients": {
+        "mean": 400,
+        "low": 400,
+        "high": 400
+      },
+      "orders": {
+        "mean": 451.9,
+        "low": 441.475,
+        "high": 465.575
+      },
+      "fulfilled": {
+        "mean": 337,
+        "low": 325,
+        "high": 350.525
+      },
+      "fulfilledShare": {
+        "mean": 0.7457998344967114,
+        "low": 0.7149612960381085,
+        "high": 0.7778673469387755
+      },
+      "medianDaysToFulfilment": {
+        "mean": 7.765214363715276,
+        "low": 7.134281909288195,
+        "high": 9.127533890335648
+      },
+      "byKind": {
+        "lab": {
+          "orders": {
+            "mean": 178.55,
+            "low": 163.225,
+            "high": 196.05
+          },
+          "fulfilledShare": {
+            "mean": 0.7708137996194806,
+            "low": 0.7107566290765011,
+            "high": 0.8303418803418803
+          }
+        },
+        "imaging": {
+          "orders": {
+            "mean": 49.2,
+            "low": 38.9,
+            "high": 58
+          },
+          "fulfilledShare": {
+            "mean": 0.7519093562800221,
+            "low": 0.6729152005629838,
+            "high": 0.8392551020408162
+          }
+        },
+        "visit": {
+          "orders": {
+            "mean": 148.6,
+            "low": 135.475,
+            "high": 164.575
+          },
+          "fulfilledShare": {
+            "mean": 0.7565476445883269,
+            "low": 0.7069348585548739,
+            "high": 0.8224528943278944
+          }
+        },
+        "urgent": {
+          "orders": {
+            "mean": 75.55,
+            "low": 60.95,
+            "high": 88.525
+          },
+          "fulfilledShare": {
+            "mean": 0.6626005347122492,
+            "low": 0.5973790322580645,
+            "high": 0.7321153846153846
+          }
+        }
+      },
+      "urgentOrders": {
+        "mean": 75.55,
+        "low": 60.95,
+        "high": 88.525
+      },
+      "urgentWithin7Share": {
+        "mean": 0.6045956744333972,
+        "low": 0.5320370370370371,
+        "high": 0.7069096133751306
+      },
+      "urgentWithin14Share": {
+        "mean": 0.6215374207343123,
+        "low": 0.5489759036144578,
+        "high": 0.7123955067920585
+      },
+      "unreachableShare": {
+        "mean": 0.142625,
+        "low": 0.1225,
+        "high": 0.167625
+      },
+      "markedUnreachableShare": {
+        "mean": 0.2355,
+        "low": 0.1845,
+        "high": 0.27812499999999996
+      },
+      "optedOutShare": {
+        "mean": 0.026375000000000003,
+        "low": 0.0175,
+        "high": 0.035
+      },
+      "tasksPer100": {
+        "call_patient": {
+          "mean": 40.65,
+          "low": 32.7125,
+          "high": 45.63125
+        },
+        "doctor_notice": {
+          "mean": 30.7125,
+          "low": 23.1375,
+          "high": 35.65625
+        },
+        "update_phone": {
+          "mean": 5.3625,
+          "low": 3.60625,
+          "high": 7.25
+        },
+        "call_other_contact": {
+          "mean": 2.9375,
+          "low": 1.5,
+          "high": 4.774999999999999
+        },
+        "total": {
+          "mean": 79.6625,
+          "low": 62.025,
+          "high": 89.35
+        }
+      },
+      "callsAnsweredPer100": {
+        "mean": 12.05,
+        "low": 8.59375,
+        "high": 15.418749999999998
+      },
+      "messagesPerPatient": {
+        "mean": 3.4324999999999997,
+        "low": 3.28475,
+        "high": 3.58975
+      },
+      "proactivePerPatient": {
+        "mean": 2.3991250000000006,
+        "low": 2.2173125,
+        "high": 2.5425625
+      },
+      "consultationsBookedPer100": {
+        "mean": 41.9125,
+        "low": 36.7,
+        "high": 46.2625
+      },
+      "consultationsAttendedPer100": {
+        "mean": 40.5375,
+        "low": 35.95,
+        "high": 44.65625
+      },
+      "labVisitsAttendedPer100": {
+        "mean": 39.85,
+        "low": 36.35625,
+        "high": 43.63125
+      },
+      "paths": {
+        "agent": {
+          "mean": 0.511587463559907,
+          "low": 0.4464146705137391,
+          "high": 0.5699714501185089
+        },
+        "staff": {
+          "mean": 0.07126358783065544,
+          "low": 0.04660337334437086,
+          "high": 0.10135521250843288
+        },
+        "photo": {
+          "mean": 0.047091601283945336,
+          "low": 0.03209344516991819,
+          "high": 0.0647970348091809
+        },
+        "reminder": {
+          "mean": 0,
+          "low": 0,
+          "high": 0
+        },
+        "self": {
+          "mean": 0.11585718182220359,
+          "low": 0.0799107142857143,
+          "high": 0.13606770833333334
+        }
+      },
+      "maxProactiveIn7Days": 2,
+      "agentActions": 42943
+    }
+  },
+  "difference": {
+    "fulfilledShare": {
+      "mean": 0.23953879760708813,
+      "low": 0.1849633336780601,
+      "high": 0.286296231779425
+    },
+    "medianDaysToFulfilment": {
+      "mean": -15.492027206597223,
+      "low": -18.195730021556713,
+      "high": -13.1710054140625
+    },
+    "urgentWithin7Share": {
+      "mean": 0.5708489998348305,
+      "low": 0.4920289148797921,
+      "high": 0.6763061650992687
+    },
+    "urgentWithin14Share": {
+      "mean": 0.45520414273166115,
+      "low": 0.3566850044385873,
+      "high": 0.5637150772699774
+    },
+    "consultationsAttendedPer100": {
+      "mean": 13.0875,
+      "low": 7.58125,
+      "high": 19.418749999999996
+    },
+    "unreachableShare": {
+      "mean": -0.124,
+      "low": -0.17131249999999998,
+      "high": -0.074875
+    }
+  },
+  "personas": [
+    {
+      "persona": "fast_responder",
+      "weight": 0.3,
+      "patientsPerRun": {
+        "mean": 239.1,
+        "low": 225.9,
+        "high": 254.14999999999998
+      },
+      "control": {
+        "mean": 0.8221669701310441,
+        "low": 0.781551282051282,
+        "high": 0.864465811965812
+      },
+      "agent": {
+        "mean": 0.9377150847342521,
+        "low": 0.8929578125000001,
+        "high": 0.9728681818181818
+      },
+      "difference": {
+        "mean": 0.11554811460320805,
+        "low": 0.052819152382943164,
+        "high": 0.16609925748804427
+      }
+    },
+    {
+      "persona": "second_try",
+      "weight": 0.15,
+      "patientsPerRun": {
+        "mean": 118.4,
+        "low": 99.425,
+        "high": 133.575
+      },
+      "control": {
+        "mean": 0.5110507026041617,
+        "low": 0.42067417151530484,
+        "high": 0.6069779116465864
+      },
+      "agent": {
+        "mean": 0.8369147207816491,
+        "low": 0.7651156941649899,
+        "high": 0.900055617352614
+      },
+      "difference": {
+        "mean": 0.3258640181774875,
+        "low": 0.2121902467436196,
+        "high": 0.44793596629658256
+      }
+    },
+    {
+      "persona": "slot_friction",
+      "weight": 0.12,
+      "patientsPerRun": {
+        "mean": 96.25,
+        "low": 86.95,
+        "high": 108.1
+      },
+      "control": {
+        "mean": 0.5106392094202753,
+        "low": 0.4032203389830509,
+        "high": 0.6502616747181964
+      },
+      "agent": {
+        "mean": 0.8333557098571198,
+        "low": 0.7262820512820513,
+        "high": 0.9155660377358491
+      },
+      "difference": {
+        "mean": 0.3227165004368446,
+        "low": 0.14413919413919413,
+        "high": 0.46081645138832034
+      }
+    },
+    {
+      "persona": "wrong_number",
+      "weight": 0.06,
+      "patientsPerRun": {
+        "mean": 45.45,
+        "low": 37.475,
+        "high": 55.574999999999996
+      },
+      "control": {
+        "mean": 0.30927314171268805,
+        "low": 0.13793103448275862,
+        "high": 0.4638888888888888
+      },
+      "agent": {
+        "mean": 0.6316042661113698,
+        "low": 0.4628434065934066,
+        "high": 0.8325862068965516
+      },
+      "difference": {
+        "mean": 0.3223311243986817,
+        "low": 0.06252787068004462,
+        "high": 0.6522178683385578
+      }
+    },
+    {
+      "persona": "reads_never_answers",
+      "weight": 0.1,
+      "patientsPerRun": {
+        "mean": 84.55,
+        "low": 71.475,
+        "high": 98.725
+      },
+      "control": {
+        "mean": 0.27311006758719836,
+        "low": 0.14427083333333332,
+        "high": 0.4069109461966604
+      },
+      "agent": {
+        "mean": 0.5781651436342266,
+        "low": 0.45157657657657657,
+        "high": 0.6961237980769229
+      },
+      "difference": {
+        "mean": 0.3050550760470283,
+        "low": 0.11382169956682267,
+        "high": 0.49203485576923073
+      }
+    },
+    {
+      "persona": "never_answers",
+      "weight": 0.12,
+      "patientsPerRun": {
+        "mean": 95.05,
+        "low": 80.475,
+        "high": 112.19999999999999
+      },
+      "control": {
+        "mean": 0.2502870897544964,
+        "low": 0.18337264150943397,
+        "high": 0.36416666666666647
+      },
+      "agent": {
+        "mean": 0.22185363229048077,
+        "low": 0.15085470085470085,
+        "high": 0.3240196078431372
+      },
+      "difference": {
+        "mean": -0.02843345746401571,
+        "low": -0.12220902463549521,
+        "high": 0.08440723710515788
+      }
+    },
+    {
+      "persona": "opts_out",
+      "weight": 0.03,
+      "patientsPerRun": {
+        "mean": 25.6,
+        "low": 20.425,
+        "high": 31.574999999999996
+      },
+      "control": {
+        "mean": 0.3364646258827845,
+        "low": 0.103125,
+        "high": 0.684090909090909
+      },
+      "agent": {
+        "mean": 0.41218644165432095,
+        "low": 0.18928571428571428,
+        "high": 0.5557692307692307
+      },
+      "difference": {
+        "mean": 0.07572181577153647,
+        "low": -0.26841127622377625,
+        "high": 0.3146875
+      }
+    },
+    {
+      "persona": "elsewhere_photo",
+      "weight": 0.12,
+      "patientsPerRun": {
+        "mean": 95.6,
+        "low": 78.175,
+        "high": 111.1
+      },
+      "control": {
+        "mean": 0.28460707914839034,
+        "low": 0.20038014311270128,
+        "high": 0.3749423583662714
+      },
+      "agent": {
+        "mean": 0.9048951693386993,
+        "low": 0.8639988687782806,
+        "high": 0.9508474576271186
+      },
+      "difference": {
+        "mean": 0.620288090190309,
+        "low": 0.49567123189742035,
+        "high": 0.7227658968938039
+      }
+    }
+  ],
+  "perSeed": [
+    {
+      "seed": 1,
+      "control": {
+        "orders": 456,
+        "fulfilled": 213
+      },
+      "agent": {
+        "orders": 443,
+        "fulfilled": 328
+      }
+    },
+    {
+      "seed": 2,
+      "control": {
+        "orders": 459,
+        "fulfilled": 240
+      },
+      "agent": {
+        "orders": 453,
+        "fulfilled": 348
+      }
+    },
+    {
+      "seed": 3,
+      "control": {
+        "orders": 459,
+        "fulfilled": 243
+      },
+      "agent": {
+        "orders": 454,
+        "fulfilled": 334
+      }
+    },
+    {
+      "seed": 4,
+      "control": {
+        "orders": 462,
+        "fulfilled": 237
+      },
+      "agent": {
+        "orders": 457,
+        "fulfilled": 332
+      }
+    },
+    {
+      "seed": 5,
+      "control": {
+        "orders": 463,
+        "fulfilled": 244
+      },
+      "agent": {
+        "orders": 455,
+        "fulfilled": 334
+      }
+    },
+    {
+      "seed": 6,
+      "control": {
+        "orders": 447,
+        "fulfilled": 224
+      },
+      "agent": {
+        "orders": 464,
+        "fulfilled": 350
+      }
+    },
+    {
+      "seed": 7,
+      "control": {
+        "orders": 446,
+        "fulfilled": 222
+      },
+      "agent": {
+        "orders": 450,
+        "fulfilled": 351
+      }
+    },
+    {
+      "seed": 8,
+      "control": {
+        "orders": 448,
+        "fulfilled": 227
+      },
+      "agent": {
+        "orders": 458,
+        "fulfilled": 348
+      }
+    },
+    {
+      "seed": 9,
+      "control": {
+        "orders": 462,
+        "fulfilled": 227
+      },
+      "agent": {
+        "orders": 441,
+        "fulfilled": 342
+      }
+    },
+    {
+      "seed": 10,
+      "control": {
+        "orders": 452,
+        "fulfilled": 224
+      },
+      "agent": {
+        "orders": 456,
+        "fulfilled": 345
+      }
+    },
+    {
+      "seed": 11,
+      "control": {
+        "orders": 450,
+        "fulfilled": 224
+      },
+      "agent": {
+        "orders": 456,
+        "fulfilled": 325
+      }
+    },
+    {
+      "seed": 12,
+      "control": {
+        "orders": 462,
+        "fulfilled": 217
+      },
+      "agent": {
+        "orders": 442,
+        "fulfilled": 335
+      }
+    },
+    {
+      "seed": 13,
+      "control": {
+        "orders": 457,
+        "fulfilled": 235
+      },
+      "agent": {
+        "orders": 448,
+        "fulfilled": 329
+      }
+    },
+    {
+      "seed": 14,
+      "control": {
+        "orders": 451,
+        "fulfilled": 228
+      },
+      "agent": {
+        "orders": 447,
+        "fulfilled": 338
+      }
+    },
+    {
+      "seed": 15,
+      "control": {
+        "orders": 446,
+        "fulfilled": 216
+      },
+      "agent": {
+        "orders": 448,
+        "fulfilled": 334
+      }
+    },
+    {
+      "seed": 16,
+      "control": {
+        "orders": 452,
+        "fulfilled": 240
+      },
+      "agent": {
+        "orders": 452,
+        "fulfilled": 332
+      }
+    },
+    {
+      "seed": 17,
+      "control": {
+        "orders": 457,
+        "fulfilled": 251
+      },
+      "agent": {
+        "orders": 453,
+        "fulfilled": 325
+      }
+    },
+    {
+      "seed": 18,
+      "control": {
+        "orders": 440,
+        "fulfilled": 238
+      },
+      "agent": {
+        "orders": 446,
+        "fulfilled": 332
+      }
+    },
+    {
+      "seed": 19,
+      "control": {
+        "orders": 448,
+        "fulfilled": 225
+      },
+      "agent": {
+        "orders": 448,
+        "fulfilled": 331
+      }
+    },
+    {
+      "seed": 20,
+      "control": {
+        "orders": 441,
+        "fulfilled": 211
+      },
+      "agent": {
+        "orders": 467,
+        "fulfilled": 347
+      }
+    }
+  ],
+  "economics": {
+    "consultationPrice": 40,
+    "currency": "USD",
+    "patientsPerMonth": 200,
+    "recoveredConsultationsPerPatient": {
+      "mean": 0.130875,
+      "low": 0.0758125,
+      "high": 0.19418749999999999
+    },
+    "recoveredConsultationsPerMonth": {
+      "mean": 26.174999999999997,
+      "low": 15.162500000000001,
+      "high": 38.8375
+    },
+    "recoveredRevenuePerMonth": {
+      "mean": 1047,
+      "low": 606.5,
+      "high": 1553.4999999999998
+    }
+  },
+  "invariants": {
+    "maxProactiveIn7Days": 2,
+    "controlAgentActions": 0,
+    "unmappedOrders": 0
+  },
+  "personaConfig": [
+    {
+      "id": "fast_responder",
+      "weight": 0.3,
+      "summary": "Replies to the first message and takes the first slot that fits.",
+      "rationale": "ASSUMPTION: the largest group. Most patients who read a message from their own clinic answer it, and many of them would have done the order anyway (high self-completion)."
+    },
+    {
+      "id": "second_try",
+      "weight": 0.15,
+      "summary": "Misses the first message, answers a later one.",
+      "rationale": "ASSUMPTION: busy patients who read messages late; a second contact several days later is what gets an answer."
+    },
+    {
+      "id": "slot_friction",
+      "weight": 0.12,
+      "summary": "Answers, but the offered time never suits them (\"not Tuesday\", only Saturdays).",
+      "rationale": "ASSUMPTION: working patients for whom weekday mornings do not work; they book when the time changes, and rarely find a time on their own after a generic reminder."
+    },
+    {
+      "id": "wrong_number",
+      "weight": 0.06,
+      "summary": "The phone on file is wrong: messages are undelivered until reception fixes it.",
+      "rationale": "ASSUMPTION: outdated or mistyped numbers. Once the right number is found they behave like an average patient."
+    },
+    {
+      "id": "reads_never_answers",
+      "weight": 0.1,
+      "summary": "Reads messages but never answers them; a phone call from reception works.",
+      "rationale": "ASSUMPTION: patients who do not write back to a clinic but pick up the phone."
+    },
+    {
+      "id": "never_answers",
+      "weight": 0.12,
+      "summary": "Never answers a message or a call.",
+      "rationale": "ASSUMPTION: disengaged patients. Nothing in either arm reaches them; they complete an order only on their own."
+    },
+    {
+      "id": "opts_out",
+      "weight": 0.03,
+      "summary": "Asks the clinic to stop writing at the first reply.",
+      "rationale": "ASSUMPTION: a small share of patients do not want messages; both arms stop writing to them."
+    },
+    {
+      "id": "elsewhere_photo",
+      "weight": 0.12,
+      "summary": "Did the test at an outside lab; sends a photo of the result when asked.",
+      "rationale": "ASSUMPTION: patients who use a cheaper or closer lab. The clinic never receives that result unless someone asks for it; asked, most send a photo."
+    }
+  ],
+  "assumptions": [
+    "ASSUMPTION: the persona mix and every probability in this file are plausible values chosen by the team, not measurements, and no study is cited for them. A clinic's own control group (V2 PRD, workstream B) replaces them with measured outcomes.",
+    "ASSUMPTION: without any contact, a share of patients completes each order on their own (from 10 % to 60 % by persona); urgent visits half as often, because the patient does not know the result is abnormal. The same draw applies in both arms.",
+    "ASSUMPTION: the control arm is usual care with fixed reminders: one generic message when the order is due and one 7 days later, no booking help, no follow-up calls, no way to send a result back. A patient who engages books or goes to the lab on their own (with the persona's probability).",
+    "ASSUMPTION: reception completes 90 % of the agent's call tasks on their due day; 80 % of the patients who answer a call book on it. Clinic capacity is not a constraint: every patient sees the synthetic schedule's free slots.",
+    "ASSUMPTION: every result is normal, so a result never opens a new abnormal follow-up during the window.",
+    "SIMPLIFICATION: the patient's side of the conversation is the persona model, not a language model. The agent's policy is the real code: the ladder, the urgent and undelivered tracks, the contact cap (2 proactive messages per 7 days) and the slots of packages/core/src/engine/order-agent.",
+    "SIMPLIFICATION: the agent takes a test or an urgent visit at once, and a control visit 14 days before it is due (the order agent has no start rule of its own yet).",
+    "AS IN THE AGENT: once an order is booked the agent stops chasing it, even when the patient does not show up; a no-show is not recovered by the agent.",
+    "ENGINE RULE: a visit order closes on a booking made in time and opens again when the booking date passes with no visit. \"Fulfilled\" is the engine's own status of the order at day 90.",
+    "ECONOMICS: recovered revenue counts only attended consultations (agent minus control) at the configured price, USD 40 by default; lab and imaging revenue is not counted."
+  ],
+  "elapsedMs": 23487
+}

@@ -5,6 +5,7 @@ import type {
   AdjudicationOverrideResponse,
 } from './adjudication-contract.ts';
 import type { ClinicMetricsView, MetricsQuery } from '../features/metrics/contract.ts';
+import type { SimulationResponse } from '../features/value/contract.ts';
 import type { ApiConfig } from '../config.ts';
 import { getLocale, messages } from '../i18n/index.ts';
 import type { PatientDocumentView } from './why-contract.ts';
@@ -171,6 +172,8 @@ export interface ApiClient {
   getStats(): Promise<InboxStats>;
   /** Clinic metrics over `[from, to)` (HIP-141). */
   getMetrics(query: MetricsQuery): Promise<ClinicMetricsView>;
+  /** The 90-day outcome simulation (synthetic patients); `running` while a size is computed. */
+  getValueSimulation(): Promise<SimulationResponse>;
   /** `undefined` when the API runs on a real clock (the demo endpoints answer 404). */
   getDemoClock(): Promise<DemoClock | undefined>;
   advanceClock(days: number): Promise<{ now: string }>;
@@ -355,6 +358,7 @@ export function createApiClient(config: ApiConfig): ApiClient {
       request('POST', `/inbox/suppressions/${encodeURIComponent(id)}/reactivate`),
     getCalibration: () => request('GET', '/inbox/calibration'),
     getMetrics: (query) => request('GET', '/inbox/metrics', { query: { ...query } }),
+    getValueSimulation: () => request('GET', '/inbox/value/simulation'),
     listOwners: () => request('GET', '/inbox/owners'),
     listPatients: (query) => request('GET', '/inbox/patients', { query: { ...query } }),
     getPatient: (id) => request('GET', `/inbox/patients/${encodeURIComponent(id)}`),

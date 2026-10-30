@@ -8,6 +8,7 @@
  * (components) or `messages()` (code outside React).
  */
 import type { MetricsCopy } from './metrics-copy.ts';
+import type { ValueCopy } from './value-copy.ts';
 
 const plurals = new Intl.PluralRules('en-US');
 const numbers = new Intl.NumberFormat('en-US');
@@ -56,6 +57,7 @@ const common = {
 
 const nav = {
   metrics: 'Metrics',
+  value: 'Value',
   inbox: 'Inbox',
   recovery: 'To recover',
   review: 'Clinical review',
@@ -2334,8 +2336,145 @@ const agent = {
   unknownEvent: (event: string): string => code(event),
 };
 
+const value: ValueCopy = {
+  title: 'Value',
+  subtitle:
+    'What the order agent changes for a clinic: a 90-day simulation with a control arm, next to the real numbers of this demo clinic.',
+  notice: 'Simulation with synthetic patients and stated assumptions; not a clinical trial.',
+  method: 'Method and every assumption: docs/simulation.md in the repository.',
+  loading: 'Loading the simulation',
+  running: (done, total) =>
+    `Running the simulation: ${String(done)} of ${String(total)} runs done…`,
+  errorTitle: 'We could not load the simulation',
+  headline: {
+    title: 'Orders fulfilled within 90 days',
+    control: 'Fixed reminders (control)',
+    agent: 'Order agent',
+    difference: (points, low, high) => `${points} points (95% interval ${low} to ${high})`,
+    scope: (patients, seeds, days) =>
+      `${patients} synthetic patients per arm · ${String(seeds)} seeded runs · ${String(days)} days · 95% interval across runs`,
+    interval: (low, high) => `95% interval ${low} to ${high}`,
+    summary: (control, agent, points) =>
+      `Orders fulfilled: ${control} with fixed reminders, ${agent} with the order agent, ${points} points.`,
+  },
+  arms: { control: 'Fixed reminders', agent: 'Order agent' },
+  points: (value) => `${value} pts`,
+  intervalLegend: '95% interval across runs',
+  clinic: {
+    title: 'For your clinic',
+    description:
+      'The simulated difference per patient, scaled to your numbers. Change them: the estimate updates here, nothing is sent.',
+    patientsPerMonth: 'Patients with new orders per month',
+    patientsHint:
+      'Patients who leave a consultation with a test, a study or a control to complete.',
+    price: (currency) => `Price per consultation (${currency})`,
+    priceHint: 'An assumption: what an attended consultation brings in.',
+    invalid: 'Enter a number of zero or more.',
+    consultations: 'Extra attended consultations per month',
+    consultationsHint: (low, high) => `95% interval ${low} to ${high}`,
+    revenue: 'Estimated recovered revenue per month',
+    revenueHint: (low, high) => `95% interval ${low} to ${high}; consultations only`,
+    orders: 'Extra orders completed per month',
+    ordersHint: (low, high) => `95% interval ${low} to ${high}`,
+  },
+  tiles: {
+    urgent7: 'Urgent orders done within 7 days',
+    urgent14: (agent, control) => `Within 14 days: ${agent} (fixed reminders: ${control})`,
+    median: 'Median days to fulfilment',
+    days: (value) => `${value} days`,
+    unreachable: 'Patients never reached (order still open)',
+    messages: 'Messages per patient',
+    messagesHint: (max) =>
+      `Never more than ${String(max)} proactive messages to one patient in 7 days`,
+    staff: 'Staff tasks per 100 patients',
+    staffHint: (calls, notices, phones) =>
+      `${calls} calls, ${notices} notices to the doctor, ${phones} phone updates`,
+    attended: 'Consultations attended per 100 patients',
+    versus: (control) => `Fixed reminders: ${control}`,
+  },
+  personas: {
+    title: 'Who the agent rescues',
+    description:
+      'Orders fulfilled by patient behaviour, control against agent, with the 95% interval as a thin line. Where the agent does not help, it shows.',
+    caption: 'Orders fulfilled by persona and arm',
+    share: (value) => `${value} of patients`,
+    names: {
+      fast_responder: 'Fast responder',
+      second_try: 'Needs a second try',
+      slot_friction: 'Only after the time changes',
+      wrong_number: 'Wrong number',
+      reads_never_answers: 'Reads, never answers',
+      never_answers: 'Never answers',
+      opts_out: 'Opts out',
+      elsewhere_photo: 'Test done elsewhere',
+    },
+    summaries: {
+      fast_responder: 'Answers the first message and takes a slot that fits.',
+      second_try: 'Misses the first message and answers a later one.',
+      slot_friction: 'Answers, but the time never suits ("not Tuesday", only Saturdays).',
+      wrong_number: 'The phone on file is wrong until reception fixes it.',
+      reads_never_answers: 'Reads messages but never writes back; picks up a call.',
+      never_answers: 'No message or call reaches them; only their own initiative.',
+      opts_out: 'Asks the clinic to stop writing at the first reply.',
+      elsewhere_photo: 'Did the test at an outside lab; sends a photo when asked.',
+    },
+  },
+  kinds: {
+    title: 'By kind of order',
+    description: 'Orders fulfilled by what the doctor ordered.',
+    caption: 'Orders fulfilled by kind of order and arm',
+    names: {
+      lab: 'Lab tests',
+      imaging: 'Imaging studies',
+      visit: 'Control visits',
+      urgent: 'Urgent visits (abnormal result)',
+    },
+  },
+  workload: {
+    title: 'Staff workload',
+    description:
+      'What the agent hands to people, per 100 patients with orders. Fixed reminders hand over nothing.',
+    caption: 'Staff tasks per 100 patients, order agent',
+    perHundred: 'per 100 patients',
+    tasks: {
+      call_patient: 'Reception calls',
+      doctor_notice: 'Notices to the doctor',
+      update_phone: 'Phone updates',
+      call_other_contact: 'Calls to another contact',
+    },
+  },
+  demoClinic: {
+    title: 'This demo clinic',
+    description:
+      'Real engine data of this clinic over the last 90 days: bookings made from an engine case (attribution by the case on the appointment).',
+    booked: 'Bookings from engine cases',
+    bookedHint: (total) => `of ${String(total)} bookings in the period`,
+    attended: 'Attended from engine cases',
+    attendedHint: (total) => `of ${String(total)} attended in the period`,
+    revenue: 'Estimated revenue from them',
+    revenueHint: (price) => `at ${price} per attended consultation`,
+    empty: 'No booking from an engine case yet in this clinic.',
+    unavailable: 'The clinic metrics could not be loaded.',
+  },
+  assumptions: {
+    title: 'Method and assumptions',
+    description: 'Read these before quoting a number.',
+    items: [
+      'Personas and every probability are plausible values chosen by the team, not measurements; no study is cited. A clinic’s own control group replaces them with measured outcomes.',
+      'Without any contact, 10% to 60% of patients (by persona) complete an order on their own; urgent visits half as often. The same draw applies in both arms.',
+      'Control arm: one generic reminder when the order is due and one 7 days later, under the same contact cap. No booking help, no calls, no way to send a result back.',
+      'Agent arm: the order agent’s real policy code (the follow-up ladder, the urgent and wrong-number tracks, at most 2 proactive messages per 7 days, slots from the schedule). Patients’ replies come from the persona model, not from a language model.',
+      'Reception completes 90% of the call tasks on their due day; clinic capacity is not a constraint.',
+      'Once an order is booked the agent stops chasing it, as the agent does today: a no-show is not recovered.',
+      '“Fulfilled” means the engine closed the order by day 90. A booking made in time closes a visit; it opens again when the date passes with no visit.',
+      'Revenue counts only the extra attended consultations at the price you enter; lab and imaging revenue is not counted.',
+    ],
+  },
+};
+
 export const en = {
   metrics,
+  value,
   common,
   nav,
   errors,

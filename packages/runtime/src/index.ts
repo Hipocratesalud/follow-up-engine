@@ -140,3 +140,16 @@ export {
   type SinkDelivery,
   type WebhookSinkOptions,
 } from './webhooks/sink.ts';
+export {
+  createSimulatedEngine,
+  createSimulationReportCache,
+  DEFAULT_SIMULATION_CONFIG_URL,
+  loadSimulationConfig,
+  runOutcomeSimulation,
+  SIMULATION_CLINIC_ID,
+  SIMULATION_LIMITS,
+  SIMULATION_SNAPSHOT_URL,
+  type OutcomeSimulationOptions,
+  type SimulationReportCache,
+  type SimulationReportState,
+} from './simulation.ts';
