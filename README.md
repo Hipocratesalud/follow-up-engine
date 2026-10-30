@@ -14,7 +14,7 @@ Submission to the **Meta AI Developer Hackathon 2026**.
 
 - **Physicians agreed with what Muse Spark read.** In a review session on 2026-10-27, practicing physicians checked the hosted demo against 148 synthetic patients' documents: **21 plan items confirmed, 0 corrected, 0 rejected**; **28 cases resolved**; **6 cases rated useful, 0 not useful**. [Details](#clinical-validation-with-physicians)
 - **The doctor's plan is read accurately and never invented.** On 101 gold notes, Muse Spark reaches **99.2% plan-item recall** and **98.1% medication F1**, with **0 of 348 quotes hallucinated**, at **$0.0049 per note**. [Eval](docs/evals/2026-10-27-meta-muse-spark-1.3.md)
-- **The reviewer agent cites or stays silent.** On a 20-patient cohort it found **13 of 13 planted findings**, flagged **0 of 10 controls**, and stored **0 of 44 hallucinated citations**, at **$0.0132 per review**. [Eval](docs/evals/reviewer/2026-10-27-meta-muse-spark-1.3.md)
+- **The reviewer agent cites or stays silent.** On a 20-patient cohort, with the shipped bilingual prompt, it found **13 of 13 planted findings** (precision 92.9%: one control of 10 got a finding the note had already addressed) and stored **0 of 43 hallucinated citations**, at about **$0.016 per review**. [Eval](docs/evals/reviewer/2026-10-30-meta-muse-spark-1.3.md)
 
 ## The problem
 
