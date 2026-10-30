@@ -467,8 +467,12 @@ function trimesterOf(weeks: number): number {
  * dated pregnancy: prenatal tests are repeated by trimester (the 20-week
  * anatomy scan and the 32-week growth scan, a first- and a third-trimester
  * blood count), so the later one is a new test, not a re-order.
+ *
+ * Exported so every same-test consolidation (supersession here, the
+ * generic one-request-per-test dedup in `test-requests.ts`) shares this one
+ * trimester-scoping rule rather than each deciding it on its own.
  */
-function differentTrimesters(
+export function differentTrimesters(
   later: ClinicalEvent,
   earlier: ClinicalEvent | undefined,
   timeline: PatientTimeline,
