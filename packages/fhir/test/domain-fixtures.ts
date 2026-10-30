@@ -361,3 +361,24 @@ export const rejectedPlanExpectation: Expectation = {
   closedAt: new Date('2026-01-06T10:00:00Z'),
   updatedAt: new Date('2026-01-06T10:00:00Z'),
 };
+
+/**
+ * A glucose test of the doctor's plan folded into the order of its visit
+ * (`covered_by_order`), whose order the end of the pregnancy then
+ * cancelled: the closure reads `pregnancy_ended`, the original is kept.
+ */
+export const reclassifiedPlanExpectation: Expectation = {
+  ...readPlanItem,
+  id: expectationId('exp-plan-0007'),
+  idempotencyKey: 'DocumentReference/note-1#doctor_plan_followup#loinc:1558-6@2026-04-05',
+  matchKey: 'loinc:1558-6',
+  status: 'cancelled',
+  closedReason: 'covered_by_order',
+  closedAt: new Date('2026-01-06T10:00:00Z'),
+  reclassification: {
+    closedReason: 'pregnancy_ended',
+    at: new Date('2026-06-20T12:00:00Z'),
+    by: { resourceType: 'Condition', id: 'puerperal-dx-1' },
+  },
+  updatedAt: new Date('2026-06-20T12:00:00Z'),
+};

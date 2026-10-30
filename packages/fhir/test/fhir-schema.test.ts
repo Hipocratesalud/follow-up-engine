@@ -25,6 +25,7 @@ import {
   confirmedPlanExpectation,
   correctedPlanExpectation,
   correctionExpectation,
+  reclassifiedPlanExpectation,
   dismissedCase,
   hostPolicyAttempt,
   revokedSuppression,
@@ -106,6 +107,7 @@ const outbound: readonly [string, FhirResource][] = [
   ['corrected plan item Task', expectationToTask(correctedPlanExpectation)],
   ['correction Task', expectationToTask(correctionExpectation)],
   ['rejected plan item Task', expectationToTask(rejectedPlanExpectation)],
+  ['reclassified plan item Task', expectationToTask(reclassifiedPlanExpectation)],
   ['resolved case Task', caseToTask(resolvedCase)],
   [
     'case Task with the rule and protocol version of each reason',

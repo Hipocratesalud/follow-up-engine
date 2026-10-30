@@ -57,6 +57,7 @@ export {
 export { PostgresLlmUsageLog } from './llm-usage-log.ts';
 export { PostgresMetricsReadModel } from './metrics-read-model.ts';
 export { PostgresPlanItemReviewLog } from './plan-item-review-log.ts';
+export { PostgresExpectationEventLog } from './expectation-event-log.ts';
 export { PostgresAdjudicationRepository } from './adjudication-repository.ts';
 export {
   PostgresClinicalFindingRepository,

@@ -115,6 +115,10 @@ export {
   describePlanItemReviewLogContract,
 } from './contracts/plan-item-review-log.contract.ts';
 export {
+  anExpectationEvent,
+  describeExpectationEventLogContract,
+} from './contracts/expectation-event-log.contract.ts';
+export {
   anAdjudication,
   describeAdjudicationRepositoryContract,
 } from './contracts/adjudication-repository.contract.ts';
