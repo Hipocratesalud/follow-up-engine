@@ -1,0 +1,21 @@
+{
+  "name": "@follow-up-engine/simulation",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deterministic 90-day outcome simulation of the order agent against a fixed-reminder control arm. Depends on core only; the engine it drives is injected.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@follow-up-engine/core": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.5"
+  }
+}
