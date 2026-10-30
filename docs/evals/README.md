@@ -2,14 +2,16 @@
 
 Every number in this folder, and every Muse Spark number in the READMEs, comes from a command below. The model runs were recorded (`packages/testkit/fixtures/llm-snapshots/`), so each one can be replayed offline, without a key and for free: same replies, same scores, same cost.
 
-| File                                                                                     | What                                                                                       |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| [comparison.md](comparison.md)                                                           | Muse Spark vs the rule-based baseline vs the oracle: per field, specialty, language, cost  |
-| [2026-10-27-meta-muse-spark-1.3.md](2026-10-27-meta-muse-spark-1.3.md)                   | Note extraction on Muse Spark, 101 gold notes, every note                                  |
-| [2026-10-27-fake-fake-extractor.md](2026-10-27-fake-fake-extractor.md)                   | The rule-based baseline (fake provider, no model), the floor a model has to beat           |
-| [2026-10-27-fake-oracle.md](2026-10-27-fake-oracle.md)                                   | The oracle (returns the gold answer): checks the harness and the post-checks, must be 100% |
-| [reviewer/2026-10-27-meta-muse-spark-1.3.md](reviewer/2026-10-27-meta-muse-spark-1.3.md) | Clinical reviewer agent on Muse Spark over the planted cohort                              |
-| [reviewer/2026-10-27-fake-fake-reviewer.md](reviewer/2026-10-27-fake-fake-reviewer.md)   | The scripted reviewer (fake provider)                                                      |
+| File                                                                                               | What                                                                                                          |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| [comparison.md](comparison.md)                                                                     | Muse Spark vs the rule-based baseline vs the oracle: per field, specialty, language, cost                     |
+| [2026-10-27-meta-muse-spark-1.3.md](2026-10-27-meta-muse-spark-1.3.md)                             | Note extraction on Muse Spark, 101 gold notes, every note                                                     |
+| [2026-10-27-fake-fake-extractor.md](2026-10-27-fake-fake-extractor.md)                             | The rule-based baseline (fake provider, no model), the floor a model has to beat                              |
+| [2026-10-27-fake-oracle.md](2026-10-27-fake-oracle.md)                                             | The oracle (returns the gold answer): checks the harness and the post-checks, must be 100%                    |
+| [reviewer/2026-10-30-meta-muse-spark-1.3.md](reviewer/2026-10-30-meta-muse-spark-1.3.md)           | Clinical reviewer agent on Muse Spark over the planted cohort, shipped prompt `clinical-review@2` (bilingual) |
+| [reviewer/2026-10-30-fake-fake-reviewer.md](reviewer/2026-10-30-fake-fake-reviewer.md)             | The scripted reviewer (fake provider), `clinical-review@2`                                                    |
+| [reviewer/2026-10-30-detectors-detectors-only.md](reviewer/2026-10-30-detectors-detectors-only.md) | The detectors alone (no agent)                                                                                |
+| [reviewer/2026-10-27-meta-muse-spark-1.3.md](reviewer/2026-10-27-meta-muse-spark-1.3.md)           | Superseded: the reviewer at `clinical-review@1` (no longer shipped)                                           |
 
 ## Headline (Muse Spark `muse-spark-1.3`, reasoning `low`, prompt `note-extraction@5`, 2026-10-27)
 
@@ -27,7 +29,11 @@ Every number in this folder, and every Muse Spark number in the READMEs, comes f
 
 The baseline's rules were written while looking at these gold notes, so it overstates how well regexes generalize; its plan precision is high because the gold convention for plan items (below) is the one its rules encode. Muse Spark's plan recall is 99.2% (123 of 124): every one of its 18 plan false positives is a test the note orders without its own timing, which the gold notes do not label and the extraction contract tracks (see "Plan items").
 
-Clinical reviewer on Muse Spark over the 20-patient cohort (10 planted, 10 controls): native tool calling on the Meta Model API, precision 100% (13 of 13), recall 100% (13 of 13), 0 controls with a finding, 0 hallucinated citations stored (0 dropped by the engine either: every quote Muse Spark cited was verbatim), 2.6 steps and 1.6 tool calls per review, $0.013 per review. Earlier live runs of the same model, before the fixes below: 85.7% / 92.3% and 92.3% / 92.3%.
+Clinical reviewer on Muse Spark over the 20-patient cohort (10 planted, 10 controls), with the shipped prompt `clinical-review@2` (every finding in English and Spanish), live on 2026-10-30: native tool calling on the Meta Model API, **precision 92.9% (13 of 14), recall 100% (13 of 13)**, 1 control of 10 with a finding, **0 hallucinated citations stored of 43** (0 dropped by the engine either), 14 of 14 stored findings with both languages and 0 submissions refused for a missing translation, 2.5 steps and 1.5 tool calls per review, $0.0164 per review at the gateway's price ($0.021 at list price; the 50 live calls cost $0.33, $0.42 at list price).
+
+The one false positive is control `rev-0017` ("creatinine rising but commented by the doctor, metformin adjusted"): Muse Spark added a `lab_trend` finding of its own ("Creatinina en aumento progresivo con último valor fuera de rango"), with verbatim citations, that the doctor's note already addresses. It is a judgment miss, not an invented citation; the coverage check only knows about open expectations and cases, not about a note that comments on a trend. The same run also showed Muse Spark writing its main fields in Spanish for an English clinic while its `texts.en` was right: since then a model's `texts` win over its main fields.
+
+The previous run (prompt `clinical-review@1`, 2026-10-27, monolingual) scored 100% / 100% and is kept as history; it does not describe the shipped prompt. Earlier live runs before the fixes below: 85.7% / 92.3% and 92.3% / 92.3%.
 
 ## How to reproduce every number
 

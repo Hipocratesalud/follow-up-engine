@@ -114,16 +114,19 @@ Every model call and its reply are recorded (`packages/testkit/fixtures/llm-snap
 
 The rule-based baseline's regexes were written looking at these same gold notes, so it overstates how well it generalizes; its plan-item precision is high because the gold labeling convention matches its rules exactly. Every Muse Spark miss is catalogued note by note, with the fix applied in code, in the [eval README](docs/evals/README.md#what-each-muse-spark-miss-is).
 
-**Clinical reviewer agent, 20-patient cohort: 10 planted findings, 10 controls** ([full report](docs/evals/reviewer/2026-10-27-meta-muse-spark-1.3.md)):
+**Clinical reviewer agent, 20-patient cohort: 10 planted findings, 10 controls** (Muse Spark, shipped prompt `clinical-review@2`, live 2026-10-30, [full report](docs/evals/reviewer/2026-10-30-meta-muse-spark-1.3.md)):
 
-| Metric                        | Value                      |
-| ----------------------------- | -------------------------- |
-| Precision                     | 100.0% (13 of 13 findings) |
-| Recall                        | 100.0% (13 of 13 planted)  |
-| Controls with any finding     | 0 of 10                    |
-| Hallucinated citations stored | **0** of 44                |
-| Steps / tool calls per review | 2.6 / 1.6                  |
-| Cost per review               | $0.0132                    |
+| Metric                          | Value                       |
+| ------------------------------- | --------------------------- |
+| Precision                       | 92.9% (13 of 14 findings)   |
+| Recall                          | 100.0% (13 of 13 planted)   |
+| Controls with any finding       | 1 of 10                     |
+| Hallucinated citations stored   | **0** of 43                 |
+| Findings in English and Spanish | 14 of 14                    |
+| Steps / tool calls per review   | 2.5 / 1.5                   |
+| Cost per review                 | $0.0164 (list price $0.021) |
+
+The false positive is a control whose note already comments on a creatinine rise: Muse Spark added its own trend finding there (verbatim citations, wrong judgment). Details in the [eval README](docs/evals/README.md).
 
 Both evals gate prompt and model changes: a regression fails the eval. The principle behind the reviewer ([ADR 0006](docs/adr/0006-clinical-reviewer-agent.md)) is **deterministic where it matters, agentic where it helps.** Code computes every trend and runs the curated checks; the model only confirms, discards or adds to what code found; every citation it returns is checked word for word against the stored record. One bad quote drops the whole finding, and it is never silently rewritten.
 

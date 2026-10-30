@@ -108,7 +108,12 @@ export function withLocaleTexts(
   });
 }
 
-/** A draft's words per locale, the clinic's own locale always being the stored text. */
+/**
+ * A draft's words per locale. The model's own `texts` win (Muse Spark has
+ * written its main fields in Spanish for an English clinic, with a correct
+ * English entry in `texts`); the stored text only fills the clinic's locale
+ * when the model gave none for it.
+ */
 function draftTexts(
   draft: FindingDraft,
   locale: ReviewLocale,
@@ -126,7 +131,7 @@ function draftTexts(
     twin.suggestion === draft.suggestion
       ? twin.texts
       : undefined;
-  return { ...(draft.texts ?? inherited), [locale]: own };
+  return { [locale]: own, ...(draft.texts ?? inherited) };
 }
 
 function describeError(error: unknown): string {
