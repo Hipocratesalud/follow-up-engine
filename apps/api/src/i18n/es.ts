@@ -656,7 +656,11 @@ export const ES = {
     agentNotStarted:
       'El agente todavía no tiene órdenes de este paciente: primero inicia la historia.',
     agentMediaType:
-      'Una nota de voz debe ser un archivo WAV y una foto una imagen JPEG, PNG o WebP.',
+      'Una nota de voz debe ser un archivo WAV, una foto una imagen JPEG, PNG o WebP y un informe un PDF.',
+    labHistoryDocuments: 'Indica la fecha y el tipo de cada archivo (uno por archivo, en orden).',
+    heldReportNotFound:
+      'No hay ningún informe retenido para revisión con ese id en tu laboratorio.',
+    heldReportDecided: 'Alguien ya decidió sobre ese informe.',
     agentLiveUnavailable:
       'El modo en vivo necesita una clave de Meta en el servidor: usa el modo guionado.',
     noteNotRead: (model, error) =>

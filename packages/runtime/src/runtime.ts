@@ -30,6 +30,7 @@ import {
   type FollowUpEngine,
   type IdGenerator,
   type OrderAgentService,
+  type PatientMediaReader,
   primaryLanguage,
   REVIEW_LOCALES,
   type ReviewLocale,
@@ -39,6 +40,7 @@ import {
 } from '@follow-up-engine/core';
 import {
   createRepositoryTerminology,
+  type FetchLike,
   type NoteFixture,
   outboundSafetyTerms,
 } from '@follow-up-engine/llm';
@@ -146,6 +148,8 @@ export interface EngineRuntime {
   readonly orderAgent: OrderAgentService;
   /** Whether the agent's live mode runs a real model (`LLM_PROVIDER` is not `fake`). */
   readonly liveAgent: boolean;
+  /** The lab-result reading (photos, PDF reports) and voice notes, on the `llm_gateway`. */
+  readonly mediaReader: PatientMediaReader;
   /** Delivers outbox events to the host (signed webhooks). */
   readonly publisher: EventPublisher;
   /** The in-process webhook sink, when no `WEBHOOK_URL` is configured (demo). */
@@ -205,6 +209,8 @@ export interface CreateRuntimeOptions {
   readonly poolSize?: number;
   /** Test and QA evaluator accounts; config/demo/test-evaluators.json by default. */
   readonly testEvaluators?: TestEvaluatorPolicy;
+  /** The HTTP client of the real LLM providers (tests stub the provider's API with it). */
+  readonly llmFetch?: FetchLike;
 }
 
 /**
@@ -254,6 +260,7 @@ export async function createRuntime(
     fallbackBudgetUsd: (clinicId) => (isLabClinicId(clinicId) ? demoBudget : undefined),
     ...(options.noteFixtures === undefined ? {} : { noteFixtures: options.noteFixtures }),
     ...(options.llmSnapshot === undefined ? {} : { snapshot: options.llmSnapshot }),
+    ...(options.llmFetch === undefined ? {} : { llmFetch: options.llmFetch }),
   });
 
   const testEvaluators = options.testEvaluators ?? loadTestEvaluatorPolicy();
@@ -422,6 +429,7 @@ export async function createRuntime(
     labClocks,
     orderAgent,
     liveAgent,
+    mediaReader,
     publisher,
     ...(sink === undefined ? {} : { sink }),
     logger,
@@ -614,6 +622,13 @@ export async function activeClinicIds(runtime: EngineRuntime): Promise<readonly 
     .filter((id) => !isLabClinicId(id));
 }
 
+/**
+ * A lab clinic's daily release cap per owner for imported history (the
+ * clinic default is 20): a sandbox holds a handful of patients, so a cap of
+ * one shows how the backfill releases "To recover" day by day.
+ */
+export const LAB_DAILY_CASE_CAP_PER_OWNER = 1;
+
 /** Prefix of a lab clinic's id ({@link labClinicId}). */
 export const LAB_CLINIC_PREFIX = 'lab-';
 
@@ -661,6 +676,7 @@ export async function ensureLabClinic(
       escalationPolicyId: DEMO_ESCALATION_POLICY,
       reconciliation: { fullSweepWeekday: null, enabled: false },
       adjudicator: DEMO_ADJUDICATOR_SETTINGS,
+      dailyCaseCapPerOwner: LAB_DAILY_CASE_CAP_PER_OWNER,
     },
   });
 }

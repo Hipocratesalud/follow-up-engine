@@ -24,10 +24,18 @@ import { trackEvaluatorEvent } from './evaluator-tracking.ts';
 import { HttpError, readJson } from './errors.ts';
 import { requireEvaluator } from './lab-records-routes.ts';
 
-/** Largest voice note or photo accepted from the simulated phone. */
+/** Largest voice note, photo or PDF accepted from the simulated phone. */
 export const MAX_AGENT_MEDIA_BYTES = 4 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const AUDIO_TYPES = new Set(['audio/wav', 'audio/x-wav', 'audio/wave']);
+/** A lab report the patient sends as a document: read as text by the lab-result reading. */
+const DOCUMENT_TYPES = new Set(['application/pdf']);
+
+function mediaKind(type: string): 'image' | 'voice' | 'document' | undefined {
+  if (IMAGE_TYPES.has(type)) return 'image';
+  if (AUDIO_TYPES.has(type)) return 'voice';
+  return DOCUMENT_TYPES.has(type) ? 'document' : undefined;
+}
 
 export const AgentStoryStartSchema = z
   .object({
@@ -45,7 +53,7 @@ export const AgentTextMessageSchema = z
   })
   .strict();
 export const AgentSampleSchema = z
-  .object({ sample: z.enum(['lab_report', 'voice_note']) })
+  .object({ sample: z.enum(['lab_report', 'lab_report_pdf', 'voice_note']) })
   .strict();
 export const AgentDeliverySchema = z
   .object({ status: z.enum(['delivered', 'read', 'undelivered']) })
@@ -401,7 +409,7 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
     return c.json({ patientId }, 201);
   });
 
-  /** The patient writes: JSON `{ text }`, or multipart with a `file` (a WAV voice note, a photo). */
+  /** The patient writes: JSON `{ text }`, or multipart with a `file` (a WAV voice note, a photo, a PDF report). */
   app.post('/api/demo/agent/patients/:id/messages', async (c) => {
     const { clinic, evaluatorEmail } = await lab(c);
     const view = await requireConversation(c, clinic.id, c.req.param('id'));
@@ -416,7 +424,7 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
         throw new HttpError(422, 'agent_media_type', c.var.t.errors.agentMediaType);
       }
       const type = file.type.split(';')[0]?.trim().toLowerCase() ?? '';
-      const kind = IMAGE_TYPES.has(type) ? 'image' : AUDIO_TYPES.has(type) ? 'voice' : undefined;
+      const kind = mediaKind(type);
       if (kind === undefined) {
         throw new HttpError(422, 'agent_media_type', c.var.t.errors.agentMediaType);
       }
@@ -436,7 +444,7 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
     return c.json(messageView(message), 201);
   });
 
-  /** The story's sample media: María's lab report photo, or her voice note in the conversation's language. */
+  /** The story's sample media: María's lab report (a photo or its PDF), or her voice note in the conversation's language. */
   app.post('/api/demo/agent/patients/:id/samples', async (c) => {
     const body = await readJson(c, AgentSampleSchema);
     const { clinic, evaluatorEmail } = await lab(c);
@@ -444,15 +452,18 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
     const name =
       body.sample === 'lab_report'
         ? 'labReport'
-        : view.conversation.language === 'es'
-          ? 'voiceEs'
-          : 'voiceEn';
+        : body.sample === 'lab_report_pdf'
+          ? 'labReportPdf'
+          : view.conversation.language === 'es'
+            ? 'voiceEs'
+            : 'voiceEn';
+    const contentType = SAMPLE_FILES[name].contentType;
     const message = await runtime.orderAgent.receiveMessage(
       clinic.id,
       view.conversation.patientId,
       {
-        kind: body.sample === 'lab_report' ? 'image' : 'voice',
-        media: { data: readSample(name), contentType: SAMPLE_FILES[name].contentType },
+        kind: mediaKind(contentType) ?? 'voice',
+        media: { data: readSample(name), contentType },
       },
     );
     await trackAgentMessage(clinic.id, evaluatorEmail, message, {

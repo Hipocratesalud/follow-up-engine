@@ -154,6 +154,206 @@ export const LabRecordAddSchema = z
 export type LabRecordEntry = z.infer<typeof LabRecordEntrySchema>;
 export type LabRecordAdd = z.infer<typeof LabRecordAddSchema>;
 
+/** Most documents one "Import history" request takes (the request body is capped at 5 MB too). */
+export const MAX_LAB_HISTORY_DOCUMENTS = 12;
+
+const LabHistoryDocumentSchema = z.object({
+  filename: z.string().trim().min(1).max(200),
+  contentType: z.string().trim().min(1).max(100),
+  /** Base64 of the file (PDF, DOCX, TXT, or a JPEG/PNG/WebP photo of a result). */
+  dataBase64: z.string().min(1).max(MAX_BASE64_LENGTH),
+  /** When the document was written: the replay's chronological order. */
+  documentDate: calendarDay,
+  /** `lab_result` (and every photo) is read as a lab report; anything else as a clinical note. */
+  documentType: z.enum(CONSULTATION_DOCUMENT_TYPES),
+  specialty: z.string().trim().min(1).max(64).optional(),
+});
+
+/**
+ * "Import history" (the evaluator lab): several historical documents of one
+ * patient at once, each with its own date, replayed chronologically by the
+ * initial backfill. JSON (base64 files) or `multipart/form-data` (`files`
+ * parts plus a `documents` JSON field with one `{ documentDate,
+ * documentType, specialty? }` per file, in order).
+ */
+export const LabHistoryImportSchema = z
+  .object({
+    patientId: z.string().trim().min(1).max(64).optional(),
+    newPatient: NewLabPatientSchema.optional(),
+    documents: z.array(LabHistoryDocumentSchema).min(1).max(MAX_LAB_HISTORY_DOCUMENTS),
+  })
+  .refine((body) => body.patientId !== undefined || body.newPatient !== undefined, {
+    params: { message: 'labPatientRequired' },
+    path: ['patientId'],
+  })
+  .meta({ id: 'LabHistoryImport' });
+
+const isoInstant = z.string().meta({ format: 'date-time' });
+
+export const LabHistoryDocumentOutcomeSchema = z.object({
+  index: z.number().int(),
+  filename: z.string(),
+  documentDate: calendarDay,
+  documentType: z.enum(CONSULTATION_DOCUMENT_TYPES),
+  readAs: z.enum(['note', 'lab_report']),
+  source: z.enum(['photo', 'text']),
+  status: z.enum([
+    'staged',
+    'already_imported',
+    'no_results',
+    'needs_review',
+    'discarded',
+    'unreadable',
+  ]),
+  heldReportId: z.string().optional().meta({ description: 'The held report the team decides on' }),
+  error: z.string().optional(),
+  reviewReason: z
+    .enum(['name_mismatch'])
+    .optional()
+    .meta({ description: 'Why a report is held for the team (nothing staged, no order closed)' }),
+  nameOnReport: z
+    .enum(['matches', 'mismatch', 'absent'])
+    .optional()
+    .meta({ description: "The printed name against the patient's, compared by code" }),
+  dates: z
+    .object({
+      printed: calendarDay.optional(),
+      entered: calendarDay,
+      used: z.enum(['printed', 'entered']),
+      mismatch: z.boolean(),
+    })
+    .optional()
+    .meta({
+      description:
+        'A lab report is dated by its printed collection/report date when read; mismatch: it differs from the entered date by more than 3 days',
+    }),
+  results: z
+    .array(
+      z.object({
+        name: z.string().meta({ description: 'As printed on the report' }),
+        test: z.string().meta({ description: "The engine's test group it was coded to" }),
+        loinc: z.string(),
+        value: z.number(),
+        unit: z.string().optional(),
+        interpretation: z.enum(['H', 'L', 'N']).optional(),
+      }),
+    )
+    .optional(),
+  unrecognizedTests: z.array(z.string()).optional(),
+  resources: z.array(z.string()),
+  reading: z
+    .object({ model: z.string(), costUsd: z.number(), latencyMs: z.number() })
+    .optional()
+    .meta({ description: "The lab-result reading's model and cost, as the llm_gateway logged it" }),
+});
+
+export const LabHistoryImportResponseSchema = z
+  .object({
+    patientId: z.string(),
+    clinicId: z.string(),
+    documents: z.array(LabHistoryDocumentOutcomeSchema),
+    eventsStaged: z.number().int(),
+    backfill: z.object({
+      runId: z.string(),
+      status: z.string(),
+      expectationsCreated: z.number().int(),
+      expectationsFulfilled: z.number().int(),
+      casesOpened: z.number().int(),
+      notesRead: z.number().int(),
+      notesLlmCostUsd: z.number(),
+      release: z
+        .object({
+          scheduled: z.number().int(),
+          notNotified: z.number().int(),
+          perDay: z.array(z.number().int()),
+        })
+        .optional(),
+    }),
+    /** Backfill cases of the patient: released today by the cap, or waiting among the patients to recover. */
+    cases: z.array(
+      z.object({
+        id: z.string(),
+        status: z.string(),
+        releaseAt: isoInstant.optional(),
+        released: z.boolean(),
+      }),
+    ),
+    /** Every LLM call this import made, as the llm_gateway logged it. */
+    llm: z.object({ calls: z.number().int(), costUsd: z.number() }),
+  })
+  .meta({ id: 'LabHistoryImportResponse' });
+
+export const LabHistorySampleSetSchema = z
+  .object({
+    sets: z.array(
+      z.object({
+        id: z.string(),
+        patient: z.object({
+          name: z.string(),
+          sex: z.enum(LAB_PATIENT_SEXES),
+          age: z.number().int(),
+        }),
+        documents: z.array(LabHistoryDocumentSchema),
+      }),
+    ),
+  })
+  .meta({ id: 'LabHistorySampleSet' });
+
+/** A lab report held for the team (`GET /api/demo/lab/held-reports`). */
+export const HeldLabReportViewSchema = z
+  .object({
+    id: z.string(),
+    patientId: z.string(),
+    filename: z.string(),
+    /** `YYYY-MM-DD` entered with the document, and printed on it when read. */
+    documentDate: calendarDay,
+    printedDate: calendarDay.optional(),
+    printedName: z.string().optional().meta({ description: 'The name printed on the report' }),
+    recordName: z.string().optional().meta({ description: "The name in the patient's record" }),
+    reason: z.enum(['name_mismatch']),
+    source: z.enum(['photo', 'text']),
+    model: z.string().optional(),
+    results: z.array(
+      z.object({
+        name: z.string(),
+        test: z.string(),
+        loinc: z.string(),
+        value: z.number(),
+        unit: z.string().optional(),
+        interpretation: z.enum(['H', 'L', 'N']).optional(),
+      }),
+    ),
+    status: z.enum(['pending', 'confirmed', 'discarded']),
+    createdAt: isoInstant,
+    decidedBy: z.string().optional(),
+    decidedAt: isoInstant.optional(),
+  })
+  .meta({ id: 'HeldLabReportView' });
+
+export const HeldLabReportListSchema = z
+  .object({ items: z.array(HeldLabReportViewSchema) })
+  .meta({ id: 'HeldLabReportList' });
+
+export const HeldLabReportDecisionSchema = z
+  .object({
+    report: HeldLabReportViewSchema,
+    /** "It's this patient": the FHIR Observations recorded. */
+    resources: z.array(z.string()).optional(),
+    expectationsFulfilled: z.number().int().optional(),
+  })
+  .meta({ id: 'HeldLabReportDecision' });
+
+export const HeldLabReportQuerySchema = z.object({
+  patientId: z.string().trim().min(1).max(64).optional(),
+  status: z.enum(['pending', 'confirmed', 'discarded']).optional(),
+});
+
+export type HeldLabReportView = z.infer<typeof HeldLabReportViewSchema>;
+
+export type LabHistoryImport = z.infer<typeof LabHistoryImportSchema>;
+export type LabHistoryImportResponse = z.infer<typeof LabHistoryImportResponseSchema>;
+export type LabHistorySampleSet = z.infer<typeof LabHistorySampleSetSchema>;
+
 export type LabPatientCreate = z.infer<typeof LabPatientCreateSchema>;
 export type LabPatient = z.infer<typeof LabPatientSchema>;
 export type LabDocumentUpload = z.infer<typeof LabDocumentUploadSchema>;

@@ -36,6 +36,7 @@ export {
   replayBatches,
   type BackfillOptions,
   type BackfillReport,
+  type PatientReplayReport,
   type ReplayBatch,
 } from './backfill/backfill.ts';
 export { BACKFILL_RELEASE_DEFAULTS, type BackfillReleasePlan } from './backfill/release.ts';

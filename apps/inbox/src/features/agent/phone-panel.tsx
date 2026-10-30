@@ -1,6 +1,7 @@
 import {
   Check,
   CheckCheck,
+  FileText,
   Image as ImageIcon,
   Mic,
   Paperclip,
@@ -47,6 +48,29 @@ function Ticks({ status }: { readonly status: AgentMessageView['deliveryStatus']
 function MediaPreview({ message }: { readonly message: AgentMessageView }): ReactNode {
   const t = useT();
   const url = useAgentMediaUrl(message.media?.id);
+  if (message.kind === 'document') {
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="inline-flex items-center gap-1 text-xs text-muted">
+          <FileText className="size-3.5" aria-hidden="true" />
+          {t.agent.phone.pdfReport}
+        </span>
+        {url === undefined ? null : (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs font-medium text-info underline"
+          >
+            {t.agent.phone.openPdf}
+          </a>
+        )}
+        {message.reading === undefined ? (
+          <span className="text-xs text-muted">{t.agent.phone.readingPdf}</span>
+        ) : null}
+      </div>
+    );
+  }
   if (message.kind === 'image') {
     return (
       <div className="flex flex-col gap-1">
@@ -198,6 +222,7 @@ export function PhonePanel({
   const fixPhone = useFixPhone(conversation.patientId);
   const voiceInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
+  const pdfInput = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLOListElement>(null);
 
   useEffect(() => {
@@ -224,6 +249,12 @@ export function PhonePanel({
   }
   function sendSamplePhoto(): void {
     send.mutate({ kind: 'sample', sample: 'lab_report' });
+  }
+  function sendSamplePdf(): void {
+    send.mutate({ kind: 'sample', sample: 'lab_report_pdf' });
+  }
+  function openPdfPicker(): void {
+    pdfInput.current?.click();
   }
   function openVoicePicker(): void {
     voiceInput.current?.click();
@@ -333,6 +364,14 @@ export function PhonePanel({
           </Button>
           <Button
             size="sm"
+            icon={<FileText className="size-3.5" aria-hidden="true" />}
+            onClick={sendSamplePdf}
+            disabled={send.isPending || stopped}
+          >
+            {t.agent.phone.samplePdf}
+          </Button>
+          <Button
+            size="sm"
             variant="ghost"
             icon={<Paperclip className="size-3.5" aria-hidden="true" />}
             onClick={openVoicePicker}
@@ -349,6 +388,15 @@ export function PhonePanel({
           >
             {t.agent.phone.uploadPhoto}
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<Paperclip className="size-3.5" aria-hidden="true" />}
+            onClick={openPdfPicker}
+            disabled={send.isPending || stopped}
+          >
+            {t.agent.phone.uploadPdf}
+          </Button>
           <input
             ref={voiceInput}
             type="file"
@@ -360,6 +408,13 @@ export function PhonePanel({
             ref={photoInput}
             type="file"
             accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleFile}
+          />
+          <input
+            ref={pdfInput}
+            type="file"
+            accept="application/pdf,.pdf"
             className="hidden"
             onChange={handleFile}
           />

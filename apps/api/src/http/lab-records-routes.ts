@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   ACTIVE_CASE_STATUSES,
   effectiveClosedReason,
+  type PatientId,
   patientId as toPatientId,
 } from '@follow-up-engine/core';
 import {
@@ -13,17 +14,23 @@ import {
 import {
   ensureLabClinicAndClock,
   type EngineRuntime,
+  confirmHeldReport,
+  discardHeldReport,
+  HISTORY_SAMPLE_SETS,
+  importPatientHistory,
   InvalidLabDateError,
   labIngestion,
   type LabClockRegistry,
+  readHistorySample,
   setLabClinicDate,
 } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { extractDocumentText } from '../lab/extract-document.ts';
 import { humanName } from '../inbox/fhir-display.ts';
+import { closedReasonLabel } from '../inbox/labels.ts';
 import { trackEvaluatorEvent } from './evaluator-tracking.ts';
 import { extractionView } from './demo-routes.ts';
-import { HttpError, readJson } from './errors.ts';
+import { HttpError, readJson, readQuery } from './errors.ts';
 import { InboxPresenter } from '../inbox/presenter.ts';
 import { actorId } from './security.ts';
 import { parseErrors } from './validation.ts';
@@ -31,6 +38,12 @@ import {
   LAB_PATIENT_SEXES,
   type LabDocumentUpload,
   LabDocumentUploadSchema,
+  type HeldLabReportView,
+  HeldLabReportQuerySchema,
+  type LabHistoryImport,
+  type LabHistoryImportResponse,
+  LabHistoryImportSchema,
+  type LabHistorySampleSet,
   LabImpactQuerySchema,
   type LabPatient,
   LabPatientCreateSchema,
@@ -184,6 +197,57 @@ async function readLabDocumentUpload(c: Context<AppEnv>): Promise<LabDocumentUpl
 }
 
 /**
+ * Reads an "Import history" body: JSON (`documents` with base64 files), or
+ * `multipart/form-data` with one `files` part per document and a
+ * `documents` JSON field giving each file's `{ documentDate, documentType,
+ * specialty? }` in order. Both end up validated by {@link LabHistoryImportSchema}.
+ */
+async function readLabHistoryImport(c: Context<AppEnv>): Promise<LabHistoryImport> {
+  const contentType = c.req.header('content-type') ?? '';
+  if (!contentType.includes('multipart/form-data')) {
+    return readJson(c, LabHistoryImportSchema);
+  }
+  const form = await c.req.parseBody({ all: true });
+  const text = (key: string): string | undefined => {
+    const value = form[key];
+    return typeof value === 'string' && value !== '' ? value : undefined;
+  };
+  const json = (key: string): unknown => {
+    const value = text(key);
+    if (value === undefined) return undefined;
+    try {
+      return JSON.parse(value) as unknown;
+    } catch {
+      throw new HttpError(400, 'invalid_json', c.var.t.errors.invalidJson);
+    }
+  };
+  const raw = form['files'];
+  const files = (Array.isArray(raw) ? raw : raw === undefined ? [] : [raw]).filter(
+    (file): file is File => file instanceof File,
+  );
+  const meta = json('documents');
+  if (!Array.isArray(meta) || meta.length !== files.length) {
+    throw new HttpError(422, 'lab_history_documents', c.var.t.errors.labHistoryDocuments);
+  }
+  const documents = await Promise.all(
+    files.map(async (file, index) => ({
+      ...(meta[index] as Record<string, unknown>),
+      filename: file.name,
+      contentType: file.type === '' ? 'application/octet-stream' : file.type,
+      dataBase64: Buffer.from(await file.arrayBuffer()).toString('base64'),
+    })),
+  );
+  return LabHistoryImportSchema.parse(
+    {
+      ...(text('patientId') === undefined ? {} : { patientId: text('patientId') }),
+      ...(json('newPatient') === undefined ? {} : { newPatient: json('newPatient') }),
+      documents,
+    },
+    parseErrors(c.var.t),
+  );
+}
+
+/**
  * The evaluator lab's structured records (docs/deploy.md#hosted-demo): "Add
  * to the record" for a lab/imaging order, a result, a prescription, a
  * visit, a diagnosis or an appointment, each dated by the evaluator and
@@ -267,10 +331,17 @@ export function registerLabRecordRoutes(
         layer: expectation.layer,
         label: presenter.reasonLabel(expectation.ruleId, expectation),
         status: expectation.status,
+        // `backfill`: created by replaying imported history ("Import history").
+        origin: expectation.origin,
         dueAt: expectation.dueAt.toISOString(),
         ...(effectiveClosedReason(expectation) === undefined
           ? {}
           : { closedReason: effectiveClosedReason(expectation) }),
+        ...(closedReasonLabel(c.var.t, effectiveClosedReason(expectation)) === undefined
+          ? {}
+          : {
+              closedReasonLabel: closedReasonLabel(c.var.t, effectiveClosedReason(expectation)),
+            }),
       })),
     });
   });
@@ -466,6 +537,278 @@ export function registerLabRecordRoutes(
     );
   });
 
+  /**
+   * "Import history" (V1-A): several historical documents of one patient at
+   * once (PDF, DOCX, TXT, photos of results), each with its own date. Notes
+   * are staged for the note extractor; lab reports (and photos) are read by
+   * the order agent's lab-result reading (Muse Spark) into FHIR
+   * Observations; then the initial backfill replays the patient
+   * chronologically: expectations and cases are `origin: backfill`, held
+   * and released by the daily cap per owner. Idempotent: the same documents
+   * again stage and read nothing.
+   */
+  app.post('/api/demo/lab/history', async (c) => {
+    const evaluatorEmail = requireEvaluator(c);
+    const body = await readLabHistoryImport(c);
+    const { clinic, clock } = await ensureLabClinicAndClock(runtime, labClocks, evaluatorEmail);
+    for (const document of body.documents) {
+      if (dayAsDate(document.documentDate).getTime() > clock.now().getTime()) {
+        throw new HttpError(422, 'lab_future_date', c.var.t.errors.labFutureDate);
+      }
+    }
+    const patientId = toPatientId(body.patientId ?? `pat-lab-${randomUUID().slice(0, 8)}`);
+    const newPatient = body.newPatient;
+    const usageBefore = await runtime.storage.llmUsage.summary(clinic.id, new Date(0));
+    const report = await importPatientHistory(runtime, {
+      clinicId: clinic.id,
+      clock,
+      patient: {
+        id: patientId,
+        ...(newPatient === undefined
+          ? {}
+          : {
+              name: newPatient.name,
+              ...(newPatient.sex === undefined ? {} : { gender: newPatient.sex }),
+              ...(newPatient.age === undefined
+                ? {}
+                : { birthDate: birthDateFromAge(newPatient.age, clock.now()) }),
+            }),
+      },
+      documents: body.documents.map((document) => ({
+        filename: document.filename,
+        contentType: document.contentType,
+        data: new Uint8Array(Buffer.from(document.dataBase64, 'base64')),
+        documentDate: dayAsDate(document.documentDate),
+        documentType: document.documentType,
+        ...(document.specialty === undefined
+          ? newPatient?.specialty === undefined
+            ? {}
+            : { specialty: newPatient.specialty }
+          : { specialty: document.specialty }),
+      })),
+    });
+    const usageAfter = await runtime.storage.llmUsage.summary(clinic.id, new Date(0));
+    const cases = await patientBackfillCases(runtime, clinic.id, patientId, clock.now());
+    if (newPatient !== undefined) {
+      await trackEvaluatorEvent(runtime, {
+        clinicId: clinic.id,
+        evaluatorEmail,
+        action: 'lab_patient_created',
+        entityType: 'patient',
+        entityId: patientId,
+        patientId,
+        payload: newPatient,
+      });
+    }
+    await trackEvaluatorEvent(runtime, {
+      clinicId: clinic.id,
+      evaluatorEmail,
+      action: 'lab_history_imported',
+      entityType: 'patient',
+      entityId: patientId,
+      patientId,
+      payload: {
+        documents: body.documents.length,
+        eventsStaged: report.eventsStaged,
+        casesOpened: report.backfill.casesOpened,
+      },
+    });
+    c.var.log.info(
+      { actor: actorId(c), documents: body.documents.length, run: report.backfill.runId },
+      'lab history imported',
+    );
+    const response: LabHistoryImportResponse = {
+      patientId,
+      clinicId: clinic.id,
+      documents: report.documents.map((document) => ({
+        index: document.index,
+        filename: document.filename,
+        documentDate: document.documentDate.toISOString().slice(0, 10),
+        documentType: document.documentType,
+        readAs: document.readAs,
+        source: document.source,
+        status: document.status,
+        ...(document.error === undefined ? {} : { error: document.error }),
+        ...(document.reviewReason === undefined ? {} : { reviewReason: document.reviewReason }),
+        ...(document.heldReportId === undefined ? {} : { heldReportId: document.heldReportId }),
+        ...(document.nameOnReport === undefined ? {} : { nameOnReport: document.nameOnReport }),
+        ...(document.dates === undefined
+          ? {}
+          : {
+              dates: {
+                ...(document.dates.printed === undefined
+                  ? {}
+                  : { printed: document.dates.printed.toISOString().slice(0, 10) }),
+                entered: document.dates.entered.toISOString().slice(0, 10),
+                used: document.dates.used,
+                mismatch: document.dates.mismatch,
+              },
+            }),
+        ...(document.results === undefined ? {} : { results: [...document.results] }),
+        ...(document.unrecognizedTests === undefined
+          ? {}
+          : { unrecognizedTests: [...document.unrecognizedTests] }),
+        resources: [...document.resources],
+        ...(document.reading === undefined ? {} : { reading: document.reading }),
+      })),
+      eventsStaged: report.eventsStaged,
+      backfill: {
+        runId: report.backfill.runId,
+        status: report.backfill.status,
+        expectationsCreated: report.backfill.expectationsCreated,
+        expectationsFulfilled: report.backfill.expectationsFulfilled,
+        casesOpened: report.backfill.casesOpened,
+        notesRead: report.backfill.notesRead,
+        notesLlmCostUsd: report.backfill.notesLlmCostUsd,
+        ...(report.backfill.release === undefined
+          ? {}
+          : {
+              release: {
+                scheduled: report.backfill.release.scheduled,
+                notNotified: report.backfill.release.notNotified,
+                perDay: [...report.backfill.release.perDay],
+              },
+            }),
+      },
+      cases,
+      llm: {
+        calls: usageAfter.calls - usageBefore.calls,
+        costUsd: Number((usageAfter.costUsd - usageBefore.costUsd).toFixed(6)),
+      },
+    };
+    return c.json(response, 201);
+  });
+
+  /**
+   * Lab reports held for review ("the name on the report doesn't match"):
+   * pending ones by default, one patient's when asked. Stored per clinic, so
+   * they are still here after a reload.
+   */
+  app.get('/api/demo/lab/held-reports', async (c) => {
+    const evaluatorEmail = requireEvaluator(c);
+    const query = readQuery(c, HeldLabReportQuerySchema);
+    const { clinic } = await ensureLabClinicAndClock(runtime, labClocks, evaluatorEmail);
+    const items = await runtime.storage.heldLabReports.list(clinic.id, {
+      status: query.status ?? 'pending',
+      ...(query.patientId === undefined ? {} : { patientId: toPatientId(query.patientId) }),
+    });
+    return c.json({ items: items.map(heldReportView) });
+  });
+
+  /** "It's this patient": who and when are kept; the report is recorded like an accepted one. */
+  app.post('/api/demo/lab/held-reports/:id/confirm', async (c) => {
+    const evaluatorEmail = requireEvaluator(c);
+    const { clinic, clock } = await ensureLabClinicAndClock(runtime, labClocks, evaluatorEmail);
+    const id = c.req.param('id');
+    await requirePendingHeldReport(c, clinic.id, id);
+    const decision = await confirmHeldReport(runtime, {
+      clinicId: clinic.id,
+      clock,
+      id,
+      by: actorId(c),
+    });
+    if (decision === undefined) {
+      throw new HttpError(409, 'held_report_decided', c.var.t.errors.heldReportDecided);
+    }
+    await trackEvaluatorEvent(runtime, {
+      clinicId: clinic.id,
+      evaluatorEmail,
+      action: 'held_report_confirmed',
+      entityType: 'patient',
+      entityId: decision.report.patientId,
+      patientId: decision.report.patientId,
+      payload: { heldReportId: id, observations: decision.resources?.length ?? 0 },
+    });
+    // Ids only: names on a report are never logged.
+    c.var.log.info({ actor: actorId(c), heldReportId: id }, 'held lab report confirmed');
+    return c.json({
+      report: heldReportView(decision.report),
+      resources: [...(decision.resources ?? [])],
+      expectationsFulfilled: decision.replay?.expectationsFulfilled ?? 0,
+    });
+  });
+
+  /** "Not this patient": discarded with who and when; never recorded, never read again. */
+  app.post('/api/demo/lab/held-reports/:id/discard', async (c) => {
+    const evaluatorEmail = requireEvaluator(c);
+    const { clinic, clock } = await ensureLabClinicAndClock(runtime, labClocks, evaluatorEmail);
+    const id = c.req.param('id');
+    await requirePendingHeldReport(c, clinic.id, id);
+    const decision = await discardHeldReport(runtime, {
+      clinicId: clinic.id,
+      clock,
+      id,
+      by: actorId(c),
+    });
+    if (decision === undefined) {
+      throw new HttpError(409, 'held_report_decided', c.var.t.errors.heldReportDecided);
+    }
+    await trackEvaluatorEvent(runtime, {
+      clinicId: clinic.id,
+      evaluatorEmail,
+      action: 'held_report_discarded',
+      entityType: 'patient',
+      entityId: decision.report.patientId,
+      patientId: decision.report.patientId,
+      payload: { heldReportId: id },
+    });
+    c.var.log.info({ actor: actorId(c), heldReportId: id }, 'held lab report discarded');
+    return c.json({ report: heldReportView(decision.report) });
+  });
+
+  async function requirePendingHeldReport(
+    c: Context<AppEnv>,
+    clinicId: Parameters<EngineRuntime['storage']['heldLabReports']['get']>[0],
+    id: string,
+  ): Promise<void> {
+    const report = await runtime.storage.heldLabReports.get(clinicId, id);
+    if (report === undefined) {
+      throw new HttpError(404, 'held_report_not_found', c.var.t.errors.heldReportNotFound);
+    }
+    if (report.status !== 'pending') {
+      throw new HttpError(409, 'held_report_decided', c.var.t.errors.heldReportDecided);
+    }
+  }
+
+  /** The committed synthetic sample histories (scripts/generate-history-samples.py), to try "Import history". */
+  app.get('/api/demo/lab/history/samples', (c) => {
+    requireEvaluator(c);
+    const samples: LabHistorySampleSet = {
+      sets: HISTORY_SAMPLE_SETS.map((set) => ({
+        id: set.id,
+        patient: { name: set.patient.name, sex: set.patient.gender, age: set.patient.age },
+        documents: set.files.map((sample) => ({
+          filename: sample.file,
+          contentType: sample.contentType,
+          dataBase64: Buffer.from(readHistorySample(sample.file)).toString('base64'),
+          documentDate: sample.documentDate,
+          documentType: sample.documentType,
+          specialty: sample.specialty,
+        })),
+      })),
+    };
+    return c.json(samples);
+  });
+
+  /**
+   * The lab clinic's "To recover" (the inbox's recovery list, for the lab):
+   * backfill cases still held, as of the lab's own date. They come out by the
+   * daily cap per owner as the lab's date moves.
+   */
+  app.get('/api/demo/lab/recovery', async (c) => {
+    const evaluatorEmail = requireEvaluator(c);
+    const { clinic, clock } = await ensureLabClinicAndClock(runtime, labClocks, evaluatorEmail);
+    const presenter = await InboxPresenter.create(runtime, clinic.id, c.var.t);
+    const page = await runtime.storage.stores.cases.list(clinic.id, {
+      statuses: ACTIVE_CASE_STATUSES,
+      origin: 'backfill',
+      unreleasedAsOf: clock.now(),
+      orderBy: 'priority',
+      limit: 100,
+    });
+    return c.json({ items: await presenter.caseViews(page.items), total: page.items.length });
+  });
+
   /** "See the impact on a date" (docs/deploy.md#hosted-demo): moves the lab clinic's own clock forward. */
   app.post('/api/demo/lab/date', async (c) => {
     const evaluatorEmail = requireEvaluator(c);
@@ -508,4 +851,58 @@ export function registerLabRecordRoutes(
     });
     return c.json({ items: await presenter.caseViews(page.items) });
   });
+}
+
+/** The patient's backfill cases after an import: released today by the cap, or held. */
+async function patientBackfillCases(
+  runtime: EngineRuntime,
+  clinicId: Parameters<EngineRuntime['storage']['stores']['cases']['list']>[0],
+  patientId: PatientId,
+  now: Date,
+): Promise<LabHistoryImportResponse['cases']> {
+  const page = await runtime.storage.stores.cases.list(clinicId, {
+    patientId,
+    origin: 'backfill',
+    statuses: ACTIVE_CASE_STATUSES,
+    limit: 100,
+  });
+  return page.items.map((item) => ({
+    id: item.id,
+    status: item.status,
+    ...(item.releaseAt === undefined || item.releaseAt.getUTCFullYear() >= 9999
+      ? {}
+      : { releaseAt: item.releaseAt.toISOString() }),
+    released: item.releaseAt !== undefined && item.releaseAt.getTime() <= now.getTime(),
+  }));
+}
+
+function heldReportView(
+  report: Awaited<ReturnType<EngineRuntime['storage']['heldLabReports']['hold']>>,
+): HeldLabReportView {
+  return {
+    id: report.id,
+    patientId: report.patientId,
+    filename: report.filename,
+    documentDate: report.documentDate.toISOString().slice(0, 10),
+    ...(report.printedDate === undefined
+      ? {}
+      : { printedDate: report.printedDate.toISOString().slice(0, 10) }),
+    ...(report.printedName === undefined ? {} : { printedName: report.printedName }),
+    ...(report.recordName === undefined ? {} : { recordName: report.recordName }),
+    reason: report.reason,
+    source: report.source,
+    ...(report.model === undefined ? {} : { model: report.model }),
+    results: report.results.map((result) => ({
+      name: result.name,
+      test: result.test,
+      loinc: result.code.code,
+      value: result.value,
+      ...(result.unit === undefined ? {} : { unit: result.unit }),
+      ...(result.interpretation === undefined ? {} : { interpretation: result.interpretation }),
+    })),
+    status: report.status,
+    createdAt: report.createdAt.toISOString(),
+    ...(report.decidedBy === undefined ? {} : { decidedBy: report.decidedBy }),
+    ...(report.decidedAt === undefined ? {} : { decidedAt: report.decidedAt.toISOString() }),
+  };
 }

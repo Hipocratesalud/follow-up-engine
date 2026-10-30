@@ -28,4 +28,5 @@ export type * from './suppression-repository.ts';
 export type * from './unit-of-work.ts';
 export * from './llm.ts';
 export type * from './order-agent.ts';
+export type * from './held-lab-report-store.ts';
 export * from './rule-authoring.ts';

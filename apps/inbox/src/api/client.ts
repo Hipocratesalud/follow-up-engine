@@ -33,6 +33,11 @@ import type {
   LabDocumentResponse,
   LabDocumentUploadRequest,
   LabExpectationView,
+  HeldLabReportDecision,
+  HeldLabReportView,
+  LabHistoryImportRequest,
+  LabHistoryImportResponse,
+  LabHistorySampleSet,
   LabPatient,
   LabPatientCreateRequest,
   LabRecordAddRequest,
@@ -255,6 +260,15 @@ export interface ApiClient {
   /** "See the impact on a date": moves the lab clinic's own clock forward. */
   advanceLabDate(date: string): Promise<LabDateImpact>;
   getLabCases(): Promise<{ items: CaseView[] }>;
+  /** "Import history": several dated documents of one patient, replayed by the backfill. */
+  importLabHistory(body: LabHistoryImportRequest): Promise<LabHistoryImportResponse>;
+  getLabHistorySamples(): Promise<LabHistorySampleSet>;
+  /** The lab's "To recover": backfill cases still held, as of the lab's own date. */
+  getLabRecovery(): Promise<{ items: CaseView[]; total: number }>;
+  /** Lab reports held for review (pending), one patient's when given. */
+  listLabHeldReports(patientId?: string): Promise<{ items: HeldLabReportView[] }>;
+  /** "It's this patient" / "Not this patient". */
+  decideLabHeldReport(id: string, decision: 'confirm' | 'discard'): Promise<HeldLabReportDecision>;
   listEvaluators(): Promise<EvaluatorsView>;
   listEvaluatorEvents(query: {
     evaluatorEmail?: string;
@@ -292,7 +306,7 @@ export interface ApiClient {
   sendAgentFile(patientId: string, file: File): Promise<AgentMessageView>;
   sendAgentSample(
     patientId: string,
-    sample: 'lab_report' | 'voice_note',
+    sample: 'lab_report' | 'lab_report_pdf' | 'voice_note',
   ): Promise<AgentMessageView>;
   setAgentDelivery(
     messageId: string,
@@ -370,6 +384,29 @@ export function createApiClient(config: ApiConfig): ApiClient {
     }
     if (!response.ok) throw await readErrorBody(response);
     return response;
+  }
+
+  async function importLabHistory(
+    body: LabHistoryImportRequest,
+  ): Promise<LabHistoryImportResponse> {
+    const form = new FormData();
+    if (body.patientId !== undefined) form.set('patientId', body.patientId);
+    if (body.newPatient !== undefined) form.set('newPatient', JSON.stringify(body.newPatient));
+    form.set(
+      'documents',
+      JSON.stringify(
+        body.documents.map((document) => ({
+          documentDate: document.documentDate,
+          documentType: document.documentType,
+          ...(document.specialty === undefined ? {} : { specialty: document.specialty }),
+        })),
+      ),
+    );
+    for (const document of body.documents) {
+      form.append('files', document.file, document.file.name);
+    }
+    const response = await rawFetch('POST', '/demo/lab/history', { body: form });
+    return (await response.json()) as LabHistoryImportResponse;
   }
 
   async function uploadLabDocument(body: LabDocumentUploadRequest): Promise<LabDocumentResponse> {
@@ -493,6 +530,15 @@ export function createApiClient(config: ApiConfig): ApiClient {
       request('GET', `/demo/lab/patients/${encodeURIComponent(patientId)}/expectations`),
     advanceLabDate: (date) => request('POST', '/demo/lab/date', { body: { date } }),
     getLabCases: () => request('GET', '/demo/lab/cases'),
+    importLabHistory,
+    getLabHistorySamples: () => request('GET', '/demo/lab/history/samples'),
+    getLabRecovery: () => request('GET', '/demo/lab/recovery'),
+    listLabHeldReports: (patientId) =>
+      request('GET', '/demo/lab/held-reports', {
+        query: patientId === undefined ? {} : { patientId },
+      }),
+    decideLabHeldReport: (id, decision) =>
+      request('POST', `/demo/lab/held-reports/${encodeURIComponent(id)}/${decision}`),
     listEvaluators: () => request('GET', '/demo/evaluators'),
     listEvaluatorEvents: (query) =>
       request('GET', '/demo/evaluator-events', { query: { ...query } }),

@@ -71,12 +71,20 @@ interface Page {
   }[];
 }
 
-async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
+/** Muse Spark's HTTP API, stubbed (the live path's real gateway requests go through it). */
+type LlmFetch = (input: string, init: RequestInit) => Promise<Response>;
+
+async function harness(
+  storage: 'memory' | 'postgres' = 'memory',
+  llmFetch?: LlmFetch,
+): Promise<{
   readonly call: (
     path: string,
     init?: { method?: string; body?: unknown; headers?: Record<string, string>; form?: FormData },
   ) => Promise<{ status: number; body: unknown }>;
   readonly page: () => Promise<Page>;
+  /** The patient sends a file (multipart), as the simulated phone's upload does. */
+  readonly upload: (path: string, file: File) => Promise<{ status: number; body: unknown }>;
   readonly worker: Worker;
   readonly runtime: EngineRuntime;
 }> {
@@ -86,12 +94,14 @@ async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
       CLOCK: 'fake',
       LOG_LEVEL: 'silent',
       DEMO_API_KEY: KEY,
-      LLM_PROVIDER: 'fake',
+      ...(llmFetch === undefined
+        ? { LLM_PROVIDER: 'fake' }
+        : { LLM_PROVIDER: 'meta', META_API_KEY: 'test-key' }),
       ...(schema === undefined
         ? { DATABASE_URL: '' }
         : { DATABASE_URL: TEST_DATABASE_URL ?? '', DATABASE_SCHEMA: schema }),
     }),
-    { poolSize: 3 },
+    { poolSize: 3, ...(llmFetch === undefined ? {} : { llmFetch }) },
   );
   const { app }: { app: App } = createApiServer(runtime, loadApiConfig({ DEMO_ACCESS_CODE: CODE }));
   const secret = deriveSessionSecret(CODE);
@@ -105,7 +115,17 @@ async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
     worker: new Worker(runtime),
     page: async () => (await call('/api/demo/agent')).body as Page,
     call,
+    upload,
   };
+
+  async function upload(path: string, file: File): Promise<{ status: number; body: unknown }> {
+    const form = new FormData();
+    form.set('file', file, file.name);
+    // The browser sets the multipart boundary: no JSON content type here.
+    const multipart = { authorization: headers.authorization, cookie: headers.cookie };
+    const response = await app.request(path, { method: 'POST', headers: multipart, body: form });
+    return { status: response.status, body: await response.json() };
+  }
 
   async function call(
     path: string,
@@ -220,6 +240,111 @@ describe('the order-to-completion agent (scripted mode)', () => {
       expect(page.conversation?.status).toBe('done');
     },
   );
+
+  it.each(STORAGES)(
+    'reads a PDF lab report María sends on %s: same reading, matched, submitted, and the engine closes the HbA1c order',
+    async (storage) => {
+      const { call, page: read, upload, worker } = await harness(storage);
+      const started = await call('/api/demo/agent/story', {
+        body: { story: 'maria', mode: 'scripted', language: 'es' },
+      });
+      const patientId = (started.body as { patientId: string }).patientId;
+      await worker.runJobs();
+      expect((await read()).orders.find((order) => order.test === 'HbA1c')?.stage).not.toBe(
+        'fulfilled',
+      );
+
+      const sent = await upload(
+        `/api/demo/agent/patients/${patientId}/messages`,
+        new File([readSample('labReportPdf')], 'informe.pdf', { type: 'application/pdf' }),
+      );
+      expect(sent.status).toBe(201);
+      expect((sent.body as { kind: string }).kind).toBe('document');
+      await worker.runJobs();
+      const page = await read();
+      // The PDF's text went through the lab-result reading (no OCR of an image).
+      const reading = page.steps.find((step) => step.event === 'document_read');
+      expect(reading?.kind).toBe('vision');
+      expect(String(reading?.params?.['tests'])).toContain('8.4');
+      // The same tools as a photo: match, then the FHIR Observation.
+      const tools = page.steps.filter((step) => step.kind === 'tool').map((step) => step.tool);
+      expect(tools).toEqual(
+        expect.arrayContaining(['match_result_to_order', 'submit_fhir_result']),
+      );
+      // Only the engine marks the order fulfilled, from the Observation the agent submitted.
+      const closed = page.steps.find(
+        (step) => step.event === 'expectation_fulfilled' && step.params?.['order'] === 'HbA1c',
+      );
+      expect(String(closed?.params?.['by'])).toMatch(/^Observation\//);
+      expect(page.orders.find((order) => order.test === 'HbA1c')?.stage).toBe('fulfilled');
+      // Thanked for the report, never told a value.
+      const last = page.messages.at(-1);
+      expect(last?.direction).toBe('outbound');
+      expect(last?.text).toContain('informe');
+      expect(last?.text).not.toMatch(/8[.,]4/);
+    },
+  );
+
+  it('masks María’s name in her PDF report’s text before the live reading (the gateway request never carries it)', async () => {
+    const reports: string[] = [];
+    const { call, upload, worker } = await harness('memory', async (_url, init) => {
+      const body = init.body as string;
+      if (!body.includes('<report>')) {
+        // Nothing else is stubbed: the note reading and the agent's turns fail, the reading does not.
+        return Promise.resolve(new Response('{"error":"not stubbed"}', { status: 400 }));
+      }
+      reports.push(body);
+      const reading = {
+        isLabReport: true,
+        reportDate: '2025-12-29',
+        patientName: '[REDACTADO]',
+        tests: [{ name: 'HbA1c', value: 8.4, unit: '%', referenceLow: 4, referenceHigh: 5.6 }],
+      };
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: JSON.stringify(reading) }, finish_reason: 'stop' }],
+            usage: { prompt_tokens: 400, completion_tokens: 150 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      );
+    });
+    const started = await call('/api/demo/agent/story', {
+      body: { story: 'maria', mode: 'live', language: 'es' },
+    });
+    expect(started.status).toBe(201);
+    await worker.runJobs();
+    const patientId = (started.body as { patientId: string }).patientId;
+    const sent = await upload(
+      `/api/demo/agent/patients/${patientId}/messages`,
+      new File([readSample('labReportPdf')], 'informe.pdf', { type: 'application/pdf' }),
+    );
+    expect(sent.status).toBe(201);
+    await worker.runJobs();
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toContain('HbA1c');
+    expect(reports[0]).toContain('[REDACTADO]');
+    for (const part of ['María', 'Maria', 'Fernanda', 'Rojas']) {
+      expect(reports[0]).not.toContain(part);
+    }
+  });
+
+  it('refuses a file the simulated phone does not take (not WAV, an image or a PDF)', async () => {
+    const { call, upload, worker } = await harness();
+    const started = await call('/api/demo/agent/story', {
+      body: { story: 'maria', mode: 'scripted', language: 'en' },
+    });
+    await worker.runJobs();
+    const patientId = (started.body as { patientId: string }).patientId;
+    const refused = await upload(
+      `/api/demo/agent/patients/${patientId}/messages`,
+      new File(['hello'], 'note.docx', {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      }),
+    );
+    expect(refused.status).toBe(422);
+  });
 
   it('transcribes the sample voice note and answers it', async () => {
     const { call, page: read, worker } = await harness();

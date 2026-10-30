@@ -58,7 +58,7 @@ export type PatientInput =
       readonly source?: 'suggested' | 'typed';
     }
   | { readonly kind: 'file'; readonly file: File }
-  | { readonly kind: 'sample'; readonly sample: 'lab_report' | 'voice_note' };
+  | { readonly kind: 'sample'; readonly sample: 'lab_report' | 'lab_report_pdf' | 'voice_note' };
 
 export function useSendPatientMessage(
   patientId: string,
