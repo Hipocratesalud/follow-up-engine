@@ -7,7 +7,7 @@ import { Badge, Button, Card, INPUT_CLASS, SectionTitle } from '../../components
 import { InlineQuote } from '../../components/evidence.tsx';
 import { useT } from '../../i18n/index.ts';
 import { formatDate } from '../../lib/format.ts';
-import { SeverityBadge } from './finding-row.tsx';
+import { SeverityBadge, UntranslatedBadge } from './finding-row.tsx';
 
 const REASON_LIMIT = 1000;
 
@@ -141,6 +141,7 @@ function BeforeVisitItem({ item }: { readonly item: FindingView }): ReactNode {
         <span className="text-xs font-medium text-muted">{item.categoryLabel}</span>
         <SeverityBadge severity={item.severity} />
         {item.mode === 'shadow' ? <Badge tone="warning">{COPY.shadowBadge}</Badge> : null}
+        {item.untranslated ? <UntranslatedBadge /> : null}
       </div>
       <div>
         <p className="text-sm font-semibold text-fg">{item.summary}</p>

@@ -29,6 +29,10 @@ export interface PatientResult {
   /** Citations of stored findings whose quote is not in the cited document. Must be 0. */
   readonly hallucinatedCitations: number;
   readonly citations: number;
+  /** Stored findings with their words in both English and Spanish. */
+  readonly bilingual: number;
+  /** Submissions refused once for a missing translation (the model then resubmitted). */
+  readonly translationRequests: number;
   /** Proposals dropped by the engine's checks, by reason. */
   readonly discarded: Readonly<Record<string, number>>;
   readonly signals: number;
@@ -67,6 +71,9 @@ export interface ReviewerEvalRun {
     readonly recall?: number;
     readonly hallucinatedCitations: number;
     readonly citations: number;
+    readonly findings: number;
+    readonly bilingual: number;
+    readonly translationRequests: number;
     readonly controlsWithFindings: number;
     readonly reviews: number;
     readonly degraded: number;
@@ -204,6 +211,12 @@ export async function runReviewerEval(options: {
       falseNegatives: fn,
       hallucinatedCitations: citations.bad,
       citations: citations.total,
+      bilingual: outcome.findings.filter(
+        (finding) => finding.texts?.en !== undefined && finding.texts.es !== undefined,
+      ).length,
+      translationRequests: (outcome.agent?.trace ?? []).filter(
+        (step) => step.outcome === 'missing_translation',
+      ).length,
       discarded: { ...outcome.discarded },
       signals: outcome.signals.length,
       steps: outcome.agent?.steps ?? 0,
@@ -265,6 +278,9 @@ export async function runReviewerEval(options: {
       ...(recall === undefined ? {} : { recall }),
       hallucinatedCitations: sum((result) => result.hallucinatedCitations),
       citations: sum((result) => result.citations),
+      findings: sum((result) => result.found.length),
+      bilingual: sum((result) => result.bilingual),
+      translationRequests: sum((result) => result.translationRequests),
       controlsWithFindings: patients.filter(
         (result) => result.kind === 'control' && result.found.length > 0,
       ).length,

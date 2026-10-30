@@ -56,6 +56,7 @@ import type {
   FindingPage,
   FindingReviewRequest,
   FindingView,
+  InboxFindingFilters,
   InboxFindingList,
   ReviewerScope,
   ReviewMetrics,
@@ -90,7 +91,8 @@ export const queryKeys = {
   reviewMetrics: ['review-metrics'] as const,
   findingFlags: ['finding-flags'] as const,
   scopedFindingFlags: (scope: ReviewerScope) => ['finding-flags', scope] as const,
-  inboxFindings: (scope: ReviewerScope) => ['inbox-findings', scope] as const,
+  inboxFindings: (scope: ReviewerScope, filters: InboxFindingFilters) =>
+    ['inbox-findings', scope, filters] as const,
   allInboxFindings: ['inbox-findings'] as const,
   evaluator: ['evaluator'] as const,
   labPatients: ['lab-patients'] as const,
@@ -407,11 +409,13 @@ export function useFindingFlags(
  */
 export function useInboxFindings(
   scope: ReviewerScope = 'clinic',
+  filters: InboxFindingFilters = {},
 ): UseQueryResult<InboxFindingList> {
   const api = useApi();
   return useQuery({
-    queryKey: queryKeys.inboxFindings(scope),
-    queryFn: () => api.listInboxFindings(scope),
+    queryKey: queryKeys.inboxFindings(scope, filters),
+    queryFn: () => api.listInboxFindings(scope, filters),
+    placeholderData: keepPreviousData,
   });
 }
 

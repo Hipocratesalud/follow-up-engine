@@ -54,6 +54,13 @@ export interface ClinicSettings {
    * clinical team validated it; the demo and lab sandboxes run it in shadow.
    */
   readonly adjudicator?: AdjudicatorSettings;
+  /**
+   * Most live clinical-reviewer finding cards each doctor gets per day in
+   * the inbox (PRD V3, alert fatigue). Absent: `DEFAULT_DAILY_FINDING_CAP`
+   * (5). Findings over it wait and are released on later days, most severe
+   * and oldest first; nothing is dropped.
+   */
+  readonly dailyFindingCapPerDoctor?: number;
 }
 
 /**

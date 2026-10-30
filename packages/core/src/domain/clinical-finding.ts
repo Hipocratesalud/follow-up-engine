@@ -95,6 +95,16 @@ export interface FindingText {
  */
 export type FindingTexts = Readonly<Partial<Record<ReviewLocale, FindingText>>>;
 
+/**
+ * When a live finding reached the doctor's inbox, and whose daily quota it
+ * took (the patient's owner, or `unassigned`). Findings over a doctor's
+ * daily cap wait without one (PRD V3: cap per doctor per day).
+ */
+export interface FindingInboxRelease {
+  readonly at: Date;
+  readonly doctor: string;
+}
+
 export interface FindingReview {
   readonly verdict: FindingVerdict;
   readonly reason?: string;
@@ -130,6 +140,8 @@ export interface ClinicalFinding {
    * before it existed: readers fall back to the fields above.
    */
   readonly texts?: FindingTexts;
+  /** Set when the finding was released to the doctor's inbox (daily cap per doctor). */
+  readonly inboxRelease?: FindingInboxRelease;
   /** Specialty of the record the finding rests on (for per-specialty flags), when known. */
   readonly specialty?: string;
   readonly mode: FindingMode;
@@ -183,8 +195,6 @@ export const DISCARD_REASONS = [
   'category_disabled',
   'category_reserved',
   'patient_directed',
-  /** The model left out the English or Spanish words of a finding, even when asked again. */
-  'missing_translation',
   'duplicate',
   'merged',
 ] as const;

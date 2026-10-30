@@ -85,7 +85,7 @@ describe('finding texts in every review locale', () => {
     },
   );
 
-  it("keeps a model's own English and Spanish, the clinic-locale text winning for its locale", async () => {
+  it("keeps a model's own English and Spanish, its texts winning over its main fields", async () => {
     const outcome = await reviewRecord(CLINIC, RECORD, {
       enabled: ALL,
       patientRef: 'P-1',
@@ -116,7 +116,8 @@ describe('finding texts in every review locale', () => {
     });
     const [finding] = outcome.findings;
     expect(finding?.texts?.es?.summary).toBe('La creatinina sigue en ascenso');
-    expect(finding?.texts?.en?.summary).toBe('Creatinine keeps rising');
+    // The model's English entry wins (Muse Spark wrote main fields in Spanish for an English clinic).
+    expect(finding?.texts?.en?.summary).toBe('Creatinine keeps rising (model en)');
     expect(finding && findingTextIn(finding, 'es').suggestion).toBe(
       'Considera revisar la función renal.',
     );

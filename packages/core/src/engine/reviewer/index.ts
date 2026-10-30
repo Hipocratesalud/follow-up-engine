@@ -49,6 +49,10 @@ export {
 export {
   CLINICAL_REVIEW_JOB,
   CLINICAL_REVIEW_PROMPT_FALLBACK,
+  clinicDay,
+  DEFAULT_DAILY_FINDING_CAP,
+  FINDING_TRANSLATION_JOB,
+  UNASSIGNED_DOCTOR,
   type ClinicalReviewer,
   type ClinicalReviewerDeps,
   type ClinicalReviewJobPayload,

@@ -32,6 +32,7 @@ export {
   DEMO_INBOX_KEY_LABEL,
   ensureLabClinic,
   isLabClinicId,
+  reviewLocaleOf,
   LAB_CLINIC_PREFIX,
   labClinicId,
   registerDemoClinic,

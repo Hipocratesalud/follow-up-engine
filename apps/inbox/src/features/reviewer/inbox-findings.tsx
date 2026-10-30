@@ -1,7 +1,11 @@
 import { Lightbulb, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
 import { Link } from 'react-router';
-import type { FindingView, ReviewerScope } from '../../api/reviewer-contract.ts';
+import type {
+  FindingView,
+  InboxFindingFilters,
+  ReviewerScope,
+} from '../../api/reviewer-contract.ts';
 import { useInboxFindings } from '../../api/queries.ts';
 import { ErrorState } from '../../components/states.tsx';
 import { Badge, SectionTitle, Skeleton } from '../../components/ui.tsx';
@@ -9,7 +13,7 @@ import { useT } from '../../i18n/index.ts';
 import { cx } from '../../lib/cx.ts';
 import { formatDate } from '../../lib/format.ts';
 import { patientMeta } from '../inbox/case-row.tsx';
-import { SeverityBadge } from './finding-row.tsx';
+import { SeverityBadge, UntranslatedBadge } from './finding-row.tsx';
 import { VerdictPanel } from './verdict-panel.tsx';
 
 const SEVERITY_BAR: Record<FindingView['severity'], string> = {
@@ -54,6 +58,7 @@ export function InboxFindingCard({
           <Badge tone="info" icon={<ShieldCheck className="size-3" aria-hidden="true" />}>
             {COPY.validatedBadge}
           </Badge>
+          {finding.untranslated ? <UntranslatedBadge /> : null}
         </div>
         <h3 id={titleId} className="text-[15px] font-semibold break-words text-fg">
           {finding.summary}
@@ -126,14 +131,17 @@ export function InboxFindingCard({
 export function InboxFindings({
   scope = 'clinic',
   emptyText,
+  filters = {},
 }: {
   readonly scope?: ReviewerScope;
   readonly emptyText?: string;
+  /** The patient list's filters: only the findings of the patients it shows. */
+  readonly filters?: InboxFindingFilters;
 }): ReactNode {
   const t = useT();
   const COPY = t.liveFindings;
   const titleId = useId();
-  const findings = useInboxFindings(scope);
+  const findings = useInboxFindings(scope, filters);
   const [rated, setRated] = useState<string>();
 
   function handleReviewed(view: FindingView): void {
@@ -155,8 +163,10 @@ export function InboxFindings({
   if (findings.isError) {
     return <ErrorState error={findings.error} onRetry={handleRetry} title={COPY.error} />;
   }
-  const items = findings.data.items;
-  if (items.length === 0 && rated === undefined && emptyText === undefined) return null;
+  const { items, queued, dailyCap } = findings.data;
+  if (items.length === 0 && queued === 0 && rated === undefined && emptyText === undefined) {
+    return null;
+  }
 
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-3">
@@ -166,6 +176,11 @@ export function InboxFindings({
           {COPY.title}
         </SectionTitle>
         <p className="text-sm text-muted">{COPY.intro}</p>
+        {queued > 0 ? (
+          <p className="text-sm font-medium text-fg" data-testid="inbox-findings-queued">
+            {COPY.queued(queued, dailyCap)}
+          </p>
+        ) : null}
       </div>
       <p
         role="status"

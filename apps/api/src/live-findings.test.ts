@@ -81,7 +81,7 @@ describe.each(STORAGES)('live findings in the doctor inbox (%s)', (storage) => {
   it('shows no finding card while every category is in shadow (the demo default)', async () => {
     const flags = await h.call<{ items: FindingFlagView[] }>('/api/inbox/finding-flags');
     expect(flags.body.items.every((flag) => flag.mode === 'shadow')).toBe(true);
-    expect(await inbox(h)).toEqual({ items: [], total: 0, byPatient: {} });
+    expect(await inbox(h)).toMatchObject({ items: [], total: 0, byPatient: {}, queued: 0 });
     const queue = await h.call<{ items: PatientQueueItem[] }>('/api/inbox/patients-queue');
     expect(queue.body.items.some((item) => item.liveFindings !== undefined)).toBe(false);
   });
@@ -160,7 +160,7 @@ describe.each(STORAGES)('live findings in the doctor inbox (%s)', (storage) => {
   });
 
   it('another clinic never sees the cards nor can rate them (tenant isolation)', async () => {
-    expect(await inbox(h, KEY_B)).toEqual({ items: [], total: 0, byPatient: {} });
+    expect(await inbox(h, KEY_B)).toMatchObject({ items: [], total: 0, byPatient: {}, queued: 0 });
     const [card] = (await inbox(h)).items;
     if (card === undefined) throw new Error('expected a live card');
     const foreign = await h.call(`/api/inbox/findings/${card.id}/review`, {

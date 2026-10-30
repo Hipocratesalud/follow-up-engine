@@ -126,9 +126,10 @@ export const SubmitFindingsArgs = z
 /**
  * What the agent loop reads a submission with: the same, with `texts` (or
  * one of its languages) possibly missing, so a submission without them is
- * refused once with a precise request instead of a generic schema error,
- * and its untranslated findings are dropped (`missing_translation`) if the
- * model submits them again.
+ * refused once with a precise request instead of a generic schema error.
+ * Submitted again without them, the findings are kept in the language the
+ * model wrote, labeled "not translated yet", and a job translates them
+ * (only a failed citation check ever drops a finding).
  */
 export const SubmitFindingsDraftArgs = z
   .object({

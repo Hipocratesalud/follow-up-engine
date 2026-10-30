@@ -1,7 +1,8 @@
 import { MousePointerClick } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Link, Outlet, useParams } from 'react-router';
+import { Link, Outlet, useParams, useSearchParams } from 'react-router';
 import { useEvaluator } from '../../api/queries.ts';
+import type { InboxFindingFilters } from '../../api/reviewer-contract.ts';
 import { EmptyState } from '../../components/states.tsx';
 import { StatsBar } from '../../components/stats-bar.tsx';
 import { useT } from '../../i18n/index.ts';
@@ -24,6 +25,16 @@ function LabHint(): ReactNode {
   );
 }
 
+/** The list's filters as the finding cards ask for them (absent ones left out). */
+function listFilters(params: URLSearchParams): InboxFindingFilters {
+  const filters: InboxFindingFilters = {};
+  for (const key of ['view', 'assignee', 'q', 'layer', 'protocol'] as const) {
+    const value = params.get(key);
+    if (value !== null && value !== '') filters[key] = value;
+  }
+  return filters;
+}
+
 /**
  * The follow-up inbox: one card per patient (HIP-141) on the left, the
  * patient's cases on the right (or on their own screen on a phone). Above
@@ -34,7 +45,10 @@ function LabHint(): ReactNode {
 export function InboxPage(): ReactNode {
   const t = useT();
   const { caseId } = useParams();
+  const [searchParams] = useSearchParams();
   const hasSelection = caseId !== undefined;
+  // The finding cards follow the patient list's own filters (the same URL params).
+  const filters = listFilters(searchParams);
   return (
     <div className="flex flex-col gap-4">
       {/* With a case open on a phone the header is visually hidden, but the page keeps its h1. */}
@@ -47,7 +61,7 @@ export function InboxPage(): ReactNode {
         <StatsBar />
       </div>
       <div className={cx(hasSelection && 'hidden lg:block')}>
-        <InboxFindings />
+        <InboxFindings filters={filters} />
       </div>
       <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
         <div className={cx('min-w-0', hasSelection && 'hidden lg:block')}>

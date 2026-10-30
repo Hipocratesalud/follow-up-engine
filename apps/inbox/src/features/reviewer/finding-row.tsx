@@ -1,4 +1,4 @@
-import { ChevronRight, ShieldCheck } from 'lucide-react';
+import { ChevronRight, Languages, ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { FindingSeverity, FindingView } from '../../api/reviewer-contract.ts';
@@ -13,6 +13,20 @@ export function SeverityBadge({ severity }: { readonly severity: FindingSeverity
     <Badge tone={SEVERITY_TONES[severity]}>
       <span className="sr-only">{t.review.row.severityPrefix}</span>
       {t.review.severities[severity]}
+    </Badge>
+  );
+}
+
+/** The finding's words are in another language until its translation arrives. */
+export function UntranslatedBadge(): ReactNode {
+  const t = useT();
+  return (
+    <Badge
+      tone="warning"
+      title={t.review.untranslatedHint}
+      icon={<Languages className="size-3" aria-hidden="true" />}
+    >
+      {t.review.untranslated}
     </Badge>
   );
 }
@@ -66,6 +80,7 @@ export function FindingRow({
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
           <span className="truncate">{item.patient.name}</span>
           {item.alreadyCovered ? <CoveredBadge /> : null}
+          {item.untranslated ? <UntranslatedBadge /> : null}
           {item.review ? (
             <Badge tone={item.review.verdict === 'relevant' ? 'success' : 'neutral'}>
               {t.review.verdicts[item.review.verdict]}

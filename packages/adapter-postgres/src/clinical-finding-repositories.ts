@@ -8,6 +8,7 @@ import {
   type FindingCitation,
   type FindingCounts,
   type FindingCoverage,
+  type FindingInboxRelease,
   type FindingTexts,
   type FindingFlag,
   type FindingFlagRepository,
@@ -37,6 +38,8 @@ interface FindingRow {
   readonly already_covered: boolean;
   readonly covered_by: readonly FindingCoverage[];
   readonly texts: FindingTexts | null;
+  readonly released_at: Date | null;
+  readonly released_to: string | null;
   readonly specialty: string | null;
   readonly mode: ClinicalFinding['mode'];
   readonly status: ClinicalFinding['status'];
@@ -54,7 +57,8 @@ interface FindingRow {
 
 const FINDING_COLUMNS = `clinic_id, id, patient_id, category, severity, summary, rationale, suggestion,
   citations, already_covered, covered_by, specialty, mode, status, origin, dedup_key, run_id,
-  model_id, prompt_version, reviewed_by, reviewed_at, review_reason, created_at, updated_at, texts`;
+  model_id, prompt_version, reviewed_by, reviewed_at, review_reason, created_at, updated_at, texts,
+  released_at, released_to`;
 
 function toFinding(row: FindingRow): ClinicalFinding {
   const verdict =
@@ -88,6 +92,9 @@ function toFinding(row: FindingRow): ClinicalFinding {
     alreadyCovered: row.already_covered,
     coveredBy: row.covered_by,
     ...(row.texts === null ? {} : { texts: row.texts }),
+    ...(row.released_at === null || row.released_to === null
+      ? {}
+      : { inboxRelease: { at: row.released_at, doctor: row.released_to } }),
     ...optional('specialty', row.specialty),
     mode: row.mode,
     status: row.status,
@@ -133,6 +140,7 @@ function decodeCursor(fingerprint: string, cursor: string): { at: string; id: st
 
 function fingerprintOf(query: FindingListQuery): string {
   return JSON.stringify([
+    query.releasedSince?.toISOString() ?? null,
     query.mode ?? null,
     query.patientId ?? null,
     [...(query.statuses ?? [])].sort(),
@@ -155,7 +163,7 @@ export class PostgresClinicalFindingRepository implements ClinicalFindingReposit
       await this.#ctx.db().query(
         `INSERT INTO ${this.#ctx.tables.clinical_findings} (${FINDING_COLUMNS})
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb, $12, $13, $14, $15,
-                 $16, $17, $18, $19, $20, $21, $22, $23, $24, $25::jsonb)`,
+                 $16, $17, $18, $19, $20, $21, $22, $23, $24, $25::jsonb, $26, $27)`,
         [
           clinicId,
           finding.id,
@@ -182,6 +190,8 @@ export class PostgresClinicalFindingRepository implements ClinicalFindingReposit
           finding.createdAt,
           finding.updatedAt,
           finding.texts === undefined ? null : jsonParam(finding.texts),
+          finding.inboxRelease?.at ?? null,
+          finding.inboxRelease?.doctor ?? null,
         ],
       );
     } catch (error) {
@@ -213,6 +223,29 @@ export class PostgresClinicalFindingRepository implements ClinicalFindingReposit
     return toFinding(row);
   }
 
+  async setTexts(clinicId: ClinicId, id: string, texts: FindingTexts): Promise<ClinicalFinding> {
+    const { rows } = await this.#ctx.db().query<FindingRow>(
+      `UPDATE ${this.#ctx.tables.clinical_findings}
+       SET texts = $3::jsonb
+       WHERE clinic_id = $1 AND id = $2
+       RETURNING ${FINDING_COLUMNS}`,
+      [clinicId, id, jsonParam(texts)],
+    );
+    const [row] = rows;
+    if (row === undefined) throw new NotFoundError('ClinicalFinding', id);
+    return toFinding(row);
+  }
+
+  async release(clinicId: ClinicId, id: string, release: FindingInboxRelease): Promise<void> {
+    const { rowCount } = await this.#ctx.db().query(
+      `UPDATE ${this.#ctx.tables.clinical_findings}
+       SET released_at = $3, released_to = $4
+       WHERE clinic_id = $1 AND id = $2`,
+      [clinicId, id, release.at, release.doctor],
+    );
+    if (rowCount === 0) throw new NotFoundError('ClinicalFinding', id);
+  }
+
   async findDuplicates(
     clinicId: ClinicId,
     patientId: PatientId,
@@ -241,6 +274,7 @@ export class PostgresClinicalFindingRepository implements ClinicalFindingReposit
          AND ($5::text[] IS NULL OR category = ANY($5::text[]))
          AND ($6::text[] IS NULL OR severity = ANY($6::text[]))
          AND ($7::timestamptz IS NULL OR (created_at, id) < ($7::timestamptz, $8::text))
+         AND ($10::timestamptz IS NULL OR released_at >= $10::timestamptz)
        ORDER BY created_at DESC, id DESC
        LIMIT $9`,
       [
@@ -253,6 +287,7 @@ export class PostgresClinicalFindingRepository implements ClinicalFindingReposit
         after?.at ?? null,
         after?.id ?? null,
         query.limit + 1,
+        query.releasedSince ?? null,
       ],
     );
     const items = rows.slice(0, query.limit);

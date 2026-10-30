@@ -5,6 +5,7 @@ import type {
   ClinicId,
   Clock,
   ExpectationAdjudicator,
+  FindingTranslator,
   LlmUsageLog,
   NoteExtractor,
   OrderAgentModel,
@@ -15,6 +16,8 @@ import {
   BASETEN_MUSE_SPARK_OPEN_MODEL,
   chainResponders,
   CLINICAL_REVIEW_TASK,
+  createFindingTranslator,
+  FINDING_TRANSLATION_TASK,
   createAdjudicator,
   createBasetenProvider,
   createFakeProvider,
@@ -84,6 +87,8 @@ export interface ConfiguredExtractor {
   readonly info: ExtractorInfo;
   /** The clinical reviewer's agent, on the same gateway, provider and budget. */
   readonly reviewAgent: ClinicalReviewAgent;
+  /** Translates a finding the reviewing model wrote in one language only. */
+  readonly findingTranslator: FindingTranslator;
   /** Model the reviewer runs on (the scripted reviewer on the fake provider). */
   readonly reviewerModel: string;
   /** The adjudicator of ambiguous plan items, on the same gateway, provider and budget. */
@@ -320,6 +325,13 @@ export function createConfiguredExtractor(
       [SCRIPTED_CLINICAL_REVIEW_TASK]: {
         route: [{ provider: 'fake', model: FAKE_REVIEWER_MODEL }],
       },
+      // A finding the reviewing model wrote in one language only: its three texts, nothing else.
+      [FINDING_TRANSLATION_TASK]: {
+        route: [
+          { provider: choice.info.provider, model: choice.reviewerModel ?? choice.info.model },
+        ],
+        maxOutputTokens: 2_000,
+      },
       [RULE_AUTHORING_TASK]: {
         route: [{ provider: live, model: isFake ? FAKE_RULE_AUTHOR_MODEL : choice.info.model }],
         // Muse Spark bills its reasoning as output, and a draft is a long JSON.
@@ -351,6 +363,7 @@ export function createConfiguredExtractor(
     extractor: createNoteExtractor({ gateway }),
     info: choice.info,
     reviewAgent: createReviewAgent({ gateway }),
+    findingTranslator: createFindingTranslator({ gateway }),
     reviewerModel: choice.reviewerModel ?? choice.info.model,
     adjudicator: createAdjudicator({ gateway }),
     adjudicatorModel: choice.adjudicatorModel ?? choice.info.model,

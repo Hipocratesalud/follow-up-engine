@@ -116,7 +116,6 @@ export function createReviewAgent(options: ReviewAgentOptions): ClinicalReviewAg
     let proposals: ProposedFinding[] = [];
     /** A submission without both languages is refused once, with a precise request. */
     let askedForTranslations = false;
-    let missingTranslations = 0;
 
     const finish = (): ReviewAgentResult => ({
       proposals,
@@ -129,9 +128,6 @@ export function createReviewAgent(options: ReviewAgentOptions): ClinicalReviewAg
       costUsd,
       modelId,
       promptVersion: CLINICAL_REVIEW_PROMPT_VERSION,
-      ...(missingTranslations === 0
-        ? {}
-        : { discarded: { missing_translation: missingTranslations } }),
     });
 
     for (let step = 1; step <= limits.maxSteps; step += 1) {
@@ -201,35 +197,35 @@ export function createReviewAgent(options: ReviewAgentOptions): ClinicalReviewAg
           );
           continue;
         }
-        // Asked once already: what is still untranslated is dropped, never stored half-read.
-        missingTranslations = untranslated.length;
-        proposals = draft.data.findings.flatMap(({ texts, ...finding }) =>
-          texts?.en === undefined || texts.es === undefined
-            ? []
-            : [
-                {
-                  ...finding,
-                  texts: { en: texts.en, es: texts.es },
-                  citations: finding.citations.map((citation) => ({
-                    docId: citation.docId,
-                    quote: quoteFromOriginal(
-                      request.documents.get(citation.docId),
-                      citation.quote,
-                      redactTerms,
-                    ),
-                  })),
-                },
-              ],
-        );
+        // Asked once already: kept in the language the model wrote (labeled, translated later).
+        const untranslatedCount = untranslated.length;
+        proposals = draft.data.findings.map(({ texts, ...finding }) => {
+          const given = {
+            ...(texts?.en === undefined ? {} : { en: texts.en }),
+            ...(texts?.es === undefined ? {} : { es: texts.es }),
+          };
+          return {
+            ...finding,
+            ...(Object.keys(given).length === 0 ? {} : { texts: given }),
+            citations: finding.citations.map((citation) => ({
+              docId: citation.docId,
+              quote: quoteFromOriginal(
+                request.documents.get(citation.docId),
+                citation.quote,
+                redactTerms,
+              ),
+            })),
+          };
+        });
         trace.push({
           index: step,
           tool: definition.name,
           arguments: auditArguments(definition.name, draft.data),
-          outcome: missingTranslations === 0 ? 'ok' : 'missing_translation',
+          outcome: 'ok',
           summary:
-            missingTranslations === 0
+            untranslatedCount === 0
               ? `${String(proposals.length)} findings`
-              : `${String(proposals.length)} findings, ${String(missingTranslations)} dropped without translation`,
+              : `${String(proposals.length)} findings, ${String(untranslatedCount)} not translated yet`,
         });
         stopReason = 'submitted';
         return finish();

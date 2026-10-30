@@ -238,6 +238,7 @@ export async function createRuntime(
     extractor,
     info,
     reviewAgent,
+    findingTranslator,
     adjudicator,
     replay,
     orderAgentModel,
@@ -288,6 +289,18 @@ export async function createRuntime(
     // What the host sends in full: a missing allergy status is a finding only then.
     recordCapabilitiesOf: async (clinicId) =>
       (await storage.clinics.get(clinicId))?.settings.recordCapabilities ?? [],
+    // A finding the model wrote in one language only is translated by a job, never dropped.
+    translator: findingTranslator,
+    // The inbox cap per doctor and day, on the clinic's own calendar.
+    inboxSettingsOf: async (clinicId) => {
+      const settings = (await storage.clinics.get(clinicId))?.settings;
+      return {
+        ...(settings?.dailyFindingCapPerDoctor === undefined
+          ? {}
+          : { dailyFindingCapPerDoctor: settings.dailyFindingCapPerDoctor }),
+        ...(settings?.timezone === undefined ? {} : { timezone: settings.timezone }),
+      };
+    },
   });
 
   // The rule-authoring agent (docs/agent/rule-authoring.md): drafts only;
