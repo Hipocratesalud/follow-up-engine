@@ -53,6 +53,7 @@ import {
   isUrgentOrder,
   type OrderDescriptor,
 } from './orders.ts';
+import { interpretationOfRange } from './lab-reading.ts';
 import { checkOutboundText, type OutboundSafetyTerms } from './outbound-safety.ts';
 import {
   availableSlots,
@@ -221,6 +222,11 @@ export function sanitizeArgs(args: unknown): TraceArgs {
       out[key] = value.filter((item): item is string => typeof item === 'string').slice(0, 8);
   }
   return out;
+}
+
+/** A photo or a PDF of a lab report: both are read into a `LabPhotoReading` and matched the same way. */
+function isLabReportMessage(message: Pick<AgentMessage, 'kind'>): boolean {
+  return message.kind === 'image' || message.kind === 'document';
 }
 
 function errorText(error: unknown): string {
@@ -549,7 +555,9 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
               id: inbound.id,
               kind: inbound.kind,
               text: inbound.text,
-              hasLabPhoto: inbound.kind === 'image',
+              // A PDF report goes through the same reading and tools as a photo.
+              hasLabPhoto: isLabReportMessage(inbound),
+              ...(inbound.kind === 'document' ? { hasLabDocument: true } : {}),
             },
       conversation: messages.slice(-12).map((message) => ({
         id: message.id,
@@ -1152,7 +1160,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         case 'match_result_to_order': {
           const parsed = MatchResultArgs.parse(args);
           const message = await deps.store.getMessage(clinicId, parsed.messageId);
-          if (message?.patientId !== patientId || message.kind !== 'image') {
+          if (message?.patientId !== patientId || !isLabReportMessage(message)) {
             return refuse(name, args, reason, 'not_a_photo_message', ['messages']);
           }
           if (message.reading?.isLabReport !== true) {
@@ -1191,7 +1199,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
           const message = await deps.store.getMessage(clinicId, parsed.messageId);
           if (
             message?.patientId !== patientId ||
-            message.kind !== 'image' ||
+            !isLabReportMessage(message) ||
             message.reading === undefined
           ) {
             return refuse(name, args, reason, 'not_a_photo_message', ['messages']);
@@ -1217,14 +1225,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
             );
           }
           const test = hit.reading;
-          const interpretation =
-            test.referenceHigh !== undefined && test.value > test.referenceHigh
-              ? 'H'
-              : test.referenceLow !== undefined && test.value < test.referenceLow
-                ? 'L'
-                : test.referenceHigh !== undefined || test.referenceLow !== undefined
-                  ? 'N'
-                  : undefined;
+          const interpretation = interpretationOfRange(test);
           const reportDate =
             message.reading.reportDate !== undefined &&
             /^\d{4}-\d{2}-\d{2}$/.test(message.reading.reportDate)
@@ -1481,19 +1482,26 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         });
         return next;
       }
-      if (message.kind === 'image' && message.reading === undefined) {
-        const read = await deps.media.readLabPhoto(clinicId, {
-          mode,
-          image: media.data,
-          contentType: media.contentType,
-        });
+      if (isLabReportMessage(message) && message.reading === undefined) {
+        const read =
+          message.kind === 'document'
+            ? await deps.media.readLabDocument(clinicId, {
+                mode,
+                document: media.data,
+                contentType: media.contentType,
+              })
+            : await deps.media.readLabPhoto(clinicId, {
+                mode,
+                image: media.data,
+                contentType: media.contentType,
+              });
         const next: AgentMessage = { ...message, reading: read.reading };
         await deps.store.saveMessage(next);
         await step(clinicId, patientId, now, {
           runId,
           kind: 'vision',
           outcome: 'ok',
-          event: 'photo_read',
+          event: message.kind === 'document' ? 'document_read' : 'photo_read',
           params: {
             messageId: message.id,
             isLabReport: read.reading.isLabReport,

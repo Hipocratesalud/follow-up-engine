@@ -25,7 +25,8 @@ export type OrderAgentLanguage = (typeof ORDER_AGENT_LANGUAGES)[number];
 export const AGENT_MESSAGE_DIRECTIONS = ['outbound', 'inbound'] as const;
 export type AgentMessageDirection = (typeof AGENT_MESSAGE_DIRECTIONS)[number];
 
-export const AGENT_MESSAGE_KINDS = ['text', 'voice', 'image'] as const;
+/** `document`: a PDF the patient sent (a lab report), read as text by the same lab-result reading as a photo. */
+export const AGENT_MESSAGE_KINDS = ['text', 'voice', 'image', 'document'] as const;
 export type AgentMessageKind = (typeof AGENT_MESSAGE_KINDS)[number];
 
 /**
@@ -97,7 +98,7 @@ export interface AgentMessage {
   readonly media?: { readonly id: string; readonly contentType: string; readonly bytes: number };
   /** Inbound voice: what the transcription model heard. */
   readonly transcript?: string;
-  /** Inbound image: what the vision model read. */
+  /** Inbound image or document: what the lab-result reading read. */
   readonly reading?: LabPhotoReading;
   /** Outbound: the ladder rung that asked for it (`routine:4`), absent for replies. */
   readonly rung?: string;

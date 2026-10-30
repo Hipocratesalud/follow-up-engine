@@ -11,6 +11,7 @@ import type {
 import { TenantMismatchError, ValidationError } from '../../domain/errors.ts';
 import type { ClinicId, PatientId } from '../../domain/ids.ts';
 import type { BackfillProgress } from '../../ports/backfill-progress.ts';
+import type { Clock } from '../../ports/clock.ts';
 import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
 import { LlmBudgetExceededError } from '../../ports/llm.ts';
 import type { TransactionalStores } from '../../ports/unit-of-work.ts';
@@ -48,6 +49,16 @@ export interface BackfillOptions {
   readonly shadow?: boolean;
   /** Patients per page of `listPatientIds`; default `EngineSettings.backfillPageSize`. */
   readonly pageSize?: number;
+  /**
+   * Replays only these patients (a patient's imported history, the lab's
+   * "Import history") instead of the whole clinic. Same replay, same
+   * release plan and cap; resumable in id order like a full run. A scoped
+   * run records no reconciliation baseline: the other patients were not
+   * replayed.
+   */
+  readonly patientIds?: readonly PatientId[];
+  /** The clock the run happens on; default the engine's (a sandbox clinic has its own). */
+  readonly clock?: Clock;
 }
 
 /** Outcome of one call to {@link runBackfill}. */
@@ -298,14 +309,38 @@ async function startOrResume(
  *   scheduled for release.
  */
 export async function runBackfill(
-  deps: BackfillDeps,
+  engineDeps: BackfillDeps,
   clinicId: ClinicId,
   options: BackfillOptions = {},
 ): Promise<BackfillReport> {
+  const deps = options.clock === undefined ? engineDeps : { ...engineDeps, clock: options.clock };
   const catalog = await deps.loadCatalog(clinicId);
   const pageSize = options.pageSize ?? deps.settings.backfillPageSize;
   const started = await startOrResume(deps, clinicId, options);
   let progress = started.progress;
+  if (options.patientIds !== undefined) {
+    // Id order, as `listPatientIds` pages: the cursor resumes a scoped run too.
+    const scope = [...new Set(options.patientIds)].sort();
+    for (const patientId of scope) {
+      if (progress.cursor !== undefined && patientId <= progress.cursor) {
+        continue;
+      }
+      try {
+        progress = await replayPatient(deps, {
+          clinicId,
+          patientId,
+          runId: progress.runId,
+          catalog,
+        });
+      } catch (error) {
+        if (!isBudgetExceeded(error)) {
+          throw error;
+        }
+        return { progress: await pause(deps, progress), resumed: started.resumed };
+      }
+    }
+    return complete(deps, progress, catalog, started.resumed, { baseline: false });
+  }
   for (;;) {
     const page = await deps.unitOfWork.withTransaction(clinicId, (stores) =>
       stores.clinicalRecords.listPatientIds(clinicId, {
@@ -332,7 +367,7 @@ export async function runBackfill(
       break;
     }
   }
-  return complete(deps, progress, catalog, started.resumed);
+  return complete(deps, progress, catalog, started.resumed, { baseline: true });
 }
 
 async function pause(deps: BackfillDeps, progress: BackfillProgress): Promise<BackfillProgress> {
@@ -385,6 +420,7 @@ async function complete(
   progress: BackfillProgress,
   catalog: Catalog,
   resumed: boolean,
+  options: { readonly baseline: boolean },
 ): Promise<BackfillReport> {
   const now = deps.clock.now();
   const { clinicId } = progress;
@@ -394,7 +430,9 @@ async function complete(
       status: 'completed',
       now,
     });
-    await recordReconciliationBaseline(stores, clinicId, done.runId, now);
+    if (options.baseline) {
+      await recordReconciliationBaseline(stores, clinicId, done.runId, now);
+    }
     await new CaseWriter(stores, deps.ids, clinicId).emit('backfill.completed', now, {
       runId: done.runId,
       shadow: done.shadow,

@@ -155,7 +155,8 @@ function byRisk(left: Candidate, right: Candidate): number {
  * - risk first: the case priority (chronic condition, pending results, rule
  *   weight), then the longest overdue;
  * - at most `dailyCaseCapPerOwner` releases per owner per day (day 0 is now),
- *   counting what earlier plans already scheduled;
+ *   counting what earlier plans already scheduled, and what they released
+ *   in the last 24 hours (day 0);
  * - cases whose most recent reason is overdue by more than
  *   `backfillNotifyMaxAgeDays` are never released: they stay listed among the
  *   patients to recover and never notify anyone.
@@ -183,6 +184,20 @@ export async function planBackfillRelease(
     const load = new Map<string, number[]>();
     const ownerOf = (followUpCase: FollowUpCase) =>
       followUpCase.assignee ?? deps.settings.frontDeskOwner;
+    // What an earlier plan already released today counts against today's cap
+    // too: several runs in one day (a patient's history imported after the
+    // clinic's backfill) never release more than the cap per owner and day.
+    const dayAgo = addDays(now, -1).getTime();
+    for (const followUpCase of await listCases(stores, clinicId, {
+      origin: 'backfill',
+      releasedAsOf: now,
+    })) {
+      if (followUpCase.releaseAt !== undefined && followUpCase.releaseAt.getTime() > dayAgo) {
+        const days = load.get(ownerOf(followUpCase)) ?? [];
+        days[0] = (days[0] ?? 0) + 1;
+        load.set(ownerOf(followUpCase), days);
+      }
+    }
     for (const followUpCase of waiting) {
       if (followUpCase.releaseAt !== undefined && !isUnscheduledRelease(followUpCase.releaseAt)) {
         const day = Math.max(0, daysBetween(now, followUpCase.releaseAt));

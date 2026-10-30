@@ -141,7 +141,7 @@ export interface MediaReadingCost {
   readonly latencyMs: number;
 }
 
-/** Voice notes and photos from the patient, read on the `llm_gateway`. */
+/** Voice notes, photos and documents from the patient, read on the `llm_gateway`. */
 export interface PatientMediaReader {
   transcribe(
     clinicId: ClinicId,
@@ -156,6 +156,19 @@ export interface PatientMediaReader {
     input: {
       readonly mode: OrderAgentMode;
       readonly image: Uint8Array;
+      readonly contentType: string;
+    },
+  ): Promise<MediaReadingCost & { readonly reading: LabPhotoReading }>;
+  /**
+   * A lab report the patient sent as a document (PDF): its text is
+   * extracted and read by the same lab-result reading as a photo, into the
+   * same {@link LabPhotoReading}.
+   */
+  readLabDocument(
+    clinicId: ClinicId,
+    input: {
+      readonly mode: OrderAgentMode;
+      readonly document: Uint8Array;
       readonly contentType: string;
     },
   ): Promise<MediaReadingCost & { readonly reading: LabPhotoReading }>;
