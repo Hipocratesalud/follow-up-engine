@@ -2,6 +2,7 @@ import {
   createMemoryStores,
   MemoryClinicDirectory,
   MemoryDatabase,
+  MemoryHeldLabReportStore,
   MemoryOrderAgentStore,
   MemoryLlmUsageLog,
   type MemoryStores,
@@ -31,6 +32,7 @@ import {
   describeQualityFindingRepositoryContract,
   describeReconciliationStoreContract,
   describeRuleOverrideStoreContract,
+  describeHeldLabReportStoreContract,
   describeOrderAgentStoreContract,
   describeSuppressionRepositoryContract,
   describeUnitOfWorkContract,
@@ -168,4 +170,7 @@ describeMetricsReadModelContract(NAME, () => {
 });
 describeOrderAgentStoreContract(NAME, () =>
   Promise.resolve({ subject: new MemoryOrderAgentStore(), cleanup: noop }),
+);
+describeHeldLabReportStoreContract(NAME, () =>
+  Promise.resolve({ subject: new MemoryHeldLabReportStore(), cleanup: noop }),
 );
