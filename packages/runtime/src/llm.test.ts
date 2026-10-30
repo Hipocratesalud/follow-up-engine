@@ -202,6 +202,71 @@ describe('a recorded Muse Spark snapshot', () => {
     expect(recorder.calls[0]).toMatch(/^https:\/\/relay\.example\/v1\/chat\/completions/);
   });
 
+  it("reads each lab photo on its own: a second photo is never answered with the first one's recorded reading (the demo records live replies)", async () => {
+    const config = loadRuntimeConfig({ META_API_KEY: 'key' }).llm;
+    const readings = [
+      { name: 'Creatinina', value: 0.9, unit: 'mg/dL', referenceLow: 0.6, referenceHigh: 1.2 },
+      { name: 'HbA1c', value: 8.4, unit: '%', referenceLow: 4, referenceHigh: 5.6 },
+    ];
+    let calls = 0;
+    const fetch: FetchLike = () => {
+      const test = readings[calls] ?? readings[0];
+      calls += 1;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                index: 0,
+                finish_reason: 'stop',
+                message: {
+                  role: 'assistant',
+                  content: JSON.stringify({
+                    isLabReport: true,
+                    reportDate: '2025-12-15',
+                    patientName: null,
+                    tests: [test],
+                  }),
+                },
+              },
+            ],
+            usage: { prompt_tokens: 900, completion_tokens: 200 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      );
+    };
+    // Like the hosted demo: a snapshot that live replies are recorded into.
+    const configured = createConfiguredExtractor(config, {
+      ...deps(fetch),
+      // The demo clinic allows unmasked images.
+      clinics: {
+        get: () => Promise.resolve({ settings: { allowUnmaskedImagesToProvider: true } }),
+      } as unknown as ClinicDirectory,
+      snapshot: { snapshot: emptySnapshot('meta'), allowLive: () => true },
+    });
+    const first = await configured.mediaReader.readLabPhoto(clinicId('c1'), {
+      mode: 'live',
+      image: new Uint8Array([255, 216, 255, 1]),
+      contentType: 'image/jpeg',
+    });
+    const second = await configured.mediaReader.readLabPhoto(clinicId('c1'), {
+      mode: 'live',
+      image: new Uint8Array([255, 216, 255, 2]),
+      contentType: 'image/jpeg',
+    });
+    expect(calls).toBe(2);
+    expect(first.reading.tests.map((test) => test.name)).toEqual(['Creatinina']);
+    expect(second.reading.tests.map((test) => test.name)).toEqual(['HbA1c']);
+    // The very same photo again replays (no new call).
+    await configured.mediaReader.readLabPhoto(clinicId('c1'), {
+      mode: 'live',
+      image: new Uint8Array([255, 216, 255, 2]),
+      contentType: 'image/jpeg',
+    });
+    expect(calls).toBe(2);
+  });
+
   it("sends the agent's live voice notes and lab photos through META_BASE_URL too (the hosted demo's relay)", async () => {
     const config = loadRuntimeConfig({
       META_API_KEY: 'key',

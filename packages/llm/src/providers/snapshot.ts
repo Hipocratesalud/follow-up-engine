@@ -157,8 +157,15 @@ const RUN_REFERENCE = /"patientRef":"P-[^"\\]{1,32}"/g;
 
 /**
  * Stable key of a request: sha256 of the model, the output name, the tool
- * names and descriptions, and every message (without per-run references).
- * Never contains note text.
+ * names and descriptions, and every message (without per-run references),
+ * images included (by their own sha256). Never contains note text.
+ *
+ * A message's images are part of what the model reads: two photos sent
+ * with the same prompt are two requests. Without them in the key, every
+ * photo after the first replayed the first one's reading (a patient's
+ * HbA1c report read back as another patient's creatinine and LDL). A
+ * message with no image keeps its former key, so recorded text replies
+ * still replay.
  */
 export function snapshotKey(
   request: Pick<ProviderRequest<unknown>, 'model' | 'messages' | 'output' | 'tools'>,
@@ -167,10 +174,15 @@ export function snapshotKey(
     model: request.model,
     output: request.output.name,
     tools: (request.tools ?? []).map((tool) => [tool.name, tool.description]),
-    messages: request.messages.map((m) => [
-      m.role,
-      m.content.replace(RUN_REFERENCE, '"patientRef":"P"'),
-    ]),
+    messages: request.messages.map((m) => {
+      const entry: unknown[] = [m.role, m.content.replace(RUN_REFERENCE, '"patientRef":"P"')];
+      if (m.images !== undefined && m.images.length > 0) {
+        entry.push(
+          m.images.map((image) => createHash('sha256').update(image.dataUrl).digest('hex')),
+        );
+      }
+      return entry;
+    }),
   });
   return createHash('sha256').update(material).digest('hex');
 }

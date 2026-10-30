@@ -60,6 +60,39 @@ describe('snapshotKey', () => {
     ).not.toBe(base);
   });
 
+  it('tells two photos sent with the same prompt apart, and keeps the key of a text-only request', () => {
+    const withImage = (dataUrl: string) =>
+      snapshotKey({
+        ...request('Read this photo. Reply with the JSON object only.'),
+        messages: [
+          { role: 'system', content: 'You read lab report photos.' },
+          {
+            role: 'user',
+            content: 'Read this photo. Reply with the JSON object only.',
+            images: [{ dataUrl }],
+          },
+        ],
+      });
+    const hba1c = withImage('data:image/jpeg;base64,SGJBMWMgOC40');
+    const lipids = withImage('data:image/jpeg;base64,TERMIDEyOA==');
+    expect(hba1c).not.toBe(lipids);
+    expect(withImage('data:image/jpeg;base64,SGJBMWMgOC40')).toBe(hba1c);
+    // The same request without the image is a different key, and text-only keys did not move
+    // (the recorded demo snapshot keeps replaying).
+    expect(
+      snapshotKey({
+        ...request('Read this photo. Reply with the JSON object only.'),
+        messages: [
+          { role: 'system', content: 'You read lab report photos.' },
+          { role: 'user', content: 'Read this photo. Reply with the JSON object only.' },
+        ],
+      }),
+    ).not.toBe(hba1c);
+    expect(snapshotKey(request('note A'))).toBe(
+      '5ef0babb33697164e2861e139d7738a54bd5a8305c322d7ac822542bd6d010d3',
+    );
+  });
+
   it("ignores the reviewer's per-run patient reference, nothing else", () => {
     const review = (ref: string, age: number) =>
       snapshotKey(
