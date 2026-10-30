@@ -598,6 +598,24 @@ const OPERATIONS: readonly Operation[] = [
   },
   {
     method: 'get',
+    path: '/api/inbox/live-findings',
+    tag: 'Inbox',
+    summary:
+      "The doctor's inbox cards of the clinical reviewer: open findings of live, signed-off categories",
+    description:
+      'Gated by the category flags in force now (live with validatedBy), not by the mode a ' +
+      'finding was stored with: a category sent back to shadow takes its findings out. A shadow ' +
+      'category never appears; pre_visit_question goes to "Before the visit". Rate a card with ' +
+      'POST /api/inbox/findings/{id}/review: a rated finding leaves the list.',
+    params: [
+      { name: 'patientId', in: 'query' },
+      { name: 'limit', in: 'query' },
+    ],
+    response: 'InboxFindingList',
+    errors: [422],
+  },
+  {
+    method: 'get',
     path: '/api/inbox/adjudications',
     tag: 'Inbox',
     summary: "The adjudicator's decisions on ambiguous plan items, newest first",

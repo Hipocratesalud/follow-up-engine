@@ -283,6 +283,31 @@ export const BeforeVisitResponseSchema = z
       'live ones',
   });
 
+export const InboxFindingQuerySchema = z.object({
+  patientId: z.string().min(1).max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export const InboxFindingListSchema = z
+  .object({
+    items: z.array(FindingViewSchema).meta({
+      description: 'Open findings of live, signed-off categories, most severe first, then newest',
+    }),
+    total: z.number().int().meta({ description: 'Every matching finding, not only `items`' }),
+    byPatient: z.record(z.string(), z.number().int()).meta({
+      description: "Matching findings per patient id (the badge on the patient's follow-up card)",
+    }),
+  })
+  .meta({
+    id: 'InboxFindingList',
+    description:
+      "The doctor's inbox cards of the clinical reviewer (PRD V3): only categories that are " +
+      'live with a clinical sign-off under the flags in force now. A shadow category never ' +
+      'appears here, whatever mode its findings were stored with; pre_visit_question goes to ' +
+      '"Before the visit" instead',
+  });
+
+export type InboxFindingList = z.infer<typeof InboxFindingListSchema>;
 export type FindingView = z.infer<typeof FindingViewSchema>;
 export type FindingDetail = z.infer<typeof FindingDetailSchema>;
 export type CitationView = z.infer<typeof CitationViewSchema>;
