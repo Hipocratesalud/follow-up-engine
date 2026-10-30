@@ -6,6 +6,7 @@ import '../metrics/schemas.ts';
 import './patient-queue-schemas.ts';
 import './plan-item-schemas.ts';
 import './admin-schemas.ts';
+import './rule-authoring-schemas.ts';
 import './why-schemas.ts';
 import './lab-schemas.ts';
 
@@ -711,6 +712,50 @@ const OPERATIONS: readonly Operation[] = [
     ],
     response: 'AdminRuleHistory',
     errors: [422],
+  },
+  {
+    method: 'get',
+    path: '/api/admin/rules/authored',
+    tag: 'Admin',
+    summary:
+      "The clinic's own rules drafted by the rule-authoring agent: drafts, enabled and switched off",
+    response: 'AuthoredRuleList',
+  },
+  {
+    method: 'post',
+    path: '/api/admin/rules/authored',
+    tag: 'Admin',
+    summary:
+      'Draft a clinic rule from plain words (the rule-authoring agent): validated and dry-run by ' +
+      'the engine, stored as a draft that never runs until enabled',
+    description:
+      'The clinician from X-FollowUp-User (required). `failed` when the agent abstained or code ' +
+      'refused its draft. docs/agent/rule-authoring.md',
+    body: 'AuthoredRuleDraftRequest',
+    response: 'AuthoredRuleDraftResult',
+    status: 201,
+    alsoOk: [{ status: 200, description: 'No draft (`status: failed`): abstained or refused' }],
+    errors: [422, 429],
+  },
+  {
+    method: 'post',
+    path: '/api/admin/rules/authored/{ruleId}/enable',
+    tag: 'Admin',
+    summary: 'Enable a drafted clinic rule (records validatedBy); applies to new events only',
+    params: [{ name: 'ruleId', in: 'path' }],
+    body: 'AuthoredRuleDecision',
+    response: 'AuthoredRuleDecisionResult',
+    errors: [404, 409, 422],
+  },
+  {
+    method: 'post',
+    path: '/api/admin/rules/authored/{ruleId}/discard',
+    tag: 'Admin',
+    summary: 'Discard a draft, or switch an enabled clinic rule off (its expectations still close)',
+    params: [{ name: 'ruleId', in: 'path' }],
+    body: 'AuthoredRuleDecision',
+    response: 'AuthoredRuleDecisionResult',
+    errors: [404, 409, 422],
   },
   {
     method: 'get',

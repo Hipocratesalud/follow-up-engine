@@ -98,11 +98,17 @@ if (process.env['SEED'] !== 'false') {
 seeding = false;
 const server = createApiServer(runtime, { ...loadApiConfig(), embeddedWorker: true });
 const port = await server.listen();
+/** Only the built-in local keys are printed; a key set through the environment (the hosted demo) never reaches the logs. */
+function printableKey(key: string, builtIn: string, variable: string): string {
+  return key === builtIn ? key : `(set by ${variable}, not printed)`;
+}
+const shownApiKey = printableKey(apiKey, DEFAULT_DEMO_API_KEY, 'DEMO_API_KEY');
+const shownInboxKey = printableKey(inboxApiKey, DEFAULT_DEMO_INBOX_API_KEY, 'DEMO_INBOX_API_KEY');
 process.stdout.write(
   `\nDemo clinic keys (synthetic, demo only; refused on a real clock):\n` +
-    `  host integration (fhir:write, inbox, demo:clock, demo:ingest): ${apiKey}\n` +
-    `  inbox (inbox:read, inbox:act, demo:clock, demo:ingest; no fhir:write): ${inboxApiKey}\n` +
-    `  VITE_API_URL=http://localhost:${String(port)} VITE_API_KEY=${inboxApiKey} pnpm inbox\n\n`,
+    `  host integration (fhir:write, inbox, demo:clock, demo:ingest): ${shownApiKey}\n` +
+    `  inbox (inbox:read, inbox:act, demo:clock, demo:ingest; no fhir:write): ${shownInboxKey}\n` +
+    `  VITE_API_URL=http://localhost:${String(port)} VITE_API_KEY=${shownInboxKey} pnpm inbox\n\n`,
 );
 
 async function shutdown(): Promise<void> {

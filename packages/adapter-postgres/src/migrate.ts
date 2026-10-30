@@ -46,7 +46,29 @@ export async function loadMigrations(directory: URL = MIGRATIONS_DIR): Promise<M
       const sql = await readFile(new URL(file, directory), 'utf8');
       return { version, name, sql, checksum: createHash('sha256').update(sql).digest('hex') };
     }),
-  );
+  ).then(assertUniqueVersions);
+}
+
+/** Two files with one version would apply in either order and break every later deploy. */
+export class DuplicateMigrationVersionError extends Error {
+  override readonly name = 'DuplicateMigrationVersionError';
+
+  constructor(version: string, names: readonly string[]) {
+    super(
+      `Migration version ${version} is used by ${names.join(', ')}; give each file its own number`,
+    );
+  }
+}
+
+function assertUniqueVersions(migrations: Migration[]): Migration[] {
+  const byVersion = new Map<string, string[]>();
+  for (const migration of migrations) {
+    byVersion.set(migration.version, [...(byVersion.get(migration.version) ?? []), migration.name]);
+  }
+  for (const [version, names] of byVersion) {
+    if (names.length > 1) throw new DuplicateMigrationVersionError(version, names);
+  }
+  return migrations;
 }
 
 /**

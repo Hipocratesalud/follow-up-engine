@@ -57,6 +57,7 @@ const TABLES = [
   'clinical_review_runs',
   'finding_flags',
   'plan_item_reviews',
+  'expectation_events',
   'rule_overrides',
   'rule_override_history',
   'reconciliation_runs',

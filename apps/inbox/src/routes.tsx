@@ -15,6 +15,7 @@ import { FindingDetailPanel } from './features/reviewer/finding-detail.tsx';
 import { FlagsPage } from './features/reviewer/flags-page.tsx';
 import { ValuePage } from './features/value/value-page.tsx';
 import { ReviewPage } from './features/reviewer/review-page.tsx';
+import { RulesPage } from './features/rules/rules-page.tsx';
 
 /** Links to another case of the open patient card, keeping the inbox filters. */
 function caseLinkWith(search: string): (caseId: string) => string {
@@ -93,6 +94,7 @@ export const routes: RouteObject[] = [
       { path: 'engine-tests', element: <EngineTestsPage /> },
       { path: 'lab', element: <LabPage /> },
       { path: 'agent', element: <AgentPage /> },
+      { path: 'rules', element: <RulesPage /> },
       { path: 'evaluators', element: <EvaluatorsPage /> },
       ...LEGACY_PREFIXES.map(([from]) => ({
         path: `${from.slice(1)}/*`,

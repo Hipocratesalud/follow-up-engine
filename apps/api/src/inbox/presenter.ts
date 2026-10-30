@@ -5,6 +5,7 @@ import {
   type ClinicId,
   conditionId,
   type ContactCommunication,
+  effectiveClosedReason,
   type ContactRequest,
   type PatientContactFlag,
   type RuleSuppression,
@@ -910,7 +911,7 @@ export class InboxPresenter {
   }
 
   expectationView(expectation: Expectation): PatientExpectationView {
-    const closedLabel = closedReasonLabel(this.t, expectation.closedReason);
+    const closedLabel = closedReasonLabel(this.t, effectiveClosedReason(expectation));
     const protocol = this.protocolRef(expectation);
     return {
       id: expectation.id,

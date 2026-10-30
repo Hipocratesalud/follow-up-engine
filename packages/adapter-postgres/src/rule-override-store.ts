@@ -1,4 +1,5 @@
 import {
+  type AuthoredRule,
   type ClinicId,
   ConflictError,
   type RuleOverride,
@@ -15,6 +16,7 @@ interface OverrideRow {
   readonly rule_id: string;
   readonly due_in_days: number | null;
   readonly enabled: boolean | null;
+  readonly authored: AuthoredRule | null;
   readonly version: number;
   readonly updated_at: Date;
   readonly updated_by: string;
@@ -33,15 +35,23 @@ interface ChangeRow {
   readonly at: Date;
 }
 
-function overrideOf(row: Pick<OverrideRow, 'due_in_days' | 'enabled'>): RuleOverride {
-  return { ...optional('dueInDays', row.due_in_days), ...optional('enabled', row.enabled) };
+function overrideOf(row: Pick<OverrideRow, 'due_in_days' | 'enabled' | 'authored'>): RuleOverride {
+  return {
+    ...optional('dueInDays', row.due_in_days),
+    ...optional('enabled', row.enabled),
+    ...optional('authored', row.authored),
+  };
 }
 
-/** A stored `{ dueInDays?, enabled? }` object, with only the known fields kept. */
+/** A stored `{ dueInDays?, enabled?, authored? }` object, with only the known fields kept. */
 function storedOverride(value: RuleOverride | null): RuleOverride | undefined {
   return value === null
     ? undefined
-    : { ...optional('dueInDays', value.dueInDays), ...optional('enabled', value.enabled) };
+    : {
+        ...optional('dueInDays', value.dueInDays),
+        ...optional('enabled', value.enabled),
+        ...optional('authored', value.authored),
+      };
 }
 
 function toRecord(row: OverrideRow): RuleOverrideRecord {
@@ -121,7 +131,8 @@ export class PostgresRuleOverrideStore implements RuleOverrideStore {
            SELECT COALESCE(max(version), 0) AS version FROM ${history}
            WHERE clinic_id = $1 AND rule_id = $2
          ), current AS (
-           SELECT jsonb_strip_nulls(jsonb_build_object('dueInDays', due_in_days, 'enabled', enabled))
+           SELECT jsonb_strip_nulls(jsonb_build_object(
+                    'dueInDays', due_in_days, 'enabled', enabled, 'authored', authored))
              AS override
            FROM ${overrides} WHERE clinic_id = $1 AND rule_id = $2
          ), recorded AS (
@@ -132,12 +143,14 @@ export class PostgresRuleOverrideStore implements RuleOverrideStore {
            RETURNING ${CHANGE_COLUMNS}
          ), upserted AS (
            INSERT INTO ${overrides} AS o
-             (clinic_id, rule_id, due_in_days, enabled, version, updated_at, updated_by, reason)
+             (clinic_id, rule_id, due_in_days, enabled, authored, version, updated_at, updated_by,
+              reason)
            SELECT $1, $2, ($4::jsonb ->> 'dueInDays')::integer, ($4::jsonb ->> 'enabled')::boolean,
-                  recorded.version, $7, $5, $6
+                  $4::jsonb -> 'authored', recorded.version, $7, $5, $6
            FROM recorded WHERE $3 = 'set'
            ON CONFLICT (clinic_id, rule_id) DO UPDATE SET
              due_in_days = EXCLUDED.due_in_days, enabled = EXCLUDED.enabled,
+             authored = EXCLUDED.authored,
              version = EXCLUDED.version, updated_at = EXCLUDED.updated_at,
              updated_by = EXCLUDED.updated_by, reason = EXCLUDED.reason
          ), removed AS (

@@ -629,6 +629,8 @@ export const ES = {
     feedbackReasonRequired:
       'Elige un motivo cuando el caso no fue útil: así podemos mejorar la regla.',
     domainValidation: {
+      request: 'Describe la regla en 1 a 500 caracteres.',
+      actor: 'Indica quién hace el cambio.',
       period: 'El período debe empezar antes de terminar y durar como mucho 800 días.',
       until: 'Solo puedes posponer un caso hasta una fecha futura.',
       status: 'El caso ya no está activo: no admite esta acción.',
@@ -644,6 +646,12 @@ export const ES = {
     invalidConsultation: 'No pudimos armar la consulta con esos datos.',
     labFutureDate: 'Esa fecha es posterior a la fecha actual de tu laboratorio.',
     labPastDate: 'La fecha de tu laboratorio solo puede avanzar hacia adelante.',
+    ruleAuthoringBudget:
+      'Se agotó el presupuesto de IA del mes de este consultorio: prueba el modo guionado.',
+    ruleStateChanged:
+      'Esa regla cambió mientras tanto (ya está activa o desactivada): vuelve a cargarla.',
+    ruleNotFound: 'Esa regla del consultorio no existe (quizás se descartó).',
+    ruleAuthoringUser: 'Indica qué profesional hace el cambio (X-FollowUp-User).',
     agentNotStarted:
       'El agente todavía no tiene órdenes de este paciente: primero inicia la historia.',
     agentMediaType:

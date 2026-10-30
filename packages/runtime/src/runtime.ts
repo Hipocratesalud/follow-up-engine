@@ -13,6 +13,8 @@ import {
   clinicId as toClinicId,
   type Clock,
   createClinicalReviewer,
+  createRuleAuthoring,
+  type RuleAuthoringService,
   createExpectationAdjudication,
   createFollowUpEngine,
   createOrderAgentService,
@@ -31,7 +33,11 @@ import {
   shadowPilotFlags,
   SystemClock,
 } from '@follow-up-engine/core';
-import { type NoteFixture, outboundSafetyTerms } from '@follow-up-engine/llm';
+import {
+  createRepositoryTerminology,
+  type NoteFixture,
+  outboundSafetyTerms,
+} from '@follow-up-engine/llm';
 import {
   ApiKeyConflictError,
   type ApiKeyScope,
@@ -119,6 +125,8 @@ export interface EngineRuntime {
   readonly engine: FollowUpEngine;
   /** The clinical reviewer (PRD V3): shadow findings, flags, review runs. */
   readonly reviewer: ClinicalReviewer;
+  /** The rule-authoring agent: a clinician's sentence to a draft rule (never live until enabled). */
+  readonly ruleAuthoring: RuleAuthoringService;
   /** The adjudicator of ambiguous plan items (PRD V2): decisions, overrides. */
   readonly adjudicator: ExpectationAdjudication;
   readonly extractor: ExtractorInfo;
@@ -226,6 +234,7 @@ export async function createRuntime(
     mediaReader,
     scriptedReviewAgent,
     liveAgent,
+    ruleAuthorAgents,
   } = createConfiguredExtractor(config.llm, {
     usageLog: storage.llmUsage,
     clinics: storage.clinics,
@@ -264,6 +273,16 @@ export async function createRuntime(
     // What the host sends in full: a missing allergy status is a finding only then.
     recordCapabilitiesOf: async (clinicId) =>
       (await storage.clinics.get(clinicId))?.settings.recordCapabilities ?? [],
+  });
+
+  // The rule-authoring agent (docs/agent/rule-authoring.md): drafts only;
+  // a clinician enables them through `engine.authoredRules.enable`.
+  const ruleAuthoring = createRuleAuthoring({
+    catalog: (clinicId) => engine.catalog(clinicId),
+    authoredRules: engine.authoredRules,
+    agents: ruleAuthorAgents,
+    terminology: createRepositoryTerminology(),
+    clock,
   });
 
   const adjudication = createExpectationAdjudication({
@@ -367,6 +386,7 @@ export async function createRuntime(
     storage,
     engine,
     reviewer,
+    ruleAuthoring,
     adjudicator: adjudication,
     extractor: info,
     ...(replay === undefined ? {} : { llmReplay: replay }),

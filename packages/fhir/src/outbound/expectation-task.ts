@@ -1,4 +1,8 @@
-import type { Expectation, ExpectationStatus } from '@follow-up-engine/core';
+import {
+  effectiveClosedReason,
+  type Expectation,
+  type ExpectationStatus,
+} from '@follow-up-engine/core';
 import type { Extension, Task } from '../fhir-types.ts';
 import { toFhirInstant } from '../support/datetime.ts';
 import { toFhirId } from '../support/hash.ts';
@@ -57,6 +61,11 @@ function evidenceExtension(expectation: Expectation): Extension[] {
  *   extensions; a correction points at the Task it replaced (`correctionOf`),
  *   which ends `cancelled` with `statusReason` `corrected_by_clinician`; a
  *   rejected one ends `cancelled` with `rejected_by_clinician`.
+ * - A closure reclassified after the fact (a `covered_by_order` plan item
+ *   whose order the end of the pregnancy cancelled): `statusReason` is the
+ *   reason it reads as now (`pregnancy_ended`), the
+ *   `closureReclassification` extension the original reason and when and
+ *   by what it changed.
  */
 /** `closedReason` of an expectation that expired without one recorded. */
 export const EXPIRED_UNMET_REASON = 'expired_unmet';
@@ -67,16 +76,34 @@ export const EXPIRED_UNMET_REASON = 'expired_unmet';
  * the engine recorded no `closedReason` / `closedAt` for the expiry.
  */
 function closure(expectation: Expectation): { reason?: string; end?: Date } {
+  const reason = effectiveClosedReason(expectation);
   if (expectation.status === 'expired') {
     return {
-      reason: expectation.closedReason ?? EXPIRED_UNMET_REASON,
+      reason: reason ?? EXPIRED_UNMET_REASON,
       end: expectation.closedAt ?? expectation.updatedAt,
     };
   }
   return {
-    ...(expectation.closedReason === undefined ? {} : { reason: expectation.closedReason }),
+    ...(reason === undefined ? {} : { reason }),
     ...(expectation.closedAt === undefined ? {} : { end: expectation.closedAt }),
   };
+}
+
+/**
+ * A closure reclassified after the fact: `statusReason` says what it reads
+ * as now; the extension keeps the reason it was closed with, and when and
+ * by what it was reclassified (the closure's end stays the original one).
+ */
+function reclassificationExtension(expectation: Expectation): Extension[] {
+  const { reclassification } = expectation;
+  if (reclassification === undefined || expectation.closedReason === undefined) {
+    return [];
+  }
+  return ext.complex(ENGINE_EXTENSIONS.closureReclassification, [
+    ...ext.code('originalReason', expectation.closedReason),
+    ...ext.dateTime('at', reclassification.at),
+    ...ext.reference('by', referenceTo(reclassification.by)),
+  ]);
 }
 
 export function expectationToTask(expectation: Expectation): Task {
@@ -90,6 +117,7 @@ export function expectationToTask(expectation: Expectation): Task {
     ...ext.code(ENGINE_EXTENSIONS.origin, expectation.origin),
     ...ext.string(ENGINE_EXTENSIONS.matchKey, expectation.matchKey),
     ...evidenceExtension(expectation),
+    ...reclassificationExtension(expectation),
     ...ext.string(ENGINE_EXTENSIONS.confirmedBy, expectation.confirmedBy),
     ...ext.dateTime(ENGINE_EXTENSIONS.confirmedAt, expectation.confirmedAt),
     ...ext.reference(

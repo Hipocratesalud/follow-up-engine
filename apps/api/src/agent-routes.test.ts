@@ -290,6 +290,47 @@ describe('the order-to-completion agent (scripted mode)', () => {
     expect(page.messages.at(-1)?.offeredSlots).toHaveLength(2);
   });
 
+  it.each(STORAGES)(
+    'shows the story started last after a restart on %s, and logs what the evaluator sends as María',
+    async (storage) => {
+      const { call, page: read, worker, runtime: engine } = await harness(storage);
+      // Restarts on a lab clock that has not moved: every story starts at the same time.
+      const started: string[] = [];
+      for (let restart = 0; restart < 4; restart++) {
+        const response = await call('/api/demo/agent/story', {
+          body: { story: 'maria', mode: 'scripted', language: 'en' },
+        });
+        started.push((response.body as { patientId: string }).patientId);
+        await worker.runJobs();
+        expect((await read()).conversation?.patientId).toBe(started.at(-1));
+      }
+      const patientId = started.at(-1) ?? '';
+      await call(`/api/demo/agent/patients/${patientId}/messages`, {
+        body: { text: 'Hi, yes. I already had the test last week.' },
+      });
+      await call(`/api/demo/agent/patients/${patientId}/samples`, {
+        body: { sample: 'lab_report' },
+      });
+      const page = await read();
+      const sent = page.messages.filter((message) => message.direction === 'inbound');
+      const events = await engine.storage.evaluatorEvents.list({
+        evaluatorEmail: EMAIL,
+        limit: 50,
+      });
+      const messages = events.items.filter((event) => event.action === 'agent_message_sent');
+      expect(messages.map((event) => [event.entityId, event.patientId, event.payload])).toEqual(
+        expect.arrayContaining([
+          [sent[0]?.id, patientId, { kind: 'text', source: 'typed' }],
+          [sent[1]?.id, patientId, { kind: 'image', source: 'sample', sample: 'lab_report' }],
+        ]),
+      );
+      expect(messages).toHaveLength(2);
+      expect(events.items.filter((event) => event.action === 'lab_patient_created')).toHaveLength(
+        4,
+      );
+    },
+  );
+
   it('runs the ladder on the clinic clock, caps messages and creates staff tasks', async () => {
     const { call, page: read, worker } = await harness();
     await call('/api/demo/agent/story', {

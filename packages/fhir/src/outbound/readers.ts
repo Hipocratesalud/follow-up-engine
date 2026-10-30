@@ -10,6 +10,7 @@ import {
   patientId as toPatientId,
   type CaseResolutionKind,
   type ClinicId,
+  type ClosureReclassification,
   type ConditionSourceType,
   type Evidence,
   type Expectation,
@@ -98,6 +99,32 @@ function evidenceOf(extensions: readonly Extension[] | undefined): Evidence | un
   return { quote, sourceDocumentId: source.id };
 }
 
+/**
+ * The `closureReclassification` extension: the reason the expectation was
+ * closed with, and its reclassification (to `statusReason`).
+ */
+function reclassificationOf(
+  extensions: readonly Extension[] | undefined,
+  statusReason: string | undefined,
+): { originalReason: string; reclassification: ClosureReclassification } | undefined {
+  const extension = findExtension(extensions, ENGINE_EXTENSIONS.closureReclassification);
+  if (extension === undefined) {
+    return undefined;
+  }
+  const expression = 'Task.extension:closureReclassification';
+  return {
+    originalReason: required(
+      findExtension(extension.extension, 'originalReason')?.valueCode,
+      `${expression}.originalReason`,
+    ),
+    reclassification: {
+      closedReason: required(statusReason, 'Task.statusReason'),
+      at: date(findExtension(extension.extension, 'at')?.valueDateTime, `${expression}.at`),
+      by: refOf(findExtension(extension.extension, 'by')?.valueReference, `${expression}.by`),
+    },
+  };
+}
+
 const ORIGINS: readonly Origin[] = ['live', 'backfill'];
 
 /** Reads an expectation Task produced by `expectationToTask`. */
@@ -106,7 +133,9 @@ export function taskToExpectation(task: Task, clinicId: ClinicId | string): Expe
   const caseRef = task.partOf?.[0];
   const protocolId = stringExt(ext, ENGINE_EXTENSIONS.protocolId);
   const protocolVersion = stringExt(ext, ENGINE_EXTENSIONS.protocolVersion);
-  const closedReason = codeIn(task.statusReason, ENGINE_CODE_SYSTEMS.closedReason);
+  const statusReason = codeIn(task.statusReason, ENGINE_CODE_SYSTEMS.closedReason);
+  const reclassified = reclassificationOf(ext, statusReason);
+  const closedReason = reclassified?.originalReason ?? statusReason;
   const closedAt = optionalDate(task.executionPeriod?.end);
   const evidence = evidenceOf(ext);
   const reasonCode = required(
@@ -147,6 +176,7 @@ export function taskToExpectation(task: Task, clinicId: ClinicId | string): Expe
     ...(caseRef === undefined ? {} : { caseId: toCaseId(refOf(caseRef, 'Task.partOf').id) }),
     ...(closedReason === undefined ? {} : { closedReason }),
     ...(closedAt === undefined ? {} : { closedAt }),
+    ...(reclassified === undefined ? {} : { reclassification: reclassified.reclassification }),
     origin: oneOf(ORIGINS, stringExt(ext, ENGINE_EXTENSIONS.origin), 'Task.extension:origin'),
     ...(protocolId === undefined ? {} : { protocolId }),
     ...(protocolVersion === undefined ? {} : { protocolVersion }),

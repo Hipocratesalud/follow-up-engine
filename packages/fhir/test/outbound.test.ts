@@ -1,4 +1,4 @@
-import type { CaseStatus, ExpectationStatus } from '@follow-up-engine/core';
+import type { CaseStatus, Expectation, ExpectationStatus } from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import {
   caseEventToProvenance,
@@ -25,6 +25,7 @@ import {
   confirmedPlanExpectation,
   correctedPlanExpectation,
   correctionExpectation,
+  reclassifiedPlanExpectation,
   escalatedCase,
   expiredPlanExpectation,
   extractedCondition,
@@ -130,6 +131,35 @@ describe('expectation → Task', () => {
     expect(rejected.statusReason?.coding?.[0]?.code).toBe('rejected_by_clinician');
   });
 
+  it('carries a closure reclassified after the fact: statusReason as it reads now, the original kept', () => {
+    const task = expectationToTask(reclassifiedPlanExpectation);
+    expect(task.status).toBe('cancelled');
+    expect(task.statusReason?.coding?.[0]).toEqual({
+      system: ENGINE_CODE_SYSTEMS.closedReason,
+      code: 'pregnancy_ended',
+    });
+    // The closure's end is the original one, not the reclassification's.
+    expect(task.executionPeriod?.end).toBe('2026-01-06T10:00:00.000Z');
+    expect(task.extension).toContainEqual({
+      url: ENGINE_EXTENSIONS.closureReclassification,
+      extension: [
+        { url: 'originalReason', valueCode: 'covered_by_order' },
+        { url: 'at', valueDateTime: '2026-06-20T12:00:00.000Z' },
+        {
+          url: 'by',
+          valueReference: { reference: 'Condition/puerperal-dx-1', type: 'Condition' },
+        },
+      ],
+    });
+    const original: { -readonly [K in keyof Expectation]: Expectation[K] } = {
+      ...reclassifiedPlanExpectation,
+    };
+    delete original.reclassification;
+    expect(expectationToTask(original).extension).not.toContainEqual(
+      expect.objectContaining({ url: ENGINE_EXTENSIONS.closureReclassification }),
+    );
+  });
+
   it.each([
     openExpectation,
     expiredPlanExpectation,
@@ -137,6 +167,7 @@ describe('expectation → Task', () => {
     correctedPlanExpectation,
     correctionExpectation,
     rejectedPlanExpectation,
+    reclassifiedPlanExpectation,
   ])('round-trips losslessly (%#)', (expectation) => {
     expect(taskToExpectation(expectationToTask(expectation), CLINIC)).toEqual(expectation);
   });

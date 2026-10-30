@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   ACTIVE_CASE_STATUSES,
   ConflictError,
+  effectiveClosedReason,
   type PatientId,
   patientId as toPatientId,
 } from '@follow-up-engine/core';
@@ -330,12 +331,14 @@ export function registerLabRecordRoutes(
         // `backfill`: created by replaying imported history ("Import history").
         origin: expectation.origin,
         dueAt: expectation.dueAt.toISOString(),
-        ...(expectation.closedReason === undefined
+        ...(effectiveClosedReason(expectation) === undefined
           ? {}
-          : { closedReason: expectation.closedReason }),
-        ...(closedReasonLabel(c.var.t, expectation.closedReason) === undefined
+          : { closedReason: effectiveClosedReason(expectation) }),
+        ...(closedReasonLabel(c.var.t, effectiveClosedReason(expectation)) === undefined
           ? {}
-          : { closedReasonLabel: closedReasonLabel(c.var.t, expectation.closedReason) }),
+          : {
+              closedReasonLabel: closedReasonLabel(c.var.t, effectiveClosedReason(expectation)),
+            }),
       })),
     });
   });

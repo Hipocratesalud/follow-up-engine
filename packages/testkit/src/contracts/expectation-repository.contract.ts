@@ -97,9 +97,38 @@ export function describeExpectationRepositoryContract(
         confirmedBy: 'dra-mora',
         confirmedAt: at(2),
         correctionOf: expectationId('exp-read-by-the-ai'),
+        reclassification: {
+          closedReason: 'pregnancy_ended',
+          at: at(5),
+          by: { resourceType: 'Condition', id: 'puerperal-dx-1' },
+        },
       });
       await repo().upsertByIdempotencyKey(a, full);
       expect(await repo().get(a, full.id)).toEqual(full);
+    });
+
+    it('records a reclassified closure on update, keeping the original closure', async () => {
+      const { a } = freshClinics();
+      const item = anExpectation(a, {
+        layer: 'doctor_plan',
+        status: 'cancelled',
+        closedReason: 'covered_by_order',
+        closedAt: at(1),
+        closedBy: { resourceType: 'ServiceRequest', id: 'sr-1' },
+      });
+      await repo().upsertByIdempotencyKey(a, item);
+      const reclassified = {
+        ...item,
+        reclassification: {
+          closedReason: 'pregnancy_ended',
+          at: at(9),
+          by: { resourceType: 'Condition', id: 'puerperal-dx-1' },
+        },
+        updatedAt: at(9),
+      };
+      await repo().update(a, reclassified);
+      expect(await repo().get(a, item.id)).toEqual(reclassified);
+      expect(await repo().listByPatient(a, item.patientId, ['cancelled'])).toEqual([reclassified]);
     });
 
     it('records a clinician confirmation on update (HIP-141)', async () => {
