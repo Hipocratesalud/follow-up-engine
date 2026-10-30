@@ -216,3 +216,25 @@ export {
   type ReviewerAction,
 } from './reviewer/prompt.ts';
 export { FAKE_REVIEWER_MODEL, scriptedReviewerResponder } from './reviewer/scripted.ts';
+
+// Adjudicator of ambiguous plan items (PRD V2, workstream E)
+export {
+  calibrateProbability,
+  createAdjudicator,
+  PROBABILITY_SHRINK,
+  type AdjudicatorOptions,
+} from './adjudicator/agent.ts';
+export {
+  ADJUDICATION_OUTPUT_NAME,
+  ADJUDICATION_PROMPT_VERSION,
+  ADJUDICATION_TASK,
+  AdjudicationOutputSchema,
+  adjudicationMessages,
+  adjudicatorSystemPrompt,
+  type AdjudicationOutput,
+} from './adjudicator/prompt.ts';
+export {
+  FAKE_ADJUDICATOR_MODEL,
+  scriptedAdjudication,
+  scriptedAdjudicatorResponder,
+} from './adjudicator/scripted.ts';
