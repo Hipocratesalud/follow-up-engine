@@ -1,7 +1,9 @@
 import {
   type ClinicId,
+  type FindingCategory,
   FINDING_VERDICTS,
   type FindingCounts,
+  type FindingMode,
   type FindingStatus,
   IMPLEMENTED_FINDING_CATEGORIES,
   NotFoundError,
@@ -9,7 +11,12 @@ import {
   patientId as toPatientId,
 } from '@follow-up-engine/core';
 import { clinicalFindingToDetectedIssue } from '@follow-up-engine/fhir';
-import type { EngineRuntime, EvaluatorAction } from '@follow-up-engine/runtime';
+import {
+  DEMO_CLINIC,
+  type EngineRuntime,
+  type EvaluatorAction,
+  isLabClinicId,
+} from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { FindingPresenter, runView } from '../inbox/reviewer-presenter.ts';
 import type { ApiMessages } from '../i18n/index.ts';
@@ -84,6 +91,24 @@ function reviewStats(counts: FindingCounts, category: string): FindingFlagView['
 }
 
 const REVIEWED: readonly FindingStatus[] = FINDING_VERDICTS;
+
+/** What the "Before the visit" panel shows: questions to ask, and abnormal results to flag. */
+const BEFORE_VISIT_CATEGORIES: readonly FindingCategory[] = [
+  'pre_visit_question',
+  'abnormal_result_no_followup',
+];
+
+const SEVERITY_ORDER: Readonly<Record<string, number>> = { high: 0, medium: 1, low: 2 };
+
+/**
+ * Shadow findings are shown unlabeled-as-live only in the demo clinic and in
+ * a lab clinic (the evaluator's sandbox, {@link isLabClinicId}): neither
+ * needs the clinical team's sign-off to see its own shadow pilot. Every
+ * other clinic sees only validated (`live`) findings here.
+ */
+function showsShadowFindings(clinicId: ClinicId): boolean {
+  return clinicId === DEMO_CLINIC.id || isLabClinicId(clinicId);
+}
 
 /**
  * The clinical reviewer's inbox endpoints (PRD V3): the shadow batch
@@ -209,6 +234,49 @@ export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
       if (error instanceof NotFoundError) throw notFound(c.var.t, c.var.t.reviewer.findingNotFound);
       throw error;
     }
+  });
+
+  /**
+   * "Before the visit": the patient's next appointment and the open
+   * questions or abnormal results worth raising then. Shadow findings are
+   * included, clearly labeled, only in the demo and lab clinics
+   * ({@link showsShadowFindings}); elsewhere only validated ones.
+   */
+  app.get('/api/inbox/patients/:id/before-visit', async (c) => {
+    const clinicId = c.var.clinicId;
+    const patientId = toPatientId(c.req.param('id'));
+    const patient = await runtime.storage.stores.clinicalRecords.getResource(clinicId, {
+      resourceType: 'Patient',
+      id: patientId,
+    });
+    if (patient === undefined) throw notFound(c.var.t, c.var.t.errors.patientNotFound);
+    const modes: readonly FindingMode[] = showsShadowFindings(clinicId)
+      ? ['shadow', 'live']
+      : ['live'];
+    const pages = await Promise.all(
+      modes.map((mode) =>
+        runtime.reviewer.listFindings(clinicId, {
+          mode,
+          statuses: ['open'],
+          categories: BEFORE_VISIT_CATEGORIES,
+          patientId,
+          limit: 20,
+        }),
+      ),
+    );
+    const findings = pages
+      .flatMap((page) => page.items)
+      .sort(
+        (left, right) =>
+          (SEVERITY_ORDER[left.severity] ?? 9) - (SEVERITY_ORDER[right.severity] ?? 9) ||
+          right.createdAt.getTime() - left.createdAt.getTime(),
+      );
+    const presenter = new FindingPresenter(runtime, clinicId, c.var.t);
+    const [items, nextAppointmentAt] = await Promise.all([
+      Promise.all(findings.map((finding) => presenter.view(finding))),
+      presenter.nextAppointmentAt(patientId),
+    ]);
+    return c.json({ ...(nextAppointmentAt === undefined ? {} : { nextAppointmentAt }), items });
   });
 
   app.get('/api/inbox/finding-flags', async (c) => {
