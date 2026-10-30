@@ -25,6 +25,7 @@ import type {
   DemoConsultationResponse,
   EvaluatorEventView,
   EvaluatorIdentity,
+  ClientEvaluatorEvent,
   EvaluatorsView,
   FeedbackRequest,
   InboxStats,
@@ -222,6 +223,8 @@ export interface ApiClient {
   getEvaluator(): Promise<EvaluatorIdentity>;
   /** "Change" in the header banner: back to the code page. */
   logoutEvaluator(): Promise<void>;
+  /** Records a page view or an agent-page select for the signed-in evaluator. */
+  trackEvaluatorEvent(event: ClientEvaluatorEvent): Promise<void>;
   /** The lab clinic's own "today" (never the shared clock's). */
   getLabClock(): Promise<DemoClock>;
   listLabPatients(): Promise<{ items: LabPatient[] }>;
@@ -249,7 +252,11 @@ export interface ApiClient {
   /** The lab clinic's agent page: the given (or latest) patient's conversation, trace, orders and tasks. */
   getAgent(patientId?: string): Promise<AgentPageView>;
   startAgentStory(body: AgentStoryRequest): Promise<{ patientId: string }>;
-  sendAgentText(patientId: string, text: string): Promise<AgentMessageView>;
+  sendAgentText(
+    patientId: string,
+    text: string,
+    source?: 'suggested' | 'typed',
+  ): Promise<AgentMessageView>;
   /** A voice note (WAV) or a photo, as multipart. */
   sendAgentFile(patientId: string, file: File): Promise<AgentMessageView>;
   sendAgentSample(
@@ -432,6 +439,7 @@ export function createApiClient(config: ApiConfig): ApiClient {
       }
     },
     logoutEvaluator: () => request('POST', '/evaluator/logout'),
+    trackEvaluatorEvent: (event) => request('POST', '/evaluator/events', { body: event }),
     getLabClock: async () => ({
       ...(await request<{ now: string }>('GET', '/demo/lab/clock')),
       fake: true,
@@ -453,9 +461,9 @@ export function createApiClient(config: ApiConfig): ApiClient {
     getAgent: (patientId) =>
       request('GET', '/demo/agent', { query: patientId === undefined ? {} : { patientId } }),
     startAgentStory: (body) => request('POST', '/demo/agent/story', { body }),
-    sendAgentText: (patientId, text) =>
+    sendAgentText: (patientId, text, source) =>
       request('POST', `/demo/agent/patients/${encodeURIComponent(patientId)}/messages`, {
-        body: { text },
+        body: source === undefined ? { text } : { text, source },
       }),
     sendAgentFile: async (patientId, file) => {
       const form = new FormData();

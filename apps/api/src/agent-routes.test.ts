@@ -4,6 +4,7 @@ import {
   createRuntime,
   type EngineRuntime,
   loadRuntimeConfig,
+  readSample,
   Worker,
 } from '@follow-up-engine/runtime';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -73,7 +74,7 @@ interface Page {
 async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
   readonly call: (
     path: string,
-    init?: { method?: string; body?: unknown },
+    init?: { method?: string; body?: unknown; form?: FormData },
   ) => Promise<{ status: number; body: unknown }>;
   readonly page: () => Promise<Page>;
   readonly worker: Worker;
@@ -108,8 +109,18 @@ async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
 
   async function call(
     path: string,
-    init: { method?: string; body?: unknown } = {},
+    init: { method?: string; body?: unknown; form?: FormData } = {},
   ): Promise<{ status: number; body: unknown }> {
+    if (init.form !== undefined) {
+      // Multipart: the runtime sets the boundary; only the auth headers are ours.
+      const auth = { authorization: headers.authorization, cookie: headers.cookie };
+      const response = await app.request(path, { method: 'POST', headers: auth, body: init.form });
+      const text = await response.text();
+      return {
+        status: response.status,
+        body: text === '' ? undefined : (JSON.parse(text) as unknown),
+      };
+    }
     const response = await app.request(path, {
       method: init.method ?? (init.body === undefined ? 'GET' : 'POST'),
       headers,
@@ -218,7 +229,7 @@ describe('the order-to-completion agent (scripted mode)', () => {
   });
 
   it.each(STORAGES)(
-    'shows the story started last after a restart on %s, and logs what the evaluator sends as María',
+    'shows the story started last after a restart on %s, and logs every control of the agent page',
     async (storage) => {
       const { call, page: read, worker, runtime: engine } = await harness(storage);
       // Restarts on a lab clock that has not moved: every story starts at the same time.
@@ -232,29 +243,96 @@ describe('the order-to-completion agent (scripted mode)', () => {
         expect((await read()).conversation?.patientId).toBe(started.at(-1));
       }
       const patientId = started.at(-1) ?? '';
-      await call(`/api/demo/agent/patients/${patientId}/messages`, {
-        body: { text: 'Hi, yes. I already had the test last week.' },
-      });
-      await call(`/api/demo/agent/patients/${patientId}/samples`, {
-        body: { sample: 'lab_report' },
-      });
+      // Every control of the agent page, once.
+      const ok = (response: { status: number }): void => {
+        expect(response.status).toBeLessThan(300);
+      };
+      ok(
+        await call('/api/evaluator/events', {
+          body: { action: 'page_viewed', page: 'agent' },
+        }),
+      );
+      ok(
+        await call('/api/evaluator/events', {
+          body: { action: 'agent_model_switched', mode: 'live' },
+        }),
+      );
+      ok(
+        await call('/api/evaluator/events', {
+          body: { action: 'agent_language_switched', language: 'es' },
+        }),
+      );
+      ok(
+        await call(`/api/demo/agent/patients/${patientId}/messages`, {
+          body: { text: 'Hi, yes. I already had the test last week.', source: 'suggested' },
+        }),
+      );
+      ok(
+        await call(`/api/demo/agent/patients/${patientId}/messages`, {
+          body: { text: 'Can I go on Friday?' },
+        }),
+      );
+      ok(
+        await call(`/api/demo/agent/patients/${patientId}/samples`, {
+          body: { sample: 'lab_report' },
+        }),
+      );
+      const form = new FormData();
+      form.set('file', new File([readSample('voiceEn')], 'note.wav', { type: 'audio/wav' }));
+      ok(await call(`/api/demo/agent/patients/${patientId}/messages`, { form }));
+      await worker.runJobs();
       const page = await read();
+      const outbound = page.messages.find((message) => message.direction === 'outbound');
+      ok(
+        await call(`/api/demo/agent/messages/${outbound?.id ?? ''}/status`, {
+          body: { status: 'read' },
+        }),
+      );
+      ok(await call(`/api/demo/agent/patients/${patientId}/phone-fixed`, { method: 'POST' }));
+      ok(await call('/api/demo/agent/clock', { body: { days: 1 } }));
+      // Not a tracked page: refused, nothing logged.
+      expect(
+        (await call('/api/evaluator/events', { body: { action: 'page_viewed', page: 'admin' } }))
+          .status,
+      ).toBe(422);
+
       const sent = page.messages.filter((message) => message.direction === 'inbound');
-      const events = await engine.storage.evaluatorEvents.list({
-        evaluatorEmail: EMAIL,
-        limit: 50,
-      });
-      const messages = events.items.filter((event) => event.action === 'agent_message_sent');
-      expect(messages.map((event) => [event.entityId, event.patientId, event.payload])).toEqual(
-        expect.arrayContaining([
-          [sent[0]?.id, patientId, { kind: 'text', source: 'typed' }],
-          [sent[1]?.id, patientId, { kind: 'image', source: 'sample', sample: 'lab_report' }],
-        ]),
-      );
-      expect(messages).toHaveLength(2);
-      expect(events.items.filter((event) => event.action === 'lab_patient_created')).toHaveLength(
-        4,
-      );
+      const events = (
+        await engine.storage.evaluatorEvents.list({ evaluatorEmail: EMAIL, limit: 100 })
+      ).items;
+      const of = (action: string) => events.filter((event) => event.action === action);
+      expect(of('agent_story_started').map((event) => event.payload?.['restart'])).toEqual([
+        true,
+        true,
+        true,
+        false,
+      ]);
+      expect(of('page_viewed').map((event) => event.payload)).toEqual([{ page: 'agent' }]);
+      expect(of('agent_model_switched').map((event) => event.payload)).toEqual([{ mode: 'live' }]);
+      expect(of('agent_language_switched').map((event) => event.payload)).toEqual([
+        { language: 'es' },
+      ]);
+      expect(of('agent_reply_suggested').map((event) => [event.entityId, event.payload])).toEqual([
+        [sent[0]?.id, { kind: 'text', source: 'suggested' }],
+      ]);
+      expect(of('agent_message_typed').map((event) => [event.entityId, event.payload])).toEqual([
+        [sent[1]?.id, { kind: 'text', source: 'typed' }],
+      ]);
+      expect(of('agent_sample_sent').map((event) => event.payload)).toEqual([
+        { kind: 'image', source: 'sample', sample: 'lab_report' },
+      ]);
+      expect(of('agent_media_uploaded').map((event) => event.payload)).toEqual([
+        { kind: 'voice', source: 'upload' },
+      ]);
+      expect(
+        of('agent_delivery_status_set').map((event) => [event.entityId, event.payload]),
+      ).toEqual([[outbound?.id, { status: 'read' }]]);
+      expect(of('agent_phone_fixed').map((event) => event.patientId)).toEqual([patientId]);
+      expect(of('agent_clock_jumped').map((event) => event.payload?.['days'])).toEqual([1]);
+      // Every event names the patient it was about (the story's Maria).
+      for (const action of ['agent_reply_suggested', 'agent_message_typed', 'agent_sample_sent']) {
+        expect(of(action).every((event) => event.patientId === patientId)).toBe(true);
+      }
     },
   );
 

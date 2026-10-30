@@ -1813,6 +1813,17 @@ const EVALUATOR_ACTION_LABELS = {
   engine_test_step: 'Loaded an engine-test step',
   engine_test_verdict: 'Gave a verdict on an engine test',
   agent_message_sent: 'Wrote to the agent as the patient',
+  page_viewed: 'Opened a page',
+  agent_story_started: 'Started or restarted the agent story',
+  agent_model_switched: 'Switched the agent model',
+  agent_language_switched: 'Switched the patient’s language',
+  agent_reply_suggested: 'Sent a suggested reply as the patient',
+  agent_message_typed: 'Typed a message as the patient',
+  agent_media_uploaded: 'Uploaded a voice note or photo as the patient',
+  agent_sample_sent: 'Sent a sample voice note or photo as the patient',
+  agent_clock_jumped: 'Moved the agent’s clinic clock',
+  agent_delivery_status_set: 'Changed a message’s delivery status',
+  agent_phone_fixed: 'Marked the phone as updated',
 } as Record<string, string>;
 
 const lab = {

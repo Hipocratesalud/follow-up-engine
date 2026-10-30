@@ -553,5 +553,7 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
       '*/api/evaluator/me',
       route(() => ({})),
     ),
+    // Page views and agent selects for the evaluator log: nothing to show.
+    http.post('*/api/evaluator/events', () => new HttpResponse(null, { status: 204 })),
   ];
 }

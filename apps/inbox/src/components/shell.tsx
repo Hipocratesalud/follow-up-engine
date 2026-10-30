@@ -26,6 +26,7 @@ import {
 import { cx } from '../lib/cx.ts';
 import { useT } from '../i18n/index.ts';
 import { formatDate, formatShortDate } from '../lib/format.ts';
+import { usePageViewTracking } from '../api/evaluator-tracking.ts';
 import { EvaluatorBanner } from './evaluator-banner.tsx';
 import { LanguageSwitch } from './language-switch.tsx';
 import { ThemeToggle } from './theme.tsx';
@@ -151,6 +152,7 @@ export function Shell(): ReactNode {
   const clock = useDemoClock();
   const evaluator = useEvaluator();
   const { pathname } = useLocation();
+  usePageViewTracking();
   // The agent runs in the evaluator's sandbox clinic, on its own clock: show that date there.
   const onAgent = pathname.startsWith('/agent');
   const labClock = useLabClock({ enabled: onAgent && Boolean(clock.data) });

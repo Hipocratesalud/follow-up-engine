@@ -1,6 +1,13 @@
-import type { EngineRuntime, EvaluatorEvent } from '@follow-up-engine/runtime';
-import { readQuery } from './errors.ts';
-import { EvaluatorEventsQuerySchema } from './evaluator-schemas.ts';
+import { clinicId as toClinicId, patientId as toPatientId } from '@follow-up-engine/core';
+import {
+  DEMO_CLINIC,
+  type EngineRuntime,
+  ensureLabClinicAndClock,
+  type EvaluatorEvent,
+} from '@follow-up-engine/runtime';
+import { readJson, readQuery } from './errors.ts';
+import { trackEvaluatorEvent } from './evaluator-tracking.ts';
+import { ClientEvaluatorEventSchema, EvaluatorEventsQuerySchema } from './evaluator-schemas.ts';
 import type { App } from './context.ts';
 
 /** The whole log, for the CSV export (an internal eval tool's modest volume: one page is enough). */
@@ -105,5 +112,41 @@ export function registerEvaluatorRoutes(app: App, runtime: EngineRuntime): void 
       total: page.total,
       ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
     });
+  });
+}
+
+/**
+ * `POST /api/evaluator/events`: what only the browser sees (a page opened,
+ * the agent page's model and language selects), reported by the inbox for
+ * the evaluator of the request's cookie. Mounted with the access gate:
+ * without an evaluator identity there is nothing to record.
+ */
+export function registerClientEvaluatorEvents(app: App, runtime: EngineRuntime): void {
+  app.post('/api/evaluator/events', async (c) => {
+    const evaluatorEmail = c.var.evaluatorEmail;
+    if (evaluatorEmail === undefined) return c.body(null, 204);
+    const body = await readJson(c, ClientEvaluatorEventSchema);
+    if (body.action === 'page_viewed') {
+      await trackEvaluatorEvent(runtime, {
+        clinicId: toClinicId(DEMO_CLINIC.id),
+        evaluatorEmail,
+        action: 'page_viewed',
+        entityType: 'page',
+        entityId: body.page,
+        ...(body.patientId === undefined ? {} : { patientId: toPatientId(body.patientId) }),
+        payload: { page: body.page },
+      });
+      return c.body(null, 204);
+    }
+    // The agent page's selects belong to the evaluator's own lab clinic, like the story.
+    const { clinic } = await ensureLabClinicAndClock(runtime, runtime.labClocks, evaluatorEmail);
+    await trackEvaluatorEvent(runtime, {
+      clinicId: clinic.id,
+      evaluatorEmail,
+      action: body.action,
+      payload:
+        body.action === 'agent_model_switched' ? { mode: body.mode } : { language: body.language },
+    });
+    return c.body(null, 204);
   });
 }

@@ -586,6 +586,26 @@ export interface ApiErrorBody {
 // The evaluator lab (docs/deploy.md#hosted-demo) --------------------------
 
 /** `GET /api/evaluator/me`: who is evaluating, from the signed cookie. Empty body outside the hosted demo. */
+/** Pages whose views the evaluator log records (`page_viewed`). */
+export type TrackedPage =
+  | 'inbox'
+  | 'lab'
+  | 'agent'
+  | 'value'
+  | 'engine_tests'
+  | 'clinical_review'
+  | 'patient'
+  | 'metrics'
+  | 'demo'
+  | 'evaluators'
+  | 'recovery';
+
+/** `POST /api/evaluator/events`: what only the browser sees, for the evaluator log. */
+export type ClientEvaluatorEvent =
+  | { action: 'page_viewed'; page: TrackedPage; patientId?: string }
+  | { action: 'agent_model_switched'; mode: 'scripted' | 'live' }
+  | { action: 'agent_language_switched'; language: 'en' | 'es' };
+
 export interface EvaluatorIdentity {
   email?: string;
 }

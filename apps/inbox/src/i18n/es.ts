@@ -1794,6 +1794,17 @@ const EVALUATOR_ACTION_LABELS: Record<string, string> = {
   engine_test_step: 'Cargó un paso de una prueba del motor',
   engine_test_verdict: 'Dio un veredicto sobre una prueba del motor',
   agent_message_sent: 'Le escribió al agente como paciente',
+  page_viewed: 'Abrió una página',
+  agent_story_started: 'Inició o reinició la historia del agente',
+  agent_model_switched: 'Cambió el modelo del agente',
+  agent_language_switched: 'Cambió el idioma de la paciente',
+  agent_reply_suggested: 'Envió una respuesta sugerida como paciente',
+  agent_message_typed: 'Escribió un mensaje como paciente',
+  agent_media_uploaded: 'Subió una nota de voz o una foto como paciente',
+  agent_sample_sent: 'Envió una nota de voz o foto de ejemplo como paciente',
+  agent_clock_jumped: 'Movió el reloj de la clínica del agente',
+  agent_delivery_status_set: 'Cambió el estado de entrega de un mensaje',
+  agent_phone_fixed: 'Marcó el teléfono como actualizado',
 };
 
 const lab: Messages['lab'] = {
