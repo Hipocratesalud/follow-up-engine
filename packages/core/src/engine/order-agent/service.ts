@@ -426,7 +426,11 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       deps.store.listMessages(clinicId, patientId),
       deps.store.listAppointments(clinicId, patientId),
     ]);
-    const orders = chasing(orderViews(conversation, expectations, appointments, input.now));
+    // Still to do: being chased, or left open after an unreachable ladder.
+    const orders = orderViews(conversation, expectations, appointments, input.now).filter(
+      (order) =>
+        order.stage === 'open' || order.stage === 'contacted' || order.stage === 'unreachable',
+    );
     const outbound = messages.filter((message) => message.direction === 'outbound');
     const last = outbound.at(-1);
     const task: StaffTask = {
