@@ -183,6 +183,8 @@ export const DISCARD_REASONS = [
   'category_disabled',
   'category_reserved',
   'patient_directed',
+  /** The model left out the English or Spanish words of a finding, even when asked again. */
+  'missing_translation',
   'duplicate',
   'merged',
 ] as const;

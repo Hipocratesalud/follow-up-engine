@@ -1,5 +1,10 @@
 import type { z } from 'zod';
-import type { FindingTexts, ReviewLocale, ReviewStep } from '../domain/clinical-finding.ts';
+import type {
+  DiscardReason,
+  FindingTexts,
+  ReviewLocale,
+  ReviewStep,
+} from '../domain/clinical-finding.ts';
 import type { ClinicId } from '../domain/ids.ts';
 
 /**
@@ -180,6 +185,8 @@ export interface ReviewAgentResult {
   /** `<provider>:<model>` of the calls. */
   readonly modelId: string;
   readonly promptVersion: string;
+  /** Findings the agent itself dropped before submitting them (`missing_translation`). */
+  readonly discarded?: Readonly<Partial<Record<DiscardReason, number>>>;
 }
 
 /**

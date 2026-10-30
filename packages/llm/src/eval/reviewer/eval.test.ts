@@ -84,6 +84,18 @@ describe('the eval citation check', () => {
               { docId: 'R2', quote: 'Diastolic blood pressure: 82 mmHg' },
             ],
             signalIds: ['S1'],
+            texts: {
+              en: {
+                summary: 'Blood pressure rising',
+                rationale: 'Systolic and diastolic rising.',
+                suggestion: 'Consider reviewing the treatment.',
+              },
+              es: {
+                summary: 'Presión arterial en ascenso',
+                rationale: 'Sistólica y diastólica en ascenso.',
+                suggestion: 'Considerar revisar el tratamiento.',
+              },
+            },
           },
         ],
       }),

@@ -100,9 +100,8 @@ export const ProposedFindingSchema = z
     texts: z
       .object({ en: FindingTextSchema, es: FindingTextSchema })
       .strict()
-      .optional()
       .describe(
-        'The same summary, rationale and suggestion in English (en) and in neutral Spanish with "tú" (es). Quotes are never translated',
+        'Required: the same summary, rationale and suggestion in English (en) and in neutral Spanish with "tú" (es). Quotes are never translated',
       ),
     citations: z
       .array(
@@ -119,8 +118,31 @@ export const ProposedFindingSchema = z
   })
   .strict();
 
+/** What the model is asked for: every finding with `texts.en` and `texts.es`. */
 export const SubmitFindingsArgs = z
   .object({ findings: z.array(ProposedFindingSchema).max(12) })
+  .strict();
+
+/**
+ * What the agent loop reads a submission with: the same, with `texts` (or
+ * one of its languages) possibly missing, so a submission without them is
+ * refused once with a precise request instead of a generic schema error,
+ * and its untranslated findings are dropped (`missing_translation`) if the
+ * model submits them again.
+ */
+export const SubmitFindingsDraftArgs = z
+  .object({
+    findings: z
+      .array(
+        ProposedFindingSchema.extend({
+          texts: z
+            .object({ en: FindingTextSchema.optional(), es: FindingTextSchema.optional() })
+            .strict()
+            .optional(),
+        }),
+      )
+      .max(12),
+  })
   .strict();
 
 export const REVIEW_TOOL_DEFINITIONS: readonly ReviewToolDefinition[] = [

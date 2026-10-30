@@ -884,6 +884,7 @@ const review: Messages['review'] = {
     invalid_arguments: 'Argumentos inválidos: se le devolvió el error',
     unknown_tool: 'Herramienta inexistente: se le devolvió el error',
     tool_budget_exhausted: 'Sin llamadas disponibles: se le pidió entregar',
+    missing_translation: 'Hallazgos sin inglés y español: se le pidió entregarlos de nuevo',
   },
   summaries: {
     points: (n) => `${n} valores`,
@@ -914,6 +915,7 @@ const review: Messages['review'] = {
     category_disabled: 'categoría desactivada',
     category_reserved: 'categoría reservada',
     patient_directed: 'dirigido al paciente',
+    missing_translation: 'sin inglés y español, aun pidiéndolo de nuevo',
     duplicate: 'repetido (últimos 90 días)',
     merged: 'fusionado con otro',
   },

@@ -87,7 +87,7 @@ function textOf(item: FindingText): FindingText {
  * (the dossier's handles and the detectors' order do not depend on the
  * language; a twin of another rule is never taken).
  */
-function withTexts(
+export function withLocaleTexts(
   snapshot: PatientRecordSnapshot,
   locale: ReviewLocale,
   signals: readonly Signal[],
@@ -162,7 +162,7 @@ export async function reviewRecord(
       stopReason: 'no_enabled_category',
     };
   }
-  const signals = withTexts(
+  const signals = withLocaleTexts(
     snapshot,
     locale,
     detectSignals(dossier, enabledForPatient),
@@ -203,6 +203,12 @@ export async function reviewRecord(
   const count = (reason: DiscardReason): void => {
     discarded[reason] = (discarded[reason] ?? 0) + 1;
   };
+  // What the agent already dropped (a finding without both languages, asked twice).
+  if (!degraded) {
+    for (const [reason, count] of Object.entries(agent?.discarded ?? {})) {
+      discarded[reason as DiscardReason] = (discarded[reason as DiscardReason] ?? 0) + count;
+    }
+  }
   const knownSignals = new Set(signals.map((signal) => signal.id));
   const signalRules = new Map(signals.map((signal) => [signal.id, signal.rule]));
   const findings: ReviewedFinding[] = [];

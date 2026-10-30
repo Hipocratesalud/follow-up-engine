@@ -898,6 +898,7 @@ const review = {
     invalid_arguments: 'Invalid arguments: the error was sent back to it',
     unknown_tool: 'Unknown tool: the error was sent back to it',
     tool_budget_exhausted: 'No calls left: it was asked to submit',
+    missing_translation: 'Findings without English and Spanish: it was asked to resubmit',
   } as Record<string, string>,
   summaries: {
     points: (n: string): string => `${n} values`,
@@ -929,6 +930,7 @@ const review = {
     category_disabled: 'category turned off',
     category_reserved: 'reserved category',
     patient_directed: 'addressed to the patient',
+    missing_translation: 'without English and Spanish, even when asked again',
     duplicate: 'repeated (last 90 days)',
     merged: 'merged with another',
   } as Record<string, string>,
