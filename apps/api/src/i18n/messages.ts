@@ -423,6 +423,8 @@ export interface AccessGateMessages {
   readonly emailLabel: string;
   readonly codeLabel: string;
   readonly submit: string;
+  /** The EN / ES switch's accessible name. */
+  readonly languageLabel: string;
   readonly wrongCode: string;
   readonly invalidEmail: string;
   readonly tooManyAttempts: string;

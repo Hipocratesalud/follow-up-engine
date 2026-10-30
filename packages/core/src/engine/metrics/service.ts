@@ -41,7 +41,12 @@ export function metricsPeriod(
  * clinic) and computes them purely ({@link computeClinicMetrics}).
  */
 export async function clinicMetrics(
-  deps: { readonly unitOfWork: UnitOfWork; readonly clock: Clock },
+  deps: {
+    readonly unitOfWork: UnitOfWork;
+    readonly clock: Clock;
+    /** Test and QA accounts, left out of every number ({@link computeClinicMetrics}). */
+    readonly isTestActor?: (actorId: string) => boolean;
+  },
   clinicId: ClinicId,
   requested: { readonly from?: Date; readonly to?: Date } = {},
 ): Promise<ClinicMetrics> {
@@ -78,6 +83,7 @@ export async function clinicMetrics(
       planItemReviews,
       llmUsage,
       reviewRuns,
+      ...(deps.isTestActor === undefined ? {} : { isTestActor: deps.isTestActor }),
     });
   });
 }

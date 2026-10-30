@@ -1194,6 +1194,13 @@ const metrics: MetricsCopy = {
     tasks: {
       note_extraction: 'Reading notes',
       clinical_review: 'Clinical review',
+      expectation_adjudication: 'Adjudicating ambiguous plan items',
+      order_agent: 'Order agent',
+      order_agent_scripted: 'Order agent (scripted)',
+      lab_photo_reading: 'Reading lab photos',
+      lab_photo_reading_scripted: 'Reading lab photos (scripted)',
+      voice_transcription: 'Transcribing voice notes',
+      voice_transcription_scripted: 'Transcribing voice notes (scripted)',
     },
     calls: (count) => `${String(count)} ${count === 1 ? 'call' : 'calls'}`,
     tokens: (count) => `${count} tokens`,
@@ -1859,6 +1866,17 @@ const EVALUATOR_ACTION_LABELS = {
   lab_rule_enabled: 'Enabled a clinic rule',
   lab_rule_discarded: 'Discarded or switched off a clinic rule',
   lab_rule_samples_added: 'Added the rule sample patients',
+  page_viewed: 'Opened a page',
+  agent_story_started: 'Started or restarted the agent story',
+  agent_model_switched: 'Switched the agent model',
+  agent_language_switched: 'Switched the patient’s language',
+  agent_reply_suggested: 'Sent a suggested reply as the patient',
+  agent_message_typed: 'Typed a message as the patient',
+  agent_media_uploaded: 'Uploaded a voice note or photo as the patient',
+  agent_sample_sent: 'Sent a sample voice note or photo as the patient',
+  agent_clock_jumped: 'Moved the agent’s clinic clock',
+  agent_delivery_status_set: 'Changed a message’s delivery status',
+  agent_phone_fixed: 'Marked the phone as updated',
 } as Record<string, string>;
 
 const lab = {
@@ -1981,7 +1999,7 @@ const evaluators = {
   intro: 'Everyone who has opened the hosted demo, and what they have done with it.',
   loading: 'Loading evaluators',
   error: 'We could not load the evaluators',
-  empty: 'No evaluator has logged in yet.',
+  empty: 'No physician has logged in yet (test and QA accounts are listed apart).',
   email: 'Evaluator',
   lastSeen: 'Last seen',
   firstSeen: 'First seen',
@@ -1993,6 +2011,12 @@ const evaluators = {
   filterByEvaluator: 'Filter by evaluator',
   allEvaluators: 'All evaluators',
   downloadCsv: 'Download CSV',
+  testAccountsTitle: 'Test and QA accounts',
+  testAccountsHint:
+    'Kept in the activity log and the CSV (is_test_evaluator), left out of this summary and of every number in Metrics and the inbox.',
+  testAccountBadge: 'Test',
+  testAccountActions: (count: number): string =>
+    count === 1 ? '1 action' : `${String(count)} actions`,
   action: EVALUATOR_ACTION_LABELS,
 };
 

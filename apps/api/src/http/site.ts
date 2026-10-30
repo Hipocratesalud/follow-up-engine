@@ -5,7 +5,7 @@ import { clinicId as toClinicId } from '@follow-up-engine/core';
 import { DEMO_CLINIC, type EngineRuntime } from '@follow-up-engine/runtime';
 import type { Context, MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
-import { type ApiLocale, messagesFor } from '../i18n/index.ts';
+import { type ApiLocale, messagesFor, resolveApiLocale } from '../i18n/index.ts';
 import type { App, AppEnv } from './context.ts';
 import { errorResponse } from './errors.ts';
 import { HttpError } from './errors.ts';
@@ -171,6 +171,10 @@ function accessPage(
 ): string {
   const t = messagesFor(locale).accessGate;
   const { error, email } = options;
+  const switchLink = (target: ApiLocale, label: string): string =>
+    `<a href="${ACCESS_PATH}?lang=${target}&amp;next=${escapeHtml(encodeURIComponent(next))}" hreflang="${target}" lang="${target}"${
+      target === locale ? ' aria-current="true"' : ''
+    }>${label}</a>`;
   return `<!doctype html>
 <html lang="${locale}">
 <head>
@@ -192,14 +196,19 @@ input{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);bor
 input:focus{outline:2px solid var(--accent);outline-offset:1px}
 button{margin-top:4px;width:100%;font:inherit;font-weight:600;padding:10px 12px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
 .error{color:var(--error);margin:-8px 0 16px}
+nav{display:flex;justify-content:flex-end;gap:4px;margin:-12px -8px 8px 0;font-size:13px}
+nav a{color:var(--muted);text-decoration:none;padding:2px 8px;border-radius:6px}
+nav a[aria-current]{color:var(--fg);font-weight:600;background:var(--bg)}
 </style>
 </head>
 <body>
 <main>
+<nav aria-label="${escapeHtml(t.languageLabel)}">${switchLink('en', 'EN')}${switchLink('es', 'ES')}</nav>
 <h1>${escapeHtml(t.heading)}</h1>
 <p>${escapeHtml(t.intro)}</p>
 <form method="post" action="${ACCESS_PATH}">
 <input type="hidden" name="next" value="${escapeHtml(next)}">
+<input type="hidden" name="lang" value="${locale}">
 <label for="email">${escapeHtml(t.emailLabel)}</label>
 <input id="email" name="email" type="email" autocomplete="email" value="${escapeHtml(email ?? '')}" autofocus required>
 <label for="code">${escapeHtml(t.codeLabel)}</label>
@@ -210,6 +219,17 @@ ${error === undefined ? '' : `<p class="error" role="alert">${escapeHtml(error)}
 </main>
 </body>
 </html>`;
+}
+
+/**
+ * The code page's language, for physicians who read Spanish: the EN / ES
+ * switch (`lang`, kept through the form), else the browser's
+ * `Accept-Language`, else English. Independent of `DEFAULT_UI_LOCALE`
+ * (the inbox's default), so one deployment greets each visitor in theirs.
+ */
+export function accessGateLocale(chosen: unknown, acceptLanguage: string | undefined): ApiLocale {
+  if (chosen === 'en' || chosen === 'es') return chosen;
+  return resolveApiLocale(acceptLanguage);
 }
 
 function pageResponse(c: Context<AppEnv>, html: string, status: 200 | 401 | 422 | 429): Response {
@@ -232,7 +252,6 @@ export function registerAccessGate(
   runtime: EngineRuntime,
   code: string,
   sessionSecret: string,
-  locale: ApiLocale,
 ): void {
   const token = accessToken(code);
   const attempts = new RateLimiter();
@@ -243,6 +262,8 @@ export function registerAccessGate(
     const existing = getCookie(c, EVALUATOR_COOKIE);
     const email =
       existing === undefined ? undefined : verifyEvaluatorToken(existing, sessionSecret);
+    const locale = accessGateLocale(c.req.query('lang'), c.req.header('accept-language'));
+    c.header('vary', 'Accept-Language', { append: true });
     return pageResponse(
       c,
       accessPage(locale, safeNextPath(c.req.query('next')), email === undefined ? {} : { email }),
@@ -254,6 +275,7 @@ export function registerAccessGate(
     const given = typeof form['code'] === 'string' ? form['code'].trim() : '';
     const givenEmail = typeof form['email'] === 'string' ? form['email'] : '';
     const next = safeNextPath(typeof form['next'] === 'string' ? form['next'] : undefined);
+    const locale = accessGateLocale(form['lang'], c.req.header('accept-language'));
     const t = messagesFor(locale).accessGate;
     if (!sameSecret(given, code)) {
       const attempt = attempts.take(clientOf(c), ACCESS_ATTEMPTS_PER_MINUTE);

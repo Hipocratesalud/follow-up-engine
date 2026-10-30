@@ -10,7 +10,7 @@ import { registerAgentRoutes } from './agent-routes.ts';
 import type { App, AppEnv } from './context.ts';
 import { registerDemoRoutes } from './demo-routes.ts';
 import { errorResponse, HttpError, toHttpError } from './errors.ts';
-import { registerEvaluatorRoutes } from './evaluator-routes.ts';
+import { registerClientEvaluatorEvents, registerEvaluatorRoutes } from './evaluator-routes.ts';
 import { fhirErrorResponse, registerFhirRoutes } from './fhir-routes.ts';
 import { registerInboxRoutes } from './inbox-routes.ts';
 import { registerLabRecordRoutes } from './lab-records-routes.ts';
@@ -316,9 +316,11 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   if (site?.accessCode !== undefined) {
     const sessionSecret = site.sessionSecret ?? deriveSessionSecret(site.accessCode);
     app.use('*', accessGate(site.accessCode, sessionSecret));
-    registerAccessGate(app, runtime, site.accessCode, sessionSecret, site.defaultLocale);
+    registerAccessGate(app, runtime, site.accessCode, sessionSecret);
     // "Evaluating as <email>" in apps/inbox's header banner.
     app.get('/api/evaluator/me', (c) => c.json({ email: c.var.evaluatorEmail }));
+    // Page views and the agent page's selects, reported by the inbox.
+    registerClientEvaluatorEvents(app, runtime);
     // "Change" in the same banner: re-enter the code and email.
     app.post('/api/evaluator/logout', (c) => {
       clearEvaluatorSession(c);

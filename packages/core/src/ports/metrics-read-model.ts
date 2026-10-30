@@ -40,7 +40,8 @@ export interface ReviewRunTotals {
  * truth: it also covers items reviewed before they became a case, which the
  * case trail never sees.
  */
-export type PlanItemReviewEntry = Pick<PlanItemReview, 'type' | 'at'>;
+/** `userId` lets the metrics leave out test and QA accounts. */
+export type PlanItemReviewEntry = Pick<PlanItemReview, 'type' | 'at' | 'userId'>;
 
 /**
  * Read side of the clinic metrics (HIP-141): the few queries the pure

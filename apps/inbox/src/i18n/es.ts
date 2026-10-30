@@ -1175,6 +1175,13 @@ const metrics: MetricsCopy = {
     tasks: {
       note_extraction: 'Lectura de notas',
       clinical_review: 'Revisión clínica',
+      expectation_adjudication: 'Adjudicación de ítems ambiguos del plan',
+      order_agent: 'Agente de órdenes',
+      order_agent_scripted: 'Agente de órdenes (guion)',
+      lab_photo_reading: 'Lectura de fotos de exámenes',
+      lab_photo_reading_scripted: 'Lectura de fotos de exámenes (guion)',
+      voice_transcription: 'Transcripción de notas de voz',
+      voice_transcription_scripted: 'Transcripción de notas de voz (guion)',
     },
     calls: (count) => `${String(count)} ${count === 1 ? 'llamada' : 'llamadas'}`,
     tokens: (count) => `${count} tokens`,
@@ -1836,6 +1843,17 @@ const EVALUATOR_ACTION_LABELS: Record<string, string> = {
   lab_rule_enabled: 'Activó una regla del consultorio',
   lab_rule_discarded: 'Descartó o desactivó una regla del consultorio',
   lab_rule_samples_added: 'Agregó los pacientes de ejemplo de reglas',
+  page_viewed: 'Abrió una página',
+  agent_story_started: 'Inició o reinició la historia del agente',
+  agent_model_switched: 'Cambió el modelo del agente',
+  agent_language_switched: 'Cambió el idioma de la paciente',
+  agent_reply_suggested: 'Envió una respuesta sugerida como paciente',
+  agent_message_typed: 'Escribió un mensaje como paciente',
+  agent_media_uploaded: 'Subió una nota de voz o una foto como paciente',
+  agent_sample_sent: 'Envió una nota de voz o foto de ejemplo como paciente',
+  agent_clock_jumped: 'Movió el reloj de la clínica del agente',
+  agent_delivery_status_set: 'Cambió el estado de entrega de un mensaje',
+  agent_phone_fixed: 'Marcó el teléfono como actualizado',
 };
 
 const lab: Messages['lab'] = {
@@ -1957,7 +1975,7 @@ const evaluators: Messages['evaluators'] = {
   intro: 'Todos los que han abierto la demo alojada, y qué han hecho con ella.',
   loading: 'Cargando evaluadores',
   error: 'No pudimos cargar los evaluadores',
-  empty: 'Todavía ningún evaluador ha iniciado sesión.',
+  empty: 'Todavía ningún médico ha iniciado sesión (las cuentas de prueba y QA se listan aparte).',
   email: 'Evaluador',
   lastSeen: 'Última vez visto',
   firstSeen: 'Primera vez visto',
@@ -1969,6 +1987,12 @@ const evaluators: Messages['evaluators'] = {
   filterByEvaluator: 'Filtrar por evaluador',
   allEvaluators: 'Todos los evaluadores',
   downloadCsv: 'Descargar CSV',
+  testAccountsTitle: 'Cuentas de prueba y QA',
+  testAccountsHint:
+    'Se guardan en el registro de actividad y en el CSV (is_test_evaluator), fuera de este resumen y de todas las cifras de Métricas y de la bandeja.',
+  testAccountBadge: 'Prueba',
+  testAccountActions: (count: number): string =>
+    count === 1 ? '1 acción' : `${String(count)} acciones`,
   action: EVALUATOR_ACTION_LABELS,
 };
 

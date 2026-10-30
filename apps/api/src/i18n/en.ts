@@ -818,6 +818,7 @@ export const EN = {
     emailLabel: 'Your email',
     codeLabel: 'Access code',
     submit: 'Enter',
+    languageLabel: 'Language',
     wrongCode: 'That code is not valid. Check it and try again.',
     invalidEmail: 'Enter a valid email address.',
     tooManyAttempts: 'Too many attempts. Wait a minute and try again.',

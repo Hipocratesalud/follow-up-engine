@@ -833,6 +833,7 @@ export const ES = {
     emailLabel: 'Tu correo',
     codeLabel: 'Código de acceso',
     submit: 'Entrar',
+    languageLabel: 'Idioma',
     wrongCode: 'Ese código no es válido. Revísalo e inténtalo de nuevo.',
     invalidEmail: 'Escribe un correo válido.',
     tooManyAttempts: 'Demasiados intentos. Espera un minuto e inténtalo de nuevo.',

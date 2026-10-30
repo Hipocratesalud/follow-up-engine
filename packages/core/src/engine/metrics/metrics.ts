@@ -178,6 +178,12 @@ export interface MetricsInput {
   readonly planItemReviews: readonly PlanItemReviewEntry[];
   readonly llmUsage: readonly LlmTaskUsage[];
   readonly reviewRuns: ReviewRunTotals;
+  /**
+   * Test and QA accounts (the hosted demo's example.com evaluators): their
+   * verdicts, plan-item reviews and case actions are left out, and a case
+   * they closed counts as still open. Without it, every actor counts.
+   */
+  readonly isTestActor?: (actorId: string) => boolean;
 }
 
 const HOUR_MS = 3_600_000;
@@ -538,20 +544,42 @@ function cohort(cases: readonly FollowUpCase[]): CaseCohortMetrics {
 }
 
 /**
+ * A case a test or QA account resolved or dismissed, as the clinic's own
+ * team left it: still open (only the closure is undone; nothing is stored).
+ */
+function withoutTestClosure(
+  followUpCase: FollowUpCase,
+  isTest: (actorId: string | undefined) => boolean,
+): FollowUpCase {
+  const { resolution, ...rest } = followUpCase;
+  if (resolution === undefined || !isTest(resolution.resolvedBy)) return followUpCase;
+  return { ...rest, status: 'open' };
+}
+
+/**
  * The clinic's metrics for a period. Pure: the same input always gives the
  * same output (no clock, no I/O). Cases outside the period and events after
  * `asOf` are ignored, so a caller may pass a superset.
  */
 export function computeClinicMetrics(input: MetricsInput): ClinicMetrics {
-  const cases = input.cases.filter(
-    (followUpCase) =>
-      followUpCase.clinicId === input.clinicId &&
-      inPeriod(caseOpenedAt(followUpCase), input.period),
-  );
+  const isTest = (actorId: string | undefined): boolean =>
+    actorId !== undefined && input.isTestActor?.(actorId) === true;
+  const cases = input.cases
+    .filter(
+      (followUpCase) =>
+        followUpCase.clinicId === input.clinicId &&
+        inPeriod(caseOpenedAt(followUpCase), input.period),
+    )
+    .map((followUpCase) => withoutTestClosure(followUpCase, isTest));
   const ids = new Set(cases.map((followUpCase) => followUpCase.id));
   const asOf = input.asOf.getTime();
   const byCase = eventsByCase(
-    input.events.filter((event) => ids.has(event.caseId) && event.at.getTime() <= asOf),
+    input.events.filter(
+      (event) =>
+        ids.has(event.caseId) &&
+        event.at.getTime() <= asOf &&
+        !(event.actor.type === 'user' && isTest(event.actor.id)),
+    ),
   );
   return {
     clinicId: input.clinicId,
@@ -562,14 +590,19 @@ export function computeClinicMetrics(input: MetricsInput): ClinicMetrics {
     timeToFirstAction: timeToFirstAction(cases, byCase),
     feedback: feedbackMetrics(
       input.feedback.filter(
-        (verdict) => ids.has(verdict.caseId) && verdict.createdAt.getTime() <= asOf,
+        (verdict) =>
+          ids.has(verdict.caseId) &&
+          verdict.createdAt.getTime() <= asOf &&
+          !isTest(verdict.authorId),
       ),
     ),
     dismissals: dismissalMetrics(cases),
     extractionReviews: {
       conditions: conditionReviews(input.conditions, input.period),
       planItems: planItemReviews(
-        input.planItemReviews.filter((review) => inPeriod(review.at, input.period)),
+        input.planItemReviews.filter(
+          (review) => inPeriod(review.at, input.period) && !isTest(review.userId),
+        ),
       ),
     },
     aiCost: aiCost({ ...input, cases }),

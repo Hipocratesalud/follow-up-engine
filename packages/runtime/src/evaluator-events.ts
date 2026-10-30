@@ -33,14 +33,43 @@ export const EVALUATOR_ACTIONS = [
   'engine_test_verdict',
   /** One step of a guided engine test, loaded (or saved/confirmed) by the physician. */
   'engine_test_step',
-  /** A message the evaluator sent as the agent's patient (text, an upload or a sample). */
+  /** Before the per-control actions below (2026-10-30): any message sent as the agent's patient. */
   'agent_message_sent',
   /** The rule-authoring agent drafted a rule in the lab (docs/agent/rule-authoring.md). */
   'lab_rule_drafted',
   'lab_rule_enabled',
   'lab_rule_discarded',
   'lab_rule_samples_added',
+  /** A page of the inbox opened (payload `page`; a patient page carries its patient id). */
+  'page_viewed',
+  /** The agent page: a story started, or restarted over an earlier one (payload `restart`). */
+  'agent_story_started',
+  /** The agent page's model select (scripted or live). */
+  'agent_model_switched',
+  /** The agent page's "Maria writes in" select. */
+  'agent_language_switched',
+  /** A suggested reply sent as the patient. */
+  'agent_reply_suggested',
+  /** A message the evaluator typed as the patient. */
+  'agent_message_typed',
+  /** A voice note or photo file the evaluator uploaded as the patient. */
+  'agent_media_uploaded',
+  /** The story's sample voice note or lab photo, sent as the patient. */
+  'agent_sample_sent',
+  /** "+N days" on the agent's clinic clock. */
+  'agent_clock_jumped',
+  /** "Mark read" / "Mark undelivered" on one of the agent's messages. */
+  'agent_delivery_status_set',
+  /** "Reception updated the phone". */
+  'agent_phone_fixed',
 ] as const;
+
+/** Actions the inbox reports itself (the server cannot see them): page views and the agent page's selects. */
+export const CLIENT_EVALUATOR_ACTIONS = [
+  'page_viewed',
+  'agent_model_switched',
+  'agent_language_switched',
+] as const satisfies readonly EvaluatorAction[];
 export type EvaluatorAction = (typeof EVALUATOR_ACTIONS)[number];
 
 export function isEvaluatorAction(value: string): value is EvaluatorAction {

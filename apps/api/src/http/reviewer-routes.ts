@@ -279,6 +279,34 @@ async function inboxFindingList(
  * Shadow findings are only ever served here, to the clinical staff with an
  * inbox key; `/fhir/DetectedIssue` (the host) and webhooks only see live ones.
  */
+const REVIEWED_STATUSES: readonly FindingStatus[] = ['relevant', 'already_known', 'not_relevant'];
+/** Pages read to find the test accounts' verdicts (a clinic's reviewed findings are few). */
+const MAX_REVIEWED_PAGES = 50;
+
+/** How many reviewed findings, by status, a test or QA account gave its verdict on. */
+async function reviewedByTestAccounts(
+  runtime: EngineRuntime,
+  clinicId: ClinicId,
+): Promise<Partial<Record<FindingStatus, number>>> {
+  const counts: Partial<Record<FindingStatus, number>> = {};
+  let cursor: string | undefined;
+  for (let page = 0; page < MAX_REVIEWED_PAGES; page++) {
+    const result = await runtime.reviewer.listFindings(clinicId, {
+      statuses: REVIEWED_STATUSES,
+      limit: 200,
+      ...(cursor === undefined ? {} : { cursor }),
+    });
+    for (const finding of result.items) {
+      if (runtime.isTestEvaluator(finding.review?.reviewedBy)) {
+        counts[finding.status] = (counts[finding.status] ?? 0) + 1;
+      }
+    }
+    cursor = result.nextCursor;
+    if (cursor === undefined) break;
+  }
+  return counts;
+}
+
 export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
   app.get('/api/inbox/findings', async (c) => {
     const query = readQuery(c, FindingListQuerySchema);
@@ -320,13 +348,15 @@ export function registerReviewerRoutes(app: App, runtime: EngineRuntime): void {
   app.get('/api/inbox/findings/metrics', async (c) => {
     const clinicId = c.var.clinicId;
     const since = new Date(runtime.clock.now().getTime() - METRICS_DAYS * MS_PER_DAY);
-    const [stats, shadow, live] = await Promise.all([
+    const [stats, shadow, live, byTestAccounts] = await Promise.all([
       runtime.reviewer.runStats(clinicId, since),
       runtime.reviewer.countFindings(clinicId, { mode: 'shadow' }),
       runtime.reviewer.countFindings(clinicId, { mode: 'live' }),
+      reviewedByTestAccounts(runtime, clinicId),
     ]);
+    // Verdicts of test and QA accounts (config/demo/test-evaluators.json) never count.
     const status = (key: FindingStatus): number =>
-      (shadow.byStatus[key] ?? 0) + (live.byStatus[key] ?? 0);
+      (shadow.byStatus[key] ?? 0) + (live.byStatus[key] ?? 0) - (byTestAccounts[key] ?? 0);
     const reviewed = status('relevant') + status('already_known') + status('not_relevant');
     return c.json({
       since: since.toISOString(),

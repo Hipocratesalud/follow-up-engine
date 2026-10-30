@@ -590,6 +590,26 @@ export interface ApiErrorBody {
 // The evaluator lab (docs/deploy.md#hosted-demo) --------------------------
 
 /** `GET /api/evaluator/me`: who is evaluating, from the signed cookie. Empty body outside the hosted demo. */
+/** Pages whose views the evaluator log records (`page_viewed`). */
+export type TrackedPage =
+  | 'inbox'
+  | 'lab'
+  | 'agent'
+  | 'value'
+  | 'engine_tests'
+  | 'clinical_review'
+  | 'patient'
+  | 'metrics'
+  | 'demo'
+  | 'evaluators'
+  | 'recovery';
+
+/** `POST /api/evaluator/events`: what only the browser sees, for the evaluator log. */
+export type ClientEvaluatorEvent =
+  | { action: 'page_viewed'; page: TrackedPage; patientId?: string }
+  | { action: 'agent_model_switched'; mode: 'scripted' | 'live' }
+  | { action: 'agent_language_switched'; language: 'en' | 'es' };
+
 export interface EvaluatorIdentity {
   email?: string;
 }
@@ -716,11 +736,20 @@ export interface EvaluatorSummaryView {
   byAction: Partial<Record<string, number>>;
 }
 
+/** `GET /api/demo/evaluators`: the physicians, and the test and QA accounts kept apart. */
+export interface EvaluatorsView {
+  items: EvaluatorSummaryView[];
+  /** example.com and config/demo/test-evaluators.json: out of every reported number. */
+  testEvaluators?: { evaluatorEmail: string; total: number }[];
+}
+
 /** One row of the evaluator lab's activity log (`GET /api/demo/evaluator-events`). */
 export interface EvaluatorEventView {
   id: string;
   clinicId: string;
   evaluatorEmail: string;
+  /** A test or QA account: kept in the log, out of every reported number. */
+  isTestEvaluator?: boolean;
   action: string;
   entityType?: string;
   entityId?: string;

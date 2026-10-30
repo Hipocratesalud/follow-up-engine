@@ -38,7 +38,11 @@ export const AgentStoryStartSchema = z
   .strict();
 
 export const AgentTextMessageSchema = z
-  .object({ text: z.string().trim().min(1).max(1_000) })
+  .object({
+    text: z.string().trim().min(1).max(1_000),
+    /** A suggested reply picked on the phone, or text the evaluator typed (default). */
+    source: z.enum(['suggested', 'typed']).optional(),
+  })
   .strict();
 export const AgentSampleSchema = z
   .object({ sample: z.enum(['lab_report', 'voice_note']) })
@@ -154,6 +158,14 @@ function isBusy(view: AgentConversationView): boolean {
  * the conversation, the trace, the orders, staff tasks and what reached
  * the doctor. Registered only on a fake clock, like the rest of `/api/demo/*`.
  */
+/** Each way of writing as the patient is its own evaluator action. */
+const AGENT_MESSAGE_ACTIONS = {
+  suggested: 'agent_reply_suggested',
+  typed: 'agent_message_typed',
+  upload: 'agent_media_uploaded',
+  sample: 'agent_sample_sent',
+} as const;
+
 export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
   async function lab(c: Context<AppEnv>) {
     const evaluatorEmail = requireEvaluator(c);
@@ -170,12 +182,15 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
     clinicId: AgentMessage['clinicId'],
     evaluatorEmail: string,
     message: AgentMessage,
-    payload: { readonly source: 'typed' | 'upload' | 'sample'; readonly sample?: string },
+    payload: {
+      readonly source: 'suggested' | 'typed' | 'upload' | 'sample';
+      readonly sample?: string;
+    },
   ): Promise<void> {
     await trackEvaluatorEvent(runtime, {
       clinicId,
       evaluatorEmail,
-      action: 'agent_message_sent',
+      action: AGENT_MESSAGE_ACTIONS[payload.source],
       entityType: 'agent_message',
       entityId: message.id,
       patientId: message.patientId,
@@ -368,6 +383,7 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
     if (body.mode === 'live' && !runtime.liveAgent) {
       throw new HttpError(422, 'agent_live_unavailable', c.var.t.errors.agentLiveUnavailable);
     }
+    const restart = (await runtime.orderAgent.listConversations(clinic.id)).length > 0;
     const { patientId } = await startOrderAgentStory(runtime, clinic.id, clock, {
       mode: body.mode,
       language: body.language,
@@ -376,11 +392,11 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
     await trackEvaluatorEvent(runtime, {
       clinicId: clinic.id,
       evaluatorEmail,
-      action: 'lab_patient_created',
+      action: 'agent_story_started',
       entityType: 'patient',
       entityId: patientId,
       patientId,
-      payload: { story: body.story, mode: body.mode, language: body.language },
+      payload: { story: body.story, mode: body.mode, language: body.language, restart },
     });
     return c.json({ patientId }, 201);
   });
@@ -392,6 +408,7 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
     const patientId = view.conversation.patientId;
     const contentType = c.req.header('content-type') ?? '';
     let message: AgentMessage;
+    let source: 'suggested' | 'typed' | 'upload' = 'upload';
     if (contentType.includes('multipart/form-data')) {
       const form = await c.req.parseBody();
       const file = form['file'];
@@ -409,14 +426,13 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
       });
     } else {
       const body = await readJson(c, AgentTextMessageSchema);
+      source = body.source ?? 'typed';
       message = await runtime.orderAgent.receiveMessage(clinic.id, patientId, {
         kind: 'text',
         text: body.text,
       });
     }
-    await trackAgentMessage(clinic.id, evaluatorEmail, message, {
-      source: message.kind === 'text' ? 'typed' : 'upload',
-    });
+    await trackAgentMessage(clinic.id, evaluatorEmail, message, { source });
     return c.json(messageView(message), 201);
   });
 
@@ -448,13 +464,22 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
 
   app.post('/api/demo/agent/messages/:id/status', async (c) => {
     const body = await readJson(c, AgentDeliverySchema);
-    const { clinic } = await lab(c);
+    const { clinic, evaluatorEmail } = await lab(c);
     try {
       const message = await runtime.orderAgent.setDeliveryStatus(
         clinic.id,
         c.req.param('id'),
         body.status,
       );
+      await trackEvaluatorEvent(runtime, {
+        clinicId: clinic.id,
+        evaluatorEmail,
+        action: 'agent_delivery_status_set',
+        entityType: 'agent_message',
+        entityId: message.id,
+        patientId: message.patientId,
+        payload: { status: body.status },
+      });
       return c.json(messageView(message));
     } catch (error) {
       if (error instanceof Error && error.name === 'ValidationError') {
@@ -465,9 +490,17 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
   });
 
   app.post('/api/demo/agent/patients/:id/phone-fixed', async (c) => {
-    const { clinic } = await lab(c);
+    const { clinic, evaluatorEmail } = await lab(c);
     const view = await requireConversation(c, clinic.id, c.req.param('id'));
     await runtime.orderAgent.fixPhone(clinic.id, view.conversation.patientId);
+    await trackEvaluatorEvent(runtime, {
+      clinicId: clinic.id,
+      evaluatorEmail,
+      action: 'agent_phone_fixed',
+      entityType: 'patient',
+      entityId: view.conversation.patientId,
+      patientId: view.conversation.patientId,
+    });
     return c.body(null, 204);
   });
 
@@ -481,8 +514,12 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
       await trackEvaluatorEvent(runtime, {
         clinicId: clinic.id,
         evaluatorEmail,
-        action: 'lab_date_viewed',
-        payload: { from: advance.from.toISOString(), to: advance.to.toISOString() },
+        action: 'agent_clock_jumped',
+        payload: {
+          days: body.days,
+          from: advance.from.toISOString(),
+          to: advance.to.toISOString(),
+        },
       });
       return c.json({ from: advance.from.toISOString(), to: advance.to.toISOString() });
     } catch (error) {
