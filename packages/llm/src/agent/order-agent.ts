@@ -86,6 +86,7 @@ export function createOrderAgentModel(options: OrderAgentModelOptions): OrderAge
     let modelCalls = 0;
     let toolCalls = 0;
     let model = '';
+    let reminded = false;
     const finish = (stopReason: OrderAgentTurnResult['stopReason']): OrderAgentTurnResult => ({
       stopReason,
       modelCalls,
@@ -110,6 +111,26 @@ export function createOrderAgentModel(options: OrderAgentModelOptions): OrderAge
       } catch (error) {
         // A model that answers in prose instead of calling end_turn, once it
         // already acted, has finished its turn: nothing it wrote is sent.
+        // Once, the loop reminds it of the protocol instead (a model that drafts the
+        // message as prose before calling propose_slots would otherwise end the turn
+        // without writing to the patient).
+        if (error instanceof LlmOutputError && toolCalls > 0 && !reminded) {
+          reminded = true;
+          await toolbox.reject('prose', 'prose_reminded', 'replied in prose, not a tool call', '');
+          messages.push(
+            orderAgentToolResult(
+              step,
+              'protocol',
+              {
+                error: 'no_tool_call',
+                detail:
+                  'Every reply is exactly one tool call. To write to the patient call propose_slots or send_message; if nothing is left to do call end_turn.',
+              },
+              redactTerms,
+            ),
+          );
+          continue;
+        }
         if (error instanceof LlmOutputError && toolCalls > 0) {
           await toolbox.execute('end_turn', { summary: 'loop:prose_end' }, '');
           return finish('end_turn');
@@ -132,6 +153,7 @@ export function createOrderAgentModel(options: OrderAgentModelOptions): OrderAge
         costUsd: result.totalCostUsd,
         latencyMs: result.latencyMs,
         repaired: result.repaired,
+        callId: result.callId,
       });
       messages.push({
         role: 'assistant',

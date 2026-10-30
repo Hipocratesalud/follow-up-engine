@@ -1,9 +1,12 @@
 /** The order-to-completion agent (docs/agent/order-to-completion.md): pure policy and the application service. */
 export {
+  asksToBook,
   checkBookingConfirmation,
   fold,
   isAffirmative,
+  isHesitant,
   isNegative,
+  weekdaysNamedIn,
   type BookingCheck,
   type BookingRefusal,
 } from './confirmation.ts';
@@ -37,10 +40,12 @@ export {
   isAgentOwned,
   isPending,
   isUrgentOrder,
+  needsDoctorConfirmation,
   type OrderDescriptor,
 } from './orders.ts';
 export {
   checkOutboundText,
+  OUTBOUND_TEST_NAMES,
   OUTBOUND_VIOLATION_KINDS,
   type OutboundSafetyTerms,
   type OutboundViolation,
@@ -71,6 +76,7 @@ export {
   appointmentFhirId,
   createOrderAgentService,
   FIRST_NAME_PLACEHOLDER,
+  MIN_OFFER_SLOTS,
   firstNameOf,
   offeredSlotsOf,
   ORDER_AGENT_LADDER_JOB,

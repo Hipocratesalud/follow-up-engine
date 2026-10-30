@@ -172,6 +172,53 @@ describe('booking confirmation', () => {
     });
   });
 
+  it('never books a tentative or bare reply: "maybe", "ok" to several options, "ok" to nothing', () => {
+    expect(check('Quizás la 2')).toMatchObject({ ok: false, reason: 'hesitant' });
+    expect(check('Maybe the second one')).toMatchObject({ ok: false, reason: 'hesitant' });
+    expect(check('La 2, déjame ver y te aviso')).toMatchObject({ ok: false, reason: 'hesitant' });
+    expect(check('Ok')).toMatchObject({ ok: false, reason: 'ambiguous_choice' });
+    expect(check('ok', 0)).toMatchObject({ ok: false, reason: 'ambiguous_choice' });
+    expect(isAffirmative('Sí, tal vez')).toBe(false);
+    // "ok" with no slot offered at all: nothing to book.
+    const unoffered = checkBookingConfirmation({
+      orderId: 'exp-visit',
+      slotId: offered[0]?.id ?? '',
+      confirmationMessageId: 'm2',
+      messages: [
+        message('m1', 'outbound', NOW, 'Hola, tu médico pidió un control.'),
+        message('m2', 'inbound', new Date(NOW.getTime() + HOUR), 'ok'),
+      ],
+      slotStillFree: true,
+      timeZone: TZ,
+    });
+    expect(unoffered).toMatchObject({ ok: false, reason: 'slot_not_offered' });
+    // "maybe" to a single offered slot is not a yes either.
+    const single = message('m1', 'outbound', NOW, 'One:', { offeredSlots: offered.slice(0, 1) });
+    expect(
+      checkBookingConfirmation({
+        orderId: 'exp-visit',
+        slotId: offered[0]?.id ?? '',
+        confirmationMessageId: 'm2',
+        messages: [single, message('m2', 'inbound', NOW, 'maybe')],
+        slotStillFree: true,
+        timeZone: TZ,
+      }),
+    ).toMatchObject({ ok: false, reason: 'hesitant' });
+  });
+
+  it('refuses a booking the agent confirms with its own message', () => {
+    expect(
+      checkBookingConfirmation({
+        orderId: 'exp-visit',
+        slotId: offered[0]?.id ?? '',
+        confirmationMessageId: 'm1',
+        messages: [offer],
+        slotStillFree: true,
+        timeZone: TZ,
+      }),
+    ).toMatchObject({ ok: false, reason: 'not_inbound' });
+  });
+
   it('keeps a yes when a photo follows it', () => {
     const photo = message('m3', 'inbound', new Date(NOW.getTime() + 2 * HOUR), '', {
       kind: 'image',
@@ -221,10 +268,41 @@ describe('outbound safety', () => {
   it('lets a plain scheduling message through', () => {
     expect(
       checkOutboundText(
-        'Hola María, tu médico pidió un control y un examen de HbA1c. ¿Te sirve el jueves a las 9:30?',
+        'Hola María, tu médico pidió un control y un examen de laboratorio. ¿Te sirve el jueves a las 9:30?',
         terms,
       ),
     ).toEqual([]);
+    expect(
+      checkOutboundText(
+        'Hi Maria, your doctor asked for a follow-up visit and a lab test. Does Thursday at 9:30 work?',
+        terms,
+      ),
+    ).toEqual([]);
+  });
+
+  it('blocks the name of a test: it tells whoever reads the phone what it monitors', () => {
+    const kinds = (text: string) => [
+      ...new Set(checkOutboundText(text, terms).map((item) => item.kind)),
+    ];
+    expect(kinds('Tu médico pidió un control y un examen de HbA1c.')).toEqual(['test_name']);
+    expect(kinds('Your doctor asked for a hemoglobin A1c test.')).toEqual(['test_name']);
+    expect(kinds('Recuerda tu mamografía del jueves')).toEqual(['test_name']);
+    expect(kinds('Your PSA is due')).toEqual(['test_name']);
+    expect(kinds('Te espera la prueba de VIH')).toContain('test_name');
+    expect(kinds('Your HbA1c of 8.4 shows your diabetes is worse')).toEqual(
+      expect.arrayContaining(['result_value', 'result_judgement', 'condition_term', 'test_name']),
+    );
+  });
+
+  it('blocks values spelled out, verdicts either way and everyday names of conditions', () => {
+    const kinds = (text: string) => checkOutboundText(text, terms).map((item) => item.kind);
+    expect(kinds('Tu examen salió en ocho coma cuatro')).toContain('result_value');
+    expect(kinds('It came back at eight point four')).toContain('result_value');
+    expect(kinds('Te salió 8 por ciento')).toContain('result_value');
+    expect(kinds('Buenas noticias: todo normal')).toContain('result_judgement');
+    expect(kinds('Your lab test is within range')).toContain('result_judgement');
+    expect(kinds('El examen del azúcar')).toContain('condition_term');
+    expect(kinds('Let us check your blood pressure')).toContain('condition_term');
   });
 
   it('blocks values, verdicts, condition names and advice', () => {

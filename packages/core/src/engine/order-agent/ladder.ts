@@ -19,8 +19,8 @@ export type LadderAction = (typeof LADDER_ACTIONS)[number];
 
 /** What a message rung asks of the wording (sent to the model as the rung's brief). */
 export const LADDER_BRIEFS = [
-  'first_contact_one_slot',
-  'other_time_yes_no',
+  'first_contact',
+  'other_times',
   'remove_friction',
   'urgent_this_week',
   'urgent_other_hour',
@@ -47,7 +47,7 @@ export const LADDER: Readonly<Record<LadderTrack, readonly LadderRung[]>> = {
       track: 'routine',
       offsetHours: 0,
       action: 'message',
-      brief: 'first_contact_one_slot',
+      brief: 'first_contact',
       slotPreference: 'earliest',
     },
     {
@@ -55,7 +55,7 @@ export const LADDER: Readonly<Record<LadderTrack, readonly LadderRung[]>> = {
       track: 'routine',
       offsetHours: 4 * DAY,
       action: 'message',
-      brief: 'other_time_yes_no',
+      brief: 'other_times',
       slotPreference: 'other_time',
     },
     {

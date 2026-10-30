@@ -134,6 +134,8 @@ export type ConversationStatus = (typeof CONVERSATION_STATUSES)[number];
 
 /** What the agent did for an order, as the order list shows it (the engine's fulfilment wins). */
 export const AGENT_ORDER_STAGES = [
+  /** An order the engine created from a result (not written by the doctor): the doctor confirms it first. */
+  'awaiting_doctor',
   'open',
   'contacted',
   'booked',
@@ -143,10 +145,19 @@ export const AGENT_ORDER_STAGES = [
 ] as const;
 export type AgentOrderStage = (typeof AGENT_ORDER_STAGES)[number];
 
+/** A doctor confirmed an order the engine created from a result: who and when. */
+export interface DoctorConfirmation {
+  /** The confirming doctor's id (the inbox user; the evaluator's email in a lab clinic). */
+  readonly by: string;
+  readonly at: Date;
+}
+
 export interface AgentOrderProgress {
   readonly orderId: ExpectationId;
-  readonly stage: Exclude<AgentOrderStage, 'fulfilled'>;
+  readonly stage: Exclude<AgentOrderStage, 'fulfilled' | 'awaiting_doctor'>;
   readonly appointmentId?: string;
+  /** For an order that needs it (`needsDoctorConfirmation`): the doctor's go-ahead. Kept across stages. */
+  readonly doctorConfirmation?: DoctorConfirmation;
   readonly updatedAt: Date;
 }
 
@@ -170,6 +181,8 @@ export interface AgentConversation {
 
 export const AGENT_RUN_TRIGGERS = [
   'take_ownership',
+  /** The doctor confirmed an order the engine created from a result: the agent starts on it. */
+  'doctor_confirmed',
   'inbound_message',
   'ladder_rung',
   'phone_fixed',
@@ -281,6 +294,8 @@ export const STAFF_TASK_ASKS = [
   'urgent_unanswered',
   'patient_question',
   'opted_out',
+  /** A result made the engine ask for a visit: the doctor confirms it before anyone contacts the patient. */
+  'confirm_followup',
 ] as const;
 export type StaffTaskAsk = (typeof STAFF_TASK_ASKS)[number];
 

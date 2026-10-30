@@ -10,6 +10,7 @@ import type {
   AgentRun,
   AgentRunTrigger,
   AgentStep,
+  DoctorConfirmation,
   OfferedSlot,
   OrderAgentLanguage,
   OrderAgentMode,
@@ -36,7 +37,13 @@ import type {
 } from '../../ports/order-agent.ts';
 import type { UnitOfWork } from '../../ports/unit-of-work.ts';
 import { testGroupsNamedIn } from '../terminology/test-names.ts';
-import { checkBookingConfirmation, fold } from './confirmation.ts';
+import {
+  asksToBook,
+  checkBookingConfirmation,
+  fold,
+  isNegative,
+  weekdaysNamedIn,
+} from './confirmation.ts';
 import { contactPolicy, isOptOut } from './contact-policy.ts';
 import {
   dueRungs,
@@ -51,6 +58,7 @@ import {
   isAgentOwned,
   isPending,
   isUrgentOrder,
+  needsDoctorConfirmation,
   type OrderDescriptor,
 } from './orders.ts';
 import { checkOutboundText, type OutboundSafetyTerms } from './outbound-safety.ts';
@@ -60,6 +68,7 @@ import {
   formatSlotTime,
   type SlotPreference,
   slotFromId,
+  type WeekdayName,
 } from './slots.ts';
 import {
   CreateAppointmentArgs,
@@ -113,13 +122,17 @@ export interface AgentOrderView {
   readonly orderId: ExpectationId;
   readonly descriptor: OrderDescriptor;
   readonly expectationStatus: Expectation['status'];
-  readonly stage: AgentOrderProgress['stage'] | 'fulfilled';
+  readonly stage: AgentOrderProgress['stage'] | 'fulfilled' | 'awaiting_doctor';
   readonly dueAt: Date;
   readonly urgent: boolean;
   readonly closedReason?: string;
   readonly closedBy?: string;
   readonly closedAt?: Date;
   readonly appointmentId?: string;
+  /** The order needs the doctor's go-ahead (`needsDoctorConfirmation`). */
+  readonly needsConfirmation: boolean;
+  /** Who confirmed it and when, once confirmed. */
+  readonly doctorConfirmation?: DoctorConfirmation;
 }
 
 export interface AgentConversationView {
@@ -164,6 +177,17 @@ export interface OrderAgentService {
     messageId: string,
     status: 'delivered' | 'read' | 'undelivered',
   ): Promise<AgentMessage>;
+  /**
+   * The doctor confirms an order the engine created from a result (an
+   * abnormal value asks for a visit): recorded with the doctor's id and the
+   * time, and only then does the agent contact the patient about it.
+   */
+  confirmOrder(
+    clinicId: ClinicId,
+    patientId: PatientId,
+    orderId: string,
+    confirmation: { readonly by: string },
+  ): Promise<AgentConversation>;
   /** Reception updated the phone: the ladder restarts on its previous track. */
   fixPhone(clinicId: ClinicId, patientId: PatientId): Promise<AgentConversation>;
   /** Handler of {@link ORDER_AGENT_TURN_JOB}. */
@@ -237,6 +261,29 @@ function nextMessageAt(messages: readonly AgentMessage[], now: Date): Date {
   return new Date(Math.max(now.getTime(), latest + 1_000));
 }
 
+/** An offer carries at least this many slots when the schedule has them (PRD V1-D: 2 or 3). */
+export const MIN_OFFER_SLOTS = 2;
+
+/** Block of a second proactive message in the same outreach turn. */
+const OUTREACH_ALREADY_SENT = 'outreach_already_sent';
+
+/**
+ * How a message names an order (docs/agent/order-to-completion.md#what-a-patient-message-may-say):
+ * a generic category, never the test's name.
+ */
+const PATIENT_WORDING: Readonly<
+  Record<OrderAgentLanguage, Readonly<Record<'visit' | 'lab' | 'imaging', string>>>
+> = {
+  en: { visit: 'a follow-up visit', lab: 'a lab test', imaging: 'an imaging study' },
+  es: { visit: 'un control', lab: 'un examen de laboratorio', imaging: 'un estudio de imagen' },
+};
+
+function patientWording(descriptor: OrderDescriptor, language: OrderAgentLanguage): string {
+  const words = PATIENT_WORDING[language];
+  if (descriptor.kind === 'visit') return words.visit;
+  return descriptor.imaging === true ? words.imaging : words.lab;
+}
+
 /** Copy of the slot list's "reply with the number" hint, in the conversation language. */
 const OFFER_HINT: Readonly<Record<OrderAgentLanguage, (count: number) => string>> = {
   en: (count) =>
@@ -258,6 +305,8 @@ interface TurnState {
   /** Slots `get_available_slots` returned in this turn, by id. */
   readonly slots: Map<string, OfferedSlot>;
   sent: number;
+  /** Slots went out in this turn (propose_slots, or attached by code). */
+  offered: boolean;
   toolCalls: number;
 }
 
@@ -337,8 +386,17 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       .map((expectation) => {
         const descriptor = describeOrder(expectation);
         const progress = progressOf(conversation, expectation.id);
+        const needsConfirmation = needsDoctorConfirmation(expectation);
         let stage: AgentOrderView['stage'] =
           expectation.status === 'fulfilled' ? 'fulfilled' : (progress?.stage ?? 'open');
+        // The engine's own order (from a result) waits for the doctor before anyone writes.
+        if (
+          needsConfirmation &&
+          progress?.doctorConfirmation === undefined &&
+          (stage === 'open' || stage === 'contacted')
+        ) {
+          stage = 'awaiting_doctor';
+        }
         // A visit order is covered by a visit already booked: nothing more to chase.
         if (
           stage !== 'fulfilled' &&
@@ -364,6 +422,10 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
             : { closedBy: `${expectation.closedBy.resourceType}/${expectation.closedBy.id}` }),
           ...(expectation.closedAt === undefined ? {} : { closedAt: expectation.closedAt }),
           ...(stage === 'booked' && appointmentId !== undefined ? { appointmentId } : {}),
+          needsConfirmation,
+          ...(progress?.doctorConfirmation === undefined
+            ? {}
+            : { doctorConfirmation: progress.doctorConfirmation }),
         };
       });
   }
@@ -378,11 +440,15 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
     updates: readonly AgentOrderProgress[],
     now: Date,
   ): Promise<AgentConversation> {
+    // An update keeps what it does not change (a doctor's confirmation stays).
     const orders = [
       ...conversation.orders.filter(
         (item) => !updates.some((update) => update.orderId === item.orderId),
       ),
-      ...updates,
+      ...updates.map((update) => ({
+        ...conversation.orders.find((item) => item.orderId === update.orderId),
+        ...update,
+      })),
     ];
     const next = { ...conversation, orders, updatedAt: now };
     await deps.store.saveConversation(next);
@@ -431,10 +497,13 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       deps.store.listMessages(clinicId, patientId),
       deps.store.listAppointments(clinicId, patientId),
     ]);
-    // Still to do: being chased, or left open after an unreachable ladder.
+    // Still to do: being chased, or left open after an unreachable ladder; for the
+    // doctor's confirmation, the orders waiting for it.
     const orders = orderViews(conversation, expectations, appointments, input.now).filter(
       (order) =>
-        order.stage === 'open' || order.stage === 'contacted' || order.stage === 'unreachable',
+        input.ask === 'confirm_followup'
+          ? order.stage === 'awaiting_doctor'
+          : order.stage === 'open' || order.stage === 'contacted' || order.stage === 'unreachable',
     );
     const outbound = messages.filter((message) => message.direction === 'outbound');
     const last = outbound.at(-1);
@@ -466,6 +535,47 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       params: { kind: input.kind, priority: input.priority, ask: input.ask },
     });
     return task;
+  }
+
+  /**
+   * Orders the engine created from a result wait for the doctor: one
+   * high-priority notice in the doctor's queue ("Abnormal result: confirm a
+   * follow-up visit?") while any is unconfirmed; nothing goes to the patient
+   * about them until then.
+   */
+  async function requestDoctorConfirmations(
+    conversation: AgentConversation,
+    now: Date,
+    runId?: string,
+  ): Promise<void> {
+    const { clinicId, patientId } = conversation;
+    const [{ expectations }, appointments, tasks] = await Promise.all([
+      readPatient(clinicId, patientId),
+      deps.store.listAppointments(clinicId, patientId),
+      deps.store.listTasks(clinicId, patientId),
+    ]);
+    const awaiting = orderViews(conversation, expectations, appointments, now).filter(
+      (order) => order.stage === 'awaiting_doctor',
+    );
+    if (awaiting.length === 0) return;
+    if (tasks.some((task) => task.status === 'open' && task.summary.ask === 'confirm_followup')) {
+      return;
+    }
+    await step(clinicId, patientId, now, {
+      ...(runId === undefined ? {} : { runId }),
+      kind: 'policy',
+      outcome: 'info',
+      event: 'doctor_confirmation_requested',
+      params: { orders: awaiting.map((order) => order.orderId) },
+    });
+    await addTask(conversation, {
+      kind: 'doctor_notice',
+      priority: awaiting.some((order) => order.urgent) ? 'high' : 'normal',
+      ask: 'confirm_followup',
+      now,
+      dueInDays: 0,
+      ...(runId === undefined ? {} : { runId }),
+    });
   }
 
   /** Runs the clinical reviewer (findings and questions for the doctor) and traces it; never throws. */
@@ -604,7 +714,39 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         },
       };
     }
-    const violations = checkOutboundText(text, deps.safetyTerms);
+    // One proactive message per outreach, whatever the number of open orders:
+    // a turn that is not answering the patient writes once, covering them all.
+    if (policy.sendKind === 'proactive' && state.sent > 0) {
+      await step(clinicId, patientId, now, {
+        runId: state.runId,
+        kind: 'policy',
+        tool,
+        arguments: args,
+        reason,
+        outcome: 'rejected',
+        event: 'send_blocked',
+        params: { block: OUTREACH_ALREADY_SENT },
+      });
+      return {
+        ok: false,
+        error: 'contact_policy',
+        detail: {
+          block: OUTREACH_ALREADY_SENT,
+          rule: 'One proactive message per outreach covers every open order. End the turn.',
+        },
+      };
+    }
+    // The whole text the patient would receive is checked: the model's words
+    // and the slot list code appends (the name stays a placeholder here).
+    let body = text.trim();
+    if (offeredSlots !== undefined && offeredSlots.length > 0) {
+      const lines = offeredSlots.map(
+        (slot, index) =>
+          `${String(index + 1)}. ${formatSlotLine(slot, conversation.language, state.timeZone)}`,
+      );
+      body = `${body}\n\n${lines.join('\n')}\n\n${OFFER_HINT[conversation.language](offeredSlots.length)}`;
+    }
+    const violations = checkOutboundText(body, deps.safetyTerms);
     if (violations.length > 0) {
       await step(clinicId, patientId, now, {
         runId: state.runId,
@@ -624,20 +766,17 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         error: 'unsafe_message',
         detail: {
           violations: violations.map((item) => ({ kind: item.kind, text: item.match })),
-          rule: 'Never write results, values, verdicts on a result, diagnoses, condition names or treatment instructions. Rewrite the message.',
+          rule: 'Never write results, values, verdicts on a result, diagnoses, condition names, test names or treatment instructions. Call each order by its patientWording. Rewrite the message.',
         },
       };
     }
     const { patient } = await readPatient(clinicId, patientId);
     const firstName = firstNameOf(patient) ?? '';
-    let body = text.split(FIRST_NAME_PLACEHOLDER).join(firstName).replace(/\s+,/g, ',').trim();
-    if (offeredSlots !== undefined && offeredSlots.length > 0) {
-      const lines = offeredSlots.map(
-        (slot, index) =>
-          `${String(index + 1)}. ${formatSlotLine(slot, conversation.language, state.timeZone)}`,
-      );
-      body = `${body}\n\n${lines.join('\n')}\n\n${OFFER_HINT[conversation.language](offeredSlots.length)}`;
-    }
+    body = body
+      .split(FIRST_NAME_PLACEHOLDER)
+      .join(firstName)
+      .replace(/[ \t]+,/g, ',')
+      .trim();
     const proactive = policy.sendKind === 'proactive';
     const message: AgentMessage = {
       id: deps.newId('agent_message'),
@@ -657,6 +796,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
     };
     await deps.store.saveMessage(message);
     state.sent += 1;
+    if (offeredSlots !== undefined && offeredSlots.length > 0) state.offered = true;
     await step(clinicId, patientId, now, {
       runId: state.runId,
       kind: 'tool',
@@ -722,6 +862,14 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       if (expectation === undefined || !isAgentOwned(expectation) || !isPending(expectation)) {
         return undefined;
       }
+      // Not the agent's until the doctor confirms it.
+      if (
+        needsDoctorConfirmation(expectation) &&
+        progressOf(await requireConversation(clinicId, patientId), expectation.id)
+          ?.doctorConfirmation === undefined
+      ) {
+        return undefined;
+      }
       return { expectation, descriptor: describeOrder(expectation) };
     }
 
@@ -754,7 +902,13 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
             order: descriptor?.test ?? descriptor?.kind ?? 'order',
             owned: expectation === undefined ? false : isAgentOwned(expectation),
             reason: closed.reason,
-            by: outcome.resource,
+            // What the engine recorded as closing it (an order the new result created can
+            // be closed at once by a visit already booked), else the resource just written.
+            by:
+              expectation?.closedBy === undefined
+                ? outcome.resource
+                : `${expectation.closedBy.resourceType}/${expectation.closedBy.id}`,
+            trigger: outcome.resource,
           },
         });
       }
@@ -767,6 +921,86 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
           params: { expectationId: created.expectationId, ruleId: created.ruleId },
         });
       }
+    }
+
+    /** Free slots for an order, by the rung's preference, never offered or booked before. */
+    async function freeSlots(
+      expectation: Expectation,
+      descriptor: OrderDescriptor,
+      options: {
+        readonly exclude?: ReadonlySet<string>;
+        readonly excludeWeekdays?: readonly WeekdayName[];
+        readonly count: number;
+      },
+    ): Promise<OfferedSlot[]> {
+      const [messages, allAppointments] = await Promise.all([
+        deps.store.listMessages(clinicId, patientId),
+        deps.store.listAppointments(clinicId),
+      ]);
+      const previouslyOffered = messages.flatMap((message) =>
+        (message.offeredSlots ?? []).filter((slot) => slot.orderId === expectation.id),
+      );
+      const booked = new Set([
+        ...allAppointments.map((item) => item.slot.id),
+        ...(options.exclude ?? []),
+      ]);
+      return availableSlots({
+        now: state.now,
+        timeZone: state.timeZone,
+        kind: descriptor.resourceKind,
+        preference: state.rung?.slotPreference ?? 'earliest',
+        urgent: isUrgentOrder(expectation),
+        excludeWeekdays: options.excludeWeekdays ?? [],
+        previouslyOffered,
+        booked,
+        count: 3,
+      })
+        .slice(0, options.count)
+        .map((slot) => ({ ...slot, orderId: expectation.id }));
+    }
+
+    /**
+     * The slots code attaches to a `send_message` that needs them and has
+     * none: an outreach (not a reply), or a message asking the patient to pick
+     * a time, while an order is still being chased and no offer went out in
+     * this turn. For the order to book first (a visit before a test), skipping
+     * the weekdays the patient just refused.
+     */
+    async function slotsToAttach(
+      conversation: AgentConversation,
+      text: string,
+    ): Promise<
+      | {
+          readonly orderId: string;
+          readonly why: 'outreach' | 'booking_ask';
+          readonly slots: OfferedSlot[];
+        }
+      | undefined
+    > {
+      if (state.offered) return undefined;
+      const [{ expectations }, appointments, messages] = await Promise.all([
+        readPatient(clinicId, patientId),
+        deps.store.listAppointments(clinicId, patientId),
+        deps.store.listMessages(clinicId, patientId),
+      ]);
+      const policy = contactPolicy(conversation, messages, state.now);
+      const why =
+        policy.sendKind === 'proactive' ? 'outreach' : asksToBook(text) ? 'booking_ask' : undefined;
+      if (why === undefined || (why === 'outreach' && state.sent > 0)) return undefined;
+      const pending = chasing(orderViews(conversation, expectations, appointments, state.now));
+      const target = pending.find((order) => order.descriptor.kind === 'visit') ?? pending[0];
+      const expectation = expectations.find((item) => item.id === target?.orderId);
+      if (target === undefined || expectation === undefined) return undefined;
+      const latest = messages.findLast(
+        (message) => message.direction === 'inbound' && message.kind !== 'image',
+      );
+      const excludeWeekdays =
+        latest !== undefined && isNegative(latest.text) ? weekdaysNamedIn(latest.text) : [];
+      const slots = await freeSlots(expectation, target.descriptor, {
+        excludeWeekdays,
+        count: 3,
+      });
+      return slots.length === 0 ? undefined : { orderId: target.orderId, why, slots };
     }
 
     async function execute(
@@ -782,9 +1016,11 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
             readPatient(clinicId, patientId),
             deps.store.listAppointments(clinicId, patientId),
           ]);
-          const orders = orderViews(conversation, expectations, appointments, state.now).filter(
-            (order) => order.stage !== 'fulfilled',
+          const views = orderViews(conversation, expectations, appointments, state.now);
+          const orders = views.filter(
+            (order) => order.stage !== 'fulfilled' && order.stage !== 'awaiting_doctor',
           );
+          const awaitingDoctor = views.filter((order) => order.stage === 'awaiting_doctor').length;
           const ignored = expectations.filter(
             (expectation) => isPending(expectation) && !isAgentOwned(expectation),
           ).length;
@@ -794,7 +1030,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
             reason,
             'ok',
             'orders_listed',
-            { open: orders.length, ignoredEngineItems: ignored },
+            { open: orders.length, ignoredEngineItems: ignored, awaitingDoctor },
             ['expectations', 'appointments'],
           );
           return {
@@ -804,6 +1040,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
                 orderId: order.orderId,
                 kind: order.descriptor.kind,
                 ...(order.descriptor.test === undefined ? {} : { test: order.descriptor.test }),
+                patientWording: patientWording(order.descriptor, conversation.language),
                 source: order.descriptor.source,
                 dueDate: localDateKey(order.dueAt, state.timeZone),
                 overdueDays: Math.max(
@@ -819,7 +1056,14 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
                   kind: item.slot.resourceKind === 'lab' ? 'lab' : 'visit',
                   when: formatSlotTime(item.slot, conversation.language, state.timeZone),
                 })),
-              note: 'Only these are yours. Protocol suggestions of the engine are not orders and are not listed.',
+              ...(awaitingDoctor === 0
+                ? {}
+                : {
+                    awaitingDoctorConfirmation: awaitingDoctor,
+                    awaitingNote:
+                      'Orders the engine created from a result wait for the doctor to confirm them: never mention them to the patient.',
+                  }),
+              note: 'Only these are yours. Protocol suggestions of the engine are not orders and are not listed. `test` is for you only: to the patient, an order is its patientWording, never its test name.',
             },
           };
         }
@@ -962,11 +1206,29 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         }
         case 'send_message': {
           const parsed = SendMessageArgs.parse(args);
+          // An outreach, or a message asking the patient to pick a time, carries
+          // concrete slots computed by code: attached here when the model sent none.
+          const attached = await slotsToAttach(conversation, parsed.text);
+          if (attached !== undefined) {
+            await trace(
+              name,
+              args,
+              reason,
+              'info',
+              'slots_attached',
+              {
+                orderId: attached.orderId,
+                why: attached.why,
+                slots: attached.slots.map((slot) => slot.id),
+              },
+              ['schedule', 'appointments', 'messages'],
+            );
+          }
           return sendOutbound(
             state,
             conversation,
             parsed.text,
-            undefined,
+            attached?.slots,
             reason,
             name,
             sanitizeArgs(args),
@@ -995,6 +1257,25 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
               });
             }
             offered.push({ ...slot, orderId: order.expectation.id });
+          }
+          // Fewer than two: code adds the next free ones (2 or 3 options per offer).
+          if (offered.length < MIN_OFFER_SLOTS) {
+            const extra = await freeSlots(order.expectation, order.descriptor, {
+              exclude: new Set(offered.map((slot) => slot.id)),
+              count: MIN_OFFER_SLOTS - offered.length,
+            });
+            if (extra.length > 0) {
+              offered.push(...extra);
+              await trace(
+                name,
+                args,
+                reason,
+                'info',
+                'slots_topped_up',
+                { orderId: order.expectation.id, added: extra.map((slot) => slot.id) },
+                ['schedule', 'appointments', 'messages'],
+              );
+            }
           }
           return sendOutbound(
             state,
@@ -1293,8 +1574,16 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
             )
             .filter(
               (item): item is Expectation =>
-                item !== undefined && isAgentOwned(item) && isPending(item),
+                item !== undefined &&
+                isAgentOwned(item) &&
+                isPending(item) &&
+                !needsDoctorConfirmation(item),
             );
+          await requestDoctorConfirmations(
+            await requireConversation(clinicId, patientId),
+            state.now,
+            state.runId,
+          );
           return {
             ok: true,
             result: {
@@ -1590,6 +1879,13 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       inbound =
         message === undefined ? undefined : await readMedia(conversation, message, run.id, now);
     }
+    // A voice note can opt out too: its transcript is checked by code like a text.
+    if (inbound?.kind === 'voice' && isOptOut(inbound.text)) {
+      await recordOptOut(conversation, inbound, now, run.id);
+      run = { ...run, status: 'completed', finishedAt: now, stopReason: 'opted_out' };
+      await deps.store.saveRun(run);
+      return run;
+    }
     const messages = await deps.store.listMessages(clinicId, patientId);
     const { patient } = await readPatient(clinicId, patientId);
     const redactTerms = patient === undefined ? [] : (deps.redactTermsOf?.(patient) ?? []);
@@ -1605,6 +1901,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       language: conversation.language,
       slots: new Map(),
       sent: 0,
+      offered: false,
       toolCalls: 0,
     };
     const context = turnContext(conversation, messages, state, inbound);
@@ -1626,7 +1923,12 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         reason: call.thought.slice(0, 400),
         outcome: 'ok',
         event: 'model_called',
-        params: { index: call.index, repaired: call.repaired, tool: call.tool.slice(0, 40) },
+        params: {
+          index: call.index,
+          repaired: call.repaired,
+          tool: call.tool.slice(0, 40),
+          ...(call.callId === undefined ? {} : { callId: call.callId }),
+        },
         model: call.model,
         costUsd: call.costUsd,
         latencyMs: call.latencyMs,
@@ -1658,6 +1960,24 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         });
         result = await play('scripted');
       }
+      // An outreach turn exists to write (the ladder's timing is code): a live
+      // model that ended it without sending, when it could and an order is
+      // still being chased, is backed by the scripted player for this turn.
+      if (
+        trigger !== 'inbound_message' &&
+        conversation.mode === 'live' &&
+        state.sent === 0 &&
+        (await outreachStillDue(clinicId, patientId, now))
+      ) {
+        await step(clinicId, patientId, now, {
+          runId: run.id,
+          kind: 'policy',
+          outcome: 'info',
+          event: 'outreach_fallback_scripted',
+          params: { stopReason: result.stopReason },
+        });
+        result = await play('scripted');
+      }
       run = {
         ...run,
         status: 'completed',
@@ -1685,6 +2005,23 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
     await deps.store.saveRun(run);
     await afterTurn(clinicId, patientId, trigger, state, now);
     return run;
+  }
+
+  /** Whether a proactive message may go out now and an order is still being chased. */
+  async function outreachStillDue(
+    clinicId: ClinicId,
+    patientId: PatientId,
+    now: Date,
+  ): Promise<boolean> {
+    const conversation = await deps.store.getConversation(clinicId, patientId);
+    if (conversation?.status !== 'active') return false;
+    const [{ expectations }, appointments, messages] = await Promise.all([
+      readPatient(clinicId, patientId),
+      deps.store.listAppointments(clinicId, patientId),
+      deps.store.listMessages(clinicId, patientId),
+    ]);
+    if (!contactPolicy(conversation, messages, now).canSend) return false;
+    return chasing(orderViews(conversation, expectations, appointments, now)).length > 0;
   }
 
   /** After a turn: re-anchor the ladder on a live conversation, close it when nothing is left. */
@@ -1732,6 +2069,72 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         params: { track },
       });
     }
+  }
+
+  /**
+   * The patient asked the clinic to stop writing (detected by code, in a
+   * text or a transcribed voice note). Nothing goes out to them again: the
+   * conversation stops (no turn, no ladder rung), open calls to the patient
+   * are withdrawn (an opt-out stops every patient contact, the engine's
+   * contact policy), the engine records it as a FHIR `Consent` deny so its
+   * own escalation goes to the coordinator, and the doctor is told: the
+   * orders stay open for the clinic to decide.
+   */
+  async function recordOptOut(
+    conversation: AgentConversation,
+    message: AgentMessage,
+    now: Date,
+    runId?: string,
+  ): Promise<void> {
+    const { clinicId, patientId } = conversation;
+    const run = runId === undefined ? {} : { runId };
+    const next: AgentConversation = { ...conversation, status: 'opted_out', updatedAt: now };
+    await deps.store.saveConversation(next);
+    await step(clinicId, patientId, now, {
+      ...run,
+      kind: 'policy',
+      outcome: 'ok',
+      event: 'opted_out',
+      params: { messageId: message.id },
+    });
+    for (const task of await deps.store.listTasks(clinicId, patientId)) {
+      if (
+        task.status === 'open' &&
+        (task.kind === 'call_patient' || task.kind === 'call_other_contact')
+      ) {
+        await deps.store.saveTask({ ...task, status: 'done' });
+      }
+    }
+    try {
+      const recorded = await deps.effects.recordOptOut(clinicId, {
+        patientId,
+        messageId: message.id,
+        at: now,
+      });
+      await step(clinicId, patientId, now, {
+        ...run,
+        kind: 'engine',
+        outcome: 'ok',
+        event: 'opt_out_recorded',
+        params: { by: recorded.resource },
+      });
+    } catch (error) {
+      await step(clinicId, patientId, now, {
+        ...run,
+        kind: 'engine',
+        outcome: 'error',
+        event: 'opt_out_record_failed',
+        params: { error: errorText(error) },
+      });
+    }
+    await addTask(next, {
+      kind: 'doctor_notice',
+      priority: 'normal',
+      ask: 'opted_out',
+      now,
+      dueInDays: 2,
+      ...run,
+    });
   }
 
   // --- The ladder -----------------------------------------------------------------------
@@ -1825,6 +2228,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
               (item) => !pending.some((order) => order.orderId === item.orderId),
             ),
             ...pending.map((order): AgentOrderProgress => ({
+              ...marked.orders.find((item) => item.orderId === order.orderId),
               orderId: order.orderId,
               stage: 'unreachable',
               updatedAt: at,
@@ -1875,7 +2279,14 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         language: current.language,
         status: 'active',
         phoneStatus: current.phoneStatus,
-        orders: current.orders.filter((item) => item.stage !== 'unreachable'),
+        // Orders start over, a doctor's confirmation kept.
+        orders: current.orders.flatMap((item): AgentOrderProgress[] =>
+          item.stage !== 'unreachable'
+            ? [item]
+            : item.doctorConfirmation === undefined
+              ? []
+              : [{ ...item, stage: 'open', updatedAt: at }],
+        ),
         ladder: startTrack('routine', at),
         createdAt: current.createdAt,
         updatedAt: at,
@@ -1889,6 +2300,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       });
     }
     if (current.status !== 'active') return;
+    await requestDoctorConfirmations(current, at);
     const [{ expectations }, appointments, messages] = await Promise.all([
       readPatient(clinicId, patientId),
       deps.store.listAppointments(clinicId, patientId),
@@ -1937,7 +2349,10 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       const now = deps.nowOf(clinicId);
       const { expectations } = await readPatient(clinicId, patientId);
       const owned = expectations.filter((item) => isAgentOwned(item) && isPending(item));
-      const track = owned.some(isUrgentOrder) ? 'urgent' : 'routine';
+      // An order waiting for the doctor's confirmation does not set the pace yet.
+      const track = owned.some((item) => isUrgentOrder(item) && !needsDoctorConfirmation(item))
+        ? 'urgent'
+        : 'routine';
       const first = LADDER[track][0];
       const conversation: AgentConversation = {
         clinicId,
@@ -1971,6 +2386,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
           on: 'arrival',
         });
       }
+      await requestDoctorConfirmations(conversation, now);
       await enqueueTurn(clinicId, {
         patientId,
         trigger: 'take_ownership',
@@ -2016,21 +2432,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         await deps.store.saveConversation(current);
       }
       if (input.kind === 'text' && isOptOut(message.text)) {
-        const next = { ...current, status: 'opted_out' as const, updatedAt: now };
-        await deps.store.saveConversation(next);
-        await step(clinicId, patientId, now, {
-          kind: 'policy',
-          outcome: 'ok',
-          event: 'opted_out',
-          params: { messageId: message.id },
-        });
-        await addTask(next, {
-          kind: 'call_patient',
-          priority: 'normal',
-          ask: 'opted_out',
-          now,
-          dueInDays: 2,
-        });
+        await recordOptOut(current, message, now);
         return message;
       }
       if (current.status === 'unreachable') {
@@ -2086,6 +2488,68 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       return next;
     },
 
+    async confirmOrder(clinicId, patientId, orderId, confirmation) {
+      const now = deps.nowOf(clinicId);
+      const conversation = await requireConversation(clinicId, patientId);
+      const [{ expectations }, appointments] = await Promise.all([
+        readPatient(clinicId, patientId),
+        deps.store.listAppointments(clinicId, patientId),
+      ]);
+      const order = orderViews(conversation, expectations, appointments, now).find(
+        (item) => item.orderId === orderId,
+      );
+      if (order?.stage !== 'awaiting_doctor') {
+        throw new ValidationError(
+          'orderId',
+          'This order is not waiting for a doctor’s confirmation',
+        );
+      }
+      const by = confirmation.by.trim().slice(0, 120);
+      if (by === '') throw new ValidationError('by', 'The confirming doctor is required');
+      const doctorConfirmation: DoctorConfirmation = { by, at: now };
+      let next = await setProgress(
+        conversation,
+        [{ orderId: order.orderId, stage: 'open', doctorConfirmation, updatedAt: now }],
+        now,
+      );
+      await step(clinicId, patientId, now, {
+        kind: 'policy',
+        outcome: 'ok',
+        event: 'order_confirmed_by_doctor',
+        params: { orderId: order.orderId, by, urgent: order.urgent },
+      });
+      const stillAwaiting = orderViews(next, expectations, appointments, now).some(
+        (item) => item.stage === 'awaiting_doctor',
+      );
+      if (!stillAwaiting) {
+        for (const task of await deps.store.listTasks(clinicId, patientId)) {
+          if (task.status === 'open' && task.summary.ask === 'confirm_followup') {
+            await deps.store.saveTask({ ...task, status: 'done' });
+          }
+        }
+      }
+      if (next.status === 'opted_out') return next;
+      // The agent starts on it now: an urgent order moves the ladder to the urgent track.
+      const track = order.urgent ? 'urgent' : next.ladder.track === 'urgent' ? 'urgent' : 'routine';
+      const first = LADDER[track][0];
+      next = {
+        ...next,
+        status: 'active',
+        ...(next.phoneStatus === 'undelivered'
+          ? { ladder: { ...next.ladder, resumeTrack: track } }
+          : { ladder: startTrack(track, now, { firstDone: true }) }),
+        updatedAt: now,
+      };
+      await deps.store.saveConversation(next);
+      if (next.phoneStatus === 'undelivered') return next;
+      await enqueueTurn(clinicId, {
+        patientId,
+        trigger: 'doctor_confirmed',
+        ...(first === undefined ? {} : { rung: first.id }),
+      });
+      return next;
+    },
+
     async fixPhone(clinicId, patientId) {
       const now = deps.nowOf(clinicId);
       const conversation = await requireConversation(clinicId, patientId);
@@ -2112,6 +2576,8 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         event: 'phone_fixed',
         params: { track },
       });
+      // An opted-out patient is not written to, whatever the phone.
+      if (next.status === 'opted_out') return next;
       const first = LADDER[track][0];
       await enqueueTurn(clinicId, {
         patientId,

@@ -4,6 +4,7 @@ import {
   type AgentMedia,
   type AgentMessage,
   type AgentOrderProgress,
+  type DoctorConfirmation,
   type AgentRun,
   type AgentStep,
   type ClinicId,
@@ -76,8 +77,16 @@ function ordersFromJson(value: unknown): AgentOrderProgress[] {
     orderId: String(item['orderId']) as ExpectationId,
     stage: item['stage'] as AgentOrderProgress['stage'],
     ...only('appointmentId', text(item['appointmentId'])),
+    ...only('doctorConfirmation', confirmationFromJson(item['doctorConfirmation'])),
     updatedAt: date(item['updatedAt']),
   }));
+}
+
+function confirmationFromJson(value: unknown): DoctorConfirmation | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const row = value as Row;
+  const by = text(row['by']);
+  return by === undefined ? undefined : { by, at: date(row['at']) };
 }
 
 function toConversation(row: Row): AgentConversation {

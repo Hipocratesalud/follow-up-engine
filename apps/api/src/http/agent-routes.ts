@@ -2,6 +2,7 @@ import {
   type AgentConversationView,
   type AgentMessage,
   type AgentStep,
+  type CaseId,
   type ClinicalFinding,
   ladderTimeline,
   patientId as toPatientId,
@@ -18,6 +19,7 @@ import {
 } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
 import { z } from 'zod';
+import { FindingPresenter } from '../inbox/reviewer-presenter.ts';
 import type { App, AppEnv } from './context.ts';
 import { trackEvaluatorEvent } from './evaluator-tracking.ts';
 import { HttpError, readJson } from './errors.ts';
@@ -143,6 +145,44 @@ function isBusy(view: AgentConversationView): boolean {
   if (lastInbound === undefined) return false;
   if (view.conversation.status === 'opted_out') return false;
   return !view.runs.some((run) => run.inboundMessageId === lastInbound.id);
+}
+
+/**
+ * What reached the doctor, first things first, each finding with its
+ * citations (verbatim quote, source document, date) as the reviewer's
+ * presenter builds them for "Before the visit".
+ */
+async function findingViews(
+  c: Context<AppEnv>,
+  clinicId: Parameters<EngineRuntime['reviewer']['listFindings']>[0],
+  findings: readonly ClinicalFinding[],
+  runtime: EngineRuntime,
+): Promise<Record<string, unknown>[]> {
+  const presenter = new FindingPresenter(runtime, clinicId, c.var.t);
+  return Promise.all(
+    [...findings].sort(byPriority).map(async (finding) => {
+      const presented = await presenter.view(finding);
+      return {
+        id: finding.id,
+        category: finding.category,
+        severity: finding.severity,
+        // The reviewer presenter's words: the reader's language once findings carry both.
+        summary: presented.summary,
+        suggestion: presented.suggestion,
+        mode: finding.mode,
+        modelId: finding.modelId,
+        createdAt: finding.createdAt.toISOString(),
+        routine: ROUTINE_CATEGORIES.has(finding.category),
+        citations: presented.citations.map((citation) => ({
+          docId: citation.docId,
+          kind: citation.kind,
+          quote: citation.quote,
+          date: citation.date,
+          title: citation.title,
+        })),
+      };
+    }),
+  );
 }
 
 /**
@@ -283,6 +323,15 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
         ...(order.closedBy === undefined ? {} : { closedBy: order.closedBy }),
         ...(order.closedAt === undefined ? {} : { closedAt: order.closedAt.toISOString() }),
         ...(detail === undefined ? {} : { closedByDetail: detail }),
+        needsConfirmation: order.needsConfirmation,
+        ...(order.doctorConfirmation === undefined
+          ? {}
+          : {
+              doctorConfirmation: {
+                by: order.doctorConfirmation.by,
+                at: order.doctorConfirmation.at.toISOString(),
+              },
+            }),
       })),
       ignoredEngineItems: view.ignoredEngineItems,
       steps: view.steps.map(stepView),
@@ -328,17 +377,193 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
           ? {}
           : { originCaseId: appointment.originCaseId }),
       })),
-      findings: [...findings.items].sort(byPriority).map((finding) => ({
-        id: finding.id,
-        category: finding.category,
-        severity: finding.severity,
-        summary: finding.summary,
-        suggestion: finding.suggestion,
-        mode: finding.mode,
-        modelId: finding.modelId,
-        createdAt: finding.createdAt.toISOString(),
-        routine: ROUTINE_CATEGORIES.has(finding.category),
+      findings: await findingViews(c, clinic.id, findings.items, runtime),
+    });
+  });
+
+  /**
+   * One patient's whole run, for the evidence pack and its reviewers: the
+   * agent's console trace (every model call with its model, tokens, cost and
+   * gateway call id; every tool call with its arguments and outcome), the
+   * clinic's LLM usage log rows (`llm_gateway`, one per provider call), the
+   * conversation, staff tasks and bookings, and the engine's side: the
+   * patient's expectations (status, what closed them), the clinical events
+   * ingested (the agent's FHIR writes among them) and every case's audit
+   * trail (actor `rule` / `system` / `patient` / `user`, never the agent).
+   * Synthetic data only, like every lab clinic.
+   */
+  app.get('/api/demo/agent/patients/:id/export', async (c) => {
+    const { clinic, clock } = await lab(c);
+    const view = await requireConversation(c, clinic.id, c.req.param('id'));
+    const patientId = view.conversation.patientId;
+    const [llmCalls, findings, engine] = await Promise.all([
+      runtime.storage.llmUsage.calls(clinic.id, new Date(0)),
+      runtime.reviewer.listFindings(clinic.id, { patientId, limit: 50 }),
+      runtime.storage.unitOfWork.withTransaction(clinic.id, async (stores) => {
+        const [expectations, events] = await Promise.all([
+          stores.expectations.listByPatient(clinic.id, patientId),
+          stores.clinicalRecords.listEventsForPatient(clinic.id, patientId),
+        ]);
+        const caseIds = [
+          ...new Set(
+            expectations.flatMap((item) => (item.caseId === undefined ? [] : [item.caseId])),
+          ),
+        ];
+        const cases = await Promise.all(
+          caseIds.map(async (caseId: CaseId) => ({
+            followUpCase: await stores.cases.get(clinic.id, caseId),
+            audit: await stores.audit.listForCase(clinic.id, caseId),
+          })),
+        );
+        return { expectations, events, cases };
+      }),
+    ]);
+    const patientCalls = new Set(
+      view.steps.flatMap((step) => {
+        const callId = step.params?.['callId'];
+        return typeof callId === 'string' ? [callId] : [];
+      }),
+    );
+    return c.json({
+      exportedAt: clock.now().toISOString(),
+      clinicId: clinic.id,
+      patientId,
+      timeZone: view.timeZone,
+      conversation: {
+        mode: view.conversation.mode,
+        language: view.conversation.language,
+        status: view.conversation.status,
+        phoneStatus: view.conversation.phoneStatus,
+        ladder: {
+          track: view.conversation.ladder.track,
+          anchorAt: view.conversation.ladder.anchorAt.toISOString(),
+          done: view.conversation.ladder.done,
+        },
+        createdAt: view.conversation.createdAt.toISOString(),
+      },
+      orders: view.orders.map((order) => ({
+        orderId: order.orderId,
+        kind: order.descriptor.kind,
+        ...(order.descriptor.test === undefined ? {} : { test: order.descriptor.test }),
+        source: order.descriptor.source,
+        stage: order.stage,
+        urgent: order.urgent,
+        needsConfirmation: order.needsConfirmation,
+        ...(order.doctorConfirmation === undefined
+          ? {}
+          : {
+              doctorConfirmation: {
+                by: order.doctorConfirmation.by,
+                at: order.doctorConfirmation.at.toISOString(),
+              },
+            }),
       })),
+      messages: view.messages.map(messageView),
+      steps: view.steps.map(stepView),
+      runs: view.runs.map((run) => ({
+        id: run.id,
+        trigger: run.trigger,
+        status: run.status,
+        mode: run.mode,
+        ...(run.model === undefined ? {} : { model: run.model }),
+        ...(run.rung === undefined ? {} : { rung: run.rung }),
+        ...(run.inboundMessageId === undefined ? {} : { inboundMessageId: run.inboundMessageId }),
+        startedAt: run.startedAt.toISOString(),
+        modelCalls: run.modelCalls,
+        toolCalls: run.toolCalls,
+        inputTokens: run.inputTokens,
+        outputTokens: run.outputTokens,
+        costUsd: run.costUsd,
+        ...(run.stopReason === undefined ? {} : { stopReason: run.stopReason }),
+        ...(run.error === undefined ? {} : { error: run.error }),
+      })),
+      tasks: view.tasks.map((task) => ({
+        id: task.id,
+        kind: task.kind,
+        priority: task.priority,
+        status: task.status,
+        ...(task.rung === undefined ? {} : { rung: task.rung }),
+        createdAt: task.createdAt.toISOString(),
+        dueAt: task.dueAt.toISOString(),
+        summary: {
+          ...task.summary,
+          ...(task.summary.lastOutboundAt === undefined
+            ? {}
+            : { lastOutboundAt: task.summary.lastOutboundAt.toISOString() }),
+        },
+      })),
+      appointments: view.appointments.map((appointment) => ({
+        id: appointment.id,
+        orderId: appointment.orderId,
+        slotId: appointment.slot.id,
+        start: appointment.slot.start.toISOString(),
+        resourceKind: appointment.slot.resourceKind,
+        confirmationMessageId: appointment.confirmationMessageId,
+        bookedAt: appointment.bookedAt.toISOString(),
+        ...(appointment.fhirAppointmentId === undefined
+          ? {}
+          : { fhirAppointmentId: appointment.fhirAppointmentId }),
+        ...(appointment.originCaseId === undefined
+          ? {}
+          : { originCaseId: appointment.originCaseId }),
+      })),
+      findings: await findingViews(c, clinic.id, findings.items, runtime),
+      llmUsage: llmCalls.map((call) => ({
+        callId: call.callId,
+        task: call.task,
+        promptVersion: call.promptVersion,
+        provider: call.provider,
+        model: call.model,
+        inputTokens: call.inputTokens,
+        outputTokens: call.outputTokens,
+        costUsd: call.costUsd,
+        latencyMs: call.latencyMs,
+        ok: call.ok,
+        ...(call.error === undefined ? {} : { error: call.error }),
+        at: call.at.toISOString(),
+        /** A model call of this patient's agent turns (others: vision, voice, reviews, other patients of the lab clinic). */
+        agentTurnOfPatient: patientCalls.has(call.callId),
+      })),
+      engine: {
+        expectations: engine.expectations.map((item) => ({
+          id: item.id,
+          ruleId: item.ruleId,
+          layer: item.layer,
+          status: item.status,
+          matchKey: item.matchKey,
+          dueAt: item.dueAt.toISOString(),
+          ...(item.caseId === undefined ? {} : { caseId: item.caseId }),
+          ...(item.closedAt === undefined ? {} : { closedAt: item.closedAt.toISOString() }),
+          ...(item.closedBy === undefined
+            ? {}
+            : { closedBy: `${item.closedBy.resourceType}/${item.closedBy.id}` }),
+          ...(item.closedReason === undefined ? {} : { closedReason: item.closedReason }),
+          agentOwned: view.orders.some((order) => order.orderId === item.id),
+        })),
+        clinicalEvents: engine.events.map((event) => ({
+          type: event.type,
+          source: `${event.source.resourceType}/${event.source.id}`,
+          occurredAt: event.occurredAt.toISOString(),
+          ...(event.recordedAt === undefined ? {} : { recordedAt: event.recordedAt.toISOString() }),
+        })),
+        cases: engine.cases.map(({ followUpCase, audit }) => ({
+          ...(followUpCase === undefined
+            ? {}
+            : {
+                id: followUpCase.id,
+                status: followUpCase.status,
+                ...(followUpCase.resolution === undefined
+                  ? {}
+                  : { resolution: followUpCase.resolution.kind }),
+              }),
+          audit: audit.map((event) => ({
+            type: event.type,
+            actor: event.actor,
+            payload: event.payload,
+            at: event.at.toISOString(),
+          })),
+        })),
+      },
     });
   });
 
@@ -435,6 +660,31 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
       }
       throw error;
     }
+  });
+
+  /**
+   * The doctor confirms an order the engine created from a result ("Abnormal
+   * result: confirm a follow-up visit?"): recorded with the doctor's id (the
+   * evaluator's email in a lab clinic) and the clinic's time; only then does
+   * the agent write to the patient about it.
+   */
+  app.post('/api/demo/agent/patients/:id/orders/:orderId/confirm', async (c) => {
+    const { clinic, evaluatorEmail } = await lab(c);
+    const view = await requireConversation(c, clinic.id, c.req.param('id'));
+    try {
+      await runtime.orderAgent.confirmOrder(
+        clinic.id,
+        view.conversation.patientId,
+        c.req.param('orderId'),
+        { by: evaluatorEmail },
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === 'ValidationError') {
+        throw new HttpError(409, 'order_not_awaiting_confirmation', c.var.t.errors.notFound);
+      }
+      throw error;
+    }
+    return c.body(null, 204);
   });
 
   app.post('/api/demo/agent/patients/:id/phone-fixed', async (c) => {

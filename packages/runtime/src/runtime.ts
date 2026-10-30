@@ -22,6 +22,7 @@ import {
   FakeClock,
   type FollowUpEngine,
   type IdGenerator,
+  type OrderAgentModel,
   type OrderAgentService,
   primaryLanguage,
   REVIEW_LOCALES,
@@ -184,6 +185,11 @@ export interface CreateRuntimeOptions {
   readonly ids?: IdGenerator;
   /** Size of the Postgres pool. */
   readonly poolSize?: number;
+  /**
+   * Replaces the order agent's model loop (tests: a model that tries what a
+   * real one might, so the code-side guardrails are exercised end to end).
+   */
+  readonly orderAgentModel?: OrderAgentModel;
 }
 
 /**
@@ -280,7 +286,7 @@ export async function createRuntime(
     store: storage.orderAgent,
     unitOfWork: storage.unitOfWork,
     clinics: storage.clinics,
-    model: orderAgentModel,
+    model: options.orderAgentModel ?? orderAgentModel,
     media: mediaReader,
     effects: createOrderAgentEffects({
       storage,

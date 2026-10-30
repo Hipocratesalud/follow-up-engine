@@ -171,6 +171,38 @@ export function describeLlmUsageLogContract(
       expect((await log().summary(a, at(-30))).calls).toBe(3);
     });
 
+    it('lists every call since a date, oldest first, with model, tokens and cost', async () => {
+      const { a, b } = freshClinics();
+      await log().record(aCall(a, { callId: 'call-old', at: at(-40) }));
+      await log().record(
+        aCall(a, {
+          callId: 'call-2',
+          model: 'muse-spark-1.3',
+          provider: 'meta',
+          inputTokens: 1200,
+          outputTokens: 340,
+          costUsd: 0.0049,
+          at: at(-1),
+        }),
+      );
+      await log().record(
+        aCall(a, { callId: 'call-1', task: 'order_agent', ok: false, error: 'x', at: at(-2) }),
+      );
+      await log().record(aCall(b, { callId: 'call-b', at: at(-1) }));
+      const calls = await log().calls(a, at(-30));
+      expect(calls.map((call) => call.callId)).toEqual(['call-1', 'call-2']);
+      expect(calls[0]).toMatchObject({ task: 'order_agent', ok: false, error: 'x' });
+      expect(calls[1]).toMatchObject({
+        clinicId: a,
+        provider: 'meta',
+        model: 'muse-spark-1.3',
+        inputTokens: 1200,
+        outputTokens: 340,
+      });
+      expect(calls[1]?.costUsd).toBeCloseTo(0.0049, 10);
+      expect(calls[1]?.at.toISOString()).toBe(at(-1).toISOString());
+    });
+
     it('isolates clinics', async () => {
       const { a, b } = freshClinics();
       await log().record(aCall(a, { costUsd: 1 }));

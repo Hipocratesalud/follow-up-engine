@@ -82,10 +82,52 @@ const NEGATIVE = [
   'not that',
 ];
 
-/** Whether a patient's reply is an explicit yes (and not a refusal). */
+/**
+ * Phrases that make a reply tentative ("maybe", "let me check"): never a
+ * confirmation, whatever else it says ("quizás la 2" books nothing).
+ */
+const HEDGES = [
+  'quizas',
+  'quiza',
+  'tal vez',
+  'a lo mejor',
+  'puede ser',
+  'capaz',
+  'creo que',
+  'no se si',
+  'no lo se',
+  'no estoy segura',
+  'no estoy seguro',
+  'lo pienso',
+  'lo voy a pensar',
+  'dejame ver',
+  'dejame revisar',
+  'dejame pensarlo',
+  'te aviso',
+  'te digo luego',
+  'maybe',
+  'perhaps',
+  'probably',
+  'possibly',
+  'might',
+  'not sure',
+  'i think',
+  'let me check',
+  'let me think',
+  'let me see',
+  'i ll let you know',
+  'i will let you know',
+];
+
+/** Whether a patient's reply is tentative ("maybe", "let me check"). */
+export function isHesitant(text: string): boolean {
+  return hasAny(fold(text), HEDGES);
+}
+
+/** Whether a patient's reply is an explicit yes (and not a refusal, and not tentative). */
 export function isAffirmative(text: string): boolean {
   const folded = fold(text);
-  return hasAny(folded, AFFIRMATIVE) && !hasAny(folded, NEGATIVE);
+  return hasAny(folded, AFFIRMATIVE) && !hasAny(folded, NEGATIVE) && !hasAny(folded, HEDGES);
 }
 
 /** Whether a patient's reply refuses or asks for something else. */
@@ -136,6 +178,7 @@ export type BookingRefusal =
   | 'offer_for_other_order'
   | 'slot_not_free'
   | 'not_affirmative'
+  | 'hesitant'
   | 'ambiguous_choice';
 
 export type BookingCheck =
@@ -151,8 +194,10 @@ export type BookingCheck =
  *   voice message (a photo sent after it does not take the yes back);
  * - the slot was offered in the latest offer before that message, for this order;
  * - the slot is still free (`slotStillFree`, checked against the schedule and bookings);
- * - the message is an explicit yes, and when the offer had several slots it
- *   singles this one out (option number, weekday or time) and no other.
+ * - the message is an explicit yes, not tentative ("maybe", "let me
+ *   check"), and when the offer had several slots it singles this one out
+ *   (option number, weekday or time) and no other. A bare "ok" to several
+ *   options is not a choice.
  */
 export function checkBookingConfirmation(input: {
   readonly orderId: string;
@@ -185,6 +230,7 @@ export function checkBookingConfirmation(input: {
   if (slot === undefined) return { ok: false, reason: 'slot_not_offered' };
   if (slot.orderId !== input.orderId) return { ok: false, reason: 'offer_for_other_order' };
   if (!input.slotStillFree) return { ok: false, reason: 'slot_not_free' };
+  if (isHesitant(message.text)) return { ok: false, reason: 'hesitant' };
   // With several options, naming one ("la 2") is an explicit choice; a question is not.
   const choiceOnly = offered.length > 1 && !isNegative(message.text) && !message.text.includes('?');
   if (!isAffirmative(message.text) && !choiceOnly) {
@@ -198,4 +244,97 @@ export function checkBookingConfirmation(input: {
     }
   }
   return { ok: true, slot };
+}
+
+const WEEKDAY_KEYS = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const;
+
+/** The weekdays a reply names ("el martes no puedo" → tuesday), in English names. */
+export function weekdaysNamedIn(text: string): (typeof WEEKDAY_KEYS)[number][] {
+  const folded = fold(text);
+  return WEEKDAY_WORDS.flatMap((words, index) =>
+    hasAny(folded, words) ? [WEEKDAY_KEYS[index] ?? 'sunday'] : [],
+  );
+}
+
+/** Words of a message about when to come (scheduling), folded. */
+const SCHEDULING_WORDS = [
+  'agendar',
+  'agendarte',
+  'agendemos',
+  'agendo',
+  'agenda',
+  'reservar',
+  'reservarte',
+  'reservo',
+  'reserva',
+  'cita',
+  'horario',
+  'horarios',
+  'hora',
+  'dia',
+  'dias',
+  'fecha',
+  'cuando',
+  'venir',
+  'book',
+  'booking',
+  'schedule',
+  'appointment',
+  'time',
+  'times',
+  'day',
+  'days',
+  'date',
+  'when',
+  'come in',
+  'slot',
+  'slots',
+];
+
+/** Phrases that ask the patient to choose or tell. */
+const ASK_PHRASES = [
+  'dime',
+  'avisame',
+  'cuentame',
+  'indicame',
+  'me dices',
+  'me avisas',
+  'me indicas',
+  'me cuentas',
+  'te parece',
+  'te queda',
+  'te quedan',
+  'te sirve',
+  'te viene',
+  'que dia',
+  'que hora',
+  'cual',
+  'cuales',
+  'let me know',
+  'tell me',
+  'which',
+  'what day',
+  'what time',
+  'works for you',
+  'work for you',
+  'suit you',
+  'suits you',
+];
+
+/**
+ * Whether an outbound message asks the patient to pick a time ("let me know
+ * which day works", "¿cuándo te queda bien venir?"): such a message must
+ * carry concrete slots computed by code (docs/agent/order-to-completion.md#guardrails).
+ */
+export function asksToBook(text: string): boolean {
+  const folded = fold(text);
+  return hasAny(folded, SCHEDULING_WORDS) && (text.includes('?') || hasAny(folded, ASK_PHRASES));
 }

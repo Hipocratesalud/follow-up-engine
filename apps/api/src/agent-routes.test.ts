@@ -48,9 +48,12 @@ interface Page {
     readonly offeredSlots?: readonly { readonly id: string }[];
   }[];
   readonly orders: readonly {
+    readonly orderId: string;
     readonly kind: string;
     readonly test?: string;
     readonly stage: string;
+    readonly urgent: boolean;
+    readonly doctorConfirmation?: { readonly by: string; readonly at: string };
   }[];
   readonly steps: readonly {
     readonly kind: string;
@@ -66,6 +69,7 @@ interface Page {
   readonly findings: readonly { readonly category: string; readonly summary: string }[];
   readonly tasks: readonly {
     readonly kind: string;
+    readonly status: string;
     readonly summary: { readonly ask: string; readonly orders: readonly string[] };
   }[];
 }
@@ -146,7 +150,8 @@ describe('the order-to-completion agent (scripted mode)', () => {
       expect(first?.direction).toBe('outbound');
       expect(first?.text).toContain('María');
       expect(first?.text).not.toContain('{first_name}');
-      expect(first?.offeredSlots).toHaveLength(1);
+      // PRD V1-D: an offer carries two or three slots computed by code.
+      expect(first?.offeredSlots).toHaveLength(2);
 
       await call(`/api/demo/agent/patients/${patientId}/messages`, {
         body: { text: 'Hola, sí. Ya me hice el examen la semana pasada, pero el martes no puedo.' },
@@ -281,26 +286,82 @@ describe('the order-to-completion agent (scripted mode)', () => {
     expect(page.messages.filter((message) => message.direction === 'outbound')).toHaveLength(1);
   });
 
-  it('follows the urgent ladder when an abnormal result asks for a visit', async () => {
+  it('asks the doctor first when an abnormal result asks for a visit, then follows the urgent ladder', async () => {
     const { call, page: read, worker } = await harness();
-    await call('/api/demo/agent/story', {
-      body: { story: 'maria_urgent', mode: 'scripted', language: 'en' },
-    });
+    const { patientId } = (
+      await call('/api/demo/agent/story', {
+        body: { story: 'maria_urgent', mode: 'scripted', language: 'en' },
+      })
+    ).body as { patientId: string };
     await worker.runJobs();
     let page = await read();
-    expect(page.orders.some((order) => order.kind === 'visit')).toBe(true);
-    expect(page.messages.at(-1)?.text).toContain('this week');
     // The lab's result reached the doctor before the agent wrote: the rise and the question.
     expect(page.findings[0]?.category).toBe('lab_trend');
     expect(page.findings[1]?.category).toBe('pre_visit_question');
+    // The visit the engine asked for (abnormal_result_followup) waits for the doctor:
+    // the agent only pursues what the doctor wrote (the routine control and the test).
+    const awaiting = page.orders.filter((order) => order.stage === 'awaiting_doctor');
+    expect(awaiting).toHaveLength(1);
+    expect(awaiting[0]?.urgent).toBe(true);
+    const confirmTask = page.tasks.find((task) => task.summary.ask === 'confirm_followup');
+    expect(confirmTask?.kind).toBe('doctor_notice');
+    const before = page.messages.filter((message) => message.direction === 'outbound');
+    expect(before).toHaveLength(1);
+    expect(before[0]?.text).not.toContain('this week');
+    expect(
+      page.steps.filter((step) => step.event === 'doctor_confirmation_requested'),
+    ).toHaveLength(1);
+    // Days pass without the doctor: still nothing urgent goes out.
+    await call('/api/demo/agent/clock', { body: { days: 1 } });
+    await worker.runJobs();
+    page = await read();
+    expect(page.messages.filter((message) => message.direction === 'outbound')).toHaveLength(1);
+    expect(page.orders.find((order) => order.stage === 'awaiting_doctor')).toBeDefined();
+
+    // The doctor confirms: recorded with who and when, and the urgent track starts.
+    const order = awaiting[0]?.orderId ?? '';
+    const confirmed = await call(`/api/demo/agent/patients/${patientId}/orders/${order}/confirm`, {
+      method: 'POST',
+    });
+    expect(confirmed.status).toBe(204);
+    await worker.runJobs();
+    page = await read();
+    const confirmedOrder = page.orders.find((item) => item.orderId === order);
+    expect(confirmedOrder?.doctorConfirmation?.by).toBe(EMAIL);
+    expect(confirmedOrder?.doctorConfirmation?.at).toMatch(/^\d{4}-/);
+    expect(
+      page.steps.find((step) => step.event === 'order_confirmed_by_doctor')?.params?.['by'],
+    ).toBe(EMAIL);
+    expect(page.tasks.find((task) => task.summary.ask === 'confirm_followup')?.status).toBe('done');
+    expect(page.messages.at(-1)?.text).toContain('this week');
+    // Confirming twice is refused.
+    expect(
+      (
+        await call(`/api/demo/agent/patients/${patientId}/orders/${order}/confirm`, {
+          method: 'POST',
+        })
+      ).status,
+    ).toBe(409);
+
     for (let day = 0; day < 3; day += 1) {
       await call('/api/demo/agent/clock', { body: { days: 1 } });
       await worker.runJobs();
     }
     page = await read();
-    // Hour 0 and day 1: two messages; day 2 a high-priority call; day 3 the doctor directly.
+    // The cap is per patient: the routine first contact and the urgent hour-0 message
+    // fill it, so the urgent day-1 message is skipped; day 2 a high-priority call, day 3 the doctor.
     expect(page.messages.filter((message) => message.direction === 'outbound')).toHaveLength(2);
-    expect(page.tasks.map((task) => task.kind).sort()).toEqual(['call_patient', 'doctor_notice']);
+    expect(
+      page.steps
+        .filter((step) => step.event === 'rung_skipped')
+        .map((step) => [step.params?.['rung'], step.params?.['block']]),
+    ).toEqual([['urgent:1d', 'cap_reached']]);
+    expect(
+      page.tasks
+        .filter((task) => task.summary.ask !== 'confirm_followup')
+        .map((task) => task.kind)
+        .sort(),
+    ).toEqual(['call_patient', 'doctor_notice']);
     await call('/api/demo/agent/clock', { body: { days: 4 } });
     await worker.runJobs();
     page = await read();

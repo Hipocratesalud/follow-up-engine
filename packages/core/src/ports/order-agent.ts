@@ -102,6 +102,8 @@ export interface OrderAgentModelCall {
   readonly costUsd: number;
   readonly latencyMs: number;
   readonly repaired: boolean;
+  /** The gateway's usage record of the call (`LlmUsageLog`), when known. */
+  readonly callId?: string;
 }
 
 export interface OrderAgentTurnRequest {
@@ -200,6 +202,15 @@ export interface OrderAgentEffects {
     },
   ): Promise<EngineOutcome>;
   submitResult(clinicId: ClinicId, input: ResultSubmission): Promise<EngineOutcome>;
+  /**
+   * The patient opted out on the agent's channel: recorded as a FHIR
+   * `Consent` (deny, `follow-up-opt-out`), so the engine stops asking the
+   * host to contact the patient and escalates to the coordinator instead.
+   */
+  recordOptOut(
+    clinicId: ClinicId,
+    input: { readonly patientId: PatientId; readonly messageId: string; readonly at: Date },
+  ): Promise<{ readonly resource: string }>;
   /** Runs the clinical reviewer on the patient (findings and pre-visit questions for the doctor). */
   requestClinicalReview(
     clinicId: ClinicId,

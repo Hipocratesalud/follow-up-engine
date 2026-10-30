@@ -80,4 +80,44 @@ export class PostgresLlmUsageLog implements LlmUsageLog {
       })),
     };
   }
+
+  /** Every call at or after `since`, oldest first. */
+  async calls(clinicId: ClinicId, since: Date): Promise<readonly LlmCallRecord[]> {
+    const { rows } = await this.#ctx.db().query<{
+      call_id: string;
+      task: string;
+      prompt_version: string;
+      provider: string;
+      model: string;
+      input_tokens: number;
+      output_tokens: number;
+      cost: string;
+      latency_ms: number;
+      ok: boolean;
+      error: string | null;
+      at: Date;
+    }>(
+      `SELECT call_id, task, prompt_version, provider, model, input_tokens, output_tokens,
+              cost_usd::text AS cost, latency_ms, ok, error, at
+       FROM ${this.#ctx.tables.llm_calls}
+       WHERE clinic_id = $1 AND at >= $2
+       ORDER BY at, call_id`,
+      [clinicId, since],
+    );
+    return rows.map((row) => ({
+      callId: row.call_id,
+      clinicId,
+      task: row.task,
+      promptVersion: row.prompt_version,
+      provider: row.provider,
+      model: row.model,
+      inputTokens: row.input_tokens,
+      outputTokens: row.output_tokens,
+      costUsd: Number(row.cost),
+      latencyMs: row.latency_ms,
+      ok: row.ok,
+      ...(row.error === null ? {} : { error: row.error }),
+      at: row.at,
+    }));
+  }
 }

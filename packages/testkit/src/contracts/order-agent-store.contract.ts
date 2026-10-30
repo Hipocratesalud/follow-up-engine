@@ -29,7 +29,15 @@ function conversation(clinicId: ClinicId, patient: PatientId): AgentConversation
       done: ['undelivered:0d'],
       resumeTrack: 'urgent',
     },
-    orders: [{ orderId: ORDER, stage: 'booked', appointmentId: 'appt-1', updatedAt: at(2) }],
+    orders: [
+      {
+        orderId: ORDER,
+        stage: 'booked',
+        appointmentId: 'appt-1',
+        doctorConfirmation: { by: 'doctor@example.com', at: at(1) },
+        updatedAt: at(2),
+      },
+    ],
     retryAt: at(30),
     flagAtNextContact: true,
     createdAt: at(0),

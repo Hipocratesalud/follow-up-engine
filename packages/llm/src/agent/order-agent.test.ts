@@ -117,6 +117,38 @@ describe('the order agent loop', () => {
     expect(toolbox.executed).toEqual(['list_open_orders', 'end_turn']);
   });
 
+  it('reminds a model that answers in prose once, and goes on when it then calls a tool', async () => {
+    const replies: unknown[] = [
+      { thought: 'orders', tool: 'list_open_orders', arguments: '{}' },
+      // Prose twice: the call and the gateway's repair attempt both fail.
+      'Hola, te escribo de la clínica para agendar tu control.',
+      'Hola, te escribo de la clínica para agendar tu control.',
+      { thought: 'send', tool: 'send_message', arguments: '{"text":"Hola {first_name}"}' },
+      { thought: 'done', tool: 'end_turn', arguments: '{"summary":"ok"}' },
+    ];
+    let index = 0;
+    let reminder = '';
+    const gateway = gatewayWith((request) => {
+      if (request.output.name !== ORDER_AGENT_ACTION_NAME) return undefined;
+      const last = request.messages.at(-1)?.content ?? '';
+      if (last.includes('tool="protocol"')) reminder = last;
+      return replies[index++];
+    });
+    const toolbox = recordingToolbox();
+    const result = await createOrderAgentModel({ gateway }).runTurn(CLINIC, {
+      mode: 'scripted',
+      context: {},
+      toolbox,
+      maxSteps: 8,
+      redactTerms: [],
+      onModelCall: () => Promise.resolve(),
+    });
+    expect(result.stopReason).toBe('end_turn');
+    expect(toolbox.executed).toEqual(['list_open_orders', 'send_message', 'end_turn']);
+    expect(toolbox.rejected).toEqual(['prose:prose_reminded']);
+    expect(reminder).toContain('no_tool_call');
+  });
+
   it('masks the patient’s name in everything the model reads', async () => {
     let seen = '';
     const gateway = gatewayWith((request) => {
