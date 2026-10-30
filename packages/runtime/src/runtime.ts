@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   FileEscalationPolicySource,
   FileProtocolSource,
@@ -14,11 +14,13 @@ import {
   type Clock,
   createClinicalReviewer,
   createFollowUpEngine,
+  createOrderAgentService,
   DEFAULT_REVIEW_LOCALE,
   type EventPublisher,
   FakeClock,
   type FollowUpEngine,
   type IdGenerator,
+  type OrderAgentService,
   primaryLanguage,
   REVIEW_LOCALES,
   type ReviewLocale,
@@ -26,7 +28,7 @@ import {
   shadowPilotFlags,
   SystemClock,
 } from '@follow-up-engine/core';
-import type { NoteFixture } from '@follow-up-engine/llm';
+import { type NoteFixture, outboundSafetyTerms } from '@follow-up-engine/llm';
 import {
   ApiKeyConflictError,
   type ApiKeyScope,
@@ -52,7 +54,9 @@ import {
   type ExtractorInfo,
   type LlmSnapshotOption,
 } from './llm.ts';
+import { LabClockRegistry } from './lab-clocks.ts';
 import { createLogger, type Logger } from './logger.ts';
+import { createOrderAgentEffects } from './order-agent/effects.ts';
 import { patientRedactTerms, withPatientRedaction } from './redaction.ts';
 import { createMemoryStorage, createPostgresStorage, type Storage } from './storage.ts';
 
@@ -109,6 +113,15 @@ export interface EngineRuntime {
   /** Replay of a recorded model snapshot (`CreateRuntimeOptions.llmSnapshot`): hits and live calls. */
   readonly llmReplay?: ConfiguredExtractor['replay'];
   readonly ingestion: IngestionService;
+  /**
+   * Every evaluator lab clinic's own clock (docs/deploy.md#hosted-demo), one
+   * registry per process: the routes move them, the order agent reads them.
+   */
+  readonly labClocks: LabClockRegistry;
+  /** The order-to-completion agent (docs/agent/order-to-completion.md). */
+  readonly orderAgent: OrderAgentService;
+  /** Whether the agent's live mode runs a real model (`LLM_PROVIDER` is not `fake`). */
+  readonly liveAgent: boolean;
   /** Delivers outbox events to the host (signed webhooks). */
   readonly publisher: EventPublisher;
   /** The in-process webhook sink, when no `WEBHOOK_URL` is configured (demo). */
@@ -188,10 +201,22 @@ export async function createRuntime(
           ...(options.poolSize === undefined ? {} : { poolSize: options.poolSize }),
         });
 
-  const { extractor, info, reviewAgent, replay } = createConfiguredExtractor(config.llm, {
+  const demoBudget = config.demo?.llmMonthlyBudgetUsd;
+  const {
+    extractor,
+    info,
+    reviewAgent,
+    replay,
+    orderAgentModel,
+    mediaReader,
+    scriptedReviewAgent,
+    liveAgent,
+  } = createConfiguredExtractor(config.llm, {
     usageLog: storage.llmUsage,
     clinics: storage.clinics,
     clock,
+    // A lab clinic has no budget of its own: the hosted demo's cap applies to it too.
+    fallbackBudgetUsd: (clinicId) => (isLabClinicId(clinicId) ? demoBudget : undefined),
     ...(options.noteFixtures === undefined ? {} : { noteFixtures: options.noteFixtures }),
     ...(options.llmSnapshot === undefined ? {} : { snapshot: options.llmSnapshot }),
   });
@@ -224,6 +249,29 @@ export async function createRuntime(
     // What the host sends in full: a missing allergy status is a finding only then.
     recordCapabilitiesOf: async (clinicId) =>
       (await storage.clinics.get(clinicId))?.settings.recordCapabilities ?? [],
+  });
+
+  const ids = options.ids ?? new UuidIdGenerator();
+  const labClocks = new LabClockRegistry();
+  const clockOf = (clinicId: ClinicId): Clock => labClocks.get(clinicId) ?? clock;
+  const orderAgent = createOrderAgentService({
+    store: storage.orderAgent,
+    unitOfWork: storage.unitOfWork,
+    clinics: storage.clinics,
+    model: orderAgentModel,
+    media: mediaReader,
+    effects: createOrderAgentEffects({
+      storage,
+      engine,
+      ids,
+      clockOf,
+      reviewAgents: { live: reviewAgent, scripted: scriptedReviewAgent },
+    }),
+    nowOf: (clinicId) => clockOf(clinicId).now(),
+    newId: (prefix) =>
+      `${prefix.replace(/_/g, '-')}-${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+    safetyTerms: outboundSafetyTerms(),
+    redactTermsOf: patientRedactTerms,
   });
 
   const { url: webhookUrl, secret: webhookSecret } = config.webhooks;
@@ -297,6 +345,9 @@ export async function createRuntime(
     extractor: info,
     ...(replay === undefined ? {} : { llmReplay: replay }),
     ingestion: new IngestionService({ storage, engine, clock }),
+    labClocks,
+    orderAgent,
+    liveAgent,
     publisher,
     ...(sink === undefined ? {} : { sink }),
     logger,

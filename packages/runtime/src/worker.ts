@@ -5,6 +5,8 @@ import {
   type ClinicId,
   type EscalationReport,
   NOTE_EXTRACTION_JOB,
+  ORDER_AGENT_LADDER_JOB,
+  ORDER_AGENT_TURN_JOB,
   RECONCILIATION_JOB,
   type WatcherReport,
 } from '@follow-up-engine/core';
@@ -18,6 +20,8 @@ export const WORKER_JOB_TYPES = [
   NOTE_EXTRACTION_JOB,
   CLINICAL_REVIEW_JOB,
   RECONCILIATION_JOB,
+  ORDER_AGENT_TURN_JOB,
+  ORDER_AGENT_LADDER_JOB,
 ] as const;
 
 const RETRY_BASE_MS = 5_000;
@@ -117,6 +121,8 @@ export class Worker {
   readonly #intervals: { readonly jobs: number; readonly outbox: number; readonly sweeps: number };
   readonly #timers = new Set<NodeJS.Timeout>();
   readonly #inFlight = new Set<Promise<unknown>>();
+  /** Where each clinic's order-agent ladder was last scheduled up to (the hourly sweep). */
+  readonly #ladderUntil = new Map<ClinicId, Date>();
   #running = false;
 
   constructor(runtime: EngineRuntime, options: WorkerOptions = {}) {
@@ -203,6 +209,10 @@ export class Worker {
       const reviewsQueued = await this.#runtime.reviewer.scheduleStaleReviews(clinicId, now);
       // The nightly safety net: queued once per night, run by the jobs loop.
       const reconciliation = await this.#runtime.engine.reconciliation.schedule(clinicId, now);
+      // The order agent's no-response ladder, over what the clock crossed since the last sweep.
+      const ladderFrom = this.#ladderUntil.get(clinicId) ?? now;
+      await this.#runtime.orderAgent.scheduleLadder(clinicId, ladderFrom, now);
+      this.#ladderUntil.set(clinicId, now);
       if (watcher.expired > 0 || escalation.casesProcessed > 0) {
         this.#runtime.logger.info(
           {
@@ -377,6 +387,14 @@ export class Worker {
           }
           break;
         }
+        case ORDER_AGENT_TURN_JOB:
+          await this.#runtime.orderAgent.runTurnJob(job.clinicId, job.payload);
+          logger.info(context, 'order agent turn');
+          break;
+        case ORDER_AGENT_LADDER_JOB:
+          await this.#runtime.orderAgent.runLadderJob(job.clinicId, job.payload);
+          logger.info(context, 'order agent ladder');
+          break;
         default:
           throw new Error(`No handler for job type ${job.type}`);
       }

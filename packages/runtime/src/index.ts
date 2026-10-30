@@ -87,6 +87,19 @@ export {
   type LabClockAdvance,
 } from './lab.ts';
 export type { ExtractorInfo, LlmSnapshotOption } from './llm.ts';
+export {
+  MARIA,
+  ORDER_AGENT_STORIES,
+  startOrderAgentStory,
+  type OrderAgentStory,
+} from './order-agent/story.ts';
+export {
+  readSample,
+  SAMPLE_FILES,
+  SAMPLE_LAB_READING,
+  SAMPLE_TRANSCRIPTS,
+  type SampleName,
+} from './order-agent/samples.ts';
 /** Gateway task names, for per-task LLM usage (notes read vs clinical reviews). */
 export { CLINICAL_REVIEW_TASK, NOTE_EXTRACTION_TASK } from '@follow-up-engine/llm';
 export { createLogger, type Logger } from './logger.ts';
