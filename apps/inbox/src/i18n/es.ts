@@ -1945,6 +1945,7 @@ function list(value: unknown): string[] {
 
 /** Códigos que lleva la traza del agente (disparadores, pistas, rechazos, categorías), en palabras. */
 const AGENT_CODES: Readonly<Record<string, string>> = {
+  doctor_confirmed: 'la confirmación del médico',
   take_ownership: 'toma de las órdenes',
   inbound_message: 'un mensaje de María',
   ladder_rung: 'un escalón de la escalera',
@@ -1962,6 +1963,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   phone_undelivered: 'teléfono sin entrega',
   cap_reached: 'tope semanal alcanzado',
   reply_limit: 'límite de respuestas alcanzado',
+  outreach_already_sent: 'ya se envió el único mensaje de este contacto',
   not_an_open_order: 'no es una de las órdenes abiertas',
   unknown_or_taken_slot: 'horario desconocido u ocupado',
   not_a_photo_message: 'no es una foto',
@@ -1969,6 +1971,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   name_on_report_does_not_match: 'el nombre del informe no coincide',
   unknown_tool: 'herramienta desconocida',
   invalid_arguments: 'argumentos inválidos',
+  prose_reminded: 'respondió en prosa: se le recordó llamar una herramienta',
   no_tool_call: 'respondió en texto, así que el turno termina',
   message_not_found: 'mensaje no encontrado',
   not_inbound: 'no es un mensaje de la paciente',
@@ -1978,6 +1981,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   slot_not_free: 'el horario ya no está libre',
   not_affirmative: 'no es un sí explícito',
   ambiguous_choice: 'no eligió una sola opción',
+  hesitant: 'una respuesta dudosa, no un sí',
   matches: 'coincide',
   mismatch: 'no coincide',
   absent: 'no aparece',
@@ -1992,6 +1996,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   result_value: 'un valor de resultado',
   result_judgement: 'un juicio sobre un resultado',
   condition_term: 'el nombre de una condición',
+  test_name: 'el nombre de un examen',
   diagnosis_word: 'un diagnóstico',
   medical_advice: 'un consejo médico',
   missing_screening: 'tamizaje pendiente',
@@ -2148,6 +2153,7 @@ const agent = {
       abnormal_result: 'Pedida por un resultado anormal',
     } as Record<string, string>,
     stages: {
+      awaiting_doctor: 'Espera al médico',
       open: 'Abierta',
       contacted: 'Contactada',
       booked: 'Agendada',
@@ -2191,6 +2197,14 @@ const agent = {
       'Lo que encontró el revisor clínico cuando llegó el resultado: sugerencias para el médico, nunca enviadas a María.',
     empty: 'Nada todavía.',
     shadow: 'Modo sombra',
+    noCitation: 'Sin evidencia citada.',
+    confirmVisit: 'Resultado anormal: ¿confirmas un control?',
+    confirmTest: (test: string): string =>
+      `Resultado anormal: ¿confirmas el seguimiento de ${test}?`,
+    confirmHint:
+      'Lo pidió el motor tras un resultado, no el médico: el agente le escribe a María sobre esto solo cuando lo confirmes.',
+    confirmAction: 'Confirmar control',
+    confirmedBy: (who: string, when: string): string => `Confirmado por ${who} el ${when}.`,
     routine: (count: number): string =>
       `${String(count)} ${count === 1 ? 'pendiente rutinario' : 'pendientes rutinarios'} (tamizajes, historia)`,
   },
@@ -2224,7 +2238,10 @@ const agent = {
         'Sin respuesta tras tres semanas: las órdenes siguen abiertas, el agente reintenta en un mes.',
       urgent_unanswered: 'Orden urgente sin respuesta: contáctala hoy.',
       patient_question: 'Preguntó algo que solo el equipo puede responder: devuélvele la llamada.',
-      opted_out: 'Pidió no recibir mensajes: haz el seguimiento por teléfono si hace falta.',
+      opted_out:
+        'Pidió que no la contacten: ni mensajes ni llamadas. Sus órdenes siguen abiertas para que decida el médico.',
+      confirm_followup:
+        'Un resultado hizo que el motor pidiera un control: confírmalo en «Para el médico» antes de que alguien la contacte.',
     } as Record<string, string>,
   },
   events: {
@@ -2278,6 +2295,8 @@ const agent = {
     media_unreadable: (): string => 'No se pudo leer el archivo.',
     budget_fallback_scripted: (): string =>
       'Se alcanzó el presupuesto de la demo: este turno corre con el reproductor guionado.',
+    outreach_fallback_scripted: (): string =>
+      'El modelo terminó el contacto sin escribir: el reproductor guionado envía el mensaje de este escalón.',
     turn_failed: (p: Params): string => `El turno falló: ${str(p['error'])}`,
     patient_message_received: (p: Params): string =>
       `María envió ${str(p['kind']) === 'text' ? 'un mensaje' : str(p['kind']) === 'voice' ? 'una nota de voz' : 'una foto'}.`,
@@ -2295,6 +2314,17 @@ const agent = {
         : 'Sin respuesta: las órdenes siguen abiertas, se reintenta en un mes.',
     retry_started: (): string => 'Un mes después: el agente lo intenta de nuevo.',
     opted_out: (): string => 'El código detectó que pidió no recibir mensajes: no se envían más.',
+    opt_out_recorded: (): string =>
+      'Baja registrada en el motor (Consent FHIR): sin pedidos de contacto, la escalada va al coordinador.',
+    opt_out_record_failed: (): string => 'El motor no pudo registrar la baja.',
+    doctor_confirmation_requested: (p: Params): string =>
+      `${num(list(p['orders']).length)} orden(es) del motor por un resultado esperan la confirmación del médico: todavía no se contacta por ellas.`,
+    order_confirmed_by_doctor: (p: Params): string =>
+      `Confirmado por ${str(p['by'])}: el agente ya puede contactar a María por esto.`,
+    slots_attached: (p: Params): string =>
+      `El mensaje pedía un horario sin opciones: el código adjuntó ${num(list(p['slots']).length)}.`,
+    slots_topped_up: (p: Params): string =>
+      `El código agregó ${num(list(p['added']).length)} horario(s): cada oferta lleva dos o tres.`,
     delivery_status: (p: Params): string => `Estado de entrega: ${code(p['status'])}.`,
     messaging_stopped_undelivered: (): string =>
       'No entregado: se dejó de escribir, probablemente un número equivocado.',

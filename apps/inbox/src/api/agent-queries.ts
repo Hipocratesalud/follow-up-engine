@@ -94,6 +94,15 @@ export function useFixPhone(patientId: string): UseMutationResult<void, Error, v
   return useMutation({ mutationFn: () => api.fixAgentPhone(patientId), onSuccess: invalidate });
 }
 
+export function useConfirmAgentOrder(patientId: string): UseMutationResult<void, Error, string> {
+  const api = useApi();
+  const invalidate = useInvalidateAgent();
+  return useMutation({
+    mutationFn: (orderId: string) => api.confirmAgentOrder(patientId, orderId),
+    onSuccess: invalidate,
+  });
+}
+
 export function useAdvanceAgentClock(): UseMutationResult<
   { from: string; to: string },
   Error,

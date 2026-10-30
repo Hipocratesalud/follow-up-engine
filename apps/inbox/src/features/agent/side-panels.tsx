@@ -1,4 +1,4 @@
-import { CircleCheck, CircleDashed, ClipboardList, Stethoscope } from 'lucide-react';
+import { CircleCheck, CircleDashed, ClipboardList, FlaskConical, Stethoscope } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type {
   AgentFindingView,
@@ -6,7 +6,8 @@ import type {
   AgentOrderView,
   AgentTaskView,
 } from '../../api/agent-contract.ts';
-import { useAdvanceAgentClock } from '../../api/agent-queries.ts';
+import { useAdvanceAgentClock, useConfirmAgentOrder } from '../../api/agent-queries.ts';
+import { CitationQuote } from '../../components/evidence.tsx';
 import { InlineError } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, type Tone } from '../../components/ui.tsx';
 import { INTL_LOCALES, useLocale, useT } from '../../i18n/index.ts';
@@ -14,6 +15,7 @@ import { cx } from '../../lib/cx.ts';
 import { clinicDate, clinicDateTime } from './format.ts';
 
 const STAGE_TONES: Readonly<Record<AgentOrderView['stage'], Tone>> = {
+  awaiting_doctor: 'warning',
   open: 'neutral',
   contacted: 'info',
   booked: 'primary',
@@ -280,23 +282,113 @@ function FindingItem({ finding }: { readonly finding: AgentFindingView }): React
       </div>
       <p className="mt-1 text-sm text-fg">{finding.summary}</p>
       <p className="mt-0.5 text-xs text-muted">{finding.suggestion}</p>
+      {finding.citations.length === 0 ? (
+        <p className="mt-2 text-xs text-subtle">{t.agent.doctor.noCitation}</p>
+      ) : (
+        <div className="mt-2 flex flex-col gap-1.5">
+          {finding.citations.map((citation) => (
+            <CitationQuote key={`${citation.docId}:${citation.quote}`} citation={citation} />
+          ))}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/**
+ * An order the engine created from a result (an abnormal value asks for a
+ * visit), waiting for the doctor: the agent contacts nobody about it until
+ * the doctor confirms, and the confirmation is recorded with who and when.
+ */
+function ConfirmationItem({
+  order,
+  patientId,
+  timeZone,
+}: {
+  readonly order: AgentOrderView;
+  readonly patientId: string;
+  readonly timeZone: string | undefined;
+}): ReactNode {
+  const t = useT();
+  const locale = useLocale();
+  const confirm = useConfirmAgentOrder(patientId);
+  function handleConfirm(): void {
+    confirm.mutate(order.orderId);
+  }
+  const confirmed = order.doctorConfirmation;
+  return (
+    <li
+      className="rounded-lg border border-warning/40 bg-warning-soft/40 px-3 py-2"
+      data-testid="doctor-confirmation"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <FlaskConical className="size-4 text-warning" aria-hidden="true" />
+        <span className="text-sm font-medium text-fg">
+          {order.kind === 'visit'
+            ? t.agent.doctor.confirmVisit
+            : t.agent.doctor.confirmTest(order.test ?? t.agent.orders.unknownTest)}
+        </span>
+        {order.urgent ? <Badge tone="danger">{t.agent.orders.urgent}</Badge> : null}
+      </div>
+      <p className="mt-1 text-xs text-muted">{t.agent.doctor.confirmHint}</p>
+      {confirmed === undefined ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="success"
+            onClick={handleConfirm}
+            loading={confirm.isPending}
+            disabled={confirm.isPending}
+          >
+            {t.agent.doctor.confirmAction}
+          </Button>
+          {confirm.isError ? <InlineError error={confirm.error} /> : null}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs font-medium text-success">
+          {t.agent.doctor.confirmedBy(confirmed.by, clinicDateTime(confirmed.at, timeZone, locale))}
+        </p>
+      )}
     </li>
   );
 }
 
 export function DoctorPanel({
   findings,
+  orders = [],
+  patientId,
+  timeZone,
 }: {
   readonly findings: readonly AgentFindingView[];
+  readonly orders?: readonly AgentOrderView[];
+  readonly patientId?: string;
+  readonly timeZone?: string | undefined;
 }): ReactNode {
   const t = useT();
   const main = findings.filter((finding) => !finding.routine);
   const routine = findings.filter((finding) => finding.routine);
+  const confirmations = orders.filter((order) => order.needsConfirmation === true);
   return (
     <Card className="flex flex-col gap-3 p-4">
-      <SectionTitle count={findings.length}>{t.agent.doctor.title}</SectionTitle>
+      <SectionTitle count={findings.length + confirmations.length}>
+        {t.agent.doctor.title}
+      </SectionTitle>
       <p className="text-xs text-muted">{t.agent.doctor.subtitle}</p>
-      {findings.length === 0 ? <p className="text-sm text-muted">{t.agent.doctor.empty}</p> : null}
+      {confirmations.length === 0 || patientId === undefined ? null : (
+        <ul className="flex flex-col gap-2">
+          {confirmations.map((order) => (
+            <ConfirmationItem
+              key={order.orderId}
+              order={order}
+              patientId={patientId}
+              timeZone={timeZone}
+            />
+          ))}
+        </ul>
+      )}
+      {findings.length === 0 && confirmations.length === 0 ? (
+        <p className="text-sm text-muted">{t.agent.doctor.empty}</p>
+      ) : null}
       <ul className="flex flex-col gap-2">
         {main.map((finding) => (
           <FindingItem key={finding.id} finding={finding} />

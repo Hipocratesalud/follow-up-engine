@@ -1966,6 +1966,7 @@ function list(value: unknown): string[] {
 /** Codes the agent's trace carries (triggers, tracks, refusals, categories), in words. */
 const AGENT_CODES: Readonly<Record<string, string>> = {
   take_ownership: 'taking ownership',
+  doctor_confirmed: 'the doctor’s confirmation',
   inbound_message: 'a message from Maria',
   ladder_rung: 'a ladder rung',
   phone_fixed: 'phone updated',
@@ -1982,6 +1983,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   phone_undelivered: 'phone not reachable',
   cap_reached: 'weekly cap reached',
   reply_limit: 'reply limit reached',
+  outreach_already_sent: 'one message per outreach already sent',
   not_an_open_order: 'not one of the open orders',
   unknown_or_taken_slot: 'unknown or taken slot',
   not_a_photo_message: 'not a photo',
@@ -1989,6 +1991,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   name_on_report_does_not_match: 'the name on the report does not match',
   unknown_tool: 'unknown tool',
   invalid_arguments: 'invalid arguments',
+  prose_reminded: 'it answered in prose: reminded to call a tool',
   no_tool_call: 'it answered in prose, so the turn ends',
   message_not_found: 'message not found',
   not_inbound: 'not a patient message',
@@ -1998,6 +2001,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   slot_not_free: 'slot no longer free',
   not_affirmative: 'not an explicit yes',
   ambiguous_choice: 'no single option chosen',
+  hesitant: 'a tentative reply, not a yes',
   matches: 'matches',
   mismatch: 'does not match',
   absent: 'not printed',
@@ -2012,6 +2016,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   result_value: 'a result value',
   result_judgement: 'a verdict on a result',
   condition_term: 'a condition name',
+  test_name: 'a test name',
   diagnosis_word: 'a diagnosis',
   medical_advice: 'medical advice',
   missing_screening: 'missing screening',
@@ -2162,6 +2167,7 @@ const agent = {
       abnormal_result: 'Asked for by an abnormal result',
     } as Record<string, string>,
     stages: {
+      awaiting_doctor: 'Awaiting the doctor',
       open: 'Open',
       contacted: 'Contacted',
       booked: 'Booked',
@@ -2205,6 +2211,13 @@ const agent = {
       'What the clinical reviewer found after the result came in: suggestions for the doctor, never sent to Maria.',
     empty: 'Nothing yet.',
     shadow: 'Shadow mode',
+    noCitation: 'No cited evidence.',
+    confirmVisit: 'Abnormal result: confirm a follow-up visit?',
+    confirmTest: (test: string): string => `Abnormal result: confirm the ${test} follow-up?`,
+    confirmHint:
+      'The engine asked for this after a result, not the doctor: the agent writes to Maria about it only once you confirm.',
+    confirmAction: 'Confirm follow-up visit',
+    confirmedBy: (who: string, when: string): string => `Confirmed by ${who} on ${when}.`,
     routine: (count: number): string =>
       `${String(count)} routine ${count === 1 ? 'gap' : 'gaps'} (screenings, record)`,
   },
@@ -2236,7 +2249,10 @@ const agent = {
         'Unreachable after three weeks: orders stay open, the agent retries in a month.',
       urgent_unanswered: 'Urgent order unanswered: reach her today.',
       patient_question: 'She asked something only the team can answer: call her back.',
-      opted_out: 'She asked not to be messaged: follow up by phone if needed.',
+      opted_out:
+        'She asked not to be contacted: no messages or calls. Her orders stay open for the doctor to decide.',
+      confirm_followup:
+        'A result made the engine ask for a visit: confirm it in “For the doctor” before anyone contacts her.',
     } as Record<string, string>,
   },
   events: {
@@ -2285,6 +2301,8 @@ const agent = {
     media_unreadable: (): string => 'The media could not be read.',
     budget_fallback_scripted: (): string =>
       'Demo budget reached: this turn runs on the scripted player.',
+    outreach_fallback_scripted: (): string =>
+      'The model ended the outreach without writing: the scripted player sends this rung’s message.',
     turn_failed: (p: Params): string => `Turn failed: ${str(p['error'])}`,
     patient_message_received: (p: Params): string =>
       `Maria sent a ${str(p['kind']) === 'text' ? 'message' : str(p['kind']) === 'voice' ? 'voice note' : 'photo'}.`,
@@ -2300,6 +2318,17 @@ const agent = {
         : 'Unreachable: orders stay open, retry in a month.',
     retry_started: (): string => 'A month later: the agent tries again.',
     opted_out: (): string => 'Opt-out detected by code: no more messages.',
+    opt_out_recorded: (): string =>
+      'Opt-out recorded in the engine (FHIR Consent): no contact requests, escalation goes to the coordinator.',
+    opt_out_record_failed: (): string => 'The engine could not record the opt-out.',
+    doctor_confirmation_requested: (p: Params): string =>
+      `${num(list(p['orders']).length)} engine order(s) from a result wait for the doctor’s confirmation: no outreach about them yet.`,
+    order_confirmed_by_doctor: (p: Params): string =>
+      `Confirmed by ${str(p['by'])}: the agent may now contact Maria about it.`,
+    slots_attached: (p: Params): string =>
+      `The message asked for a time without slots: code attached ${num(list(p['slots']).length)}.`,
+    slots_topped_up: (p: Params): string =>
+      `Code added ${num(list(p['added']).length)} slot(s): every offer carries two or three.`,
     delivery_status: (p: Params): string => `Delivery status: ${code(p['status'])}.`,
     messaging_stopped_undelivered: (): string =>
       'Undelivered: messaging stopped, likely a wrong number.',

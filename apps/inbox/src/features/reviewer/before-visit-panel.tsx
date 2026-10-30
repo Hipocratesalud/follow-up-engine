@@ -4,7 +4,7 @@ import type { BeforeVisitView, FindingView } from '../../api/reviewer-contract.t
 import { useBeforeVisit, useFindingReview } from '../../api/queries.ts';
 import { fieldError, InlineError } from '../../components/states.tsx';
 import { Badge, Button, Card, INPUT_CLASS, SectionTitle } from '../../components/ui.tsx';
-import { InlineQuote } from '../../components/evidence.tsx';
+import { CitationQuote } from '../../components/evidence.tsx';
 import { useT } from '../../i18n/index.ts';
 import { formatDate } from '../../lib/format.ts';
 import { SeverityBadge } from './finding-row.tsx';
@@ -146,14 +146,7 @@ function BeforeVisitItem({ item }: { readonly item: FindingView }): ReactNode {
         <p className="text-sm font-semibold text-fg">{item.summary}</p>
         <p className="mt-0.5 text-sm text-muted">{item.rationale}</p>
       </div>
-      {citation ? (
-        <div className="rounded-lg bg-surface-2 px-3 py-2">
-          <InlineQuote quote={citation.quote} />
-          <p className="mt-1 text-xs text-muted">
-            {COPY.citationCaption(citation.title, formatDate(citation.date))}
-          </p>
-        </div>
-      ) : null}
+      {citation ? <CitationQuote citation={citation} /> : null}
       <QuickVerdict findingId={item.id} />
     </li>
   );
