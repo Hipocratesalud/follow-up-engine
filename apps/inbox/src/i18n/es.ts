@@ -1788,6 +1788,7 @@ const EVALUATOR_ACTION_LABELS: Record<string, string> = {
   lab_patient_created: 'Creó un paciente de laboratorio',
   lab_document_uploaded: 'Subió un documento de laboratorio',
   lab_record_added: 'Agregó un registro de laboratorio',
+  lab_history_imported: 'Importó el historial de un paciente',
   lab_date_viewed: 'Movió el reloj del laboratorio',
   case_viewed: 'Vio un caso',
   patient_documents_viewed: 'Vio los documentos de un paciente',
@@ -1906,6 +1907,59 @@ const lab: Messages['lab'] = {
   labCasesTitle: 'Los casos de tu laboratorio',
   labCasesEmpty: 'Todavía no hay casos abiertos en tu laboratorio.',
   labCasesEmptyBody: 'Agrega registros y mueve el reloj hacia adelante para ver casos abrirse.',
+  history: {
+    title: 'Importar historial',
+    intro:
+      'Varios documentos de un mismo paciente a la vez (PDF, DOCX, TXT, fotos de resultados), cada uno con la fecha en que se escribió. El motor los reproduce en orden de fecha, como la revisión inicial del historial: lo que el historial ya cumplió se cierra, y lo que dejó pendiente espera en “Por recuperar”, liberado por el tope diario.',
+    patient: 'Paciente',
+    newPatientName: 'Nombre del nuevo paciente',
+    samplesLabel: 'O prueba con un historial de ejemplo',
+    sampleButton: (name: string, documents: number): string =>
+      `${name} (${count(documents, 'documento', 'documentos')})`,
+    addFiles: 'Agregar documentos',
+    filesHint:
+      'PDF, DOCX, TXT, o una foto JPEG, PNG o WebP de un resultado. Hasta 12, 5 MB en total.',
+    noFiles: 'Todavía no hay documentos: agrega archivos o carga un historial de ejemplo.',
+    documentsTitle: 'Documentos a importar',
+    fileDate: 'Escrito el',
+    fileType: 'Tipo',
+    remove: 'Quitar',
+    removeFile: (name: string): string => `Quitar ${name}`,
+    readAsReport: 'Se lee como informe de laboratorio',
+    readAsNote: 'Se lee como nota clínica',
+    importButton: 'Importar historial',
+    importing: 'Leyendo y reproduciendo el historial…',
+    filesRequired: 'Agrega al menos un documento.',
+    dateRequired:
+      'Indica una fecha válida para cada documento, que no sea posterior a la fecha de tu laboratorio.',
+    resultTitle: 'Lo que hizo la importación',
+    summary: (created: number, fulfilled: number, cases: number): string =>
+      `${count(created, 'expectativa', 'expectativas')} del historial (origen: revisión del historial), ${numbers.format(fulfilled)} ya cumplidas por él, ${count(cases, 'caso retenido', 'casos retenidos')} para seguimiento.`,
+    release: (today: number, waiting: number): string =>
+      `Tope diario: ${count(today, 'caso liberado', 'casos liberados')} hoy, ${numbers.format(waiting)} en espera en “Por recuperar”.`,
+    alreadyImported: 'Ya estaba importado: no se leyó ni se creó nada nuevo.',
+    llmCost: (calls: number, cost: string): string =>
+      `${count(calls, 'llamada al modelo', 'llamadas al modelo')} en esta importación, ${cost} (según el registro de uso de los modelos).`,
+    statuses: {
+      staged: 'Importado',
+      already_imported: 'Ya importado',
+      no_results: 'Sin resultados de exámenes conocidos',
+      unreadable: 'No se pudo leer',
+    },
+    readAs: { note: 'Nota clínica', lab_report: 'Informe de laboratorio' },
+    source: { photo: 'foto', text: 'texto del documento' },
+    readBy: (model: string): string => `leído por ${model}`,
+    unrecognized: (tests: string): string => `No es un examen que el motor conozca: ${tests}`,
+    interpretations: { H: 'alto', L: 'bajo', N: 'en rango' },
+    recoveryTitle: 'Por recuperar',
+    recoveryIntro:
+      'Los casos del historial importado esperan aquí, retenidos: no se contacta a nadie. Salen según el tope diario por responsable (1 al día en tu laboratorio); mueve la fecha de tu laboratorio para liberar el siguiente lote.',
+    recoveryEmpty: 'No hay nada por recuperar.',
+    recoveryEmptyBody:
+      'Importa un historial: lo que dejó pendiente más allá del tope de hoy espera aquí.',
+    recoveryCount: (n: number): string => `${count(n, 'caso', 'casos')} en espera`,
+    originBackfill: 'Historial',
+  },
 };
 
 const evaluators: Messages['evaluators'] = {
@@ -1964,7 +2018,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   reply_limit: 'límite de respuestas alcanzado',
   not_an_open_order: 'no es una de las órdenes abiertas',
   unknown_or_taken_slot: 'horario desconocido u ocupado',
-  not_a_photo_message: 'no es una foto',
+  not_a_photo_message: 'no es una foto ni un informe PDF',
   photo_does_not_answer_order: 'la foto no responde a esta orden',
   name_on_report_does_not_match: 'el nombre del informe no coincide',
   unknown_tool: 'herramienta desconocida',
@@ -2048,22 +2102,19 @@ const agent = {
       'María (sintética) tiene diabetes tipo 2. En su última consulta, hace meses, su médico le pidió una HbA1c y un control en tres meses, y no volvió. Inicia la historia: el agente toma sus órdenes abiertas en tu propia clínica de prueba, con su propio reloj.',
     maria_urgent:
       'María (sintética) tiene diabetes tipo 2 y no fue a su control. Hace tres días su laboratorio envió a la clínica una HbA1c de 8,4\u00a0%, marcada como anormal: el motor pide una consulta pronto y el médico ya ve lo que significa el resultado. El agente tiene días, no semanas: sigue la escalera urgente en tu propia clínica de prueba, con su propio reloj.',
-  } as Record<string, string>,
+  },
   storyLabel: 'Historia',
   stories: {
     maria: 'Rutina: dejó de venir',
     maria_urgent: 'Urgente: su HbA1c anormal llegó a la clínica',
-  } as Record<string, string>,
+  },
   modeLabel: 'Modelo del agente',
-  modes: { live: 'Muse Spark (en vivo)', scripted: 'Guionado (sin conexión)' } as Record<
-    string,
-    string
-  >,
+  modes: { live: 'Muse Spark (en vivo)', scripted: 'Guionado (sin conexión)' },
   modeHints: {
     live: 'Llamadas reales a Muse Spark, Muse Voice y visión a través del gateway, dentro del presupuesto de la demo.',
     scripted:
       'Un reproductor determinista de la misma historia, con las mismas herramientas y salvaguardas. No necesita clave.',
-  } as Record<string, string>,
+  },
   liveUnavailable: 'El modo en vivo necesita una clave de Meta en el servidor.',
   languageLabel: 'María escribe en',
   start: 'Iniciar la historia',
@@ -2080,8 +2131,10 @@ const agent = {
     send: 'Enviar',
     sampleVoice: 'Nota de voz de ejemplo',
     samplePhoto: 'Foto de examen de ejemplo',
+    samplePdf: 'Informe PDF de ejemplo',
     uploadVoice: 'Subir una nota de voz WAV',
     uploadPhoto: 'Subir una foto',
+    uploadPdf: 'Subir un informe PDF',
     attachments: 'Enviar archivos',
     suggested: 'Respuestas sugeridas',
     voiceNote: 'Nota de voz',
@@ -2090,12 +2143,15 @@ const agent = {
     photo: 'Foto',
     photoAlt: 'Foto que envió María',
     reading: 'Leyendo la foto…',
+    pdfReport: 'Informe PDF',
+    openPdf: 'Abrir el PDF',
+    readingPdf: 'Leyendo el informe…',
     statuses: {
       sent: 'Enviado',
       delivered: 'Entregado',
       read: 'Leído',
       undelivered: 'No entregado',
-    } as Record<string, string>,
+    },
     markRead: 'Marcar como leído',
     markUndelivered: 'Marcar como no entregado',
     statusActions: 'Estado de entrega',
@@ -2129,11 +2185,8 @@ const agent = {
       guardrail: 'Salvaguarda',
       ladder: 'Escalera',
       policy: 'Política',
-    } as Record<string, string>,
-    outcomes: { ok: 'OK', rejected: 'Rechazado', error: 'Error', info: 'Info' } as Record<
-      string,
-      string
-    >,
+    },
+    outcomes: { ok: 'OK', rejected: 'Rechazado', error: 'Error', info: 'Info' },
   },
   orders: {
     title: 'Las órdenes del médico',
@@ -2146,7 +2199,7 @@ const agent = {
       doctor_note: 'De la nota del médico',
       doctor_order: 'Orden del médico',
       abnormal_result: 'Pedida por un resultado anormal',
-    } as Record<string, string>,
+    },
     stages: {
       open: 'Abierta',
       contacted: 'Contactada',
@@ -2154,7 +2207,7 @@ const agent = {
       result_received: 'Resultado recibido',
       fulfilled: 'Cumplida según el motor',
       unreachable: 'Sin respuesta',
-    } as Record<string, string>,
+    },
     closedBy: (resource: string): string => `Cerrada por ${resource}`,
     closedByVisit: (when: string): string => `Cerrada por la cita del ${when}`,
     closedByResult: (when: string, value: string): string =>
@@ -2173,7 +2226,7 @@ const agent = {
       routine: 'Pista de rutina',
       urgent: 'Pista urgente',
       undelivered: 'Pista de no entregado',
-    } as Record<string, string>,
+    },
     actions: {
       message: 'Mensaje',
       call_task: 'Tarea de llamada para recepción',
@@ -2181,7 +2234,7 @@ const agent = {
       update_phone_task: 'Tarea: actualizar el teléfono',
       other_contact_task: 'Llamar a otro contacto',
       unreachable: 'Sin respuesta',
-    } as Record<string, string>,
+    },
     rungDone: 'Hecho',
     stopped: 'Detenida: todas las órdenes están agendadas o cumplidas.',
   },
@@ -2202,7 +2255,7 @@ const agent = {
       update_phone: 'Actualizar el número de teléfono',
       call_other_contact: 'Llamar a otro contacto',
       doctor_notice: 'Aviso para el médico',
-    } as Record<string, string>,
+    },
     high: 'Prioridad alta',
     due: (date: string): string => `Vence el ${date}`,
     ordersLine: (orders: string): string => `Órdenes abiertas: ${orders}.`,
@@ -2225,7 +2278,7 @@ const agent = {
       urgent_unanswered: 'Orden urgente sin respuesta: contáctala hoy.',
       patient_question: 'Preguntó algo que solo el equipo puede responder: devuélvele la llamada.',
       opted_out: 'Pidió no recibir mensajes: haz el seguimiento por teléfono si hace falta.',
-    } as Record<string, string>,
+    },
   },
   events: {
     ownership_taken: (p: Params): string =>
@@ -2275,12 +2328,14 @@ const agent = {
     voice_transcribed: (p: Params): string => `Nota de voz transcrita: “${str(p['transcript'])}”`,
     photo_read: (p: Params): string =>
       `Foto leída: ${list(p['tests']).join('; ') || 'sin resultados'}.`,
+    document_read: (p: Params): string =>
+      `Informe PDF leído: ${list(p['tests']).join('; ') || 'sin resultados'}.`,
     media_unreadable: (): string => 'No se pudo leer el archivo.',
     budget_fallback_scripted: (): string =>
       'Se alcanzó el presupuesto de la demo: este turno corre con el reproductor guionado.',
     turn_failed: (p: Params): string => `El turno falló: ${str(p['error'])}`,
     patient_message_received: (p: Params): string =>
-      `María envió ${str(p['kind']) === 'text' ? 'un mensaje' : str(p['kind']) === 'voice' ? 'una nota de voz' : 'una foto'}.`,
+      `María envió ${str(p['kind']) === 'text' ? 'un mensaje' : str(p['kind']) === 'voice' ? 'una nota de voz' : str(p['kind']) === 'document' ? 'un informe PDF' : 'una foto'}.`,
     ladder_reanchored: (): string => 'La escalera se reinicia desde esta respuesta.',
     all_orders_covered: (): string =>
       'Todas las órdenes están agendadas o cumplidas: la escalera se detiene.',
@@ -2327,7 +2382,7 @@ const agent = {
     'scripted:no_free_slot': 'ningún horario libre sirve.',
     'scripted:no_patient_message': 'no hay mensaje de la paciente.',
     'loop:prose_end': 'el modelo respondió en texto, así que el turno terminó.',
-  } as Record<string, string>,
+  },
   unknownEvent: (event: string): string => code(event),
 };
 

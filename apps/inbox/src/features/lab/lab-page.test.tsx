@@ -143,6 +143,8 @@ function labHandlers() {
       return HttpResponse.json({ items: expectationsByPatient.get(id) ?? [] });
     }),
     http.get('*/api/demo/lab/cases', () => HttpResponse.json({ items: [] })),
+    http.get('*/api/demo/lab/recovery', () => HttpResponse.json({ items: [], total: 0 })),
+    http.get('*/api/demo/lab/history/samples', () => HttpResponse.json({ sets: [] })),
   ];
 }
 
@@ -192,6 +194,8 @@ describe('the Lab page', () => {
           HttpResponse.json({ items: [] }),
         ),
         http.get('*/api/demo/lab/cases', () => HttpResponse.json({ items: [] })),
+        http.get('*/api/demo/lab/recovery', () => HttpResponse.json({ items: [], total: 0 })),
+        http.get('*/api/demo/lab/history/samples', () => HttpResponse.json({ sets: [] })),
         http.post('*/api/demo/lab/records', () => {
           throw new Error('must not be called: the diagnosis field was left empty');
         }),
@@ -199,7 +203,8 @@ describe('the Lab page', () => {
     });
 
     const patientSelect = await screen.findByLabelText('Select a patient');
-    await screen.findByRole('option', { name: 'Test Patient' });
+    // "Import history" lists the lab patients too: look in the upload card's picker.
+    await within(patientSelect).findByRole('option', { name: 'Test Patient' });
     await rendered.user.selectOptions(patientSelect, 'Test Patient');
 
     await rendered.user.click(screen.getByRole('button', { name: 'Show' }));

@@ -5,6 +5,7 @@ import type {
   DemoConsultationResponse,
   ExpectationStatus,
   LabDocumentResponse,
+  LabHistoryImportResponse,
   LabRecordResponse,
 } from '../../api/contract.ts';
 import { useLabPatientExpectations } from '../../api/queries.ts';
@@ -15,7 +16,9 @@ import { useSessionState } from '../../lib/session-state.ts';
 import { AddWithoutDocument } from './add-without-document.tsx';
 import { ExpectationChips } from './expectation-chips.tsx';
 import { ExpectationsTable } from './expectations-table.tsx';
+import { HistoryImportCard } from './history-import-card.tsx';
 import { ImpactPanel } from './impact-panel.tsx';
+import { LabRecoveryPanel } from './lab-recovery-panel.tsx';
 import { DocumentReadback } from './readback.tsx';
 import { type TimelineEntry, TimelinePanel } from './timeline-panel.tsx';
 import { UploadCard } from './upload-card.tsx';
@@ -90,6 +93,19 @@ export function LabPage(): ReactNode {
     );
   }
 
+  function handleHistoryImported(response: LabHistoryImportResponse): void {
+    captureSnapshot();
+    setPatientId(response.patientId);
+    setLastResult(undefined);
+    for (const document of response.documents) {
+      addTimelineEntry(
+        response.patientId,
+        document.documentDate,
+        t.lab.documentUploadedTitle(t.lab.documentTypes[document.documentType]),
+      );
+    }
+  }
+
   function handleRecordSaved(response: LabRecordResponse): void {
     captureSnapshot();
     setLastResult({
@@ -118,6 +134,8 @@ export function LabPage(): ReactNode {
         onPatientSelected={handlePatientSelected}
         onUploaded={handleUploaded}
       />
+
+      <HistoryImportCard patientId={patientId} onImported={handleHistoryImported} />
 
       {showResult ? (
         <div className="flex flex-col gap-5">
@@ -160,6 +178,8 @@ export function LabPage(): ReactNode {
           {t.lab.noPatientSelected}
         </p>
       )}
+
+      <LabRecoveryPanel />
 
       <ImpactPanel />
     </div>

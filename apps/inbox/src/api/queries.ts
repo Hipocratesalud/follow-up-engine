@@ -35,6 +35,9 @@ import type {
   LabDocumentResponse,
   LabDocumentUploadRequest,
   LabExpectationView,
+  LabHistoryImportRequest,
+  LabHistoryImportResponse,
+  LabHistorySampleSet,
   LabPatient,
   LabPatientCreateRequest,
   LabRecordAddRequest,
@@ -91,6 +94,7 @@ export const queryKeys = {
   labPatients: ['lab-patients'] as const,
   labPatientExpectations: (patientId: string) => ['lab-patient-expectations', patientId] as const,
   labCases: ['lab-cases'] as const,
+  labRecovery: ['lab-recovery'] as const,
   evaluators: ['evaluators'] as const,
   evaluatorEvents: (evaluatorEmail: string | undefined) =>
     ['evaluator-events', evaluatorEmail] as const,
@@ -570,6 +574,46 @@ export function useLabCases(): UseQueryResult<{ items: CaseView[] }> {
   });
 }
 
+/** The lab's "To recover": backfill cases still held, as of the lab's own date. */
+export function useLabRecovery(): UseQueryResult<{ items: CaseView[]; total: number }> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.labRecovery,
+    queryFn: () => api.getLabRecovery(),
+  });
+}
+
+/** "Import history": several dated documents of one patient, replayed by the backfill. */
+export function useImportLabHistory(): UseMutationResult<
+  LabHistoryImportResponse,
+  Error,
+  LabHistoryImportRequest
+> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: LabHistoryImportRequest) => api.importLabHistory(request),
+    onSuccess: (response) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.labPatients });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.labCases });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.labRecovery });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.labPatientExpectations(response.patientId),
+      });
+    },
+  });
+}
+
+/** The committed sample histories ("Import history" offers them as one-click examples). */
+export function useLabHistorySamples(): UseQueryResult<LabHistorySampleSet> {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['lab-history-samples'],
+    queryFn: () => api.getLabHistorySamples(),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+}
+
 /** "See the impact on a date": moves the lab clinic's own clock forward. */
 export function useAdvanceLabDate(): UseMutationResult<LabDateImpact, Error, string> {
   const api = useApi();
@@ -579,6 +623,7 @@ export function useAdvanceLabDate(): UseMutationResult<LabDateImpact, Error, str
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['lab-clock'] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.labCases });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.labRecovery });
       // Every patient's expectations may have changed; refetch whichever is open.
       void queryClient.invalidateQueries({ queryKey: ['lab-patient-expectations'] });
     },

@@ -1807,6 +1807,7 @@ const EVALUATOR_ACTION_LABELS = {
   lab_patient_created: 'Created a lab patient',
   lab_document_uploaded: 'Uploaded a lab document',
   lab_record_added: 'Added a lab record',
+  lab_history_imported: 'Imported a patient’s history',
   lab_date_viewed: 'Moved the lab clock',
   case_viewed: 'Viewed a case',
   patient_documents_viewed: 'Viewed a patient’s documents',
@@ -1926,6 +1927,56 @@ const lab = {
   labCasesTitle: 'Your lab’s cases',
   labCasesEmpty: 'No open cases in your lab yet.',
   labCasesEmptyBody: 'Add records and move the clock forward to see cases open.',
+  history: {
+    title: 'Import history',
+    intro:
+      'Several documents of one patient at once (PDF, DOCX, TXT, photos of results), each with the date it was written. The engine replays them in date order, like the initial history review: what the history already fulfilled closes, and what it left unmet waits in “To recover”, released by the daily cap.',
+    patient: 'Patient',
+    newPatientName: 'New patient’s name',
+    samplesLabel: 'Or try a sample history',
+    sampleButton: (name: string, documents: number): string =>
+      `${name} (${count(documents, 'document', 'documents')})`,
+    addFiles: 'Add documents',
+    filesHint: 'PDF, DOCX, TXT, or a JPEG, PNG or WebP photo of a result. Up to 12, 5 MB in total.',
+    noFiles: 'No documents yet: add files or load a sample history.',
+    documentsTitle: 'Documents to import',
+    fileDate: 'Written on',
+    fileType: 'Type',
+    remove: 'Remove',
+    removeFile: (name: string): string => `Remove ${name}`,
+    readAsReport: 'Read as a lab report',
+    readAsNote: 'Read as a clinical note',
+    importButton: 'Import history',
+    importing: 'Reading and replaying the history…',
+    filesRequired: 'Add at least one document.',
+    dateRequired: 'Give every document a valid date, not after your lab’s date.',
+    resultTitle: 'What the import did',
+    summary: (created: number, fulfilled: number, cases: number): string =>
+      `${count(created, 'expectation', 'expectations')} from the history (origin: history review), ${numbers.format(fulfilled)} already fulfilled by it, ${count(cases, 'case', 'cases')} held for follow-up.`,
+    release: (today: number, waiting: number): string =>
+      `Daily cap: ${count(today, 'case', 'cases')} released today, ${numbers.format(waiting)} waiting in “To recover”.`,
+    alreadyImported: 'Already imported: nothing new was read or created.',
+    llmCost: (calls: number, cost: string): string =>
+      `${count(calls, 'model call', 'model calls')} for this import, ${cost} (as logged by the LLM gateway).`,
+    statuses: {
+      staged: 'Imported',
+      already_imported: 'Already imported',
+      no_results: 'No known test results',
+      unreadable: 'Could not be read',
+    } as Record<string, string>,
+    readAs: { note: 'Clinical note', lab_report: 'Lab report' } as Record<string, string>,
+    source: { photo: 'photo', text: 'document text' } as Record<string, string>,
+    readBy: (model: string): string => `read by ${model}`,
+    unrecognized: (tests: string): string => `Not a test the engine knows: ${tests}`,
+    interpretations: { H: 'high', L: 'low', N: 'in range' } as Record<string, string>,
+    recoveryTitle: 'To recover',
+    recoveryIntro:
+      'Cases from imported history wait here, held: nobody is contacted. They come out by the daily cap per owner (1 a day in your lab); move your lab’s date to release the next batch.',
+    recoveryEmpty: 'Nothing waiting to be recovered.',
+    recoveryEmptyBody: 'Import a history: what it left unmet beyond today’s cap waits here.',
+    recoveryCount: (n: number): string => `${count(n, 'case', 'cases')} waiting`,
+    originBackfill: 'History',
+  },
 };
 
 const evaluators = {
@@ -1984,7 +2035,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   reply_limit: 'reply limit reached',
   not_an_open_order: 'not one of the open orders',
   unknown_or_taken_slot: 'unknown or taken slot',
-  not_a_photo_message: 'not a photo',
+  not_a_photo_message: 'not a photo or a PDF report',
   photo_does_not_answer_order: 'the photo does not answer this order',
   name_on_report_does_not_match: 'the name on the report does not match',
   unknown_tool: 'unknown tool',
@@ -2097,8 +2148,10 @@ const agent = {
     send: 'Send',
     sampleVoice: 'Sample voice note',
     samplePhoto: 'Sample lab photo',
+    samplePdf: 'Sample PDF report',
     uploadVoice: 'Upload a WAV voice note',
     uploadPhoto: 'Upload a photo',
+    uploadPdf: 'Upload a PDF report',
     attachments: 'Send media',
     suggested: 'Suggested replies',
     voiceNote: 'Voice note',
@@ -2107,6 +2160,9 @@ const agent = {
     photo: 'Photo',
     photoAlt: 'Photo Maria sent',
     reading: 'Reading the photo…',
+    pdfReport: 'PDF report',
+    openPdf: 'Open the PDF',
+    readingPdf: 'Reading the report…',
     statuses: {
       sent: 'Sent',
       delivered: 'Delivered',
@@ -2282,12 +2338,14 @@ const agent = {
     voice_transcribed: (p: Params): string => `Voice note transcribed: “${str(p['transcript'])}”`,
     photo_read: (p: Params): string =>
       `Photo read: ${list(p['tests']).join('; ') || 'no results'}.`,
+    document_read: (p: Params): string =>
+      `PDF report read: ${list(p['tests']).join('; ') || 'no results'}.`,
     media_unreadable: (): string => 'The media could not be read.',
     budget_fallback_scripted: (): string =>
       'Demo budget reached: this turn runs on the scripted player.',
     turn_failed: (p: Params): string => `Turn failed: ${str(p['error'])}`,
     patient_message_received: (p: Params): string =>
-      `Maria sent a ${str(p['kind']) === 'text' ? 'message' : str(p['kind']) === 'voice' ? 'voice note' : 'photo'}.`,
+      `Maria sent a ${str(p['kind']) === 'text' ? 'message' : str(p['kind']) === 'voice' ? 'voice note' : str(p['kind']) === 'document' ? 'PDF report' : 'photo'}.`,
     ladder_reanchored: (): string => 'Ladder restarted from this reply.',
     all_orders_covered: (): string => 'Every order is booked or fulfilled: the ladder stops.',
     rung_due: (p: Params): string => `Due now: ${rung(p['rung'], p['action'])}.`,

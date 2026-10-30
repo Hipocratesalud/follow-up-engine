@@ -643,6 +643,79 @@ export interface LabDocumentResponse {
   expectationsCreated: CreatedExpectation[];
 }
 
+/** One document of an "Import history" request, with the date it was written. */
+export interface LabHistoryDocumentInput {
+  file: File;
+  /** `YYYY-MM-DD`: not after the lab clinic's current date. */
+  documentDate: string;
+  /** `lab_result` (and every photo) is read as a lab report; anything else as a clinical note. */
+  documentType: LabDocumentType;
+  specialty?: string;
+}
+
+export interface LabHistoryImportRequest {
+  patientId?: string;
+  newPatient?: LabNewPatientInput;
+  documents: LabHistoryDocumentInput[];
+}
+
+export interface LabHistoryDocumentOutcome {
+  index: number;
+  filename: string;
+  documentDate: string;
+  documentType: LabDocumentType;
+  readAs: 'note' | 'lab_report';
+  source: 'photo' | 'text';
+  status: 'staged' | 'already_imported' | 'no_results' | 'unreadable';
+  error?: string;
+  results?: {
+    test: string;
+    loinc: string;
+    value: number;
+    unit?: string;
+    interpretation?: 'H' | 'L' | 'N';
+  }[];
+  unrecognizedTests?: string[];
+  resources: string[];
+  reading?: { model: string; costUsd: number; latencyMs: number };
+}
+
+export interface LabHistoryImportResponse {
+  patientId: string;
+  clinicId: string;
+  documents: LabHistoryDocumentOutcome[];
+  eventsStaged: number;
+  backfill: {
+    runId: string;
+    status: string;
+    resumed: boolean;
+    expectationsCreated: number;
+    expectationsFulfilled: number;
+    casesOpened: number;
+    notesRead: number;
+    notesLlmCostUsd: number;
+    release?: { scheduled: number; notNotified: number; perDay: number[] };
+  };
+  cases: { id: string; status: string; releaseAt?: string; released: boolean }[];
+  llm: { calls: number; costUsd: number };
+}
+
+/** The committed synthetic sample histories (`GET /api/demo/lab/history/samples`). */
+export interface LabHistorySampleSet {
+  sets: {
+    id: string;
+    patient: { name: string; sex: Sex; age: number };
+    documents: {
+      filename: string;
+      contentType: string;
+      dataBase64: string;
+      documentDate: string;
+      documentType: LabDocumentType;
+      specialty?: string;
+    }[];
+  }[];
+}
+
 export const LAB_RECORD_KINDS = [
   'order',
   'result',
@@ -689,10 +762,14 @@ export interface LabExpectationView {
   ruleId: string;
   ruleVersion?: string;
   layer: Layer;
+  /** `backfill`: created by replaying imported history. */
+  origin?: Origin;
   label: string;
   status: ExpectationStatus;
   dueAt: string;
   closedReason?: string;
+  /** Why it closed, in the response language. */
+  closedReasonLabel?: string;
 }
 
 export interface LabDateImpact {

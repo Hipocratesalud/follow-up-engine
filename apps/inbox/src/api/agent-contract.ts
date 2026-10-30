@@ -16,7 +16,7 @@ export type TraceValue = string | number | boolean | null | readonly string[];
 export interface AgentMessageView {
   readonly id: string;
   readonly direction: 'outbound' | 'inbound';
-  readonly kind: 'text' | 'voice' | 'image';
+  readonly kind: 'text' | 'voice' | 'image' | 'document';
   readonly text: string;
   readonly at: string;
   readonly deliveryStatus?: AgentDeliveryStatus;
