@@ -1811,6 +1811,8 @@ const EVALUATOR_ACTION_LABELS = {
   case_viewed: 'Viewed a case',
   patient_documents_viewed: 'Viewed a patient’s documents',
   engine_test_step: 'Loaded an engine-test step',
+  engine_test_verdict: 'Gave a verdict on an engine test',
+  agent_message_sent: 'Wrote to the agent as the patient',
 } as Record<string, string>;
 
 const lab = {

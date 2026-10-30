@@ -33,6 +33,8 @@ export const EVALUATOR_ACTIONS = [
   'engine_test_verdict',
   /** One step of a guided engine test, loaded (or saved/confirmed) by the physician. */
   'engine_test_step',
+  /** A message the evaluator sent as the agent's patient (text, an upload or a sample). */
+  'agent_message_sent',
 ] as const;
 export type EvaluatorAction = (typeof EVALUATOR_ACTIONS)[number];
 
