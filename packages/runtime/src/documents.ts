@@ -1,3 +1,6 @@
+// `mammoth` ships no types: every program that compiles this file (runtime, api, worker) needs them.
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference -- an ambient module declaration, not an import
+/// <reference path="./types/mammoth.d.ts" />
 import { extractRawText } from 'mammoth';
 import { extractText, getDocumentProxy } from 'unpdf';
 
@@ -31,14 +34,14 @@ function finished(text: string): DocumentExtractionResult | DocumentExtractionFa
 }
 
 /**
- * Extracts plain text from a document the evaluator lab uploaded
- * (docs/deploy.md#hosted-demo, "Load a document"): TXT read as UTF-8, PDF
- * with `unpdf` (pure JS, pdf.js underneath — no native deps, builds in
- * Dockerfile.demo), DOCX with `mammoth`. Images are refused with a clear
- * error: no LLM provider this engine is configured with accepts image
- * input today (`packages/llm`), so silently reading nothing would be
- * worse than saying so. The result's text then goes through the normal
- * FHIR ingestion path, the same as any other note.
+ * Extracts plain text from a document (the evaluator lab's uploads,
+ * docs/deploy.md#hosted-demo; a lab report PDF the patient sends the order
+ * agent): TXT read as UTF-8, PDF with `unpdf` (pure JS, pdf.js underneath —
+ * no native deps, builds in Dockerfile.demo), DOCX with `mammoth`. Images
+ * hold no text to extract (`unsupported_image`): a photo of a lab report is
+ * read by the vision model instead (`PatientMediaReader.readLabPhoto`). The
+ * text of a note then goes through the normal FHIR ingestion path; the
+ * text of a lab report through the lab-result reading.
  */
 export async function extractDocumentText(file: {
   readonly filename: string;
@@ -58,7 +61,8 @@ export async function extractDocumentText(file: {
   const lowerName = file.filename.toLowerCase();
   try {
     if (PDF_TYPES.has(contentType) || lowerName.endsWith('.pdf')) {
-      const document = await getDocumentProxy(file.data);
+      // pdf.js detaches the buffer it is given: read a copy, so the caller's bytes stay usable.
+      const document = await getDocumentProxy(new Uint8Array(file.data));
       const { text } = await extractText(document, { mergePages: true });
       return finished(text);
     }

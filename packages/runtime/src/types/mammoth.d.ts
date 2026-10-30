@@ -1,7 +1,7 @@
 /**
  * `mammoth` ships no type declarations and there is no `@types/mammoth`.
- * Minimal ambient types for the one function the evaluator lab's document
- * extraction (`src/lab/extract-document.ts`) uses.
+ * Minimal ambient types for the one function the document text extraction
+ * (`src/documents.ts`) uses.
  */
 declare module 'mammoth' {
   export interface ExtractRawTextResult {

@@ -27,6 +27,7 @@ import {
   createOrderAgentModel,
   createPatientMediaReader,
   createReviewAgent,
+  createScriptedLabDocumentResponder,
   createScriptedLabPhotoResponder,
   createSnapshotProvider,
   DEFAULT_PRICING,
@@ -37,6 +38,8 @@ import {
   FAKE_REVIEWER_MODEL,
   FAKE_TRANSCRIBER_MODEL,
   FAKE_VISION_MODEL,
+  LAB_DOCUMENT_SCRIPTED_TASK,
+  LAB_DOCUMENT_TASK,
   LAB_PHOTO_SCRIPTED_TASK,
   LAB_PHOTO_TASK,
   META_TRANSCRIBE_MODEL,
@@ -60,7 +63,25 @@ import {
   type StructuredLlmProvider,
 } from '@follow-up-engine/llm';
 import type { LlmConfig } from './config.ts';
-import { scriptedPhotoReadings, scriptedTranscripts } from './order-agent/samples.ts';
+import { extractDocumentText } from './documents.ts';
+import {
+  scriptedDocumentReadings,
+  scriptedPhotoReadings,
+  scriptedTranscripts,
+} from './order-agent/samples.ts';
+
+/** A document's text for the lab-result reading (PDF, DOCX, TXT); `undefined` when it has none. */
+async function documentTextOf(
+  document: Uint8Array,
+  contentType: string,
+): Promise<string | undefined> {
+  const extracted = await extractDocumentText({
+    filename: 'document',
+    contentType,
+    data: document,
+  });
+  return 'text' in extracted ? extracted.text : undefined;
+}
 
 /** Gateway task of the clinical reviewer on the scripted fake (the agent's scripted mode). */
 export const SCRIPTED_CLINICAL_REVIEW_TASK = 'clinical_review_scripted';
@@ -196,6 +217,7 @@ function chooseProvider(config: LlmConfig, deps: ExtractorDeps): ProviderChoice 
           respond: chainResponders(
             scriptedOrderAgentResponder,
             createScriptedLabPhotoResponder(scriptedPhotoReadings()),
+            createScriptedLabDocumentResponder(scriptedDocumentReadings()),
             scriptedReviewerResponder,
             scriptedAdjudicatorResponder,
             createNoteFixtureResponder(deps.noteFixtures ?? []),
@@ -316,6 +338,12 @@ export function createConfiguredExtractor(
         maxOutputTokens: 4_000,
       },
       [LAB_PHOTO_SCRIPTED_TASK]: { route: [{ provider: 'fake', model: FAKE_VISION_MODEL }] },
+      // A PDF report: its text, read by the same model into the same reading as a photo.
+      [LAB_DOCUMENT_TASK]: {
+        route: [{ provider: live, model: isFake ? FAKE_VISION_MODEL : choice.info.model }],
+        maxOutputTokens: 4_000,
+      },
+      [LAB_DOCUMENT_SCRIPTED_TASK]: { route: [{ provider: 'fake', model: FAKE_VISION_MODEL }] },
     },
     usageLog: deps.usageLog,
     pricing: choice.pricing,
@@ -333,7 +361,7 @@ export function createConfiguredExtractor(
     adjudicatorModel: choice.adjudicatorModel ?? choice.info.model,
     ...(replay === undefined ? {} : { replay }),
     orderAgentModel: createOrderAgentModel({ gateway }),
-    mediaReader: createPatientMediaReader({ gateway }),
+    mediaReader: createPatientMediaReader({ gateway, documentText: documentTextOf }),
     scriptedReviewAgent: createReviewAgent({ gateway, task: SCRIPTED_CLINICAL_REVIEW_TASK }),
     liveAgent: !isFake,
   };
