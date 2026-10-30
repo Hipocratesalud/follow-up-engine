@@ -69,9 +69,33 @@ export interface ChatCompletionsProviderOptions {
 
 const RETRYABLE_STATUSES = new Set([408, 409, 425, 429, 500, 502, 503, 504, 529]);
 
+type ChatContent =
+  | string
+  | readonly (
+      | { readonly type: 'text'; readonly text: string }
+      | { readonly type: 'image_url'; readonly image_url: { readonly url: string } }
+    )[];
+
 interface ChatMessage {
   readonly role: string;
-  readonly content: string;
+  readonly content: ChatContent;
+}
+
+/** A message on the wire: plain text, or text then `image_url` parts when it carries images. */
+function toChatMessage(message: LlmMessage): ChatMessage {
+  if (message.images === undefined || message.images.length === 0) {
+    return { role: message.role, content: message.content };
+  }
+  return {
+    role: message.role,
+    content: [
+      { type: 'text', text: message.content },
+      ...message.images.map((image) => ({
+        type: 'image_url' as const,
+        image_url: { url: image.dataUrl },
+      })),
+    ],
+  };
 }
 
 /**
@@ -113,7 +137,7 @@ export function createChatCompletionsProvider(
             ...formatFields(options.outputMode, request.output.name, schema, strict),
           }
         : {
-            messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
+            messages: request.messages.map(toChatMessage),
             tools: nativeTools.map((tool) => ({
               type: 'function',
               function: {
@@ -190,7 +214,7 @@ function buildMessages(
   outputName: string,
   schema: JsonSchema,
 ): ChatMessage[] {
-  const out: ChatMessage[] = messages.map((m) => ({ role: m.role, content: m.content }));
+  const out: ChatMessage[] = messages.map(toChatMessage);
   let extra: string | undefined;
   switch (mode) {
     case 'json_schema':
@@ -206,7 +230,8 @@ function buildMessages(
   const systemIndex = out.findIndex((m) => m.role === 'system');
   const system = systemIndex >= 0 ? out[systemIndex] : undefined;
   if (system) {
-    out[systemIndex] = { role: 'system', content: `${system.content}\n\n${extra}` };
+    const content = typeof system.content === 'string' ? system.content : '';
+    out[systemIndex] = { role: 'system', content: `${content}\n\n${extra}` };
   } else {
     out.unshift({ role: 'system', content: extra });
   }

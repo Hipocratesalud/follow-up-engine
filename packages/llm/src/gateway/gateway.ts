@@ -25,6 +25,7 @@ import {
   type PricingTable,
 } from '../pricing.ts';
 import type { StructuredLlmProvider } from '../providers/chat-completions.ts';
+import type { TranscriptionProvider } from '../providers/transcription.ts';
 import type { LlmUsageLog } from '../usage-log.ts';
 import { issueSummary } from '../providers/structured-output.ts';
 import { ZERO_USAGE, sumUsage, type DetailedUsage, type ProviderCompletion } from '../usage.ts';
@@ -46,8 +47,19 @@ export interface TaskConfig {
   readonly timeoutMs?: number;
 }
 
+/** A speech-to-text task: one provider and model (no fallback: a voice note is re-sendable). */
+export interface TranscriptionTaskConfig {
+  readonly provider: string;
+  readonly model: string;
+  readonly timeoutMs?: number;
+}
+
 export interface LlmGatewayConfig {
   readonly providers: Readonly<Record<string, LlmProvider | StructuredLlmProvider>>;
+  /** Speech-to-text vendors, by name (the same names as `providers`: `meta`, `fake`). */
+  readonly transcribers?: Readonly<Record<string, TranscriptionProvider>>;
+  /** Transcription task name (for example `voice_transcription`) to its provider and model. */
+  readonly transcriptionTasks?: Readonly<Record<string, TranscriptionTaskConfig>>;
   /** Task name (for example `note_extraction`) to its route and limits. */
   readonly tasks: Readonly<Record<string, TaskConfig>>;
   readonly usageLog: LlmUsageLog;
@@ -89,11 +101,36 @@ export interface GatewayResult<TOutput> extends LlmGatewayResult<TOutput> {
   readonly totalUsage: DetailedUsage;
 }
 
+/** A transcription through the gateway (a voice note from a patient). */
+export interface TranscriptionGatewayRequest {
+  readonly task: string;
+  readonly audio: Uint8Array;
+  readonly contentType: string;
+}
+
+export interface TranscriptionGatewayResult {
+  readonly transcript: string;
+  readonly durationMs?: number;
+  readonly latencyMs: number;
+  readonly costUsd: number;
+  readonly provider: string;
+  readonly model: string;
+  readonly callId: string;
+}
+
 export interface FollowUpLlmGateway extends LlmGateway {
   complete<TOutput>(
     clinicId: ClinicId,
     request: LlmGatewayRequest<TOutput>,
   ): Promise<GatewayResult<TOutput>>;
+  /**
+   * Speech to text, budgeted and accounted like every model call. Throws
+   * {@link LlmBudgetExceededError} when the clinic's budget is spent.
+   */
+  transcribe(
+    clinicId: ClinicId,
+    request: TranscriptionGatewayRequest,
+  ): Promise<TranscriptionGatewayResult>;
 }
 
 /** Start of the UTC calendar month that contains `now`. */
@@ -157,6 +194,91 @@ export function createLlmGateway(config: LlmGatewayConfig): FollowUpLlmGateway {
     if (limit === undefined) return;
     const spent = await config.usageLog.totalCostUsd(clinicId, startOfUtcMonth(now()));
     if (spent >= limit) throw new LlmBudgetExceededError(clinicId);
+  }
+
+  for (const [task, target] of Object.entries(config.transcriptionTasks ?? {})) {
+    if (config.transcribers?.[target.provider] === undefined) {
+      throw new LlmConfigError(`Task ${task} routes to unknown transcriber ${target.provider}`);
+    }
+    const price = priceFor(pricing, target.provider, target.model);
+    if (!price) {
+      throw new LlmConfigError(
+        `No price for ${target.provider}:${target.model} (task ${task}); add it to the pricing table`,
+      );
+    }
+    prices.set(`${target.provider}:${target.model}`, price);
+  }
+
+  async function transcribe(
+    clinicId: ClinicId,
+    request: TranscriptionGatewayRequest,
+  ): Promise<TranscriptionGatewayResult> {
+    const target = config.transcriptionTasks?.[request.task];
+    const provider = target === undefined ? undefined : config.transcribers?.[target.provider];
+    const price =
+      target === undefined ? undefined : prices.get(`${target.provider}:${target.model}`);
+    if (target === undefined || provider === undefined || price === undefined) {
+      throw new LlmConfigError(`Unknown transcription task ${request.task}`);
+    }
+    await enforceBudget(clinicId);
+    const timeoutMs = target.timeoutMs ?? config.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS;
+    for (let attempt = 1; ; attempt += 1) {
+      const callId = newCallId();
+      const at = now();
+      const started = monotonicNow();
+      try {
+        const result = await provider.transcribe({
+          model: target.model,
+          audio: request.audio,
+          contentType: request.contentType,
+          timeoutMs,
+        });
+        const minutes = (result.durationMs ?? 0) / 60_000;
+        const costUsd = (price.audioPerMinute ?? 0) * minutes;
+        const latencyMs = Math.round(monotonicNow() - started);
+        await config.usageLog.record({
+          callId,
+          clinicId,
+          task: request.task,
+          promptVersion: 'asr',
+          provider: target.provider,
+          model: target.model,
+          inputTokens: 0,
+          outputTokens: 0,
+          costUsd,
+          latencyMs,
+          ok: true,
+          at,
+        });
+        return {
+          transcript: result.transcript,
+          ...(result.durationMs === undefined ? {} : { durationMs: result.durationMs }),
+          latencyMs,
+          costUsd,
+          provider: target.provider,
+          model: target.model,
+          callId,
+        };
+      } catch (error) {
+        await config.usageLog.record({
+          callId,
+          clinicId,
+          task: request.task,
+          promptVersion: 'asr',
+          provider: target.provider,
+          model: target.model,
+          inputTokens: 0,
+          outputTokens: 0,
+          costUsd: 0,
+          latencyMs: Math.round(monotonicNow() - started),
+          ok: false,
+          error: describeError(error),
+          at,
+        });
+        if (!isRetryable(error) || attempt >= retry.maxAttempts) throw error;
+        await sleep(backoffDelayMs(retry, attempt, random, error.retryAfterMs));
+      }
+    }
   }
 
   async function complete<TOutput>(
@@ -318,5 +440,5 @@ export function createLlmGateway(config: LlmGatewayConfig): FollowUpLlmGateway {
     throw new LlmUnavailableError(request.task, failures, lastError);
   }
 
-  return { complete };
+  return { complete, transcribe };
 }
