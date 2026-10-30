@@ -4,6 +4,12 @@ import type { ClinicId } from '../domain/ids.ts';
 export interface LlmMessage {
   readonly role: 'system' | 'user' | 'assistant';
   readonly content: string;
+  /**
+   * Images sent with a user message (vision), as `data:` URLs. Providers
+   * that read images send them as OpenAI-style `image_url` content parts
+   * after the text; the others ignore them.
+   */
+  readonly images?: readonly { readonly dataUrl: string }[];
 }
 
 /**
