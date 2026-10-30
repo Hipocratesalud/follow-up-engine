@@ -8,6 +8,7 @@ import {
   HeartPulse,
   Inbox,
   Stethoscope,
+  TrendingUp,
   UserRoundSearch,
   UsersRound,
 } from 'lucide-react';
@@ -173,7 +174,10 @@ export function Shell(): ReactNode {
       count: findings.data?.counts.byStatus.open,
     },
   );
-  items.push({ to: '/metrics', label: t.nav.metrics, icon: BarChart3 });
+  items.push(
+    { to: '/metrics', label: t.nav.metrics, icon: BarChart3 },
+    { to: '/value', label: t.nav.value, icon: TrendingUp },
+  );
   if (clock.data) {
     items.push({ to: '/demo', label: t.nav.demo, icon: FlaskConical });
     items.push({ to: '/engine-tests', label: t.nav.engineTests, icon: ClipboardCheck });

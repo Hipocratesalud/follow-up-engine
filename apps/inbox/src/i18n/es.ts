@@ -50,6 +50,7 @@ const common: Messages['common'] = {
 
 const nav: Messages['nav'] = {
   metrics: 'Métricas',
+  value: 'Valor',
   inbox: 'Bandeja',
   recovery: 'Por recuperar',
   review: 'Revisión clínica',
@@ -2258,8 +2259,145 @@ const agent = {
   unknownEvent: (event: string): string => code(event),
 };
 
+const value: Messages['value'] = {
+  title: 'Valor',
+  subtitle:
+    'Lo que el agente de órdenes cambia para un consultorio: una simulación de 90 días con grupo control, junto a los números reales de este consultorio de demostración.',
+  notice: 'Simulación con pacientes sintéticos y supuestos declarados; no es un ensayo clínico.',
+  method: 'Método y cada supuesto: docs/simulation.md en el repositorio.',
+  loading: 'Cargando la simulación',
+  running: (done, total) =>
+    `Corriendo la simulación: ${String(done)} de ${String(total)} corridas listas…`,
+  errorTitle: 'No pudimos cargar la simulación',
+  headline: {
+    title: 'Órdenes cumplidas en 90 días',
+    control: 'Recordatorios fijos (control)',
+    agent: 'Agente de órdenes',
+    difference: (points, low, high) => `${points} puntos (intervalo del 95 %: ${low} a ${high})`,
+    scope: (patients, seeds, days) =>
+      `${patients} pacientes sintéticos por grupo · ${String(seeds)} corridas con semilla · ${String(days)} días · intervalo del 95 % entre corridas`,
+    interval: (low, high) => `Intervalo del 95 %: ${low} a ${high}`,
+    summary: (control, agent, points) =>
+      `Órdenes cumplidas: ${control} con recordatorios fijos, ${agent} con el agente de órdenes, ${points} puntos.`,
+  },
+  arms: { control: 'Recordatorios fijos', agent: 'Agente de órdenes' },
+  points: (value) => `${value} pp`,
+  intervalLegend: 'Intervalo del 95 % entre corridas',
+  clinic: {
+    title: 'Para tu consultorio',
+    description:
+      'La diferencia simulada por paciente, llevada a tus números. Cámbialos: la estimación se actualiza aquí y no se envía nada.',
+    patientsPerMonth: 'Pacientes con órdenes nuevas por mes',
+    patientsHint:
+      'Pacientes que salen de la consulta con un examen, un estudio o un control pendiente.',
+    price: (currency) => `Precio por consulta (${currency})`,
+    priceHint: 'Un supuesto: lo que deja una consulta atendida.',
+    invalid: 'Escribe un número igual o mayor que cero.',
+    consultations: 'Consultas atendidas de más por mes',
+    consultationsHint: (low, high) => `Intervalo del 95 %: ${low} a ${high}`,
+    revenue: 'Ingreso recuperado estimado por mes',
+    revenueHint: (low, high) => `Intervalo del 95 %: ${low} a ${high}; solo consultas`,
+    orders: 'Órdenes completadas de más por mes',
+    ordersHint: (low, high) => `Intervalo del 95 %: ${low} a ${high}`,
+  },
+  tiles: {
+    urgent7: 'Órdenes urgentes resueltas en 7 días',
+    urgent14: (agent, control) => `En 14 días: ${agent} (recordatorios fijos: ${control})`,
+    median: 'Mediana de días hasta cumplirse',
+    days: (value) => `${value} días`,
+    unreachable: 'Pacientes nunca contactados (orden aún abierta)',
+    messages: 'Mensajes por paciente',
+    messagesHint: (max) =>
+      `Nunca más de ${String(max)} mensajes proactivos a un paciente en 7 días`,
+    staff: 'Tareas del equipo por cada 100 pacientes',
+    staffHint: (calls, notices, phones) =>
+      `${calls} llamadas, ${notices} avisos al médico, ${phones} teléfonos por actualizar`,
+    attended: 'Consultas atendidas por cada 100 pacientes',
+    versus: (control) => `Recordatorios fijos: ${control}`,
+  },
+  personas: {
+    title: 'A quién rescata el agente',
+    description:
+      'Órdenes cumplidas según el comportamiento del paciente, control frente a agente, con el intervalo del 95 % como línea fina. Donde el agente no ayuda, se ve.',
+    caption: 'Órdenes cumplidas por perfil y grupo',
+    share: (value) => `${value} de los pacientes`,
+    names: {
+      fast_responder: 'Responde rápido',
+      second_try: 'Necesita un segundo intento',
+      slot_friction: 'Solo si cambia el horario',
+      wrong_number: 'Número equivocado',
+      reads_never_answers: 'Lee y no responde',
+      never_answers: 'Nunca responde',
+      opts_out: 'Pide no recibir mensajes',
+      elsewhere_photo: 'Se hizo el examen afuera',
+    },
+    summaries: {
+      fast_responder: 'Responde el primer mensaje y toma un horario que le sirve.',
+      second_try: 'No ve el primer mensaje y responde uno posterior.',
+      slot_friction: 'Responde, pero el horario nunca le sirve («el martes no», solo sábados).',
+      wrong_number: 'El teléfono registrado está mal hasta que recepción lo corrige.',
+      reads_never_answers: 'Lee los mensajes pero no responde; atiende una llamada.',
+      never_answers: 'No lo alcanza ningún mensaje ni llamada; solo su propia iniciativa.',
+      opts_out: 'Pide que el consultorio deje de escribirle en su primera respuesta.',
+      elsewhere_photo: 'Se hizo el examen en otro laboratorio; manda una foto si se lo piden.',
+    },
+  },
+  kinds: {
+    title: 'Por tipo de orden',
+    description: 'Órdenes cumplidas según lo que indicó el médico.',
+    caption: 'Órdenes cumplidas por tipo de orden y grupo',
+    names: {
+      lab: 'Exámenes de laboratorio',
+      imaging: 'Estudios de imagen',
+      visit: 'Controles',
+      urgent: 'Visitas urgentes (resultado alterado)',
+    },
+  },
+  workload: {
+    title: 'Carga del equipo',
+    description:
+      'Lo que el agente pasa a las personas, por cada 100 pacientes con órdenes. Los recordatorios fijos no pasan nada.',
+    caption: 'Tareas del equipo por cada 100 pacientes, agente de órdenes',
+    perHundred: 'por cada 100 pacientes',
+    tasks: {
+      call_patient: 'Llamadas de recepción',
+      doctor_notice: 'Avisos al médico',
+      update_phone: 'Teléfonos por actualizar',
+      call_other_contact: 'Llamadas a otro contacto',
+    },
+  },
+  demoClinic: {
+    title: 'Este consultorio de demostración',
+    description:
+      'Datos reales del motor en este consultorio en los últimos 90 días: citas agendadas desde un caso del motor (atribución por el caso indicado en la cita).',
+    booked: 'Citas desde casos del motor',
+    bookedHint: (total) => `de ${String(total)} citas en el período`,
+    attended: 'Atendidas desde casos del motor',
+    attendedHint: (total) => `de ${String(total)} atendidas en el período`,
+    revenue: 'Ingreso estimado de esas citas',
+    revenueHint: (price) => `a ${price} por consulta atendida`,
+    empty: 'Todavía no hay citas agendadas desde un caso del motor en este consultorio.',
+    unavailable: 'No pudimos cargar las métricas del consultorio.',
+  },
+  assumptions: {
+    title: 'Método y supuestos',
+    description: 'Léelos antes de citar un número.',
+    items: [
+      'Los perfiles y cada probabilidad son valores plausibles elegidos por el equipo, no mediciones; no se cita ningún estudio. El grupo control propio de un consultorio los reemplaza con resultados medidos.',
+      'Sin ningún contacto, entre el 10 % y el 60 % de los pacientes (según el perfil) completa una orden por su cuenta; las visitas urgentes, la mitad de las veces. El mismo sorteo vale para ambos grupos.',
+      'Grupo control: un recordatorio genérico cuando vence la orden y otro 7 días después, con el mismo límite de contactos. Sin ayuda para agendar, sin llamadas, sin forma de enviar un resultado.',
+      'Grupo con agente: el código real de la política del agente de órdenes (la escalera de seguimiento, las rutas de urgencia y de número equivocado, como máximo 2 mensajes proactivos cada 7 días, horarios de la agenda). Las respuestas de los pacientes salen del modelo de perfiles, no de un modelo de lenguaje.',
+      'Recepción completa el 90 % de las llamadas el día que vencen; la capacidad del consultorio no es un límite.',
+      'Una vez agendada una orden, el agente deja de perseguirla, como hace hoy: una inasistencia no se recupera.',
+      '«Cumplida» significa que el motor cerró la orden antes del día 90. Una cita agendada a tiempo cierra un control; se vuelve a abrir si pasa la fecha sin la visita.',
+      'El ingreso cuenta solo las consultas atendidas de más al precio que escribas; no se cuentan exámenes ni estudios de imagen.',
+    ],
+  },
+};
+
 export const es: Messages = {
   metrics,
+  value,
   common,
   nav,
   errors,

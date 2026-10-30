@@ -23,6 +23,7 @@ import {
 import { PLAN_ITEM_KINDS, type PlanItemCommand } from '../api/plan-item-contract.ts';
 import { MOCK_API_KEY } from '../config.ts';
 import { mockMetrics } from '../features/metrics/mock.ts';
+import { mockValueSimulation } from '../features/value/mock.ts';
 import { DEFAULT_LOCALE, isLocale, type Locale, messagesFor } from '../i18n/index.ts';
 import { INPUT_LIMITS } from '../lib/limits.ts';
 import { createAdjudicationMock } from './adjudications.ts';
@@ -432,6 +433,10 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     http.get(
       '*/api/inbox/stats',
       route(() => store.stats()),
+    ),
+    http.get(
+      '*/api/inbox/value/simulation',
+      route(() => mockValueSimulation() as unknown as JsonBodyType),
     ),
     http.get(
       '*/api/inbox/metrics',

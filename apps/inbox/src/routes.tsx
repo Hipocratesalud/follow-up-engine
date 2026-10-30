@@ -13,6 +13,7 @@ import { PatientCasesPanel } from './features/patient-queue/patient-panel.tsx';
 import { RecoveryPage, StandaloneCasePage } from './features/recovery/recovery-page.tsx';
 import { FindingDetailPanel } from './features/reviewer/finding-detail.tsx';
 import { FlagsPage } from './features/reviewer/flags-page.tsx';
+import { ValuePage } from './features/value/value-page.tsx';
 import { ReviewPage } from './features/reviewer/review-page.tsx';
 
 /** Links to another case of the open patient card, keeping the inbox filters. */
@@ -87,6 +88,7 @@ export const routes: RouteObject[] = [
         children: [{ path: ':findingId', element: <ReviewFindingRoute /> }],
       },
       { path: 'metrics', element: <MetricsPage /> },
+      { path: 'value', element: <ValuePage /> },
       { path: 'demo', element: <DemoPage /> },
       { path: 'engine-tests', element: <EngineTestsPage /> },
       { path: 'lab', element: <LabPage /> },
