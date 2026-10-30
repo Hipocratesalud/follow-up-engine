@@ -6,6 +6,12 @@
 
 This page is generated from `config/protocols/diabetes.json` (and, for a shared test, from the other protocol file named below) plus the engine’s reason-and-action catalog (`apps/api/src/i18n`). Regenerate it with `pnpm protocols:signoff` after changing either; `pnpm test` fails if a committed page no longer matches a fresh generation. Nothing on this page is free text: every number, code and citation below is read back from config, so it cannot say something the engine does not do.
 
+## To answer first
+
+These points have no specific guideline section cited (see Guidelines cited below): confirm them with the physician before anything else.
+
+- `visit` — Schedule a diabetes visit
+
 ## Guidelines cited
 
 - Standards of Care in Diabetes—2025 — American Diabetes Association (2025). <https://diabetesjournals.org/care/issue/48/Supplement_1>

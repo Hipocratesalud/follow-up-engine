@@ -6,6 +6,13 @@
 
 Esta página se genera a partir de `config/protocols/hypertension.json` (y, cuando comparte una prueba, del otro archivo de protocolo que se nombra abajo) y del catálogo de motivos y acciones del motor (`apps/api/src/i18n`). Se regenera con `pnpm protocols:signoff` después de cambiar cualquiera de los dos; `pnpm test` falla si una página ya guardada deja de coincidir con una generación nueva. Nada en esta página es texto libre: cada número, código y cita de abajo se lee de la configuración, así que no puede decir algo que el motor no hace.
 
+## Para responder primero
+
+Estos puntos no tienen una sección específica de guía citada (ver Guías citadas abajo): confírmalos con el médico antes que todo lo demás.
+
+- `visit` — Agendar control de hipertensión
+- `labs` — Indicar creatinina y potasio
+
 ## Guías citadas
 
 - 2023 ESH Guidelines for the management of arterial hypertension — European Society of Hypertension (2023). <https://doi.org/10.1097/HJH.0000000000003480>
