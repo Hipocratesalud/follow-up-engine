@@ -64,7 +64,7 @@ const DOUBT_CUES: readonly Cue[] = [
 
 const VAGUE_TIMING = /\b(mas adelante|proximamente|a futuro|en algun momento|luego)\b/;
 const EXPLICIT_INSTRUCTION =
-  /\b(control|controles|solicito|se solicita|se indica|indico|repetir|repite|cita|citar|reevaluar|seguimiento|pido|ordeno|sesion|proxima sesion)\b/;
+  /\b(control|controles|solicito|se solicita|se indica|indico|repetir|repite|cita|citar|reevaluar|seguimiento|pido|ordeno|sesion|proxima sesion|ctrl|volver|regresar|acudir)\b/;
 const EXPLICIT_TIMING =
   /\b(en|dentro de|a los|cada) \d+ ?(dias?|semanas?|mes(es)?|anos?)\b|\b\d+ ?(dias?|semanas?|mes(es)?)\b|\b(en|dentro de) (un|una|dos|tres|cuatro|seis) (dias?|semanas?|mes(es)?|ano)\b/;
 
@@ -137,6 +137,12 @@ export function scriptedAdjudication(input: MaskedInput): AdjudicationOutput {
     return output('needs_human', 0.55, ['explicit_instruction', 'timing_vague'], quote, {
       en: 'The note asks for it, but its timing is vague.',
       es: 'La nota lo pide, pero el plazo es impreciso.',
+    });
+  }
+  if (EXPLICIT_TIMING.test(context)) {
+    return output('open', 0.78, ['timing_explicit'], quote, {
+      en: 'The note states the item with its timing.',
+      es: 'La nota indica el punto con su plazo.',
     });
   }
   if (explicit) {
