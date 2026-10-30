@@ -19,6 +19,7 @@ function evaluatorsHandlers() {
             byAction: { login: 1, lab_patient_created: 2 },
           },
         ],
+        testEvaluators: [{ evaluatorEmail: 'evidence-orchestrator@example.com', total: 23 }],
       }),
     ),
     http.get('*/api/demo/evaluator-events', ({ request }) => {
@@ -42,6 +43,15 @@ function evaluatorsHandlers() {
             occurredAt: '2026-01-05T10:00:00.000Z',
           },
           {
+            id: 'evt-qa',
+            clinicId: 'clinic-demo',
+            evaluatorEmail: 'evidence-orchestrator@example.com',
+            isTestEvaluator: true,
+            action: 'login',
+            simulatedAt: '2026-01-05T00:00:00.000Z',
+            occurredAt: '2026-01-05T09:00:00.000Z',
+          },
+          {
             id: 'evt-2',
             clinicId: 'lab-abc',
             evaluatorEmail: EVALUATOR_EMAIL,
@@ -58,6 +68,18 @@ function evaluatorsHandlers() {
 }
 
 describe('the Evaluators page', () => {
+  it('lists test and QA accounts apart from the summary and badges their rows in the log', async () => {
+    renderApp('/evaluators', { handlers: evaluatorsHandlers });
+    const table = await screen.findByRole('table');
+    expect(within(table).queryByText('evidence-orchestrator@example.com')).not.toBeInTheDocument();
+    expect(await screen.findByText('Test and QA accounts')).toBeInTheDocument();
+    expect(screen.getByText('evidence-orchestrator@example.com · 23 actions')).toBeInTheDocument();
+    const row = (await screen.findAllByText('evidence-orchestrator@example.com')).find(
+      (node) => node.closest('li') !== null,
+    );
+    expect(within(row?.closest('li') as HTMLElement).getByText('Test')).toBeInTheDocument();
+  });
+
   it('shows the per-evaluator summary and the chronological activity log', async () => {
     renderApp('/evaluators', { handlers: evaluatorsHandlers });
 

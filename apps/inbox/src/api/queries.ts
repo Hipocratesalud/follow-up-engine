@@ -28,7 +28,7 @@ import type {
   DemoConsultationResponse,
   EvaluatorEventView,
   EvaluatorIdentity,
-  EvaluatorSummaryView,
+  EvaluatorsView,
   FeedbackRequest,
   InboxStats,
   LabDateImpact,
@@ -585,7 +585,7 @@ export function useAdvanceLabDate(): UseMutationResult<LabDateImpact, Error, str
   });
 }
 
-export function useEvaluators(): UseQueryResult<{ items: EvaluatorSummaryView[] }> {
+export function useEvaluators(): UseQueryResult<EvaluatorsView> {
   const api = useApi();
   return useQuery({
     queryKey: queryKeys.evaluators,

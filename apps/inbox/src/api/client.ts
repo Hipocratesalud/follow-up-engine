@@ -25,7 +25,7 @@ import type {
   DemoConsultationResponse,
   EvaluatorEventView,
   EvaluatorIdentity,
-  EvaluatorSummaryView,
+  EvaluatorsView,
   FeedbackRequest,
   InboxStats,
   LabDateImpact,
@@ -232,7 +232,7 @@ export interface ApiClient {
   /** "See the impact on a date": moves the lab clinic's own clock forward. */
   advanceLabDate(date: string): Promise<LabDateImpact>;
   getLabCases(): Promise<{ items: CaseView[] }>;
-  listEvaluators(): Promise<{ items: EvaluatorSummaryView[] }>;
+  listEvaluators(): Promise<EvaluatorsView>;
   listEvaluatorEvents(query: {
     evaluatorEmail?: string;
     limit?: number;

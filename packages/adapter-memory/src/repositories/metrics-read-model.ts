@@ -123,7 +123,7 @@ export class MemoryMetricsReadModel implements MetricsReadModel {
       this.#db.state.planItemReviews
         .filter((review) => review.clinicId === clinicId && inPeriod(review.at, period))
         .sort((left, right) => left.at.getTime() - right.at.getTime())
-        .map((review) => ({ type: review.type, at: review.at })),
+        .map((review) => ({ type: review.type, at: review.at, userId: review.userId })),
     );
   }
 

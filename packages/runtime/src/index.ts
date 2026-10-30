@@ -153,3 +153,9 @@ export {
   type SimulationReportCache,
   type SimulationReportState,
 } from './simulation.ts';
+export {
+  DEFAULT_TEST_EVALUATORS_URL,
+  isTestEvaluator,
+  loadTestEvaluatorPolicy,
+  type TestEvaluatorPolicy,
+} from './test-evaluators.ts';

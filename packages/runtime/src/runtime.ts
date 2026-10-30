@@ -1,3 +1,8 @@
+import {
+  isTestEvaluator,
+  loadTestEvaluatorPolicy,
+  type TestEvaluatorPolicy,
+} from './test-evaluators.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   FileEscalationPolicySource,
@@ -139,6 +144,12 @@ export interface EngineRuntime {
   readonly sink?: WebhookSink;
   readonly logger: Logger;
   /**
+   * Whether an evaluator email (or host user id) is a test or QA account
+   * (config/demo/test-evaluators.json): kept in the log, left out of every
+   * reported number.
+   */
+  isTestEvaluator(actorId: string | undefined): boolean;
+  /**
    * Registers or updates a clinic with its integration API key (stored as a
    * sha256 hash; scopes {@link INTEGRATION_SCOPES}). Throws
    * {@link ApiKeyConflictError} when another clinic holds that key value.
@@ -184,6 +195,8 @@ export interface CreateRuntimeOptions {
   readonly ids?: IdGenerator;
   /** Size of the Postgres pool. */
   readonly poolSize?: number;
+  /** Test and QA evaluator accounts; config/demo/test-evaluators.json by default. */
+  readonly testEvaluators?: TestEvaluatorPolicy;
 }
 
 /**
@@ -233,7 +246,12 @@ export async function createRuntime(
     ...(options.llmSnapshot === undefined ? {} : { snapshot: options.llmSnapshot }),
   });
 
+  const testEvaluators = options.testEvaluators ?? loadTestEvaluatorPolicy();
+  const isTestActor = (actorId: string | undefined): boolean =>
+    isTestEvaluator(actorId, testEvaluators);
   const engine = createFollowUpEngine({
+    // Test and QA accounts stay out of the metrics and the rule calibration.
+    isTestActor,
     unitOfWork: storage.unitOfWork,
     // The patient's names and identifiers are masked before a note leaves for a model.
     noteExtractor: withPatientRedaction(extractor, storage.stores.clinicalRecords),
@@ -374,6 +392,7 @@ export async function createRuntime(
     publisher,
     ...(sink === undefined ? {} : { sink }),
     logger,
+    isTestEvaluator: isTestActor,
     async registerClinic(input) {
       const id = toClinicId(input.id);
       const apiKeyHash = hashApiKey(input.apiKey);

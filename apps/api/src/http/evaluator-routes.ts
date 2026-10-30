@@ -6,11 +6,12 @@ import type { App } from './context.ts';
 /** The whole log, for the CSV export (an internal eval tool's modest volume: one page is enough). */
 const CSV_EXPORT_LIMIT = 10_000;
 
-function eventView(event: EvaluatorEvent): Record<string, unknown> {
+function eventView(event: EvaluatorEvent, isTest: boolean): Record<string, unknown> {
   return {
     id: event.id,
     clinicId: event.clinicId,
     evaluatorEmail: event.evaluatorEmail,
+    isTestEvaluator: isTest,
     action: event.action,
     ...(event.entityType === undefined ? {} : { entityType: event.entityType }),
     ...(event.entityId === undefined ? {} : { entityId: event.entityId }),
@@ -31,6 +32,7 @@ const CSV_COLUMNS = [
   'occurredAt',
   'simulatedAt',
   'evaluatorEmail',
+  'is_test_evaluator',
   'action',
   'clinicId',
   'entityType',
@@ -39,8 +41,11 @@ const CSV_COLUMNS = [
   'payload',
 ] as const;
 
-function toCsv(events: readonly EvaluatorEvent[]): string {
-  const rows = events.map(eventView);
+function toCsv(events: readonly EvaluatorEvent[], isTest: (email: string) => boolean): string {
+  const rows = events.map((event): Record<string, unknown> => {
+    const test = isTest(event.evaluatorEmail);
+    return { ...eventView(event, test), is_test_evaluator: test ? 'true' : 'false' };
+  });
   const lines = [
     CSV_COLUMNS.join(','),
     ...rows.map((row) => CSV_COLUMNS.map((column) => csvField(row[column])).join(',')),
@@ -56,16 +61,26 @@ function toCsv(events: readonly EvaluatorEvent[]): string {
  * in `demo-routes.ts` already covers this path prefix).
  */
 export function registerEvaluatorRoutes(app: App, runtime: EngineRuntime): void {
+  const isTest = (email: string): boolean => runtime.isTestEvaluator(email);
+
+  /**
+   * The physicians only: test and QA accounts (config/demo/test-evaluators.json)
+   * are listed apart, by name and count, and never in the summary.
+   */
   app.get('/api/demo/evaluators', async (c) => {
     const summaries = await runtime.storage.evaluatorEvents.summary();
+    const view = (summary: (typeof summaries)[number]) => ({
+      evaluatorEmail: summary.evaluatorEmail,
+      firstSeenAt: summary.firstSeenAt.toISOString(),
+      lastSeenAt: summary.lastSeenAt.toISOString(),
+      total: summary.total,
+      byAction: summary.byAction,
+    });
     return c.json({
-      items: summaries.map((summary) => ({
-        evaluatorEmail: summary.evaluatorEmail,
-        firstSeenAt: summary.firstSeenAt.toISOString(),
-        lastSeenAt: summary.lastSeenAt.toISOString(),
-        total: summary.total,
-        byAction: summary.byAction,
-      })),
+      items: summaries.filter((summary) => !isTest(summary.evaluatorEmail)).map(view),
+      testEvaluators: summaries
+        .filter((summary) => isTest(summary.evaluatorEmail))
+        .map((summary) => ({ evaluatorEmail: summary.evaluatorEmail, total: summary.total })),
     });
   });
 
@@ -78,7 +93,7 @@ export function registerEvaluatorRoutes(app: App, runtime: EngineRuntime): void 
       });
       c.header('content-type', 'text/csv; charset=utf-8');
       c.header('content-disposition', 'attachment; filename="evaluator-events.csv"');
-      return c.body(toCsv(page.items));
+      return c.body(toCsv(page.items, isTest));
     }
     const page = await runtime.storage.evaluatorEvents.list({
       limit: query.limit,
@@ -86,7 +101,7 @@ export function registerEvaluatorRoutes(app: App, runtime: EngineRuntime): void 
       ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
     });
     return c.json({
-      items: page.items.map(eventView),
+      items: page.items.map((event) => eventView(event, isTest(event.evaluatorEmail))),
       total: page.total,
       ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
     });

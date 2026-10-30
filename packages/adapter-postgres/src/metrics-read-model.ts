@@ -140,13 +140,17 @@ export class PostgresMetricsReadModel implements MetricsReadModel {
   ): Promise<readonly PlanItemReviewEntry[]> {
     // The review log, not the case trail: it also holds items reviewed before
     // they became a case.
-    const { rows } = await this.#ctx.db().query<{ type: PlanItemReviewType; at: Date }>(
-      `SELECT type, at FROM ${this.#ctx.tables.plan_item_reviews}
+    const { rows } = await this.#ctx.db().query<{
+      type: PlanItemReviewType;
+      at: Date;
+      user_id: string;
+    }>(
+      `SELECT type, at, user_id FROM ${this.#ctx.tables.plan_item_reviews}
        WHERE clinic_id = $1 AND at >= $2 AND at < $3
        ORDER BY at, seq`,
       [clinicId, period.from, period.to],
     );
-    return rows.map((row) => ({ type: row.type, at: row.at }));
+    return rows.map((row) => ({ type: row.type, at: row.at, userId: row.user_id }));
   }
 
   async llmUsageByTask(

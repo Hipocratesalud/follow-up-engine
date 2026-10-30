@@ -1947,6 +1947,12 @@ const evaluators = {
   filterByEvaluator: 'Filter by evaluator',
   allEvaluators: 'All evaluators',
   downloadCsv: 'Download CSV',
+  testAccountsTitle: 'Test and QA accounts',
+  testAccountsHint:
+    'Kept in the activity log and the CSV (is_test_evaluator), left out of this summary and of every number in Metrics and the inbox.',
+  testAccountBadge: 'Test',
+  testAccountActions: (count: number): string =>
+    count === 1 ? '1 action' : `${String(count)} actions`,
   action: EVALUATOR_ACTION_LABELS,
 };
 

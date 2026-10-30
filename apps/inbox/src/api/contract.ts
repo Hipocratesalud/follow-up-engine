@@ -712,11 +712,20 @@ export interface EvaluatorSummaryView {
   byAction: Partial<Record<string, number>>;
 }
 
+/** `GET /api/demo/evaluators`: the physicians, and the test and QA accounts kept apart. */
+export interface EvaluatorsView {
+  items: EvaluatorSummaryView[];
+  /** example.com and config/demo/test-evaluators.json: out of every reported number. */
+  testEvaluators?: { evaluatorEmail: string; total: number }[];
+}
+
 /** One row of the evaluator lab's activity log (`GET /api/demo/evaluator-events`). */
 export interface EvaluatorEventView {
   id: string;
   clinicId: string;
   evaluatorEmail: string;
+  /** A test or QA account: kept in the log, out of every reported number. */
+  isTestEvaluator?: boolean;
   action: string;
   entityType?: string;
   entityId?: string;

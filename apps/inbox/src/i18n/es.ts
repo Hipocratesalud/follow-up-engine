@@ -1927,6 +1927,12 @@ const evaluators: Messages['evaluators'] = {
   filterByEvaluator: 'Filtrar por evaluador',
   allEvaluators: 'Todos los evaluadores',
   downloadCsv: 'Descargar CSV',
+  testAccountsTitle: 'Cuentas de prueba y QA',
+  testAccountsHint:
+    'Se guardan en el registro de actividad y en el CSV (is_test_evaluator), fuera de este resumen y de todas las cifras de Métricas y de la bandeja.',
+  testAccountBadge: 'Prueba',
+  testAccountActions: (count: number): string =>
+    count === 1 ? '1 acción' : `${String(count)} acciones`,
   action: EVALUATOR_ACTION_LABELS,
 };
 
