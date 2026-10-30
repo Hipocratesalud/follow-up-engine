@@ -1,5 +1,5 @@
 import type { ClinicalEvent } from '../../domain/clinical-event.ts';
-import type { Expectation } from '../../domain/expectation.ts';
+import { effectiveClosedReason, type Expectation } from '../../domain/expectation.ts';
 import type { ClinicId, ExpectationId, PatientId } from '../../domain/ids.ts';
 import type {
   AgentAppointment,
@@ -25,7 +25,7 @@ import type {
 import type { FhirResourceJson } from '../../domain/resource.ts';
 import { ValidationError } from '../../domain/errors.ts';
 import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
-import { LlmBudgetExceededError } from '../../ports/llm.ts';
+import { isUnmaskedImageRefused, LlmBudgetExceededError } from '../../ports/llm.ts';
 import type {
   EngineOutcome,
   OrderAgentEffects,
@@ -40,7 +40,6 @@ import { testGroupsNamedIn } from '../terminology/test-names.ts';
 import {
   asksToBook,
   checkBookingConfirmation,
-  fold,
   isNegative,
   weekdaysNamedIn,
 } from './confirmation.ts';
@@ -61,6 +60,7 @@ import {
   needsDoctorConfirmation,
   type OrderDescriptor,
 } from './orders.ts';
+import { interpretationOfRange, nameOnReport } from './lab-reading.ts';
 import { checkOutboundText, type OutboundSafetyTerms } from './outbound-safety.ts';
 import {
   availableSlots,
@@ -247,6 +247,11 @@ export function sanitizeArgs(args: unknown): TraceArgs {
   return out;
 }
 
+/** A photo or a PDF of a lab report: both are read into a `LabPhotoReading` and matched the same way. */
+function isLabReportMessage(message: Pick<AgentMessage, 'kind'>): boolean {
+  return message.kind === 'image' || message.kind === 'document';
+}
+
 function errorText(error: unknown): string {
   return error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : 'unknown error';
 }
@@ -385,6 +390,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       )
       .map((expectation) => {
         const descriptor = describeOrder(expectation);
+        const closedReason = effectiveClosedReason(expectation);
         const progress = progressOf(conversation, expectation.id);
         const needsConfirmation = needsDoctorConfirmation(expectation);
         let stage: AgentOrderView['stage'] =
@@ -414,9 +420,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
           stage,
           dueAt: expectation.dueAt,
           urgent: isUrgentOrder(expectation),
-          ...(expectation.closedReason === undefined
-            ? {}
-            : { closedReason: expectation.closedReason }),
+          ...(closedReason === undefined ? {} : { closedReason }),
           ...(expectation.closedBy === undefined
             ? {}
             : { closedBy: `${expectation.closedBy.resourceType}/${expectation.closedBy.id}` }),
@@ -659,7 +663,9 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
               id: inbound.id,
               kind: inbound.kind,
               text: inbound.text,
-              hasLabPhoto: inbound.kind === 'image',
+              // A PDF report goes through the same reading and tools as a photo.
+              hasLabPhoto: isLabReportMessage(inbound),
+              ...(inbound.kind === 'document' ? { hasLabDocument: true } : {}),
             },
       conversation: messages.slice(-12).map((message) => ({
         id: message.id,
@@ -1433,8 +1439,23 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         case 'match_result_to_order': {
           const parsed = MatchResultArgs.parse(args);
           const message = await deps.store.getMessage(clinicId, parsed.messageId);
-          if (message?.patientId !== patientId || message.kind !== 'image') {
+          if (message?.patientId !== patientId || !isLabReportMessage(message)) {
             return refuse(name, args, reason, 'not_a_photo_message', ['messages']);
+          }
+          if (message.reading?.notRead === 'photo_not_allowed') {
+            await trace(name, args, reason, 'ok', 'photo_not_allowed', {}, [
+              `message:${message.id}`,
+              'clinic_settings',
+            ]);
+            return {
+              ok: true,
+              result: {
+                isLabReport: false,
+                matches: [],
+                notRead: 'clinic_reads_photos_by_hand',
+                note: 'This clinic reads photos by hand: the team already has a task. Thank the patient and say the clinic team will review it. Never ask for another photo.',
+              },
+            };
           }
           if (message.reading?.isLabReport !== true) {
             await trace(name, args, reason, 'ok', 'photo_not_a_report', {}, [
@@ -1472,7 +1493,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
           const message = await deps.store.getMessage(clinicId, parsed.messageId);
           if (
             message?.patientId !== patientId ||
-            message.kind !== 'image' ||
+            !isLabReportMessage(message) ||
             message.reading === undefined
           ) {
             return refuse(name, args, reason, 'not_a_photo_message', ['messages']);
@@ -1498,14 +1519,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
             );
           }
           const test = hit.reading;
-          const interpretation =
-            test.referenceHigh !== undefined && test.value > test.referenceHigh
-              ? 'H'
-              : test.referenceLow !== undefined && test.value < test.referenceLow
-                ? 'L'
-                : test.referenceHigh !== undefined || test.referenceLow !== undefined
-                  ? 'N'
-                  : undefined;
+          const interpretation = interpretationOfRange(test);
           const reportDate =
             message.reading.reportDate !== undefined &&
             /^\d{4}-\d{2}-\d{2}$/.test(message.reading.reportDate)
@@ -1697,17 +1711,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
           });
         }
       }
-      const printed = message.reading?.patientName;
-      let nameCheck: 'matches' | 'mismatch' | 'absent' = 'absent';
-      if (printed !== undefined && printed.trim() !== '') {
-        const known = fold(fullNameOf(patient) ?? '')
-          .trim()
-          .split(' ')
-          .filter((part) => part.length > 2);
-        const seen = fold(printed).trim().split(' ');
-        nameCheck =
-          known.length > 0 && known.some((part) => seen.includes(part)) ? 'matches' : 'mismatch';
-      }
+      const nameCheck = nameOnReport(message.reading?.patientName, fullNameOf(patient));
       return { matches, unmatched, nameCheck };
     }
 
@@ -1729,6 +1733,14 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
     }
 
     return { definitions: ORDER_AGENT_TOOLS, execute, reject };
+  }
+
+  async function redactTermsFor(
+    clinicId: ClinicId,
+    patientId: PatientId,
+  ): Promise<readonly string[]> {
+    const { patient } = await readPatient(clinicId, patientId);
+    return patient === undefined ? [] : (deps.redactTermsOf?.(patient) ?? []);
   }
 
   async function readMedia(
@@ -1770,19 +1782,28 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
         });
         return next;
       }
-      if (message.kind === 'image' && message.reading === undefined) {
-        const read = await deps.media.readLabPhoto(clinicId, {
-          mode,
-          image: media.data,
-          contentType: media.contentType,
-        });
+      if (isLabReportMessage(message) && message.reading === undefined) {
+        const read =
+          message.kind === 'document'
+            ? await deps.media.readLabDocument(clinicId, {
+                mode,
+                document: media.data,
+                contentType: media.contentType,
+                // The report's text is masked like a note: names never reach the model.
+                redactTerms: await redactTermsFor(clinicId, patientId),
+              })
+            : await deps.media.readLabPhoto(clinicId, {
+                mode,
+                image: media.data,
+                contentType: media.contentType,
+              });
         const next: AgentMessage = { ...message, reading: read.reading };
         await deps.store.saveMessage(next);
         await step(clinicId, patientId, now, {
           runId,
           kind: 'vision',
           outcome: 'ok',
-          event: 'photo_read',
+          event: message.kind === 'document' ? 'document_read' : 'photo_read',
           params: {
             messageId: message.id,
             isLabReport: read.reading.isLabReport,
@@ -1809,6 +1830,31 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
     try {
       return await attempt(conversation.mode);
     } catch (error) {
+      if (message.kind === 'image' && isUnmaskedImageRefused(error)) {
+        // The clinic does not send photos to a model: refused by the gateway
+        // before any call. Never dropped: marked not read, and the team gets a task.
+        const next: AgentMessage = {
+          ...message,
+          reading: { isLabReport: false, tests: [], notRead: 'photo_not_allowed' },
+        };
+        await deps.store.saveMessage(next);
+        await step(clinicId, patientId, now, {
+          runId,
+          kind: 'policy',
+          outcome: 'info',
+          event: 'photo_not_allowed',
+          params: { messageId: message.id },
+        });
+        await addTask(conversation, {
+          kind: 'call_patient',
+          priority: 'normal',
+          ask: 'review_photo',
+          now,
+          dueInDays: 1,
+          runId,
+        });
+        return next;
+      }
       if (conversation.mode === 'live' && error instanceof LlmBudgetExceededError) {
         await step(clinicId, patientId, now, {
           runId,

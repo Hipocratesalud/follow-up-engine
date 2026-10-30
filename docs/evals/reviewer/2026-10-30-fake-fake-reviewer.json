@@ -1,0 +1,489 @@
+{
+  "kind": "clinical_reviewer",
+  "provider": "fake",
+  "model": "fake-reviewer",
+  "promptVersion": "clinical-review@2",
+  "startedAt": "2026-10-30T16:03:13.677Z",
+  "totals": {
+    "truePositives": 13,
+    "falsePositives": 0,
+    "falseNegatives": 0,
+    "precision": 1,
+    "recall": 1,
+    "hallucinatedCitations": 0,
+    "citations": 31,
+    "findings": 13,
+    "bilingual": 13,
+    "translationRequests": 0,
+    "controlsWithFindings": 0,
+    "reviews": 20,
+    "degraded": 0,
+    "avgSteps": 2.45,
+    "avgToolCalls": 1.45,
+    "avgInputTokens": 6919.45,
+    "avgOutputTokens": 258.95,
+    "costPerReviewUsd": 0,
+    "projectedMuseSparkCostPerReviewUsd": 0.009749850000000003,
+    "discarded": {}
+  },
+  "byCategory": [
+    {
+      "category": "pre_visit_question",
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    {
+      "category": "lab_trend",
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    {
+      "category": "vital_trend",
+      "truePositives": 2,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    {
+      "category": "abnormal_result_no_followup",
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    {
+      "category": "drug_interaction",
+      "truePositives": 3,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    {
+      "category": "drug_condition_conflict",
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    {
+      "category": "unaddressed_symptom",
+      "truePositives": 2,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    {
+      "category": "missing_screening",
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    {
+      "category": "record_quality",
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "precision": 1,
+      "recall": 1
+    }
+  ],
+  "patients": [
+    {
+      "patientId": "rev-0001",
+      "kind": "planted",
+      "expected": [
+        {
+          "category": "lab_trend",
+          "rule": "lab_trend:creatinine"
+        },
+        {
+          "category": "drug_condition_conflict",
+          "rule": "drug_condition:metformin_egfr_45"
+        }
+      ],
+      "found": [
+        {
+          "category": "lab_trend",
+          "rule": "lab_trend:creatinine"
+        },
+        {
+          "category": "drug_condition_conflict",
+          "rule": "drug_condition:metformin_egfr_45"
+        }
+      ],
+      "truePositives": 2,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 3,
+      "toolCalls": 2,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0002",
+      "kind": "planted",
+      "expected": [
+        {
+          "category": "abnormal_result_no_followup",
+          "rule": "abnormal_result:hba1c"
+        }
+      ],
+      "found": [
+        {
+          "category": "abnormal_result_no_followup",
+          "rule": "abnormal_result:hba1c"
+        }
+      ],
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 3,
+      "toolCalls": 2,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0003",
+      "kind": "planted",
+      "expected": [
+        {
+          "category": "unaddressed_symptom",
+          "rule": "symptom:headache"
+        }
+      ],
+      "found": [
+        {
+          "category": "unaddressed_symptom",
+          "rule": "symptom:headache"
+        }
+      ],
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 3,
+      "toolCalls": 2,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0004",
+      "kind": "planted",
+      "expected": [
+        {
+          "category": "drug_interaction",
+          "rule": "interaction:nsaid_raas_diuretic"
+        }
+      ],
+      "found": [
+        {
+          "category": "drug_interaction",
+          "rule": "interaction:nsaid_raas_diuretic"
+        }
+      ],
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 3,
+      "toolCalls": 2,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0005",
+      "kind": "planted",
+      "expected": [
+        {
+          "category": "missing_screening",
+          "rule": "screening:diabetic_fundus"
+        },
+        {
+          "category": "pre_visit_question",
+          "rule": "question:diabetic_neuropathy"
+        }
+      ],
+      "found": [
+        {
+          "category": "missing_screening",
+          "rule": "screening:diabetic_fundus"
+        },
+        {
+          "category": "pre_visit_question",
+          "rule": "question:diabetic_neuropathy"
+        }
+      ],
+      "truePositives": 2,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0006",
+      "kind": "planted",
+      "expected": [
+        {
+          "category": "vital_trend",
+          "rule": "vital_trend:systolic_bp"
+        }
+      ],
+      "found": [
+        {
+          "category": "vital_trend",
+          "rule": "vital_trend:systolic_bp"
+        }
+      ],
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 3,
+      "toolCalls": 2,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0007",
+      "kind": "planted",
+      "expected": [
+        {
+          "category": "record_quality",
+          "rule": "record_quality:allergies"
+        }
+      ],
+      "found": [
+        {
+          "category": "record_quality",
+          "rule": "record_quality:allergies"
+        }
+      ],
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0008",
+      "kind": "planted",
+      "expected": [
+        {
+          "category": "drug_interaction",
+          "rule": "interaction:vka_nsaid"
+        }
+      ],
+      "found": [
+        {
+          "category": "drug_interaction",
+          "rule": "interaction:vka_nsaid"
+        }
+      ],
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 3,
+      "toolCalls": 2,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0009",
+      "kind": "planted",
+      "expected": [
+        {
+          "category": "drug_interaction",
+          "rule": "interaction:ssri_tramadol"
+        }
+      ],
+      "found": [
+        {
+          "category": "drug_interaction",
+          "rule": "interaction:ssri_tramadol"
+        }
+      ],
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 3,
+      "toolCalls": 2,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0010",
+      "kind": "planted",
+      "expected": [
+        {
+          "category": "vital_trend",
+          "rule": "vital_trend:weight"
+        },
+        {
+          "category": "unaddressed_symptom",
+          "rule": "symptom:fatigue"
+        }
+      ],
+      "found": [
+        {
+          "category": "vital_trend",
+          "rule": "vital_trend:weight"
+        },
+        {
+          "category": "unaddressed_symptom",
+          "rule": "symptom:fatigue"
+        }
+      ],
+      "truePositives": 2,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 4,
+      "toolCalls": 3,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0011",
+      "kind": "control",
+      "expected": [],
+      "found": [],
+      "truePositives": 0,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0012",
+      "kind": "control",
+      "expected": [],
+      "found": [],
+      "truePositives": 0,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0013",
+      "kind": "control",
+      "expected": [],
+      "found": [],
+      "truePositives": 0,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0014",
+      "kind": "control",
+      "expected": [],
+      "found": [],
+      "truePositives": 0,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0015",
+      "kind": "control",
+      "expected": [],
+      "found": [],
+      "truePositives": 0,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0016",
+      "kind": "control",
+      "expected": [],
+      "found": [],
+      "truePositives": 0,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0017",
+      "kind": "control",
+      "expected": [],
+      "found": [],
+      "truePositives": 0,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0018",
+      "kind": "control",
+      "expected": [],
+      "found": [],
+      "truePositives": 0,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0019",
+      "kind": "control",
+      "expected": [],
+      "found": [],
+      "truePositives": 0,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    },
+    {
+      "patientId": "rev-0020",
+      "kind": "control",
+      "expected": [],
+      "found": [],
+      "truePositives": 0,
+      "falsePositives": 0,
+      "falseNegatives": 0,
+      "hallucinatedCitations": 0,
+      "steps": 2,
+      "toolCalls": 1,
+      "status": "completed"
+    }
+  ]
+}

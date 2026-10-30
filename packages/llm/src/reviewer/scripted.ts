@@ -165,6 +165,10 @@ export const scriptedReviewerResponder: FakeResponder = (request: ProviderReques
       suggestion: signal.suggestion,
       citations: signal.evidence.map((item) => ({ docId: item.docId, quote: item.quote })),
       signalIds: [signal.id],
+      // Both languages, as the prompt asks: the detectors' own renderings.
+      ...(signal.texts?.en !== undefined && signal.texts.es !== undefined
+        ? { texts: { en: signal.texts.en, es: signal.texts.es } }
+        : {}),
     }));
   return action(`Submitting ${String(findings.length)} findings.`, 'submit_findings', { findings });
 };

@@ -24,6 +24,7 @@ export {
 export {
   loadMigrations,
   migrate,
+  DuplicateMigrationVersionError,
   MigrationChecksumError,
   type Migration,
   type MigrateOptions,
@@ -32,6 +33,7 @@ export {
 export { applySupabaseRowLevelSecurity } from './supabase.ts';
 export { DEFAULT_SCHEMA, InvalidSchemaNameError, type Queryable } from './sql.ts';
 export { PostgresOrderAgentStore } from './order-agent-store.ts';
+export { PostgresHeldLabReportStore } from './held-lab-report-store.ts';
 export { CorruptRowError } from './codec.ts';
 export type { PostgresStores } from './stores.ts';
 export {
@@ -57,6 +59,7 @@ export {
 export { PostgresLlmUsageLog } from './llm-usage-log.ts';
 export { PostgresMetricsReadModel } from './metrics-read-model.ts';
 export { PostgresPlanItemReviewLog } from './plan-item-review-log.ts';
+export { PostgresExpectationEventLog } from './expectation-event-log.ts';
 export { PostgresAdjudicationRepository } from './adjudication-repository.ts';
 export {
   PostgresClinicalFindingRepository,

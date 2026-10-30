@@ -1,4 +1,8 @@
-import { type PostgresAdapters, PostgresOrderAgentStore } from '@follow-up-engine/adapter-postgres';
+import {
+  type PostgresAdapters,
+  PostgresHeldLabReportStore,
+  PostgresOrderAgentStore,
+} from '@follow-up-engine/adapter-postgres';
 import {
   describeAuditLogContract,
   describeBackfillProgressStoreContract,
@@ -16,11 +20,13 @@ import {
   describeLlmUsageLogContract,
   describeMetricsReadModelContract,
   describeOutboxContract,
+  describeExpectationEventLogContract,
   describePlanItemReviewLogContract,
   describeAdjudicationRepositoryContract,
   describeQualityFindingRepositoryContract,
   describeReconciliationStoreContract,
   describeRuleOverrideStoreContract,
+  describeHeldLabReportStoreContract,
   describeOrderAgentStoreContract,
   describeSuppressionRepositoryContract,
   describeUnitOfWorkContract,
@@ -54,6 +60,12 @@ describe.skipIf(!POSTGRES_ENABLED)(postgresTitle('contract suites'), () => {
   describeOrderAgentStoreContract(NAME, () =>
     Promise.resolve({
       subject: new PostgresOrderAgentStore(() => database().pool, database().schema),
+      cleanup: noop,
+    }),
+  );
+  describeHeldLabReportStoreContract(NAME, () =>
+    Promise.resolve({
+      subject: new PostgresHeldLabReportStore(() => database().pool, database().schema),
       cleanup: noop,
     }),
   );
@@ -112,6 +124,10 @@ describe.skipIf(!POSTGRES_ENABLED)(postgresTitle('contract suites'), () => {
   describePlanItemReviewLogContract(
     NAME,
     store((s) => s.planItemReviews),
+  );
+  describeExpectationEventLogContract(
+    NAME,
+    store((s) => s.expectationEvents),
   );
   describeAdjudicationRepositoryContract(
     NAME,

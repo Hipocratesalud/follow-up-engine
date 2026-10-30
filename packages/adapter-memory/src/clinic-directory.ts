@@ -13,6 +13,8 @@ import type { MemoryDatabase } from './memory-database.ts';
 /** Settings of a new clinic unless overridden (PRD defaults). */
 export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   allowPatientContact: false,
+  // A photo cannot be masked: it never leaves for a model provider unless enabled.
+  allowUnmaskedImagesToProvider: false,
   dailyCaseCapPerOwner: 20,
   backfillNotifyMaxAgeDays: 730,
   llmMonthlyBudgetUsd: 50,
@@ -35,6 +37,10 @@ export class MemoryClinicDirectory implements ClinicDirectory {
   add(clinic: Clinic, apiKeyHash?: string): void {
     this.#clinics.set(clinic.id, clinic);
     if (apiKeyHash !== undefined) {
+      // One key per clinic, as in Postgres (`clinics.api_key_hash`): a new key replaces the old one.
+      for (const [hash, holder] of this.#apiKeyHashes) {
+        if (holder === clinic.id) this.#apiKeyHashes.delete(hash);
+      }
       this.#apiKeyHashes.set(apiKeyHash, clinic.id);
     }
   }

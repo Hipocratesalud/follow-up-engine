@@ -216,6 +216,30 @@ export {
   type ReviewerAction,
 } from './reviewer/prompt.ts';
 export { FAKE_REVIEWER_MODEL, scriptedReviewerResponder } from './reviewer/scripted.ts';
+export {
+  createFindingTranslator,
+  FINDING_TRANSLATION_OUTPUT_NAME,
+  FINDING_TRANSLATION_PROMPT_VERSION,
+  FINDING_TRANSLATION_TASK,
+  findingTranslationMessages,
+} from './reviewer/translation.ts';
+
+// Rule-authoring agent (V1-C, docs/agent/rule-authoring.md)
+export {
+  createRuleAuthoringAgent,
+  type RuleAuthoringAgentOptions,
+} from './rule-authoring/agent.ts';
+export {
+  RULE_AUTHORING_ACTION_NAME,
+  RULE_AUTHORING_PROMPT_VERSION,
+  RULE_AUTHORING_TASK,
+  ruleAuthoringSystemPrompt,
+} from './rule-authoring/prompt.ts';
+export { FAKE_RULE_AUTHOR_MODEL, scriptedRuleAuthorResponder } from './rule-authoring/scripted.ts';
+export {
+  createRepositoryTerminology,
+  type RepositoryTerminologyOptions,
+} from './rule-authoring/terminology.ts';
 
 // Adjudicator of ambiguous plan items (PRD V2, workstream E)
 export {
@@ -270,9 +294,17 @@ export {
 export { FAKE_ORDER_AGENT_MODEL, scriptedOrderAgentResponder } from './agent/scripted.ts';
 export {
   createPatientMediaReader,
+  createScriptedLabDocumentResponder,
   createScriptedLabPhotoResponder,
+  type DocumentTextReader,
   FAKE_TRANSCRIBER_MODEL,
   FAKE_VISION_MODEL,
+  LAB_DOCUMENT_OUTPUT_NAME,
+  LAB_DOCUMENT_PROMPT_VERSION,
+  LAB_DOCUMENT_SCRIPTED_TASK,
+  LAB_DOCUMENT_TASK,
+  labDocumentMessages,
+  maskLabDocument,
   LAB_PHOTO_OUTPUT_NAME,
   LAB_PHOTO_PROMPT_VERSION,
   LAB_PHOTO_SCRIPTED_TASK,
@@ -280,6 +312,7 @@ export {
   LabPhotoReadingSchema,
   labPhotoMessages,
   toLabPhotoReading,
+  UnreadableDocumentError,
   VOICE_TRANSCRIPTION_SCRIPTED_TASK,
   VOICE_TRANSCRIPTION_TASK,
   type ModelLabPhotoReading,

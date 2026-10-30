@@ -217,7 +217,7 @@ export interface ReasonEvidence {
   noteExcerpt?: string;
 }
 
-export type ProtocolStatus = 'draft' | 'validated';
+export type ProtocolStatus = 'draft' | 'ready_for_signoff' | 'validated';
 
 /**
  * The care protocol behind a `protocol` layer reason. `name` (Spanish) and
@@ -229,7 +229,11 @@ export interface ProtocolRef {
   /** Version of the protocol that created the expectation. */
   version: string;
   name?: string;
-  /** `draft`: not yet validated by the clinic's clinical team. */
+  /**
+   * `draft`: no sign-off package yet. `ready_for_signoff`: a sign-off
+   * package exists but nobody has approved it. Neither is validated by the
+   * clinic's clinical team.
+   */
   status?: ProtocolStatus;
 }
 
@@ -586,6 +590,26 @@ export interface ApiErrorBody {
 // The evaluator lab (docs/deploy.md#hosted-demo) --------------------------
 
 /** `GET /api/evaluator/me`: who is evaluating, from the signed cookie. Empty body outside the hosted demo. */
+/** Pages whose views the evaluator log records (`page_viewed`). */
+export type TrackedPage =
+  | 'inbox'
+  | 'lab'
+  | 'agent'
+  | 'value'
+  | 'engine_tests'
+  | 'clinical_review'
+  | 'patient'
+  | 'metrics'
+  | 'demo'
+  | 'evaluators'
+  | 'recovery';
+
+/** `POST /api/evaluator/events`: what only the browser sees, for the evaluator log. */
+export type ClientEvaluatorEvent =
+  | { action: 'page_viewed'; page: TrackedPage; patientId?: string }
+  | { action: 'agent_model_switched'; mode: 'scripted' | 'live' }
+  | { action: 'agent_language_switched'; language: 'en' | 'es' };
+
 export interface EvaluatorIdentity {
   email?: string;
 }
@@ -643,6 +667,121 @@ export interface LabDocumentResponse {
   expectationsCreated: CreatedExpectation[];
 }
 
+/** One document of an "Import history" request, with the date it was written. */
+export interface LabHistoryDocumentInput {
+  file: File;
+  /** `YYYY-MM-DD`: not after the lab clinic's current date. */
+  documentDate: string;
+  /** `lab_result` (and every photo) is read as a lab report; anything else as a clinical note. */
+  documentType: LabDocumentType;
+  specialty?: string;
+}
+
+export interface LabHistoryImportRequest {
+  patientId?: string;
+  newPatient?: LabNewPatientInput;
+  documents: LabHistoryDocumentInput[];
+}
+
+export interface LabHistoryDocumentOutcome {
+  index: number;
+  filename: string;
+  documentDate: string;
+  documentType: LabDocumentType;
+  readAs: 'note' | 'lab_report';
+  source: 'photo' | 'text';
+  status:
+    'staged' | 'already_imported' | 'no_results' | 'needs_review' | 'discarded' | 'unreadable';
+  /** The stored held report the team decides on (`needs_review`, `discarded`). */
+  heldReportId?: string;
+  error?: string;
+  /** Why a report is held for the team: nothing was staged, no order closed. */
+  reviewReason?: 'name_mismatch' | 'photo_not_allowed';
+  nameOnReport?: 'matches' | 'mismatch' | 'absent';
+  /** `YYYY-MM-DD` dates of a lab report; `used` is the one the result is dated with. */
+  dates?: { printed?: string; entered: string; used: 'printed' | 'entered'; mismatch: boolean };
+  results?: {
+    /** As printed on the report (clinical content, shown as written). */
+    name: string;
+    test: string;
+    loinc: string;
+    value: number;
+    unit?: string;
+    interpretation?: 'H' | 'L' | 'N';
+  }[];
+  unrecognizedTests?: string[];
+  resources: string[];
+  reading?: { model: string; costUsd: number; latencyMs: number };
+}
+
+export interface LabHistoryImportResponse {
+  patientId: string;
+  clinicId: string;
+  documents: LabHistoryDocumentOutcome[];
+  eventsStaged: number;
+  backfill: {
+    runId: string;
+    status: string;
+    expectationsCreated: number;
+    expectationsFulfilled: number;
+    casesOpened: number;
+    notesRead: number;
+    notesLlmCostUsd: number;
+    release?: { scheduled: number; notNotified: number; perDay: number[] };
+  };
+  cases: { id: string; status: string; releaseAt?: string; released: boolean }[];
+  llm: { calls: number; costUsd: number };
+}
+
+/** A lab report held for review: the name printed on it is not the patient's. */
+export interface HeldLabReportView {
+  id: string;
+  patientId: string;
+  filename: string;
+  /** `YYYY-MM-DD`. */
+  documentDate: string;
+  printedDate?: string;
+  printedName?: string;
+  recordName?: string;
+  reason: 'name_mismatch' | 'photo_not_allowed';
+  source: 'photo' | 'text';
+  model?: string;
+  results: {
+    name: string;
+    test: string;
+    loinc: string;
+    value: number;
+    unit?: string;
+    interpretation?: 'H' | 'L' | 'N';
+  }[];
+  status: 'pending' | 'confirmed' | 'discarded';
+  createdAt: string;
+  decidedBy?: string;
+  decidedAt?: string;
+}
+
+export interface HeldLabReportDecision {
+  report: HeldLabReportView;
+  resources?: string[];
+  expectationsFulfilled?: number;
+}
+
+/** The committed synthetic sample histories (`GET /api/demo/lab/history/samples`). */
+export interface LabHistorySampleSet {
+  sets: {
+    id: string;
+    patient: { name: string; sex: Sex; age: number };
+    documents: {
+      filename: string;
+      contentType: string;
+      dataBase64: string;
+      documentDate: string;
+      documentType: LabDocumentType;
+      specialty?: string;
+    }[];
+  }[];
+}
+
 export const LAB_RECORD_KINDS = [
   'order',
   'result',
@@ -689,10 +828,14 @@ export interface LabExpectationView {
   ruleId: string;
   ruleVersion?: string;
   layer: Layer;
+  /** `backfill`: created by replaying imported history. */
+  origin?: Origin;
   label: string;
   status: ExpectationStatus;
   dueAt: string;
   closedReason?: string;
+  /** Why it closed, in the response language. */
+  closedReasonLabel?: string;
 }
 
 export interface LabDateImpact {
@@ -712,11 +855,20 @@ export interface EvaluatorSummaryView {
   byAction: Partial<Record<string, number>>;
 }
 
+/** `GET /api/demo/evaluators`: the physicians, and the test and QA accounts kept apart. */
+export interface EvaluatorsView {
+  items: EvaluatorSummaryView[];
+  /** example.com and config/demo/test-evaluators.json: out of every reported number. */
+  testEvaluators?: { evaluatorEmail: string; total: number }[];
+}
+
 /** One row of the evaluator lab's activity log (`GET /api/demo/evaluator-events`). */
 export interface EvaluatorEventView {
   id: string;
   clinicId: string;
   evaluatorEmail: string;
+  /** A test or QA account: kept in the log, out of every reported number. */
+  isTestEvaluator?: boolean;
   action: string;
   entityType?: string;
   entityId?: string;

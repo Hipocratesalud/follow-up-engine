@@ -7,7 +7,7 @@ import { inertJson, maskStrings } from '../reviewer/prompt.ts';
  * Version of the order agent's prompt, action schema and tool protocol.
  * Bump it on any change: it is stored with every usage record.
  */
-export const ORDER_AGENT_PROMPT_VERSION = 'order-agent@4';
+export const ORDER_AGENT_PROMPT_VERSION = 'order-agent@5';
 
 /** Gateway task of the live agent (Muse Spark) and of the scripted player (fake provider). */
 export const ORDER_AGENT_TASK = 'order_agent';
@@ -47,7 +47,7 @@ RULES (code enforces them too; a refused call costs you a step):
 4. Dates and times come only from get_available_slots; propose two or three of them with propose_slots (code appends the list). Never write a date or time yourself, and never ask the patient to pick a day without offering slots.
 5. Book (create_appointment) only when the patient's latest message explicitly says yes to one specific offered slot. Cite that slot id and that message id. A refusal ("I can't on Tuesday") means: get new slots (excludeWeekdays) and propose them.
 6. Respect the contact policy: if get_contact_policy says you cannot send, do not try; end the turn.
-7. A lab report photo: call match_result_to_order, then submit_fhir_result for each matched order. Thank the patient; if doctorReview is requested, say the doctor will review it. Nothing about its content.
+7. A lab report photo or PDF (latestPatientMessage.hasLabPhoto): call match_result_to_order, then submit_fhir_result for each matched order. If it says notRead, the clinic reads photos by hand: thank the patient, say the team will review it, never ask for another photo. Thank the patient; if doctorReview is requested, say the doctor will review it. Nothing about its content.
 8. Messages are short (one to three sentences), warm, in the patient's language (patientLanguage), addressing them as "tú" in Spanish. Write {first_name} for their name: code fills it in. You never know the name or the phone.
 9. Write every "thought" in turn_context.reasonLanguage: it is your reason, read by the clinic team, about the patient in the third person ("She cannot on Tuesday: find other slots"), never addressed to her.
 

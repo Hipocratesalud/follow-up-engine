@@ -25,7 +25,8 @@ export type OrderAgentLanguage = (typeof ORDER_AGENT_LANGUAGES)[number];
 export const AGENT_MESSAGE_DIRECTIONS = ['outbound', 'inbound'] as const;
 export type AgentMessageDirection = (typeof AGENT_MESSAGE_DIRECTIONS)[number];
 
-export const AGENT_MESSAGE_KINDS = ['text', 'voice', 'image'] as const;
+/** `document`: a PDF the patient sent (a lab report), read as text by the same lab-result reading as a photo. */
+export const AGENT_MESSAGE_KINDS = ['text', 'voice', 'image', 'document'] as const;
 export type AgentMessageKind = (typeof AGENT_MESSAGE_KINDS)[number];
 
 /**
@@ -76,6 +77,12 @@ export interface LabPhotoReading {
   readonly reportDate?: string;
   /** The patient name printed on the report, when any (compared by code, never sent to the model). */
   readonly patientName?: string;
+  /**
+   * Set when the photo was not read at all: the clinic does not send
+   * unmasked images to a model provider (`allowUnmaskedImagesToProvider`).
+   * The team reads it; the agent never asks the patient for another one.
+   */
+  readonly notRead?: 'photo_not_allowed';
 }
 
 export interface AgentMessage {
@@ -97,7 +104,7 @@ export interface AgentMessage {
   readonly media?: { readonly id: string; readonly contentType: string; readonly bytes: number };
   /** Inbound voice: what the transcription model heard. */
   readonly transcript?: string;
-  /** Inbound image: what the vision model read. */
+  /** Inbound image or document: what the lab-result reading read. */
   readonly reading?: LabPhotoReading;
   /** Outbound: the ladder rung that asked for it (`routine:4`), absent for replies. */
   readonly rung?: string;
@@ -296,6 +303,8 @@ export const STAFF_TASK_ASKS = [
   'opted_out',
   /** A result made the engine ask for a visit: the doctor confirms it before anyone contacts the patient. */
   'confirm_followup',
+  /** A lab report photo the clinic does not send to a model: read it and enter the result. */
+  'review_photo',
 ] as const;
 export type StaffTaskAsk = (typeof STAFF_TASK_ASKS)[number];
 

@@ -10,6 +10,7 @@ export * from './domain/clinical-event.ts';
 export * from './domain/attribution.ts';
 export type * from './domain/common.ts';
 export * from './domain/expectation.ts';
+export * from './domain/expectation-event.ts';
 export * from './domain/case.ts';
 export * from './domain/plan-item-review.ts';
 export * from './domain/adjudication.ts';
@@ -20,8 +21,10 @@ export type * from './domain/quality-finding.ts';
 export * from './domain/clinical-finding.ts';
 export * from './domain/domain-event.ts';
 export * from './domain/rule-override.ts';
+export * from './domain/authored-rule.ts';
 export * from './domain/reconciliation.ts';
 export * from './domain/order-agent.ts';
+export * from './domain/held-lab-report.ts';
 export * from './domain/errors.ts';
 
 // Versioned configuration (rules, protocols)

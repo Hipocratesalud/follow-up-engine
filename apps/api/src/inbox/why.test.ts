@@ -4,7 +4,24 @@ import { createApp } from '../http/app.ts';
 import type { App } from '../http/context.ts';
 import type { CaseDetail, CaseView, PatientDetail } from '../http/schemas.ts';
 import type { DocumentRefView, PatientDocumentView, ReasonWhyView } from '../http/why-schemas.ts';
+import { EN } from '../i18n/en.ts';
 import { seedSyntheticClinic } from '../test/seed.ts';
+
+/**
+ * Exact status text per protocol, in English (the suite never asks for
+ * Spanish): diabetes and hypertension have a sign-off package
+ * (docs/protocols/signoff), every other protocol is still a plain draft;
+ * none is validated yet.
+ */
+const PROTOCOL_STATUS_TEXT: Readonly<Record<string, string>> = {
+  diabetes: EN.why.readyForSignoff,
+  hypertension: EN.why.readyForSignoff,
+  pregnancy: EN.why.draft,
+  treatment_followup: EN.why.draft,
+  hypothyroidism: EN.why.draft,
+  dyslipidemia: EN.why.draft,
+  chronic_kidney_disease: EN.why.draft,
+};
 
 /*
  * HIP-142 "Why this?" over the whole synthetic clinic: every reason of every
@@ -112,7 +129,7 @@ describe('"Why this?" evidence in the inbox API', () => {
       expect(protocol, reason.expectationId).toBeDefined();
       expect(protocol?.id).toBe(reason.protocol?.id);
       expect(protocol?.title).toContain(`v${reason.protocol?.version ?? ''}`);
-      expect(protocol?.statusText).toMatch(/Draft|Validated/);
+      expect(protocol?.statusText).toBe(PROTOCOL_STATUS_TEXT[protocol?.id ?? '']);
       expect(protocol?.scheduleText).toBeTruthy();
       expect(protocol?.enrollment.text).not.toBe('');
       if (protocol?.enrollment.episode === 'active') {

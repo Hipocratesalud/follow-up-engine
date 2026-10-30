@@ -8,6 +8,8 @@ import {
   type FindingCounts,
   type FindingFlag,
   type FindingFlagRepository,
+  type FindingInboxRelease,
+  type FindingTexts,
   type FindingListQuery,
   type FindingPage,
   type FindingReview,
@@ -25,7 +27,9 @@ function matches(finding: ClinicalFinding, query: Partial<FindingListQuery>): bo
     (query.patientId === undefined || finding.patientId === query.patientId) &&
     (query.statuses === undefined || query.statuses.includes(finding.status)) &&
     (query.categories === undefined || query.categories.includes(finding.category)) &&
-    (query.severities === undefined || query.severities.includes(finding.severity))
+    (query.severities === undefined || query.severities.includes(finding.severity)) &&
+    (query.releasedSince === undefined ||
+      (finding.inboxRelease !== undefined && finding.inboxRelease.at >= query.releasedSince))
   );
 }
 
@@ -81,6 +85,26 @@ export class MemoryClinicalFindingRepository implements ClinicalFindingRepositor
     };
     this.#db.setIn(this.#db.state.clinicalFindings, key, updated);
     return Promise.resolve(structuredClone(updated));
+  }
+
+  setTexts(clinicId: ClinicId, id: string, texts: FindingTexts): Promise<ClinicalFinding> {
+    const key = tenantKey(clinicId, id);
+    const current = this.#db.state.clinicalFindings.get(key);
+    if (current === undefined) return Promise.reject(new NotFoundError('ClinicalFinding', id));
+    const updated: ClinicalFinding = { ...current, texts: structuredClone(texts) };
+    this.#db.setIn(this.#db.state.clinicalFindings, key, updated);
+    return Promise.resolve(structuredClone(updated));
+  }
+
+  release(clinicId: ClinicId, id: string, release: FindingInboxRelease): Promise<void> {
+    const key = tenantKey(clinicId, id);
+    const current = this.#db.state.clinicalFindings.get(key);
+    if (current === undefined) return Promise.reject(new NotFoundError('ClinicalFinding', id));
+    this.#db.setIn(this.#db.state.clinicalFindings, key, {
+      ...current,
+      inboxRelease: { at: release.at, doctor: release.doctor },
+    });
+    return Promise.resolve();
   }
 
   findDuplicates(

@@ -4,6 +4,7 @@ import {
   type ClaimedJob,
   CLINICAL_REVIEW_JOB,
   type ClinicId,
+  FINDING_TRANSLATION_JOB,
   type EscalationReport,
   NOTE_EXTRACTION_JOB,
   ORDER_AGENT_LADDER_JOB,
@@ -20,6 +21,7 @@ export const WORKER_JOB_TYPES = [
   INGEST_BUNDLE_JOB,
   NOTE_EXTRACTION_JOB,
   CLINICAL_REVIEW_JOB,
+  FINDING_TRANSLATION_JOB,
   RECONCILIATION_JOB,
   ADJUDICATION_JOB,
   ORDER_AGENT_TURN_JOB,
@@ -359,6 +361,12 @@ export class Worker {
             },
             'clinical review',
           );
+          break;
+        }
+        case FINDING_TRANSLATION_JOB: {
+          const added = await this.#runtime.reviewer.runTranslationJob(job.clinicId, job.payload);
+          // Locales only: the finding's words stay in the engine.
+          logger.info({ ...context, locales: added }, 'finding translated');
           break;
         }
         case ADJUDICATION_JOB: {

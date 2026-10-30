@@ -125,6 +125,9 @@ function ActivityLog({
         >
           <span className="flex flex-wrap items-center gap-2 text-fg">
             <span className="font-medium">{event.evaluatorEmail}</span>
+            {event.isTestEvaluator === true ? (
+              <Badge tone="neutral">{t.evaluators.testAccountBadge}</Badge>
+            ) : null}
             <span className="text-muted">{t.evaluators.action[event.action] ?? event.action}</span>
             {event.entityId ? (
               <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-muted">
@@ -138,6 +141,28 @@ function ActivityLog({
         </li>
       ))}
     </ul>
+  );
+}
+
+function TestAccounts(): ReactNode {
+  const t = useT();
+  const evaluators = useEvaluators();
+  const accounts = evaluators.data?.testEvaluators ?? [];
+  if (accounts.length === 0) return null;
+  return (
+    <Card className="flex flex-col gap-2 p-5">
+      <SectionTitle count={accounts.length}>{t.evaluators.testAccountsTitle}</SectionTitle>
+      <p className="text-sm text-muted">{t.evaluators.testAccountsHint}</p>
+      <ul className="flex flex-wrap gap-1.5">
+        {accounts.map((account) => (
+          <li key={account.evaluatorEmail}>
+            <Badge tone="neutral">
+              {account.evaluatorEmail} · {t.evaluators.testAccountActions(account.total)}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 
@@ -177,7 +202,11 @@ export function EvaluatorsPage(): ReactNode {
       });
   }
 
-  const emails = (evaluators.data?.items ?? []).map((item) => item.evaluatorEmail);
+  // The log can be filtered to a test account too: its rows are still there.
+  const emails = [
+    ...(evaluators.data?.items ?? []),
+    ...(evaluators.data?.testEvaluators ?? []),
+  ].map((item) => item.evaluatorEmail);
 
   return (
     <div className="flex flex-col gap-5">
@@ -186,9 +215,10 @@ export function EvaluatorsPage(): ReactNode {
         <p className="text-sm text-muted">{t.evaluators.intro}</p>
       </header>
       <Card className="flex flex-col gap-3 p-5">
-        <SectionTitle count={emails.length}>{t.evaluators.title}</SectionTitle>
+        <SectionTitle count={evaluators.data?.items.length ?? 0}>{t.evaluators.title}</SectionTitle>
         <EvaluatorsTable />
       </Card>
+      <TestAccounts />
       <Card className="flex flex-col gap-3 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionTitle>{t.evaluators.activityLogTitle}</SectionTitle>

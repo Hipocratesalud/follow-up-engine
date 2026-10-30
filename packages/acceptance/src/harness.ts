@@ -171,7 +171,7 @@ export class BundleMappingError extends Error {
  * ingest every batch. The bundle must map without errors.
  */
 export async function ingestBundle(
-  harness: EngineHarness,
+  harness: Pick<EngineHarness, 'clinicId' | 'unitOfWork' | 'engine'>,
   bundle: unknown,
   receivedAt: Date,
 ): Promise<IngestReport[]> {

@@ -6,7 +6,9 @@ import '../metrics/schemas.ts';
 import './patient-queue-schemas.ts';
 import './plan-item-schemas.ts';
 import './admin-schemas.ts';
+import './rule-authoring-schemas.ts';
 import './why-schemas.ts';
+import './lab-schemas.ts';
 
 /*
  * OpenAPI 3.1 document of the API. Component schemas are generated from the
@@ -598,6 +600,24 @@ const OPERATIONS: readonly Operation[] = [
   },
   {
     method: 'get',
+    path: '/api/inbox/live-findings',
+    tag: 'Inbox',
+    summary:
+      "The doctor's inbox cards of the clinical reviewer: open findings of live, signed-off categories",
+    description:
+      'Gated by the category flags in force now (live with validatedBy), not by the mode a ' +
+      'finding was stored with: a category sent back to shadow takes its findings out. A shadow ' +
+      'category never appears; pre_visit_question goes to "Before the visit". Rate a card with ' +
+      'POST /api/inbox/findings/{id}/review: a rated finding leaves the list.',
+    params: [
+      { name: 'patientId', in: 'query' },
+      { name: 'limit', in: 'query' },
+    ],
+    response: 'InboxFindingList',
+    errors: [422],
+  },
+  {
+    method: 'get',
     path: '/api/inbox/adjudications',
     tag: 'Inbox',
     summary: "The adjudicator's decisions on ambiguous plan items, newest first",
@@ -713,6 +733,50 @@ const OPERATIONS: readonly Operation[] = [
   },
   {
     method: 'get',
+    path: '/api/admin/rules/authored',
+    tag: 'Admin',
+    summary:
+      "The clinic's own rules drafted by the rule-authoring agent: drafts, enabled and switched off",
+    response: 'AuthoredRuleList',
+  },
+  {
+    method: 'post',
+    path: '/api/admin/rules/authored',
+    tag: 'Admin',
+    summary:
+      'Draft a clinic rule from plain words (the rule-authoring agent): validated and dry-run by ' +
+      'the engine, stored as a draft that never runs until enabled',
+    description:
+      'The clinician from X-FollowUp-User (required). `failed` when the agent abstained or code ' +
+      'refused its draft. docs/agent/rule-authoring.md',
+    body: 'AuthoredRuleDraftRequest',
+    response: 'AuthoredRuleDraftResult',
+    status: 201,
+    alsoOk: [{ status: 200, description: 'No draft (`status: failed`): abstained or refused' }],
+    errors: [422, 429],
+  },
+  {
+    method: 'post',
+    path: '/api/admin/rules/authored/{ruleId}/enable',
+    tag: 'Admin',
+    summary: 'Enable a drafted clinic rule (records validatedBy); applies to new events only',
+    params: [{ name: 'ruleId', in: 'path' }],
+    body: 'AuthoredRuleDecision',
+    response: 'AuthoredRuleDecisionResult',
+    errors: [404, 409, 422],
+  },
+  {
+    method: 'post',
+    path: '/api/admin/rules/authored/{ruleId}/discard',
+    tag: 'Admin',
+    summary: 'Discard a draft, or switch an enabled clinic rule off (its expectations still close)',
+    params: [{ name: 'ruleId', in: 'path' }],
+    body: 'AuthoredRuleDecision',
+    response: 'AuthoredRuleDecisionResult',
+    errors: [404, 409, 422],
+  },
+  {
+    method: 'get',
     path: '/api/demo/clock',
     tag: 'Demo',
     summary: 'Fake clock (404 with a real clock)',
@@ -752,6 +816,71 @@ const OPERATIONS: readonly Operation[] = [
     ],
     response: 'WebhookList',
     errors: [404],
+  },
+  {
+    method: 'post',
+    path: '/api/demo/lab/history',
+    tag: 'Demo',
+    summary:
+      "Import a patient's history into the evaluator's lab: several documents (PDF, DOCX, TXT, " +
+      'photos of results) with their dates, replayed chronologically by the initial backfill',
+    description:
+      'Notes go to the note extractor; lab reports and photos to the lab-result reading (Muse ' +
+      'Spark) as FHIR Observations. Expectations and cases are origin=backfill, held and released ' +
+      'by the daily cap per owner. Idempotent. Also accepts multipart/form-data: one `files` part ' +
+      "per document and a `documents` JSON field with each file's date and type, in order.",
+    body: 'LabHistoryImport',
+    response: 'LabHistoryImportResponse',
+    status: 201,
+    errors: [403, 422],
+  },
+  {
+    method: 'get',
+    path: '/api/demo/lab/history/samples',
+    tag: 'Demo',
+    summary: 'The synthetic sample history (four documents over two years) to try the import with',
+    response: 'LabHistorySampleSet',
+    errors: [403],
+  },
+  {
+    method: 'get',
+    path: '/api/demo/lab/held-reports',
+    tag: 'Demo',
+    summary:
+      "Lab reports held for review in the evaluator's lab (the name on the report doesn't match the patient)",
+    params: [
+      { name: 'patientId', in: 'query' },
+      { name: 'status', in: 'query', enum: ['pending', 'confirmed', 'discarded'] },
+    ],
+    response: 'HeldLabReportList',
+    errors: [403, 422],
+  },
+  {
+    method: 'post',
+    path: '/api/demo/lab/held-reports/{id}/confirm',
+    tag: 'Demo',
+    summary:
+      "It's this patient: records who decided and when, then records the report like an accepted one (the engine may close an order)",
+    params: [id('Held report id')],
+    response: 'HeldLabReportDecision',
+    errors: [403, 404, 409, 422],
+  },
+  {
+    method: 'post',
+    path: '/api/demo/lab/held-reports/{id}/discard',
+    tag: 'Demo',
+    summary: 'Not this patient: discards the held report (who and when are kept)',
+    params: [id('Held report id')],
+    response: 'HeldLabReportDecision',
+    errors: [403, 404, 409],
+  },
+  {
+    method: 'get',
+    path: '/api/demo/lab/recovery',
+    tag: 'Demo',
+    summary: "The lab's patients to recover: backfill cases still held, as of the lab's own date",
+    response: 'RecoveryPage',
+    errors: [403],
   },
   {
     method: 'post',

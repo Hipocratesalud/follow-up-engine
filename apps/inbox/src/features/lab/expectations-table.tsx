@@ -72,6 +72,9 @@ export function ExpectationsTable({
                 {change === 'updated' ? (
                   <Badge tone="warning">{t.common.updatedBadge}</Badge>
                 ) : null}
+                {item.origin === 'backfill' ? (
+                  <Badge tone="info">{t.lab.history.originBackfill}</Badge>
+                ) : null}
               </span>
               <Badge tone={STATUS_TONES[item.status]}>
                 {t.labels.expectationStatuses[item.status]}
@@ -79,6 +82,9 @@ export function ExpectationsTable({
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
               <span>{t.lab.due(formatDate(item.dueAt))}</span>
+              {item.closedReasonLabel ? (
+                <span className="font-medium text-fg">{item.closedReasonLabel}</span>
+              ) : null}
               <span>{item.ruleId}</span>
               {item.ruleVersion ? <span>{t.lab.ruleVersion(item.ruleVersion)}</span> : null}
             </div>

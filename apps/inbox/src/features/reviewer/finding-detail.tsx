@@ -32,7 +32,7 @@ import {
   stopReasonLabel,
   summaryLabel,
 } from './describe.ts';
-import { CoveredBadge, SeverityBadge } from './finding-row.tsx';
+import { CoveredBadge, SeverityBadge, UntranslatedBadge } from './finding-row.tsx';
 import { TrendChart } from './trend-chart.tsx';
 import { VerdictPanel } from './verdict-panel.tsx';
 
@@ -261,6 +261,7 @@ function FindingDetailView({
             <Badge tone="info">{COPY.liveBadge}</Badge>
           )}
           {finding.alreadyCovered ? <CoveredBadge /> : null}
+          {finding.untranslated ? <UntranslatedBadge /> : null}
         </div>
         <h2
           id="finding-title"

@@ -28,6 +28,7 @@ export function aClinic(id: ClinicId, overrides: Partial<Clinic> = {}): Clinic {
     active: true,
     settings: {
       allowPatientContact: false,
+      allowUnmaskedImagesToProvider: false,
       dailyCaseCapPerOwner: 20,
       backfillNotifyMaxAgeDays: 730,
       llmMonthlyBudgetUsd: 50,

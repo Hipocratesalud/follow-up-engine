@@ -78,6 +78,7 @@ export { describeCaseRepositoryContract } from './contracts/case-repository.cont
 export { describeContactRepositoryContract } from './contracts/contact-repository.contract.ts';
 export { describeSuppressionRepositoryContract } from './contracts/suppression-repository.contract.ts';
 export { describeOrderAgentStoreContract } from './contracts/order-agent-store.contract.ts';
+export { describeHeldLabReportStoreContract } from './contracts/held-lab-report-store.contract.ts';
 export {
   aClinic,
   type ClinicSeed,
@@ -114,6 +115,10 @@ export {
   aPlanItemReview,
   describePlanItemReviewLogContract,
 } from './contracts/plan-item-review-log.contract.ts';
+export {
+  anExpectationEvent,
+  describeExpectationEventLogContract,
+} from './contracts/expectation-event-log.contract.ts';
 export {
   anAdjudication,
   describeAdjudicationRepositoryContract,

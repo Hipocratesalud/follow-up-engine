@@ -2,6 +2,7 @@ import type { Protocol } from '../../config/protocol.ts';
 import type { ClinicalEvent } from '../../domain/clinical-event.ts';
 import type { PatientCondition } from '../../domain/condition.ts';
 import type { Expectation } from '../../domain/expectation.ts';
+import type { ResourceRef } from '../../domain/resource.ts';
 import { closeExpectation } from '../case-manager/reconcile.ts';
 import type { PatientState } from '../patient-state.ts';
 import {
@@ -125,32 +126,85 @@ function belongsToEpisode(
   );
 }
 
+function sameResource(left: ResourceRef | undefined, right: ResourceRef): boolean {
+  return left?.resourceType === right.resourceType && left.id === right.id;
+}
+
 /**
- * Doctor's-plan or universal expectations already cancelled as
- * `covered_by_order` (folded into the order of the same visit, see
- * `oneRequestPerTest`): bookkeeping, not a clinical resolution. When the
- * episode they belong to ends before that order's own expectation is
- * decided, the true reason the plan item is gone is that the episode ended,
- * so `pregnancy_ended` must win over the dedup reason it was stamped with.
+ * A doctor's-plan test folded into the order of the same visit
+ * (`covered_by_order`, see `oneRequestPerTest`) closed for good before the
+ * pregnancy ended: its closure is bookkeeping (the order stands for it), so
+ * what became of the test is what became of that order. Only when the end
+ * of this episode cancelled the order itself (`pregnancy_ended`, by this
+ * outcome's record, in this pass or an earlier run over it) does the plan
+ * item read `pregnancy_ended` too. An order that came back (`fulfilled`),
+ * was replaced by a later one (`superseded`), or expired and left its case
+ * leaves the plan item's closure as it was: the test was done, asked for
+ * again, or missed, not dropped because the pregnancy ended.
+ *
+ * The link to the order is the plan item's `closedBy`: the order's
+ * `ServiceRequest`, the `source` of the one order expectation it has (a
+ * `ServiceRequest` triggers exactly one universal rule, by category).
+ *
+ * Never a rewrite: the plan item keeps its `closedReason`, `closedAt` and
+ * `closedBy`; the new reading is its `reclassification`, and the change is
+ * a `closed_reason_reclassified` entry of the expectation event log.
  */
-async function coveredByOrderOfEpisode(
+async function reclassifyCoveredPlanItems(
   context: AnnotationContext,
   protocol: Protocol,
   state: PatientState,
+  closure: ClinicalEvent,
   episodeEncounters: ReadonlySet<string>,
   window: { readonly since: Date | undefined; readonly until: number },
-): Promise<Expectation[]> {
+): Promise<void> {
+  // Both the plan item and the order that carries it over are cancelled.
   const cancelled = await context.stores.expectations.listByPatient(
     context.clinicId,
     context.patientId,
     ['cancelled'],
   );
-  return cancelled.filter(
-    (expectation) =>
-      (expectation.layer === 'doctor_plan' || expectation.layer === 'universal') &&
-      expectation.closedReason === TEST_REQUEST_REASONS.coveredByOrder &&
-      belongsToEpisode(protocol, expectation, state, episodeEncounters, window),
-  );
+  for (const planItem of cancelled) {
+    if (
+      planItem.layer !== 'doctor_plan' ||
+      planItem.status !== 'cancelled' ||
+      planItem.closedReason !== TEST_REQUEST_REASONS.coveredByOrder ||
+      planItem.reclassification !== undefined ||
+      planItem.closedBy === undefined ||
+      // A replay decides with what was closed up to its instant.
+      (planItem.closedAt !== undefined && planItem.closedAt.getTime() > context.now.getTime()) ||
+      !belongsToEpisode(protocol, planItem, state, episodeEncounters, window)
+    ) {
+      continue;
+    }
+    const order = cancelled.find(
+      (candidate) =>
+        candidate.layer === 'universal' && sameResource(planItem.closedBy, candidate.source),
+    );
+    if (order?.closedReason !== PREGNANCY_ENDED || !sameResource(order.closedBy, closure.source)) {
+      continue;
+    }
+    const next: Expectation = {
+      ...planItem,
+      reclassification: { closedReason: PREGNANCY_ENDED, at: context.now, by: closure.source },
+      updatedAt: context.now,
+    };
+    await context.stores.expectations.update(context.clinicId, next);
+    await context.stores.expectationEvents.append(context.clinicId, {
+      id: context.ids.next('expectation_event'),
+      clinicId: context.clinicId,
+      patientId: planItem.patientId,
+      expectationId: planItem.id,
+      type: 'closed_reason_reclassified',
+      actor: 'engine',
+      at: context.now,
+      fromReason: TEST_REQUEST_REASONS.coveredByOrder,
+      toReason: PREGNANCY_ENDED,
+      cause: 'episode_ended',
+      causedBy: closure.source,
+      relatedExpectationId: order.id,
+    });
+  }
 }
 
 /**
@@ -161,7 +215,9 @@ async function coveredByOrderOfEpisode(
  * no longer apply are cancelled, with everything the episode's
  * consultations asked for (the next prenatal control, the
  * first-trimester labs, the obstetric ultrasounds: `pregnancy_ended`):
- * never another prenatal expectation after a delivery or a loss.
+ * never another prenatal expectation after a delivery or a loss. A plan
+ * item already folded into the order of its visit reads `pregnancy_ended`
+ * when that order did (a reclassification, never a rewrite of its closure).
  *
  * A protocol that `closesOnDischarge` ends at a discharge from one of its
  * specialties: its live expectations are cancelled (`patient_discharged`);
@@ -238,14 +294,7 @@ export async function endEpisodes(
       since: episode.since,
       until: closure.occurredAt.getTime(),
     };
-    // A plan item already folded into its order's expectation
-    // (`covered_by_order`) is still of the episode that just ended: its
-    // closedReason is promoted to `pregnancy_ended` below, the same as the
-    // order itself.
-    const alreadyCovered = discharge
-      ? []
-      : await coveredByOrderOfEpisode(context, protocol, state, episodeEncounters, window);
-    for (const expectation of [...state.live.list(), ...alreadyCovered]) {
+    for (const expectation of state.live.list()) {
       if (expectation.layer === 'doctor_plan' || expectation.layer === 'universal') {
         // What the pregnancy's consultations asked for (the next prenatal
         // control, a first-trimester lab, the next ultrasound) has nothing
@@ -275,6 +324,17 @@ export async function endEpisodes(
       );
       state.live.put(next);
       closed.push({ expectation: next, closedBy: discharge ? 'plan.extracted' : closure.type });
+    }
+    if (!discharge) {
+      // After the orders are decided: a plan item folded into one reads as its order does.
+      await reclassifyCoveredPlanItems(
+        context,
+        protocol,
+        state,
+        closure,
+        episodeEncounters,
+        window,
+      );
     }
   }
   return { resolved, closed };

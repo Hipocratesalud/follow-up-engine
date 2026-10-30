@@ -66,6 +66,7 @@ const nav = {
   engineTests: 'Engine tests',
   lab: 'Lab',
   agent: 'Agent',
+  rules: 'Rules',
   evaluators: 'Evaluators',
   simulatedDate: 'Simulated date:',
   simulatedDateTitle: 'The API runs on a simulated clock for the demo',
@@ -113,6 +114,9 @@ const labels = {
   },
   draftProtocol: 'Draft protocol · pending clinical validation',
   draftProtocolHint: 'Your clinic’s clinical team has not validated this protocol yet.',
+  readyForSignoff: 'Ready for sign-off · pending clinical validation',
+  readyForSignoffHint:
+    'A sign-off package is ready for your clinic’s clinical team to review; nobody has approved it yet.',
   protocolPrefix: 'Protocol:',
   statuses: {
     open: 'Open',
@@ -517,6 +521,44 @@ const inbox = {
     'You will see every case of the patient, the quoted evidence from the note and the suggested next step.',
 };
 
+/**
+ * The clinical reviewer's cards in the doctor's inbox (PRD V3): findings of
+ * the categories the clinical team switched live. A shadow category never
+ * shows up here.
+ */
+const liveFindings = {
+  title: 'Clinical findings',
+  intro:
+    'Suggestions of the clinical reviewer in categories your clinical team validated, each with the evidence it quotes. Rate each one: once rated, it leaves your inbox.',
+  loading: 'Loading clinical findings',
+  error: 'We could not load the clinical findings',
+  validatedBadge: 'Validated category',
+  suggestionTitle: 'Suggestion',
+  evidenceTitle: 'Evidence',
+  coveredBy: (labels: string): string => `Already in follow-up: ${labels}`,
+  openPatient: 'Open patient',
+  rated: (verdict: string): string => `Rated as ${verdict}. The finding left your inbox.`,
+  patientBadge: (n: number): string => count(n, 'clinical finding', 'clinical findings'),
+  queued: (n: number, cap: number): string =>
+    `${count(n, 'more finding', 'more findings')} queued for the coming days (at most ${String(cap)} per doctor a day)`,
+  lab: {
+    title: 'Clinical reviewer in your lab',
+    intro:
+      'Your lab starts like a shadow pilot: every category on, in shadow, so nothing reaches the doctor. Switch one live, signed off with your email, and its findings show up here as the doctor’s inbox cards. The shared demo never changes.',
+    categoriesLink: 'Your lab’s categories',
+    reviewNow: 'Review this patient now',
+    reviewed: (n: number): string => `Review done: ${count(n, 'new finding', 'new findings')}.`,
+    empty:
+      'No finding cards yet: every category of your lab is in shadow, or no live finding is open.',
+    back: 'Back to the Lab',
+    categoriesTitle: 'Reviewer categories in your lab',
+    categoriesIntro:
+      'Only your lab changes here. Going live is signed off with your evaluator email, as the clinical team’s sign-off would be in a real clinic.',
+    signedOffAs: (email: string): string => `Signed off as ${email}`,
+    signOffHint: 'Live, this category’s open findings become inbox cards in your lab.',
+  },
+};
+
 /** The patient card of the inbox (HIP-141): one patient, every case. */
 const patientCard = {
   cases: (n: number): string => count(n, 'case', 'cases'),
@@ -861,6 +903,7 @@ const review = {
     invalid_arguments: 'Invalid arguments: the error was sent back to it',
     unknown_tool: 'Unknown tool: the error was sent back to it',
     tool_budget_exhausted: 'No calls left: it was asked to submit',
+    missing_translation: 'Findings without English and Spanish: it was asked to resubmit',
   } as Record<string, string>,
   summaries: {
     points: (n: string): string => `${n} values`,
@@ -951,6 +994,8 @@ const review = {
     loadMore: 'Load more findings',
   },
   row: { severityPrefix: 'Severity: ', covered: 'Already covered' },
+  untranslated: 'Not translated yet',
+  untranslatedHint: 'Written in another language; its translation is on its way.',
   detail: {
     back: 'Back to the review',
     shadowBadge: 'Shadow mode',
@@ -1152,6 +1197,13 @@ const metrics: MetricsCopy = {
     tasks: {
       note_extraction: 'Reading notes',
       clinical_review: 'Clinical review',
+      expectation_adjudication: 'Adjudicating ambiguous plan items',
+      order_agent: 'Order agent',
+      order_agent_scripted: 'Order agent (scripted)',
+      lab_photo_reading: 'Reading lab photos',
+      lab_photo_reading_scripted: 'Reading lab photos (scripted)',
+      voice_transcription: 'Transcribing voice notes',
+      voice_transcription_scripted: 'Transcribing voice notes (scripted)',
     },
     calls: (count) => `${String(count)} ${count === 1 ? 'call' : 'calls'}`,
     tokens: (count) => `${count} tokens`,
@@ -1807,10 +1859,30 @@ const EVALUATOR_ACTION_LABELS = {
   lab_patient_created: 'Created a lab patient',
   lab_document_uploaded: 'Uploaded a lab document',
   lab_record_added: 'Added a lab record',
+  lab_history_imported: 'Imported a patient’s history',
+  held_report_confirmed: 'Confirmed a held lab report',
+  held_report_discarded: 'Discarded a held lab report',
   lab_date_viewed: 'Moved the lab clock',
   case_viewed: 'Viewed a case',
   patient_documents_viewed: 'Viewed a patient’s documents',
   engine_test_step: 'Loaded an engine-test step',
+  engine_test_verdict: 'Gave a verdict on an engine test',
+  agent_message_sent: 'Wrote to the agent as the patient',
+  lab_rule_drafted: 'Drafted a rule with the agent',
+  lab_rule_enabled: 'Enabled a clinic rule',
+  lab_rule_discarded: 'Discarded or switched off a clinic rule',
+  lab_rule_samples_added: 'Added the rule sample patients',
+  page_viewed: 'Opened a page',
+  agent_story_started: 'Started or restarted the agent story',
+  agent_model_switched: 'Switched the agent model',
+  agent_language_switched: 'Switched the patient’s language',
+  agent_reply_suggested: 'Sent a suggested reply as the patient',
+  agent_message_typed: 'Typed a message as the patient',
+  agent_media_uploaded: 'Uploaded a voice note or photo as the patient',
+  agent_sample_sent: 'Sent a sample voice note or photo as the patient',
+  agent_clock_jumped: 'Moved the agent’s clinic clock',
+  agent_delivery_status_set: 'Changed a message’s delivery status',
+  agent_phone_fixed: 'Marked the phone as updated',
 } as Record<string, string>;
 
 const lab = {
@@ -1926,6 +1998,86 @@ const lab = {
   labCasesTitle: 'Your lab’s cases',
   labCasesEmpty: 'No open cases in your lab yet.',
   labCasesEmptyBody: 'Add records and move the clock forward to see cases open.',
+  history: {
+    title: 'Import history',
+    intro:
+      'Several documents of one patient at once (PDF, DOCX, TXT, photos of results), each with the date it was written. The engine replays them in date order, like the initial history review: what the history already fulfilled closes, and what it left unmet waits in “To recover”, released by the daily cap.',
+    patient: 'Patient',
+    newPatientName: 'New patient’s name',
+    samplesLabel: 'Or try a sample history',
+    sampleButton: (name: string, documents: number): string =>
+      `${name} (${count(documents, 'document', 'documents')})`,
+    addFiles: 'Add documents',
+    filesHint: 'PDF, DOCX, TXT, or a JPEG, PNG or WebP photo of a result. Up to 12, 5 MB in total.',
+    noFiles: 'No documents yet: add files or load a sample history.',
+    documentsTitle: 'Documents to import',
+    fileDate: 'Written on',
+    fileType: 'Type',
+    remove: 'Remove',
+    removeFile: (name: string): string => `Remove ${name}`,
+    readAsReport: 'Read as a lab report',
+    readAsNote: 'Read as a clinical note',
+    importButton: 'Import history',
+    importing: 'Reading and replaying the history…',
+    filesRequired: 'Add at least one document.',
+    dateRequired: 'Give every document a valid date, not after your lab’s date.',
+    resultTitle: 'What the import did',
+    summary: (created: number, fulfilled: number, cases: number): string =>
+      `${count(created, 'expectation', 'expectations')} from the history (origin: history review), ${numbers.format(fulfilled)} already fulfilled by it, ${count(cases, 'case', 'cases')} held for follow-up.`,
+    release: (today: number, waiting: number): string =>
+      `Daily cap: ${count(today, 'case', 'cases')} released today, ${numbers.format(waiting)} waiting in “To recover”.`,
+    alreadyImported: 'Already imported: nothing new was read or created.',
+    llmCost: (calls: number, cost: string): string =>
+      `${count(calls, 'model call', 'model calls')} for this import, ${cost} (as logged by the LLM gateway).`,
+    statuses: {
+      staged: 'Imported',
+      already_imported: 'Already imported',
+      no_results: 'No known test results',
+      needs_review: 'Needs review',
+      discarded: 'Discarded: not this patient',
+      unreadable: 'Could not be read',
+    } as Record<string, string>,
+    readAs: { note: 'Clinical note', lab_report: 'Lab report' } as Record<string, string>,
+    source: { photo: 'photo', text: 'document text' } as Record<string, string>,
+    readBy: (model: string): string => `read by ${model}`,
+    photoNotAllowed:
+      'Photos can’t be read automatically for this clinic: held for the team, nothing sent to a model, nothing recorded.',
+    nameMismatch:
+      'The name on the report doesn’t match this patient: held for the team, nothing recorded, no order closed.',
+    held: {
+      listTitle: 'Needs review',
+      listIntro:
+        'Imported lab reports whose printed name doesn’t match the patient. Nothing from them is in the record until someone decides.',
+      empty: 'No report is waiting for review.',
+      count: (n: number): string => count(n, 'report', 'reports'),
+      cardTitle: 'A report for this patient needs review',
+      cardIntro:
+        'It was held because the printed name doesn’t match. Decide whether it belongs here.',
+      names: (printed: string, record: string): string =>
+        `Name on the report: ${printed} · In the record: ${record}`,
+      noName: 'none printed',
+      photoNotAllowed:
+        'Photos can’t be read automatically for this clinic. Read it, add the result with “Add something without a document”, then mark it reviewed.',
+      markReviewed: 'Mark reviewed',
+      dates: (printed: string, entered: string): string =>
+        `Collected ${printed} (entered as ${entered})`,
+      confirm: 'It’s this patient',
+      discard: 'Not this patient',
+    },
+    datePrinted: (printed: string, entered: string): string =>
+      `Dated by the report: collected ${printed} (you entered ${entered}). Check the date.`,
+    datePrintedLater: (printed: string, entered: string): string =>
+      `The report prints ${printed}, after your lab’s date: dated as entered (${entered}). Check the date.`,
+    unrecognized: (tests: string): string => `Not a test the engine knows: ${tests}`,
+    interpretations: { H: 'high', L: 'low', N: 'in range' } as Record<string, string>,
+    recoveryTitle: 'To recover',
+    recoveryIntro:
+      'Cases from imported history wait here, held: nobody is contacted. They come out by the daily cap per owner (1 a day in your lab); move your lab’s date to release the next batch.',
+    recoveryEmpty: 'Nothing waiting to be recovered.',
+    recoveryEmptyBody: 'Import a history: what it left unmet beyond today’s cap waits here.',
+    recoveryCount: (n: number): string => `${count(n, 'case', 'cases')} waiting`,
+    originBackfill: 'History',
+  },
 };
 
 const evaluators = {
@@ -1933,7 +2085,7 @@ const evaluators = {
   intro: 'Everyone who has opened the hosted demo, and what they have done with it.',
   loading: 'Loading evaluators',
   error: 'We could not load the evaluators',
-  empty: 'No evaluator has logged in yet.',
+  empty: 'No physician has logged in yet (test and QA accounts are listed apart).',
   email: 'Evaluator',
   lastSeen: 'Last seen',
   firstSeen: 'First seen',
@@ -1945,6 +2097,12 @@ const evaluators = {
   filterByEvaluator: 'Filter by evaluator',
   allEvaluators: 'All evaluators',
   downloadCsv: 'Download CSV',
+  testAccountsTitle: 'Test and QA accounts',
+  testAccountsHint:
+    'Kept in the activity log and the CSV (is_test_evaluator), left out of this summary and of every number in Metrics and the inbox.',
+  testAccountBadge: 'Test',
+  testAccountActions: (count: number): string =>
+    count === 1 ? '1 action' : `${String(count)} actions`,
   action: EVALUATOR_ACTION_LABELS,
 };
 
@@ -1986,7 +2144,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   outreach_already_sent: 'one message per outreach already sent',
   not_an_open_order: 'not one of the open orders',
   unknown_or_taken_slot: 'unknown or taken slot',
-  not_a_photo_message: 'not a photo',
+  not_a_photo_message: 'not a photo or a PDF report',
   photo_does_not_answer_order: 'the photo does not answer this order',
   name_on_report_does_not_match: 'the name on the report does not match',
   unknown_tool: 'unknown tool',
@@ -2063,6 +2221,172 @@ function rung(id: unknown, action: unknown): string {
   return `${RUNG_TRACKS[track] ?? track} rung, ${when}: ${what}`;
 }
 
+const rules = {
+  title: 'Rules',
+  subtitle:
+    "Write a follow-up rule in your own words. The agent drafts it in the engine's own format, checks every code against the catalogs and dry-runs it on your sandbox's records. Nothing runs until a clinician enables it.",
+  requestLabel: 'Describe the rule',
+  requestPlaceholder: 'For example: after a positive FIT, colonoscopy within 60 days',
+  requestRequired: 'Describe the rule first.',
+  examplesLabel: 'Try an example',
+  examples: [
+    'For my patients with hypothyroidism on levothyroxine, TSH every 6 months',
+    'After a positive FIT, colonoscopy within 60 days',
+    'If HbA1c comes back above 9%, a control visit within 30 days',
+  ] as readonly string[],
+  modeLabel: 'Agent',
+  modes: { scripted: 'Scripted (offline)', live: 'Muse Spark (live)' } as Record<string, string>,
+  modeHints: {
+    scripted: 'A deterministic stand-in: it drafts the three examples and never calls a model.',
+    live: 'Muse Spark drafts it through the same tools, validator and dry run; a run costs cents.',
+  } as Record<string, string>,
+  liveUnavailable:
+    'The live mode needs a model on the server; the scripted agent drafts the three examples.',
+  draft: 'Draft the rule',
+  drafting:
+    'The agent is working: listing your rules, looking up codes, validating and dry-running the draft…',
+  sandboxPatients: (n: number): string =>
+    n === 0
+      ? 'Your sandbox has no patients yet: the dry run would count nothing.'
+      : `The dry run counts the ${count(n, 'patient', 'patients')} of your sandbox.`,
+  addSamples: 'Add 9 sample patients',
+  samplesAdded: 'Sample patients added (fictitious, dated from your lab’s today).',
+  listTitle: "Your sandbox's rules",
+  empty: 'No clinic rules yet: describe one above, or try an example.',
+  show: 'Show',
+  status: {
+    draft: 'Draft · pending clinical validation',
+    enabled: 'Enabled for this clinic',
+    disabled: 'Switched off',
+  } as Record<string, string>,
+  kinds: { rule: 'Rule', protocol: 'Protocol' } as Record<string, string>,
+  yourRequest: 'Your request',
+  whatItDoes: 'What it does',
+  agentNote: "Agent's note",
+  basedOn: (label: string): string => `Adapts: ${label}`,
+  enable: 'Enable for this clinic',
+  enableHint:
+    'It applies to new records from now on (existing records are not re-read). You are recorded as the clinician who validated it.',
+  discard: 'Discard',
+  switchOff: 'Switch off',
+  enabledBy: (who: string, when: string): string => `Enabled by ${who} on ${when}`,
+  draftedFor: (who: string, when: string): string => `Drafted for ${who} on ${when}`,
+  dryRun: {
+    title: 'Dry run on your records',
+    subtitle: (n: number): string =>
+      `The real engine replayed ${count(n, 'patient', 'patients')} with the draft added; nothing was written.`,
+    truncated: 'Only the first patients were replayed.',
+    patients: 'Patients',
+    overdue: 'Overdue now',
+    open: 'On schedule',
+    closed: 'Already fulfilled',
+    overlaps: 'Overlap with existing rules',
+    overlapLine: (label: string, n: number): string =>
+      `${label}: ${count(n, 'expectation', 'expectations')}`,
+    examples: 'Examples (pseudonymous)',
+    overdueBy: (days: number): string => `overdue by ${count(days, 'day', 'days')}`,
+    dueIn: (days: number): string =>
+      days === 0 ? 'due today' : `due in ${count(days, 'day', 'days')}`,
+    closedExample: 'fulfilled or replaced',
+    alsoAsked: (labels: string): string => `also asked by ${labels}`,
+    none: 'No patient in your sandbox matches it yet.',
+  },
+  codes: {
+    title: 'Codes and sources',
+    systems: { icd10: 'ICD-10', loinc: 'LOINC', atc: 'ATC', procedure: 'Procedure' } as Record<
+      string,
+      string
+    >,
+    catalogs: {
+      'condition-terms': 'condition terms',
+      'test-names': 'test lexicon',
+      'atc-names': 'medication names',
+    } as Record<string, string>,
+    sources: 'Sources cited',
+  },
+  json: {
+    title: 'Configuration (JSON)',
+    newDefinition: 'A new clinic definition: every line is added.',
+    against: (id: string): string => `Changes against ${id}.`,
+    added: 'added',
+    removed: 'removed',
+  },
+  trace: {
+    title: 'How the agent got here',
+    toggle: 'See the steps',
+    empty: 'No steps recorded.',
+    tools: {
+      list_existing_rules: "Listed the clinic's rules",
+      lookup_terminology: 'Looked up a code',
+      validate_rule: 'Validated the draft',
+      dry_run_rule: 'Dry-ran it on the records',
+      submit_draft: 'Submitted the draft',
+      abstain: 'Declined the request',
+    } as Record<string, string>,
+    otherTool: (tool: string): string => `Called ${tool}`,
+    rejected: (outcome: string): string => `Rejected (${outcome})`,
+    model: 'Model',
+    steps: 'Steps',
+    cost: 'Cost',
+    firstValidation: 'First validation',
+    passed: 'Passed',
+    neededFixes: 'Needed fixes',
+    prompt: 'Prompt',
+  },
+  failed: {
+    title: 'No draft',
+    reasons: {
+      abstained: 'The agent declined this request.',
+      no_submission: 'The agent ran out of steps before submitting a draft.',
+      invalid_submission: 'The engine refused the submitted draft.',
+    } as Record<string, string>,
+    agentSaid: 'In the agent’s words',
+    issues: 'What the engine found',
+  },
+  describe: {
+    events: {
+      'result.received': 'a result',
+      'service_request.created': 'an order',
+      'medication.prescribed': 'a prescription',
+      'encounter.finished': 'a visit',
+      'appointment.booked': 'a booked appointment',
+      'condition.recorded': 'a diagnosis',
+    } as Record<string, string>,
+    of: (what: string, codes: string): string => `${what} of ${codes}`,
+    abnormal: 'abnormal',
+    normal: 'normal',
+    above: (n: number): string => `above ${numbers.format(n)}`,
+    atLeast: (n: number): string => `at or above ${numbers.format(n)}`,
+    below: (n: number): string => `below ${numbers.format(n)}`,
+    atMost: (n: number): string => `at or below ${numbers.format(n)}`,
+    when: 'When',
+    expects: 'Expects',
+    fulfilledBy: 'Closed by',
+    replacedBy: 'Replaced by',
+    coveredByPlan: "Not added when the doctor's plan already asks for it by then.",
+    escalation: (policy: string): string => `Escalation policy ${policy}.`,
+    kinds: {
+      lab: 'a lab test',
+      imaging: 'a study',
+      follow_up_visit: 'a visit',
+      session: 'a session',
+      other: 'a follow-up',
+    } as Record<string, string>,
+    within: (what: string, days: string): string => `${what} within ${days}`,
+    every: (what: string, days: string): string => `${what} every ${days}`,
+    days: (n: number): string => count(n, 'day', 'days'),
+    aboutMonths: (days: string, months: number): string =>
+      `${days} (about ${count(months, 'month', 'months')})`,
+    patients: 'Patients',
+    withConditions: (codes: string): string => `with ${codes}`,
+    onTreatment: (codes: string): string => `on ${codes}`,
+    alsoProbableFrom: (codes: string): string => `(also probable from a prescription of ${codes})`,
+    items: 'Expects',
+    visit: 'a visit',
+    or: ' or ',
+  },
+};
+
 const agent = {
   title: 'Order-to-completion agent',
   subtitle:
@@ -2102,8 +2426,10 @@ const agent = {
     send: 'Send',
     sampleVoice: 'Sample voice note',
     samplePhoto: 'Sample lab photo',
+    samplePdf: 'Sample PDF report',
     uploadVoice: 'Upload a WAV voice note',
     uploadPhoto: 'Upload a photo',
+    uploadPdf: 'Upload a PDF report',
     attachments: 'Send media',
     suggested: 'Suggested replies',
     voiceNote: 'Voice note',
@@ -2112,6 +2438,9 @@ const agent = {
     photo: 'Photo',
     photoAlt: 'Photo Maria sent',
     reading: 'Reading the photo…',
+    pdfReport: 'PDF report',
+    openPdf: 'Open the PDF',
+    readingPdf: 'Reading the report…',
     statuses: {
       sent: 'Sent',
       delivered: 'Delivered',
@@ -2254,6 +2583,8 @@ const agent = {
         'She asked not to be contacted: no messages or calls. Her orders stay open for the doctor to decide.',
       confirm_followup:
         'A result made the engine ask for a visit: confirm it in “For the doctor” before anyone contacts her.',
+      review_photo:
+        'She sent a photo of a lab report; this clinic reads photos by hand: read it and enter the result.',
     } as Record<string, string>,
   },
   events: {
@@ -2281,6 +2612,8 @@ const agent = {
     appointment_booked: (): string => 'Appointment booked on the patient’s explicit confirmation.',
     appointment_already_booked: (): string => 'Already booked for this confirmation (idempotent).',
     photo_not_a_report: (): string => 'The photo is not a lab report.',
+    photo_not_allowed: (): string =>
+      'Photos can’t be read automatically for this clinic: not sent to any model, handed to the team.',
     result_matched: (p: Params): string =>
       `Photo matched to ${list(p['matches']).map(code).join(', ') || 'no order'}${list(p['unmatched']).length === 0 ? '' : ` (not ordered: ${list(p['unmatched']).map(code).join(', ')})`}; name on report: ${code(p['nameCheck'])}.`,
     result_submitted: (p: Params): string => `FHIR Observation submitted: ${str(p['resource'])}.`,
@@ -2299,6 +2632,8 @@ const agent = {
     voice_transcribed: (p: Params): string => `Voice note transcribed: “${str(p['transcript'])}”`,
     photo_read: (p: Params): string =>
       `Photo read: ${list(p['tests']).join('; ') || 'no results'}.`,
+    document_read: (p: Params): string =>
+      `PDF report read: ${list(p['tests']).join('; ') || 'no results'}.`,
     media_unreadable: (): string => 'The media could not be read.',
     budget_fallback_scripted: (): string =>
       'Demo budget reached: this turn runs on the scripted player.',
@@ -2306,7 +2641,7 @@ const agent = {
       'The model ended the outreach without writing: the scripted player sends this rung’s message.',
     turn_failed: (p: Params): string => `Turn failed: ${str(p['error'])}`,
     patient_message_received: (p: Params): string =>
-      `Maria sent a ${str(p['kind']) === 'text' ? 'message' : str(p['kind']) === 'voice' ? 'voice note' : 'photo'}.`,
+      `Maria sent a ${str(p['kind']) === 'text' ? 'message' : str(p['kind']) === 'voice' ? 'voice note' : str(p['kind']) === 'document' ? 'PDF report' : 'photo'}.`,
     ladder_reanchored: (): string => 'Ladder restarted from this reply.',
     all_orders_covered: (): string => 'Every order is booked or fulfilled: the ladder stops.',
     rung_due: (p: Params): string => `Due now: ${rung(p['rung'], p['action'])}.`,
@@ -2521,6 +2856,7 @@ export const en = {
   caseDetail,
   feedback,
   inbox,
+  liveFindings,
   patientCard,
   planReview,
   adjudication,
@@ -2535,4 +2871,5 @@ export const en = {
   lab,
   evaluators,
   agent,
+  rules,
 };

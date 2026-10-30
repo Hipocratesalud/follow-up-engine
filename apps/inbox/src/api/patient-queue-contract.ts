@@ -49,6 +49,8 @@ export interface PatientQueueItem {
   patientContact: PatientContact;
   /** Active cases first (most urgent first), then the closed ones. */
   cases: CaseView[];
+  /** Open live clinical reviewer findings of the patient (their own cards); absent when none. */
+  liveFindings?: number;
 }
 
 /** One chip of the reason-type filter: an engine layer, with the patients it currently matches. */

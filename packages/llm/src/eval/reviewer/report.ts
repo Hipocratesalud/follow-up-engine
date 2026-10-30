@@ -32,6 +32,8 @@ export function renderReviewerReport(run: ReviewerEvalRun, header = ''): string 
     `| Precision | ${pct(totals.precision)} (${String(totals.truePositives)} of ${String(totals.truePositives + totals.falsePositives)} findings) |`,
     `| Recall | ${pct(totals.recall)} (${String(totals.truePositives)} of ${String(totals.truePositives + totals.falseNegatives)} planted) |`,
     `| Hallucinated citations (stored findings) | **${String(totals.hallucinatedCitations)}** of ${String(totals.citations)} |`,
+    `| Stored findings in English and Spanish | ${String(totals.bilingual)} of ${String(totals.findings)} |`,
+    `| Submissions refused once for a missing translation | ${String(totals.translationRequests)} |`,
     `| Controls with any finding | ${String(totals.controlsWithFindings)} of ${String(run.patients.filter((p) => p.kind === 'control').length)} |`,
     `| Reviews degraded to detectors only | ${String(totals.degraded)} of ${String(totals.reviews)} |`,
     `| Steps (model calls) per review | ${totals.avgSteps.toFixed(1)} |`,

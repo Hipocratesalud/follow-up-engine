@@ -30,6 +30,8 @@ interface TurnContext {
     readonly kind: string;
     readonly text: string;
     readonly hasLabPhoto: boolean;
+    /** The report came as a PDF, not a photo (same reading and tools). */
+    readonly hasLabDocument?: boolean;
   } | null;
   readonly conversation: readonly ContextMessage[];
 }
@@ -170,6 +172,24 @@ export const SCRIPTED_COPY = {
         ? `Thank you, {first_name}. I received the photo of your test and it is now in your record. Your doctor will review it${visitBooked ? ' with you at your visit' : ''}.`
         : 'Thank you, {first_name}. I received the photo of your test and it is now in your record.',
   },
+  photoForTeam: {
+    es: 'Gracias, {first_name}. Recibí la foto de tu examen; el equipo de la clínica la va a revisar.',
+    en: 'Thank you, {first_name}. I received the photo of your test; the clinic team will review it.',
+  },
+  documentReceived: {
+    es: (review: boolean, visitBooked: boolean): string =>
+      review
+        ? `Gracias, {first_name}. Recibí el informe de tu examen y ya quedó en tu historia. Tu médico lo va a revisar${visitBooked ? ' contigo en tu control' : ''}.`
+        : 'Gracias, {first_name}. Recibí el informe de tu examen y ya quedó en tu historia.',
+    en: (review: boolean, visitBooked: boolean): string =>
+      review
+        ? `Thank you, {first_name}. I received the report of your test and it is now in your record. Your doctor will review it${visitBooked ? ' with you at your visit' : ''}.`
+        : 'Thank you, {first_name}. I received the report of your test and it is now in your record.',
+  },
+  documentUnreadable: {
+    es: 'Gracias, {first_name}. No pude leer el documento como un informe de laboratorio. ¿Me envías el PDF del laboratorio o una foto del informe completo?',
+    en: 'Thank you, {first_name}. I could not read the document as a lab report. Could you send the lab’s PDF, or a photo of the whole report?',
+  },
   photoUnreadable: {
     es: 'Gracias, {first_name}. No pude leer bien la foto como un informe de laboratorio. ¿Me envías otra con el informe completo y bien iluminado?',
     en: 'Thank you, {first_name}. I could not read the photo as a lab report. Could you send another one, with the whole report and good light?',
@@ -308,6 +328,12 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
         messageId: inbound.id,
       });
     }
+    if (typeof match['notRead'] === 'string') {
+      // The clinic reads photos by hand (not sent to a model): the team has a task already.
+      return act('scripted:photo_for_team', 'send_message', {
+        text: SCRIPTED_COPY.photoForTeam[language],
+      });
+    }
     const matches = (Array.isArray(match['matches']) ? match['matches'] : []) as {
       orderId: string;
     }[];
@@ -317,7 +343,9 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
       match['nameOnReport'] === 'mismatch'
     ) {
       return act('scripted:photo_unusable', 'send_message', {
-        text: SCRIPTED_COPY.photoUnreadable[language],
+        text: (inbound.hasLabDocument === true
+          ? SCRIPTED_COPY.documentUnreadable
+          : SCRIPTED_COPY.photoUnreadable)[language],
       });
     }
     const submitted = observations
@@ -338,7 +366,9 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
       upcoming.some((item) => item.kind === 'visit') ||
       orders.some((order) => order.kind === 'visit' && order.stage === 'booked');
     return act('scripted:thank_photo', 'send_message', {
-      text: SCRIPTED_COPY.photoReceived[language](review, visitBooked),
+      text: (inbound.hasLabDocument === true
+        ? SCRIPTED_COPY.documentReceived
+        : SCRIPTED_COPY.photoReceived)[language](review, visitBooked),
     });
   }
 

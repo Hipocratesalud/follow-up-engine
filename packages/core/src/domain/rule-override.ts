@@ -1,3 +1,4 @@
+import type { AuthoredRule } from './authored-rule.ts';
 import type { ClinicId } from './ids.ts';
 
 /**
@@ -8,6 +9,13 @@ import type { ClinicId } from './ids.ts';
 export interface RuleOverride {
   readonly dueInDays?: number;
   readonly enabled?: boolean;
+  /**
+   * A rule the clinic wrote for itself (the rule-authoring agent's draft,
+   * see {@link AuthoredRule}): the override then holds the whole
+   * definition, under an id no versioned rule has. Never set through
+   * `RuleOverrideCommands.set` (only `dueInDays` and `enabled` are).
+   */
+  readonly authored?: AuthoredRule;
 }
 
 /** The fields a clinic may override, and nothing else. */

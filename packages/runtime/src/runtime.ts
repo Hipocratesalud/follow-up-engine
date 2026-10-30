@@ -1,3 +1,8 @@
+import {
+  isTestEvaluator,
+  loadTestEvaluatorPolicy,
+  type TestEvaluatorPolicy,
+} from './test-evaluators.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   FileEscalationPolicySource,
@@ -13,6 +18,8 @@ import {
   clinicId as toClinicId,
   type Clock,
   createClinicalReviewer,
+  createRuleAuthoring,
+  type RuleAuthoringService,
   createExpectationAdjudication,
   createFollowUpEngine,
   createOrderAgentService,
@@ -24,6 +31,7 @@ import {
   type IdGenerator,
   type OrderAgentModel,
   type OrderAgentService,
+  type PatientMediaReader,
   primaryLanguage,
   REVIEW_LOCALES,
   type ReviewLocale,
@@ -31,7 +39,12 @@ import {
   shadowPilotFlags,
   SystemClock,
 } from '@follow-up-engine/core';
-import { type NoteFixture, outboundSafetyTerms } from '@follow-up-engine/llm';
+import {
+  createRepositoryTerminology,
+  type FetchLike,
+  type NoteFixture,
+  outboundSafetyTerms,
+} from '@follow-up-engine/llm';
 import {
   ApiKeyConflictError,
   type ApiKeyScope,
@@ -119,6 +132,8 @@ export interface EngineRuntime {
   readonly engine: FollowUpEngine;
   /** The clinical reviewer (PRD V3): shadow findings, flags, review runs. */
   readonly reviewer: ClinicalReviewer;
+  /** The rule-authoring agent: a clinician's sentence to a draft rule (never live until enabled). */
+  readonly ruleAuthoring: RuleAuthoringService;
   /** The adjudicator of ambiguous plan items (PRD V2): decisions, overrides. */
   readonly adjudicator: ExpectationAdjudication;
   readonly extractor: ExtractorInfo;
@@ -134,11 +149,19 @@ export interface EngineRuntime {
   readonly orderAgent: OrderAgentService;
   /** Whether the agent's live mode runs a real model (`LLM_PROVIDER` is not `fake`). */
   readonly liveAgent: boolean;
+  /** The lab-result reading (photos, PDF reports) and voice notes, on the `llm_gateway`. */
+  readonly mediaReader: PatientMediaReader;
   /** Delivers outbox events to the host (signed webhooks). */
   readonly publisher: EventPublisher;
   /** The in-process webhook sink, when no `WEBHOOK_URL` is configured (demo). */
   readonly sink?: WebhookSink;
   readonly logger: Logger;
+  /**
+   * Whether an evaluator email (or host user id) is a test or QA account
+   * (config/demo/test-evaluators.json): kept in the log, left out of every
+   * reported number.
+   */
+  isTestEvaluator(actorId: string | undefined): boolean;
   /**
    * Registers or updates a clinic with its integration API key (stored as a
    * sha256 hash; scopes {@link INTEGRATION_SCOPES}). Throws
@@ -190,6 +213,10 @@ export interface CreateRuntimeOptions {
    * real one might, so the code-side guardrails are exercised end to end).
    */
   readonly orderAgentModel?: OrderAgentModel;
+  /** Test and QA evaluator accounts; config/demo/test-evaluators.json by default. */
+  readonly testEvaluators?: TestEvaluatorPolicy;
+  /** The HTTP client of the real LLM providers (tests stub the provider's API with it). */
+  readonly llmFetch?: FetchLike;
 }
 
 /**
@@ -223,12 +250,14 @@ export async function createRuntime(
     extractor,
     info,
     reviewAgent,
+    findingTranslator,
     adjudicator,
     replay,
     orderAgentModel,
     mediaReader,
     scriptedReviewAgent,
     liveAgent,
+    ruleAuthorAgents,
   } = createConfiguredExtractor(config.llm, {
     usageLog: storage.llmUsage,
     clinics: storage.clinics,
@@ -237,9 +266,15 @@ export async function createRuntime(
     fallbackBudgetUsd: (clinicId) => (isLabClinicId(clinicId) ? demoBudget : undefined),
     ...(options.noteFixtures === undefined ? {} : { noteFixtures: options.noteFixtures }),
     ...(options.llmSnapshot === undefined ? {} : { snapshot: options.llmSnapshot }),
+    ...(options.llmFetch === undefined ? {} : { llmFetch: options.llmFetch }),
   });
 
+  const testEvaluators = options.testEvaluators ?? loadTestEvaluatorPolicy();
+  const isTestActor = (actorId: string | undefined): boolean =>
+    isTestEvaluator(actorId, testEvaluators);
   const engine = createFollowUpEngine({
+    // Test and QA accounts stay out of the metrics and the rule calibration.
+    isTestActor,
     unitOfWork: storage.unitOfWork,
     // The patient's names and identifiers are masked before a note leaves for a model.
     noteExtractor: withPatientRedaction(extractor, storage.stores.clinicalRecords),
@@ -267,6 +302,28 @@ export async function createRuntime(
     // What the host sends in full: a missing allergy status is a finding only then.
     recordCapabilitiesOf: async (clinicId) =>
       (await storage.clinics.get(clinicId))?.settings.recordCapabilities ?? [],
+    // A finding the model wrote in one language only is translated by a job, never dropped.
+    translator: findingTranslator,
+    // The inbox cap per doctor and day, on the clinic's own calendar.
+    inboxSettingsOf: async (clinicId) => {
+      const settings = (await storage.clinics.get(clinicId))?.settings;
+      return {
+        ...(settings?.dailyFindingCapPerDoctor === undefined
+          ? {}
+          : { dailyFindingCapPerDoctor: settings.dailyFindingCapPerDoctor }),
+        ...(settings?.timezone === undefined ? {} : { timezone: settings.timezone }),
+      };
+    },
+  });
+
+  // The rule-authoring agent (docs/agent/rule-authoring.md): drafts only;
+  // a clinician enables them through `engine.authoredRules.enable`.
+  const ruleAuthoring = createRuleAuthoring({
+    catalog: (clinicId) => engine.catalog(clinicId),
+    authoredRules: engine.authoredRules,
+    agents: ruleAuthorAgents,
+    terminology: createRepositoryTerminology(),
+    clock,
   });
 
   const adjudication = createExpectationAdjudication({
@@ -370,6 +427,7 @@ export async function createRuntime(
     storage,
     engine,
     reviewer,
+    ruleAuthoring,
     adjudicator: adjudication,
     extractor: info,
     ...(replay === undefined ? {} : { llmReplay: replay }),
@@ -377,9 +435,11 @@ export async function createRuntime(
     labClocks,
     orderAgent,
     liveAgent,
+    mediaReader,
     publisher,
     ...(sink === undefined ? {} : { sink }),
     logger,
+    isTestEvaluator: isTestActor,
     async registerClinic(input) {
       const id = toClinicId(input.id);
       const apiKeyHash = hashApiKey(input.apiKey);
@@ -473,6 +533,8 @@ export async function registerDemoClinic(
     apiKey,
     settings: {
       allowPatientContact: true,
+      // Synthetic data only: the demo's sample photos may be read by Muse Spark.
+      allowUnmaskedImagesToProvider: true,
       timezone: 'America/Caracas',
       // English UI and labels for an international audience; the synthetic
       // notes stay in Spanish and are read as Spanish (docs/adr/0007).
@@ -495,6 +557,13 @@ export async function registerDemoClinic(
     },
   });
   if (inboxApiKey !== undefined) {
+    // One inbox key at a time: a rotated DEMO_INBOX_API_KEY retires the previous
+    // one (issuing the same key again makes it live again).
+    await runtime.storage.apiKeys.revoke(
+      toClinicId(DEMO_CLINIC.id),
+      DEMO_INBOX_KEY_LABEL,
+      runtime.clock.now(),
+    );
     await runtime.issueApiKey({
       clinicId: DEMO_CLINIC.id,
       label: DEMO_INBOX_KEY_LABEL,
@@ -561,6 +630,13 @@ export async function activeClinicIds(runtime: EngineRuntime): Promise<readonly 
     .filter((id) => !isLabClinicId(id));
 }
 
+/**
+ * A lab clinic's daily release cap per owner for imported history (the
+ * clinic default is 20): a sandbox holds a handful of patients, so a cap of
+ * one shows how the backfill releases "To recover" day by day.
+ */
+export const LAB_DAILY_CASE_CAP_PER_OWNER = 1;
+
 /** Prefix of a lab clinic's id ({@link labClinicId}). */
 export const LAB_CLINIC_PREFIX = 'lab-';
 
@@ -593,7 +669,14 @@ export async function ensureLabClinic(
   const id = labClinicId(evaluatorEmail);
   const existing = await runtime.storage.clinics.get(id);
   if (existing !== undefined) {
-    return existing;
+    if (existing.settings.allowUnmaskedImagesToProvider) return existing;
+    // A lab created before the setting existed: a sandbox of synthetic data reads photos.
+    return runtime.storage.registerClinic({
+      id,
+      name: existing.name,
+      active: existing.active,
+      settings: { ...existing.settings, allowUnmaskedImagesToProvider: true },
+    });
   }
   return runtime.registerClinic({
     id,
@@ -603,11 +686,14 @@ export async function ensureLabClinic(
     apiKey: generateApiKey(),
     settings: {
       allowPatientContact: false,
+      // A sandbox of synthetic patients: its photos may be read by the configured model.
+      allowUnmaskedImagesToProvider: true,
       locale: 'en-US',
       enabledProtocols: [...availableProtocolIds()],
       escalationPolicyId: DEMO_ESCALATION_POLICY,
       reconciliation: { fullSweepWeekday: null, enabled: false },
       adjudicator: DEMO_ADJUDICATOR_SETTINGS,
+      dailyCaseCapPerOwner: LAB_DAILY_CASE_CAP_PER_OWNER,
     },
   });
 }

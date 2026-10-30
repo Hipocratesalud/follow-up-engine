@@ -73,17 +73,36 @@ export const CheckInteractionArgs = z
   })
   .strict();
 
+/** A finding's words in one language (the inbox shows the reader's language). */
+const FindingTextSchema = z
+  .object({
+    summary: z.string().min(5).max(240),
+    rationale: z.string().min(5).max(800),
+    suggestion: z.string().min(5).max(400),
+  })
+  .strict();
+
 export const ProposedFindingSchema = z
   .object({
     category: z.string().min(3).max(40),
     severity: z.enum(FINDING_SEVERITIES),
-    summary: z.string().min(5).max(240).describe('One line, Spanish, for the clinician'),
-    rationale: z.string().min(5).max(800).describe('Why it matters, Spanish'),
+    summary: z
+      .string()
+      .min(5)
+      .max(240)
+      .describe("One line, in the clinic's language, for the clinician"),
+    rationale: z.string().min(5).max(800).describe("Why it matters, in the clinic's language"),
     suggestion: z
       .string()
       .min(5)
       .max(400)
-      .describe('What to consider reviewing, Spanish, for the clinician'),
+      .describe("What to consider reviewing, in the clinic's language, for the clinician"),
+    texts: z
+      .object({ en: FindingTextSchema, es: FindingTextSchema })
+      .strict()
+      .describe(
+        'Required: the same summary, rationale and suggestion in English (en) and in neutral Spanish with "tú" (es). Quotes are never translated',
+      ),
     citations: z
       .array(
         z
@@ -99,8 +118,32 @@ export const ProposedFindingSchema = z
   })
   .strict();
 
+/** What the model is asked for: every finding with `texts.en` and `texts.es`. */
 export const SubmitFindingsArgs = z
   .object({ findings: z.array(ProposedFindingSchema).max(12) })
+  .strict();
+
+/**
+ * What the agent loop reads a submission with: the same, with `texts` (or
+ * one of its languages) possibly missing, so a submission without them is
+ * refused once with a precise request instead of a generic schema error.
+ * Submitted again without them, the findings are kept in the language the
+ * model wrote, labeled "not translated yet", and a job translates them
+ * (only a failed citation check ever drops a finding).
+ */
+export const SubmitFindingsDraftArgs = z
+  .object({
+    findings: z
+      .array(
+        ProposedFindingSchema.extend({
+          texts: z
+            .object({ en: FindingTextSchema.optional(), es: FindingTextSchema.optional() })
+            .strict()
+            .optional(),
+        }),
+      )
+      .max(12),
+  })
   .strict();
 
 export const REVIEW_TOOL_DEFINITIONS: readonly ReviewToolDefinition[] = [

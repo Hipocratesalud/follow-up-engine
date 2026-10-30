@@ -5,6 +5,10 @@ import {
   type FindingCitation,
   type FindingOrigin,
   type FindingSeverity,
+  type FindingText,
+  type FindingTexts,
+  REVIEW_LOCALES,
+  type ReviewLocale,
 } from '../../domain/clinical-finding.ts';
 import type { ProposedFinding } from '../../ports/clinical-review-agent.ts';
 import { refKey } from '../timeline.ts';
@@ -27,6 +31,8 @@ export interface FindingDraft {
   readonly signalIds: readonly string[];
   readonly specialty?: string;
   readonly dedupKey: string;
+  /** Summary, rationale and suggestion per review locale, when the proposal gave them. */
+  readonly texts?: FindingTexts;
 }
 
 export type ProposalCheck =
@@ -130,7 +136,18 @@ export function checkProposal(
   if (category === undefined) return { ok: false, reason: 'category_disabled' };
   if (category === 'similar_patients') return { ok: false, reason: 'category_reserved' };
   if (proposal.citations.length === 0) return { ok: false, reason: 'no_citation' };
-  if (isPatientDirected([proposal.summary, proposal.rationale, proposal.suggestion])) {
+  const translations = REVIEW_LOCALES.flatMap((locale): [ReviewLocale, FindingText][] => {
+    const text = proposal.texts?.[locale];
+    return text === undefined ? [] : [[locale, text]];
+  });
+  if (
+    isPatientDirected([
+      proposal.summary,
+      proposal.rationale,
+      proposal.suggestion,
+      ...translations.flatMap(([, text]) => [text.summary, text.rationale, text.suggestion]),
+    ])
+  ) {
     return { ok: false, reason: 'patient_directed' };
   }
   const citations: FindingCitation[] = [];
@@ -184,6 +201,20 @@ export function checkProposal(
       signalIds,
       ...(specialty === undefined ? {} : { specialty }),
       dedupKey: findingDedupKey(category, citations, topic),
+      ...(translations.length === 0
+        ? {}
+        : {
+            texts: Object.fromEntries(
+              translations.map(([locale, text]) => [
+                locale,
+                {
+                  summary: clip(text.summary, 240),
+                  rationale: clip(text.rationale, 800),
+                  suggestion: clip(text.suggestion, 400),
+                },
+              ]),
+            ),
+          }),
     },
   };
 }

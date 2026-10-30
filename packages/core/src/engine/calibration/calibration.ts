@@ -63,12 +63,16 @@ export async function calibrationReport(
   deps: {
     readonly unitOfWork: UnitOfWork;
     readonly loadCatalog: (clinicId: ClinicId) => Promise<Catalog>;
+    /** Test and QA accounts: their verdicts and dismissals are left out. */
+    readonly isTestActor?: (actorId: string) => boolean;
   },
   clinicId: ClinicId,
   options: { readonly since?: Date } = {},
 ): Promise<CalibrationReport> {
   const catalog = await deps.loadCatalog(clinicId);
   const since = options.since ?? new Date(0);
+  const isTest = (actorId: string | undefined): boolean =>
+    actorId !== undefined && deps.isTestActor?.(actorId) === true;
   return deps.unitOfWork.withTransaction(clinicId, async (stores) => {
     const rules = new Map<string, MutableRule>();
     const rulesOfCase = new Map<CaseId, readonly MutableRule[]>();
@@ -113,6 +117,7 @@ export async function calibrationReport(
       since,
       CALIBRATION_FEEDBACK_LIMIT,
     )) {
+      if (isTest(feedback.authorId)) continue;
       latest.set(feedback.caseId, feedback);
     }
     for (const feedback of latest.values()) {
@@ -136,7 +141,11 @@ export async function calibrationReport(
     // Dismissals, by the reason the team gave.
     for (const followUpCase of await dismissedCases(stores, clinicId)) {
       const resolution = followUpCase.resolution;
-      if (resolution === undefined || resolution.resolvedAt.getTime() < since.getTime()) {
+      if (
+        resolution === undefined ||
+        resolution.resolvedAt.getTime() < since.getTime() ||
+        isTest(resolution.resolvedBy)
+      ) {
         continue;
       }
       const reason = resolution.dismissReason ?? 'other';

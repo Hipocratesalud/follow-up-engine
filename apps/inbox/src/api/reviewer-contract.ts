@@ -97,6 +97,8 @@ export interface FindingView {
   runId: string;
   createdAt: string;
   review?: FindingReviewView;
+  /** Written in another language, its translation not arrived yet (the UI says so). */
+  untranslated?: true;
 }
 
 export interface ReviewStepView {
@@ -197,6 +199,36 @@ export interface FindingFlagView {
     precision?: number;
   };
 }
+
+/**
+ * The doctor's inbox cards (`GET /api/inbox/live-findings`): open findings
+ * of the categories live with a sign-off now, most severe first. Never a
+ * shadow category (the API filters them).
+ */
+export interface InboxFindingList {
+  items: FindingView[];
+  total: number;
+  byPatient: Record<string, number>;
+  /** Live findings over their doctor's daily cap: kept, released on later days. */
+  queued: number;
+  dailyCap: number;
+}
+
+/** The patient list's filters the finding cards follow (same URL params). */
+export interface InboxFindingFilters {
+  view?: string;
+  assignee?: string;
+  q?: string;
+  layer?: string;
+  protocol?: string;
+}
+
+/**
+ * Where the reviewer's inbox endpoints point: the clinic of the API key
+ * (`/api/inbox/...`), or the identified evaluator's own lab clinic
+ * (`/api/demo/lab/...`, docs/deploy.md#hosted-demo).
+ */
+export type ReviewerScope = 'clinic' | 'lab';
 
 export interface FindingFlagUpdate {
   category: FindingCategory;

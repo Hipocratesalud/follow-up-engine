@@ -638,7 +638,10 @@ export function registerInboxRoutes(app: App, runtime: EngineRuntime): void {
       }
     }
     // One verdict per case, the latest: changing one's mind does not count twice.
-    const verdicts = latestVerdicts(feedback);
+    // Test and QA accounts (config/demo/test-evaluators.json) never count.
+    const verdicts = latestVerdicts(
+      feedback.filter((verdict) => !runtime.isTestEvaluator(verdict.authorId)),
+    );
     const useful = verdicts.filter((item) => item.useful).length;
     const stats: InboxStats = {
       activeCases: active.length,

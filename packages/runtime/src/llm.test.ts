@@ -1,4 +1,9 @@
-import { type ClinicDirectory, clinicId, SystemClock } from '@follow-up-engine/core';
+import {
+  type ClinicDirectory,
+  clinicId,
+  SystemClock,
+  UnmaskedImageRefusedError,
+} from '@follow-up-engine/core';
 import {
   emptySnapshot,
   type FetchLike,
@@ -195,6 +200,86 @@ describe('a recorded Muse Spark snapshot', () => {
     await configured.extractor.extract(clinicId('c1'), NOTE);
     expect(recorder.calls).toHaveLength(1);
     expect(recorder.calls[0]).toMatch(/^https:\/\/relay\.example\/v1\/chat\/completions/);
+  });
+
+  it("sends the agent's live voice notes and lab photos through META_BASE_URL too (the hosted demo's relay)", async () => {
+    const config = loadRuntimeConfig({
+      META_API_KEY: 'key',
+      META_BASE_URL: 'https://relay.example/v1',
+    }).llm;
+    const calls: string[] = [];
+    const fetch: FetchLike = (url) => {
+      calls.push(url);
+      const body = url.endsWith('/asr/transcribe')
+        ? { sessionId: 's1', transcript: 'Ya me hice el examen.', audioDurationMs: 1200, turns: [] }
+        : {
+            choices: [
+              {
+                index: 0,
+                finish_reason: 'stop',
+                message: {
+                  role: 'assistant',
+                  content: JSON.stringify({
+                    isLabReport: true,
+                    reportDate: '2026-01-05',
+                    patientName: null,
+                    tests: [
+                      {
+                        name: 'HbA1c',
+                        value: 8.4,
+                        unit: '%',
+                        referenceLow: 4,
+                        referenceHigh: 5.6,
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
+            usage: { prompt_tokens: 900, completion_tokens: 200 },
+          };
+      return Promise.resolve(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    };
+    // A clinic that allows unmasked images (the demo, a lab sandbox): photos may leave.
+    const configured = createConfiguredExtractor(config, {
+      ...deps(fetch),
+      clinics: {
+        get: () => Promise.resolve({ settings: { allowUnmaskedImagesToProvider: true } }),
+      } as unknown as ClinicDirectory,
+    });
+    const voice = await configured.mediaReader.transcribe(clinicId('c1'), {
+      mode: 'live',
+      audio: new Uint8Array([82, 73, 70, 70]),
+      contentType: 'audio/wav',
+    });
+    const photo = await configured.mediaReader.readLabPhoto(clinicId('c1'), {
+      mode: 'live',
+      image: new Uint8Array([255, 216, 255]),
+      contentType: 'image/jpeg',
+    });
+    expect(calls).toEqual([
+      'https://relay.example/v1/asr/transcribe',
+      'https://relay.example/v1/chat/completions',
+    ]);
+    expect(voice.transcript).toBe('Ya me hice el examen.');
+    expect(voice.model).toBe('meta:muse-voice-transcribe-1.0');
+    expect(photo.reading.tests.map((test) => test.name)).toEqual(['HbA1c']);
+
+    // Any other clinic (here, an unknown one): the photo never reaches the relay.
+    const strict = createConfiguredExtractor(config, deps(fetch));
+    await expect(
+      strict.mediaReader.readLabPhoto(clinicId('c2'), {
+        mode: 'live',
+        image: new Uint8Array([255, 216, 255]),
+        contentType: 'image/jpeg',
+      }),
+    ).rejects.toThrow(UnmaskedImageRefusedError);
+    expect(calls).toHaveLength(2);
   });
 
   it('is ignored with the fake provider', () => {

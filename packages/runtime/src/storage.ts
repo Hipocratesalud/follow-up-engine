@@ -4,6 +4,7 @@ import {
   MemoryClinicDirectory,
   MemoryDatabase,
   MemoryLlmUsageLog,
+  MemoryHeldLabReportStore,
   MemoryOrderAgentStore,
   MemoryUnitOfWork,
 } from '@follow-up-engine/adapter-memory';
@@ -12,6 +13,7 @@ import {
   createPostgresAdapters,
   migrate,
   type PostgresAdapters,
+  PostgresHeldLabReportStore,
   PostgresOrderAgentStore,
 } from '@follow-up-engine/adapter-postgres';
 import type {
@@ -21,6 +23,7 @@ import type {
   ClinicSettings,
   Clock,
   EventPublisher,
+  HeldLabReportStore,
   JobQueue,
   LlmUsageLog,
   OrderAgentStore,
@@ -71,6 +74,8 @@ export interface Storage {
   readonly evaluatorEvents: EvaluatorEventStore;
   /** The order-to-completion agent's conversations, trace, tasks and bookings. */
   readonly orderAgent: OrderAgentStore;
+  /** Imported lab reports held for the team (the name on the report is not the patient's). */
+  readonly heldLabReports: HeldLabReportStore;
   registerClinic(registration: ClinicRegistration): Promise<Clinic>;
   /** Delivers pending outbox events (every clinic) through `publisher`. */
   drainOutbox(publisher: EventPublisher, now: Date, limit: number): Promise<DrainResult>;
@@ -96,6 +101,7 @@ export function createMemoryStorage(clock: Clock): Storage & { readonly db: Memo
     apiKeys: new MemoryApiKeyStore(),
     evaluatorEvents: new MemoryEvaluatorEventStore(),
     orderAgent: new MemoryOrderAgentStore(),
+    heldLabReports: new MemoryHeldLabReportStore(),
     registerClinic(registration) {
       const clinic: Clinic = {
         id: registration.id,
@@ -164,6 +170,7 @@ export async function createPostgresStorage(
     apiKeys: new PostgresApiKeyStore(adapters.db, options.schema),
     evaluatorEvents: new PostgresEvaluatorEventStore(adapters.db, options.schema),
     orderAgent: new PostgresOrderAgentStore(adapters.db, options.schema),
+    heldLabReports: new PostgresHeldLabReportStore(adapters.db, options.schema),
     registerClinic: (registration) =>
       adapters.clinics.register({
         id: registration.id,

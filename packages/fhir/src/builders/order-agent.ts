@@ -30,6 +30,8 @@ export interface AgentResultInput {
   readonly effectiveAt: Date;
   /** When the clinic received it. */
   readonly receivedAt: Date;
+  /** `Observation.note`; default: reported by the patient as a photo, read by the agent. */
+  readonly note?: string;
 }
 
 function put(resource: FhirResource & { readonly id: string }) {
@@ -109,7 +111,9 @@ export function buildAgentResultBundle(input: AgentResultInput): Bundle {
             }),
         note: [
           {
-            text: 'Reported by the patient as a photo of the lab report; read by the follow-up agent.',
+            text:
+              input.note ??
+              'Reported by the patient as a photo of the lab report; read by the follow-up agent.',
           },
         ],
       }),

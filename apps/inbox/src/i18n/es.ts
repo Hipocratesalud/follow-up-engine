@@ -59,6 +59,7 @@ const nav: Messages['nav'] = {
   engineTests: 'Pruebas del motor',
   lab: 'Laboratorio',
   agent: 'Agente',
+  rules: 'Reglas',
   evaluators: 'Evaluadores',
   simulatedDate: 'Fecha simulada:',
   simulatedDateTitle: 'La API usa un reloj simulado para la demostración',
@@ -105,6 +106,9 @@ const labels: Messages['labels'] = {
   },
   draftProtocol: 'Protocolo en borrador · pendiente de validación clínica',
   draftProtocolHint: 'Este protocolo aún no fue validado por el equipo clínico de tu consultorio.',
+  readyForSignoff: 'Listo para aval médico · pendiente de validación clínica',
+  readyForSignoffHint:
+    'Hay un paquete de aval listo para que el equipo clínico de tu consultorio lo revise; todavía nadie lo aprueba.',
   protocolPrefix: 'Protocolo:',
   statuses: {
     open: 'Abierto',
@@ -503,6 +507,40 @@ const inbox: Messages['inbox'] = {
     'Verás todos los casos del paciente, la evidencia citada de la nota y el siguiente paso sugerido.',
 };
 
+const liveFindings: Messages['liveFindings'] = {
+  title: 'Hallazgos clínicos',
+  intro:
+    'Sugerencias del revisor clínico en categorías que tu equipo clínico validó, cada una con la evidencia que cita. Califica cada una: una vez calificada, sale de tu bandeja.',
+  loading: 'Cargando hallazgos clínicos',
+  error: 'No pudimos cargar los hallazgos clínicos',
+  validatedBadge: 'Categoría validada',
+  suggestionTitle: 'Sugerencia',
+  evidenceTitle: 'Evidencia',
+  coveredBy: (labels) => `Ya en seguimiento: ${labels}`,
+  openPatient: 'Abrir paciente',
+  rated: (verdict) => `Calificado como ${verdict}. El hallazgo salió de tu bandeja.`,
+  patientBadge: (n) => count(n, 'hallazgo clínico', 'hallazgos clínicos'),
+  queued: (n, cap) =>
+    `${count(n, 'hallazgo más', 'hallazgos más')} en cola para los próximos días (máximo ${String(cap)} por médico al día)`,
+  lab: {
+    title: 'Revisor clínico en tu laboratorio',
+    intro:
+      'Tu laboratorio empieza como un piloto en sombra: todas las categorías activas, en sombra, así que nada llega al médico. Pasa una a en vivo, firmada con tu correo, y sus hallazgos aparecen aquí como tarjetas de la bandeja del médico. La demo compartida nunca cambia.',
+    categoriesLink: 'Categorías de tu laboratorio',
+    reviewNow: 'Revisar este paciente ahora',
+    reviewed: (n) => `Revisión lista: ${count(n, 'hallazgo nuevo', 'hallazgos nuevos')}.`,
+    empty:
+      'Aún no hay tarjetas de hallazgos: todas las categorías de tu laboratorio están en sombra, o no hay hallazgos en vivo abiertos.',
+    back: 'Volver al laboratorio',
+    categoriesTitle: 'Categorías del revisor en tu laboratorio',
+    categoriesIntro:
+      'Aquí solo cambia tu laboratorio. Pasar a en vivo se firma con tu correo de evaluador, como lo firmaría el equipo clínico en una clínica real.',
+    signedOffAs: (email) => `Firmado como ${email}`,
+    signOffHint:
+      'En vivo, los hallazgos abiertos de esta categoría se vuelven tarjetas de la bandeja de tu laboratorio.',
+  },
+};
+
 const patientCard: Messages['patientCard'] = {
   cases: (n) => count(n, 'caso', 'casos'),
   activeCases: (n) => count(n, 'caso activo', 'casos activos'),
@@ -851,6 +889,7 @@ const review: Messages['review'] = {
     invalid_arguments: 'Argumentos inválidos: se le devolvió el error',
     unknown_tool: 'Herramienta inexistente: se le devolvió el error',
     tool_budget_exhausted: 'Sin llamadas disponibles: se le pidió entregar',
+    missing_translation: 'Hallazgos sin inglés y español: se le pidió entregarlos de nuevo',
   },
   summaries: {
     points: (n) => `${n} valores`,
@@ -940,6 +979,8 @@ const review: Messages['review'] = {
     loadMore: 'Cargar más hallazgos',
   },
   row: { severityPrefix: 'Severidad: ', covered: 'Ya cubierto' },
+  untranslated: 'Sin traducir aún',
+  untranslatedHint: 'Escrito en otro idioma; su traducción está en camino.',
   detail: {
     back: 'Volver a la revisión',
     shadowBadge: 'Modo sombra',
@@ -1137,6 +1178,13 @@ const metrics: MetricsCopy = {
     tasks: {
       note_extraction: 'Lectura de notas',
       clinical_review: 'Revisión clínica',
+      expectation_adjudication: 'Adjudicación de ítems ambiguos del plan',
+      order_agent: 'Agente de órdenes',
+      order_agent_scripted: 'Agente de órdenes (guion)',
+      lab_photo_reading: 'Lectura de fotos de exámenes',
+      lab_photo_reading_scripted: 'Lectura de fotos de exámenes (guion)',
+      voice_transcription: 'Transcripción de notas de voz',
+      voice_transcription_scripted: 'Transcripción de notas de voz (guion)',
     },
     calls: (count) => `${String(count)} ${count === 1 ? 'llamada' : 'llamadas'}`,
     tokens: (count) => `${count} tokens`,
@@ -1788,10 +1836,30 @@ const EVALUATOR_ACTION_LABELS: Record<string, string> = {
   lab_patient_created: 'Creó un paciente de laboratorio',
   lab_document_uploaded: 'Subió un documento de laboratorio',
   lab_record_added: 'Agregó un registro de laboratorio',
+  lab_history_imported: 'Importó el historial de un paciente',
+  held_report_confirmed: 'Confirmó un informe de laboratorio retenido',
+  held_report_discarded: 'Descartó un informe de laboratorio retenido',
   lab_date_viewed: 'Movió el reloj del laboratorio',
   case_viewed: 'Vio un caso',
   patient_documents_viewed: 'Vio los documentos de un paciente',
   engine_test_step: 'Cargó un paso de una prueba del motor',
+  engine_test_verdict: 'Dio un veredicto sobre una prueba del motor',
+  agent_message_sent: 'Le escribió al agente como paciente',
+  lab_rule_drafted: 'Redactó una regla con el agente',
+  lab_rule_enabled: 'Activó una regla del consultorio',
+  lab_rule_discarded: 'Descartó o desactivó una regla del consultorio',
+  lab_rule_samples_added: 'Agregó los pacientes de ejemplo de reglas',
+  page_viewed: 'Abrió una página',
+  agent_story_started: 'Inició o reinició la historia del agente',
+  agent_model_switched: 'Cambió el modelo del agente',
+  agent_language_switched: 'Cambió el idioma de la paciente',
+  agent_reply_suggested: 'Envió una respuesta sugerida como paciente',
+  agent_message_typed: 'Escribió un mensaje como paciente',
+  agent_media_uploaded: 'Subió una nota de voz o una foto como paciente',
+  agent_sample_sent: 'Envió una nota de voz o foto de ejemplo como paciente',
+  agent_clock_jumped: 'Movió el reloj de la clínica del agente',
+  agent_delivery_status_set: 'Cambió el estado de entrega de un mensaje',
+  agent_phone_fixed: 'Marcó el teléfono como actualizado',
 };
 
 const lab: Messages['lab'] = {
@@ -1906,6 +1974,89 @@ const lab: Messages['lab'] = {
   labCasesTitle: 'Los casos de tu laboratorio',
   labCasesEmpty: 'Todavía no hay casos abiertos en tu laboratorio.',
   labCasesEmptyBody: 'Agrega registros y mueve el reloj hacia adelante para ver casos abrirse.',
+  history: {
+    title: 'Importar historial',
+    intro:
+      'Varios documentos de un mismo paciente a la vez (PDF, DOCX, TXT, fotos de resultados), cada uno con la fecha en que se escribió. El motor los reproduce en orden de fecha, como la revisión inicial del historial: lo que el historial ya cumplió se cierra, y lo que dejó pendiente espera en “Por recuperar”, liberado por el tope diario.',
+    patient: 'Paciente',
+    newPatientName: 'Nombre del nuevo paciente',
+    samplesLabel: 'O prueba con un historial de ejemplo',
+    sampleButton: (name: string, documents: number): string =>
+      `${name} (${count(documents, 'documento', 'documentos')})`,
+    addFiles: 'Agregar documentos',
+    filesHint:
+      'PDF, DOCX, TXT, o una foto JPEG, PNG o WebP de un resultado. Hasta 12, 5 MB en total.',
+    noFiles: 'Todavía no hay documentos: agrega archivos o carga un historial de ejemplo.',
+    documentsTitle: 'Documentos a importar',
+    fileDate: 'Escrito el',
+    fileType: 'Tipo',
+    remove: 'Quitar',
+    removeFile: (name: string): string => `Quitar ${name}`,
+    readAsReport: 'Se lee como informe de laboratorio',
+    readAsNote: 'Se lee como nota clínica',
+    importButton: 'Importar historial',
+    importing: 'Leyendo y reproduciendo el historial…',
+    filesRequired: 'Agrega al menos un documento.',
+    dateRequired:
+      'Indica una fecha válida para cada documento, que no sea posterior a la fecha de tu laboratorio.',
+    resultTitle: 'Lo que hizo la importación',
+    summary: (created: number, fulfilled: number, cases: number): string =>
+      `${count(created, 'expectativa', 'expectativas')} del historial (origen: revisión del historial), ${numbers.format(fulfilled)} ya cumplidas por él, ${count(cases, 'caso retenido', 'casos retenidos')} para seguimiento.`,
+    release: (today: number, waiting: number): string =>
+      `Tope diario: ${count(today, 'caso liberado', 'casos liberados')} hoy, ${numbers.format(waiting)} en espera en “Por recuperar”.`,
+    alreadyImported: 'Ya estaba importado: no se leyó ni se creó nada nuevo.',
+    llmCost: (calls: number, cost: string): string =>
+      `${count(calls, 'llamada al modelo', 'llamadas al modelo')} en esta importación, ${cost} (según el registro de uso de los modelos).`,
+    statuses: {
+      staged: 'Importado',
+      already_imported: 'Ya importado',
+      no_results: 'Sin resultados de exámenes conocidos',
+      needs_review: 'Requiere revisión',
+      discarded: 'Descartado: no es este paciente',
+      unreadable: 'No se pudo leer',
+    },
+    readAs: { note: 'Nota clínica', lab_report: 'Informe de laboratorio' },
+    source: { photo: 'foto', text: 'texto del documento' },
+    readBy: (model: string): string => `leído por ${model}`,
+    photoNotAllowed:
+      'Las fotos no se pueden leer automáticamente en esta clínica: queda retenida para el equipo, no se envió a ningún modelo ni se registró nada.',
+    nameMismatch:
+      'El nombre del informe no coincide con este paciente: queda retenido para el equipo, no se registró nada ni se cerró ninguna orden.',
+    held: {
+      listTitle: 'Requiere revisión',
+      listIntro:
+        'Informes de laboratorio importados cuyo nombre impreso no coincide con el paciente. Nada de ellos entra al registro hasta que alguien decida.',
+      empty: 'Ningún informe espera revisión.',
+      count: (n: number): string => count(n, 'informe', 'informes'),
+      cardTitle: 'Un informe de este paciente requiere revisión',
+      cardIntro:
+        'Quedó retenido porque el nombre impreso no coincide. Decide si corresponde a este paciente.',
+      names: (printed: string, record: string): string =>
+        `Nombre en el informe: ${printed} · En el registro: ${record}`,
+      noName: 'ninguno impreso',
+      photoNotAllowed:
+        'Las fotos no se pueden leer automáticamente en esta clínica. Léela, agrega el resultado con “Agregar algo sin un documento” y luego márcala como revisada.',
+      markReviewed: 'Marcar como revisada',
+      dates: (printed: string, entered: string): string =>
+        `Tomado el ${printed} (indicado como ${entered})`,
+      confirm: 'Es este paciente',
+      discard: 'No es este paciente',
+    },
+    datePrinted: (printed: string, entered: string): string =>
+      `Fechado según el informe: tomado el ${printed} (indicaste ${entered}). Revisa la fecha.`,
+    datePrintedLater: (printed: string, entered: string): string =>
+      `El informe indica ${printed}, después de la fecha de tu laboratorio: se usa la fecha que indicaste (${entered}). Revisa la fecha.`,
+    unrecognized: (tests: string): string => `No es un examen que el motor conozca: ${tests}`,
+    interpretations: { H: 'alto', L: 'bajo', N: 'en rango' },
+    recoveryTitle: 'Por recuperar',
+    recoveryIntro:
+      'Los casos del historial importado esperan aquí, retenidos: no se contacta a nadie. Salen según el tope diario por responsable (1 al día en tu laboratorio); mueve la fecha de tu laboratorio para liberar el siguiente lote.',
+    recoveryEmpty: 'No hay nada por recuperar.',
+    recoveryEmptyBody:
+      'Importa un historial: lo que dejó pendiente más allá del tope de hoy espera aquí.',
+    recoveryCount: (n: number): string => `${count(n, 'caso', 'casos')} en espera`,
+    originBackfill: 'Historial',
+  },
 };
 
 const evaluators: Messages['evaluators'] = {
@@ -1913,7 +2064,7 @@ const evaluators: Messages['evaluators'] = {
   intro: 'Todos los que han abierto la demo alojada, y qué han hecho con ella.',
   loading: 'Cargando evaluadores',
   error: 'No pudimos cargar los evaluadores',
-  empty: 'Todavía ningún evaluador ha iniciado sesión.',
+  empty: 'Todavía ningún médico ha iniciado sesión (las cuentas de prueba y QA se listan aparte).',
   email: 'Evaluador',
   lastSeen: 'Última vez visto',
   firstSeen: 'Primera vez visto',
@@ -1925,6 +2076,12 @@ const evaluators: Messages['evaluators'] = {
   filterByEvaluator: 'Filtrar por evaluador',
   allEvaluators: 'Todos los evaluadores',
   downloadCsv: 'Descargar CSV',
+  testAccountsTitle: 'Cuentas de prueba y QA',
+  testAccountsHint:
+    'Se guardan en el registro de actividad y en el CSV (is_test_evaluator), fuera de este resumen y de todas las cifras de Métricas y de la bandeja.',
+  testAccountBadge: 'Prueba',
+  testAccountActions: (count: number): string =>
+    count === 1 ? '1 acción' : `${String(count)} acciones`,
   action: EVALUATOR_ACTION_LABELS,
 };
 
@@ -1966,7 +2123,7 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   outreach_already_sent: 'ya se envió el único mensaje de este contacto',
   not_an_open_order: 'no es una de las órdenes abiertas',
   unknown_or_taken_slot: 'horario desconocido u ocupado',
-  not_a_photo_message: 'no es una foto',
+  not_a_photo_message: 'no es una foto ni un informe PDF',
   photo_does_not_answer_order: 'la foto no responde a esta orden',
   name_on_report_does_not_match: 'el nombre del informe no coincide',
   unknown_tool: 'herramienta desconocida',
@@ -2043,6 +2200,171 @@ function rung(id: unknown, action: unknown): string {
   return `${RUNG_TRACKS[track] ?? track}, ${when}: ${what}`;
 }
 
+const rules: Messages['rules'] = {
+  title: 'Reglas',
+  subtitle:
+    'Escribe una regla de seguimiento con tus palabras. El agente la redacta en el formato propio del motor, verifica cada código contra los catálogos y la prueba en seco sobre los registros de tu entorno de pruebas. Nada se aplica hasta que un profesional la active.',
+  requestLabel: 'Describe la regla',
+  requestPlaceholder: 'Por ejemplo: tras un FIT positivo, colonoscopia en 60 días',
+  requestRequired: 'Primero describe la regla.',
+  examplesLabel: 'Prueba un ejemplo',
+  examples: [
+    'Para mis pacientes con hipotiroidismo en levotiroxina, TSH cada 6 meses',
+    'Tras un FIT positivo, colonoscopia en 60 días',
+    'Si la HbA1c sale por encima de 9 %, control en 30 días',
+  ],
+  modeLabel: 'Agente',
+  modes: { scripted: 'Guionado (sin conexión)', live: 'Muse Spark (en vivo)' },
+  modeHints: {
+    scripted: 'Un reemplazo determinista: redacta los tres ejemplos y nunca llama a un modelo.',
+    live: 'Muse Spark la redacta con las mismas herramientas, validador y prueba en seco; cada corrida cuesta centavos.',
+  },
+  liveUnavailable:
+    'El modo en vivo necesita un modelo en el servidor; el agente guionado redacta los tres ejemplos.',
+  draft: 'Redactar la regla',
+  drafting:
+    'El agente está trabajando: revisa tus reglas, busca los códigos, valida y prueba en seco el borrador…',
+  sandboxPatients: (n: number): string =>
+    n === 0
+      ? 'Tu entorno de pruebas aún no tiene pacientes: la prueba en seco no contaría nada.'
+      : `La prueba en seco cuenta ${count(n, 'paciente', 'pacientes')} de tu entorno de pruebas.`,
+  addSamples: 'Agregar 9 pacientes de ejemplo',
+  samplesAdded:
+    'Pacientes de ejemplo agregados (ficticios, con fechas desde el hoy de tu laboratorio).',
+  listTitle: 'Las reglas de tu entorno de pruebas',
+  empty: 'Aún no hay reglas del consultorio: describe una arriba o prueba un ejemplo.',
+  show: 'Ver',
+  status: {
+    draft: 'Borrador · pendiente de validación clínica',
+    enabled: 'Activa en este consultorio',
+    disabled: 'Desactivada',
+  },
+  kinds: { rule: 'Regla', protocol: 'Protocolo' },
+  yourRequest: 'Tu pedido',
+  whatItDoes: 'Qué hace',
+  agentNote: 'Nota del agente',
+  basedOn: (label: string): string => `Adapta: ${label}`,
+  enable: 'Activar en este consultorio',
+  enableHint:
+    'Se aplica a los registros nuevos desde ahora (los registros existentes no se vuelven a leer). Quedas registrado como el profesional que la validó.',
+  discard: 'Descartar',
+  switchOff: 'Desactivar',
+  enabledBy: (who: string, when: string): string => `Activada por ${who} el ${when}`,
+  draftedFor: (who: string, when: string): string => `Redactada para ${who} el ${when}`,
+  dryRun: {
+    title: 'Prueba en seco sobre tus registros',
+    subtitle: (n: number): string =>
+      `El motor real volvió a procesar ${count(n, 'paciente', 'pacientes')} con el borrador agregado; no se guardó nada.`,
+    truncated: 'Solo se procesaron los primeros pacientes.',
+    patients: 'Pacientes',
+    overdue: 'Vencidas hoy',
+    open: 'A tiempo',
+    closed: 'Ya cumplidas',
+    overlaps: 'Superposición con reglas existentes',
+    overlapLine: (label: string, n: number): string =>
+      `${label}: ${count(n, 'expectativa', 'expectativas')}`,
+    examples: 'Ejemplos (seudónimos)',
+    overdueBy: (days: number): string => `vencida hace ${count(days, 'día', 'días')}`,
+    dueIn: (days: number): string =>
+      days === 0 ? 'vence hoy' : `vence en ${count(days, 'día', 'días')}`,
+    closedExample: 'cumplida o reemplazada',
+    alsoAsked: (labels: string): string => `también la pide: ${labels}`,
+    none: 'Ningún paciente de tu entorno de pruebas coincide todavía.',
+  },
+  codes: {
+    title: 'Códigos y fuentes',
+    systems: { icd10: 'CIE-10', loinc: 'LOINC', atc: 'ATC', procedure: 'Procedimiento' },
+    catalogs: {
+      'condition-terms': 'términos de diagnósticos',
+      'test-names': 'léxico de exámenes',
+      'atc-names': 'nombres de medicamentos',
+    },
+    sources: 'Fuentes citadas',
+  },
+  json: {
+    title: 'Configuración (JSON)',
+    newDefinition: 'Una definición nueva del consultorio: todas las líneas se agregan.',
+    against: (id: string): string => `Cambios respecto de ${id}.`,
+    added: 'agregada',
+    removed: 'quitada',
+  },
+  trace: {
+    title: 'Cómo llegó el agente aquí',
+    toggle: 'Ver los pasos',
+    empty: 'No hay pasos registrados.',
+    tools: {
+      list_existing_rules: 'Revisó las reglas del consultorio',
+      lookup_terminology: 'Buscó un código',
+      validate_rule: 'Validó el borrador',
+      dry_run_rule: 'Lo probó en seco sobre los registros',
+      submit_draft: 'Envió el borrador',
+      abstain: 'Declinó el pedido',
+    },
+    otherTool: (tool: string): string => `Llamó a ${tool}`,
+    rejected: (outcome: string): string => `Rechazado (${outcome})`,
+    model: 'Modelo',
+    steps: 'Pasos',
+    cost: 'Costo',
+    firstValidation: 'Primera validación',
+    passed: 'Aprobada',
+    neededFixes: 'Necesitó correcciones',
+    prompt: 'Instrucciones',
+  },
+  failed: {
+    title: 'Sin borrador',
+    reasons: {
+      abstained: 'El agente declinó este pedido.',
+      no_submission: 'Al agente se le acabaron los pasos antes de enviar un borrador.',
+      invalid_submission: 'El motor rechazó el borrador enviado.',
+    },
+    agentSaid: 'En palabras del agente',
+    issues: 'Lo que encontró el motor',
+  },
+  describe: {
+    events: {
+      'result.received': 'un resultado',
+      'service_request.created': 'una orden',
+      'medication.prescribed': 'una prescripción',
+      'encounter.finished': 'una consulta',
+      'appointment.booked': 'una cita agendada',
+      'condition.recorded': 'un diagnóstico',
+    },
+    of: (what: string, codes: string): string => `${what} de ${codes}`,
+    abnormal: 'anormal',
+    normal: 'normal',
+    above: (n: number): string => `mayor que ${numbers.format(n)}`,
+    atLeast: (n: number): string => `mayor o igual que ${numbers.format(n)}`,
+    below: (n: number): string => `menor que ${numbers.format(n)}`,
+    atMost: (n: number): string => `menor o igual que ${numbers.format(n)}`,
+    when: 'Cuando',
+    expects: 'Espera',
+    fulfilledBy: 'Se cierra con',
+    replacedBy: 'Se reemplaza con',
+    coveredByPlan: 'No se agrega cuando el plan del médico ya lo pide para entonces.',
+    escalation: (policy: string): string => `Política de escalamiento ${policy}.`,
+    kinds: {
+      lab: 'un examen de laboratorio',
+      imaging: 'un estudio',
+      follow_up_visit: 'una consulta',
+      session: 'una sesión',
+      other: 'un seguimiento',
+    },
+    within: (what: string, days: string): string => `${what} en un plazo de ${days}`,
+    every: (what: string, days: string): string => `${what} cada ${days}`,
+    days: (n: number): string => count(n, 'día', 'días'),
+    aboutMonths: (days: string, months: number): string =>
+      `${days} (unos ${count(months, 'mes', 'meses')})`,
+    patients: 'Pacientes',
+    withConditions: (codes: string): string => `con ${codes}`,
+    onTreatment: (codes: string): string => `en tratamiento con ${codes}`,
+    alsoProbableFrom: (codes: string): string =>
+      `(también probable por una prescripción de ${codes})`,
+    items: 'Espera',
+    visit: 'una consulta',
+    or: ' o ',
+  },
+};
+
 const agent = {
   title: 'Agente de órdenes hasta completarlas',
   subtitle:
@@ -2053,22 +2375,19 @@ const agent = {
       'María (sintética) tiene diabetes tipo 2. En su última consulta, hace meses, su médico le pidió una HbA1c y un control en tres meses, y no volvió. Inicia la historia: el agente toma sus órdenes abiertas en tu propia clínica de prueba, con su propio reloj.',
     maria_urgent:
       'María (sintética) tiene diabetes tipo 2 y no fue a su control. Hace tres días su laboratorio envió a la clínica una HbA1c de 8,4\u00a0%, marcada como anormal: el motor pide una consulta pronto y el médico ya ve lo que significa el resultado. El agente tiene días, no semanas: sigue la escalera urgente en tu propia clínica de prueba, con su propio reloj.',
-  } as Record<string, string>,
+  },
   storyLabel: 'Historia',
   stories: {
     maria: 'Rutina: dejó de venir',
     maria_urgent: 'Urgente: su HbA1c anormal llegó a la clínica',
-  } as Record<string, string>,
+  },
   modeLabel: 'Modelo del agente',
-  modes: { live: 'Muse Spark (en vivo)', scripted: 'Guionado (sin conexión)' } as Record<
-    string,
-    string
-  >,
+  modes: { live: 'Muse Spark (en vivo)', scripted: 'Guionado (sin conexión)' },
   modeHints: {
     live: 'Llamadas reales a Muse Spark, Muse Voice y visión a través del gateway, dentro del presupuesto de la demo.',
     scripted:
       'Un reproductor determinista de la misma historia, con las mismas herramientas y salvaguardas. No necesita clave.',
-  } as Record<string, string>,
+  },
   liveUnavailable: 'El modo en vivo necesita una clave de Meta en el servidor.',
   languageLabel: 'María escribe en',
   start: 'Iniciar la historia',
@@ -2085,8 +2404,10 @@ const agent = {
     send: 'Enviar',
     sampleVoice: 'Nota de voz de ejemplo',
     samplePhoto: 'Foto de examen de ejemplo',
+    samplePdf: 'Informe PDF de ejemplo',
     uploadVoice: 'Subir una nota de voz WAV',
     uploadPhoto: 'Subir una foto',
+    uploadPdf: 'Subir un informe PDF',
     attachments: 'Enviar archivos',
     suggested: 'Respuestas sugeridas',
     voiceNote: 'Nota de voz',
@@ -2095,12 +2416,15 @@ const agent = {
     photo: 'Foto',
     photoAlt: 'Foto que envió María',
     reading: 'Leyendo la foto…',
+    pdfReport: 'Informe PDF',
+    openPdf: 'Abrir el PDF',
+    readingPdf: 'Leyendo el informe…',
     statuses: {
       sent: 'Enviado',
       delivered: 'Entregado',
       read: 'Leído',
       undelivered: 'No entregado',
-    } as Record<string, string>,
+    },
     markRead: 'Marcar como leído',
     markUndelivered: 'Marcar como no entregado',
     statusActions: 'Estado de entrega',
@@ -2134,11 +2458,8 @@ const agent = {
       guardrail: 'Salvaguarda',
       ladder: 'Escalera',
       policy: 'Política',
-    } as Record<string, string>,
-    outcomes: { ok: 'OK', rejected: 'Rechazado', error: 'Error', info: 'Info' } as Record<
-      string,
-      string
-    >,
+    },
+    outcomes: { ok: 'OK', rejected: 'Rechazado', error: 'Error', info: 'Info' },
   },
   orders: {
     title: 'Las órdenes del médico',
@@ -2151,7 +2472,7 @@ const agent = {
       doctor_note: 'De la nota del médico',
       doctor_order: 'Orden del médico',
       abnormal_result: 'Pedida por un resultado anormal',
-    } as Record<string, string>,
+    },
     stages: {
       awaiting_doctor: 'Espera al médico',
       open: 'Abierta',
@@ -2160,7 +2481,7 @@ const agent = {
       result_received: 'Resultado recibido',
       fulfilled: 'Cumplida según el motor',
       unreachable: 'Sin respuesta',
-    } as Record<string, string>,
+    },
     closedBy: (resource: string): string => `Cerrada por ${resource}`,
     closedByVisit: (when: string): string => `Cerrada por la cita del ${when}`,
     closedByResult: (when: string, value: string): string =>
@@ -2179,7 +2500,7 @@ const agent = {
       routine: 'Pista de rutina',
       urgent: 'Pista urgente',
       undelivered: 'Pista de no entregado',
-    } as Record<string, string>,
+    },
     actions: {
       message: 'Mensaje',
       call_task: 'Tarea de llamada para recepción',
@@ -2187,7 +2508,7 @@ const agent = {
       update_phone_task: 'Tarea: actualizar el teléfono',
       other_contact_task: 'Llamar a otro contacto',
       unreachable: 'Sin respuesta',
-    } as Record<string, string>,
+    },
     rungDone: 'Hecho',
     stopped: 'Detenida: todas las órdenes están agendadas o cumplidas.',
   },
@@ -2216,7 +2537,7 @@ const agent = {
       update_phone: 'Actualizar el número de teléfono',
       call_other_contact: 'Llamar a otro contacto',
       doctor_notice: 'Aviso para el médico',
-    } as Record<string, string>,
+    },
     high: 'Prioridad alta',
     done: 'Hecha',
     due: (date: string): string => `Vence el ${date}`,
@@ -2243,7 +2564,9 @@ const agent = {
         'Pidió que no la contacten: ni mensajes ni llamadas. Sus órdenes siguen abiertas para que decida el médico.',
       confirm_followup:
         'Un resultado hizo que el motor pidiera un control: confírmalo en «Para el médico» antes de que alguien la contacte.',
-    } as Record<string, string>,
+      review_photo:
+        'Envió una foto de un informe de laboratorio; esta clínica lee las fotos a mano: léela y registra el resultado.',
+    },
   },
   events: {
     ownership_taken: (p: Params): string =>
@@ -2274,6 +2597,8 @@ const agent = {
     appointment_already_booked: (): string =>
       'Ya estaba agendada con esta confirmación (idempotente).',
     photo_not_a_report: (): string => 'La foto no es un informe de laboratorio.',
+    photo_not_allowed: (): string =>
+      'Las fotos no se pueden leer automáticamente en esta clínica: no se envió a ningún modelo, pasó al equipo.',
     result_matched: (p: Params): string =>
       `Foto asociada a ${list(p['matches']).map(code).join(', ') || 'ninguna orden'}${list(p['unmatched']).length === 0 ? '' : ` (sin orden: ${list(p['unmatched']).map(code).join(', ')})`}; nombre en el informe: ${code(p['nameCheck'])}.`,
     result_submitted: (p: Params): string => `Observation FHIR enviada: ${str(p['resource'])}.`,
@@ -2293,6 +2618,8 @@ const agent = {
     voice_transcribed: (p: Params): string => `Nota de voz transcrita: “${str(p['transcript'])}”`,
     photo_read: (p: Params): string =>
       `Foto leída: ${list(p['tests']).join('; ') || 'sin resultados'}.`,
+    document_read: (p: Params): string =>
+      `Informe PDF leído: ${list(p['tests']).join('; ') || 'sin resultados'}.`,
     media_unreadable: (): string => 'No se pudo leer el archivo.',
     budget_fallback_scripted: (): string =>
       'Se alcanzó el presupuesto de la demo: este turno corre con el reproductor guionado.',
@@ -2300,7 +2627,7 @@ const agent = {
       'El modelo terminó el contacto sin escribir: el reproductor guionado envía el mensaje de este escalón.',
     turn_failed: (p: Params): string => `El turno falló: ${str(p['error'])}`,
     patient_message_received: (p: Params): string =>
-      `María envió ${str(p['kind']) === 'text' ? 'un mensaje' : str(p['kind']) === 'voice' ? 'una nota de voz' : 'una foto'}.`,
+      `María envió ${str(p['kind']) === 'text' ? 'un mensaje' : str(p['kind']) === 'voice' ? 'una nota de voz' : str(p['kind']) === 'document' ? 'un informe PDF' : 'una foto'}.`,
     ladder_reanchored: (): string => 'La escalera se reinicia desde esta respuesta.',
     all_orders_covered: (): string =>
       'Todas las órdenes están agendadas o cumplidas: la escalera se detiene.',
@@ -2358,7 +2685,7 @@ const agent = {
     'scripted:no_free_slot': 'ningún horario libre sirve.',
     'scripted:no_patient_message': 'no hay mensaje de la paciente.',
     'loop:prose_end': 'el modelo respondió en texto, así que el turno terminó.',
-  } as Record<string, string>,
+  },
   unknownEvent: (event: string): string => code(event),
 };
 
@@ -2517,6 +2844,7 @@ export const es: Messages = {
   caseDetail,
   feedback,
   inbox,
+  liveFindings,
   patientCard,
   planReview,
   adjudication,
@@ -2531,4 +2859,5 @@ export const es: Messages = {
   lab,
   evaluators,
   agent,
+  rules,
 };

@@ -83,6 +83,7 @@ export interface WhyMessages {
   };
   readonly protocolVersion: (name: string, version: string) => string;
   readonly draft: string;
+  readonly readyForSignoff: string;
   readonly validated: string;
   /** "Every 90 days", per schedule type. */
   readonly schedule: {
@@ -390,10 +391,23 @@ export interface ApiMessages {
     readonly labFutureDate: string;
     /** "See the impact on a date": the lab clinic's own clock only moves forward. */
     readonly labPastDate: string;
+    /** The rule-authoring agent's live mode: the clinic's monthly AI budget is spent. */
+    readonly ruleAuthoringBudget: string;
+    /** Enable or discard of a clinic rule whose state changed since the page loaded. */
+    readonly ruleStateChanged: string;
+    readonly ruleNotFound: string;
+    /** A clinic rule change through the admin API without `X-FollowUp-User`. */
+    readonly ruleAuthoringUser: string;
     /** The order agent has no conversation for this patient yet. */
     readonly agentNotStarted: string;
-    /** A voice note must be a WAV file; a photo a JPEG, PNG or WebP image. */
+    /** A voice note must be a WAV file; a photo a JPEG, PNG or WebP image; a report a PDF. */
     readonly agentMediaType: string;
+    /** "Import history": a multipart request needs one date and type per file. */
+    readonly labHistoryDocuments: string;
+    /** No held lab report with that id in this lab. */
+    readonly heldReportNotFound: string;
+    /** The held lab report was already confirmed or discarded. */
+    readonly heldReportDecided: string;
     /** The live mode needs a real model (`LLM_PROVIDER` is `fake`). */
     readonly agentLiveUnavailable: string;
     /** Why the evaluator lab could not read an uploaded document (`DocumentExtractionError`). */
@@ -415,6 +429,8 @@ export interface AccessGateMessages {
   readonly emailLabel: string;
   readonly codeLabel: string;
   readonly submit: string;
+  /** The EN / ES switch's accessible name. */
+  readonly languageLabel: string;
   readonly wrongCode: string;
   readonly invalidEmail: string;
   readonly tooManyAttempts: string;

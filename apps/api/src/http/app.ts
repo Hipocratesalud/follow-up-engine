@@ -5,11 +5,12 @@ import { cors } from 'hono/cors';
 import { routePath } from 'hono/route';
 import { type ApiLocale, messagesFor, resolveApiLocale } from '../i18n/index.ts';
 import { registerAdminRoutes } from './admin-routes.ts';
+import { registerRuleAuthoringRoutes } from './rule-authoring-routes.ts';
 import { registerAgentRoutes } from './agent-routes.ts';
 import type { App, AppEnv } from './context.ts';
 import { registerDemoRoutes } from './demo-routes.ts';
 import { errorResponse, HttpError, toHttpError } from './errors.ts';
-import { registerEvaluatorRoutes } from './evaluator-routes.ts';
+import { registerClientEvaluatorEvents, registerEvaluatorRoutes } from './evaluator-routes.ts';
 import { fhirErrorResponse, registerFhirRoutes } from './fhir-routes.ts';
 import { registerInboxRoutes } from './inbox-routes.ts';
 import { registerLabRecordRoutes } from './lab-records-routes.ts';
@@ -17,7 +18,11 @@ import { registerMetricsRoutes } from '../metrics/metrics-routes.ts';
 import { registerValueRoutes } from '../value/value-routes.ts';
 import { registerJobRoutes } from './job-routes.ts';
 import { registerPatientQueueRoutes } from './patient-queue-routes.ts';
-import { registerReviewerDemoRoutes, registerReviewerRoutes } from './reviewer-routes.ts';
+import {
+  registerReviewerDemoRoutes,
+  registerReviewerLabRoutes,
+  registerReviewerRoutes,
+} from './reviewer-routes.ts';
 import { registerAdjudicationRoutes } from './adjudication-routes.ts';
 import { registerEngineTestsRoutes } from './engine-tests-routes.ts';
 import { docsPage, openApiDocument } from './openapi.ts';
@@ -311,9 +316,11 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   if (site?.accessCode !== undefined) {
     const sessionSecret = site.sessionSecret ?? deriveSessionSecret(site.accessCode);
     app.use('*', accessGate(site.accessCode, sessionSecret));
-    registerAccessGate(app, runtime, site.accessCode, sessionSecret, site.defaultLocale);
+    registerAccessGate(app, runtime, site.accessCode, sessionSecret);
     // "Evaluating as <email>" in apps/inbox's header banner.
     app.get('/api/evaluator/me', (c) => c.json({ email: c.var.evaluatorEmail }));
+    // Page views and the agent page's selects, reported by the inbox.
+    registerClientEvaluatorEvents(app, runtime);
     // "Change" in the same banner: re-enter the code and email.
     app.post('/api/evaluator/logout', (c) => {
       clearEvaluatorSession(c);
@@ -400,9 +407,12 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   registerMetricsRoutes(app, runtime);
   registerValueRoutes(app);
   registerAdminRoutes(app, runtime);
+  // Clinic-authored rules: /api/admin/rules/authored always, the lab's on a fake clock.
+  registerRuleAuthoringRoutes(app, runtime, { lab: runtime.fakeClock !== undefined });
   if (runtime.fakeClock !== undefined) {
     registerDemoRoutes(app, runtime, runtime.fakeClock, options.worker);
     registerReviewerDemoRoutes(app, runtime);
+    registerReviewerLabRoutes(app, runtime);
     registerLabRecordRoutes(app, runtime, labClocks);
     registerEngineTestsRoutes(app, runtime, labClocks);
     registerEvaluatorRoutes(app, runtime);

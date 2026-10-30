@@ -478,6 +478,7 @@ export const EN = {
     },
     protocolVersion: (name, version) => `${name} v${version}`,
     draft: 'Draft: not yet validated by the clinical team',
+    readyForSignoff: 'Ready for sign-off: not yet validated by the clinical team',
     validated: 'Validated by the clinical team',
     schedule: {
       interval: (days) => `Every ${String(days)} days.`,
@@ -621,6 +622,8 @@ export const EN = {
     feedbackReasonRequired:
       'Pick a reason when the case was not useful: it helps us improve the rule.',
     domainValidation: {
+      request: 'Describe the rule in 1 to 500 characters.',
+      actor: 'Say who makes the change.',
       period: 'The period must start before it ends and last at most 800 days.',
       until: 'You can only snooze a case until a future date.',
       status: 'The case is no longer active: this action does not apply.',
@@ -636,8 +639,17 @@ export const EN = {
     invalidConsultation: 'We could not build the consultation from that data.',
     labFutureDate: "That date is after the lab clinic's own current date.",
     labPastDate: "The lab clinic's date can only move forward.",
+    ruleAuthoringBudget: "This clinic's AI budget for the month is spent: try the scripted mode.",
+    ruleStateChanged:
+      'That rule changed in the meantime (already enabled or switched off): reload it.',
+    ruleNotFound: 'That clinic rule does not exist (it may have been discarded).',
+    ruleAuthoringUser: 'Say which clinician makes the change (X-FollowUp-User).',
     agentNotStarted: 'The agent does not own orders for this patient yet: start the story first.',
-    agentMediaType: 'A voice note must be a WAV file and a photo a JPEG, PNG or WebP image.',
+    agentMediaType:
+      'A voice note must be a WAV file, a photo a JPEG, PNG or WebP image, and a report a PDF.',
+    labHistoryDocuments: 'Give each file its own date and type (one entry per file, in order).',
+    heldReportNotFound: 'There is no report held for review with that id in your lab.',
+    heldReportDecided: 'Someone already decided on that report.',
     agentLiveUnavailable:
       'The live mode needs a Meta API key on the server: use the scripted mode.',
     noteNotRead: (model, error) =>
@@ -810,6 +822,7 @@ export const EN = {
     emailLabel: 'Your email',
     codeLabel: 'Access code',
     submit: 'Enter',
+    languageLabel: 'Language',
     wrongCode: 'That code is not valid. Check it and try again.',
     invalidEmail: 'Enter a valid email address.',
     tooManyAttempts: 'Too many attempts. Wait a minute and try again.',

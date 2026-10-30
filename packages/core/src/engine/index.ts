@@ -36,6 +36,7 @@ export {
   replayBatches,
   type BackfillOptions,
   type BackfillReport,
+  type PatientReplayReport,
   type ReplayBatch,
 } from './backfill/backfill.ts';
 export { BACKFILL_RELEASE_DEFAULTS, type BackfillReleasePlan } from './backfill/release.ts';
@@ -170,6 +171,7 @@ export {
 export { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from './settings.ts';
 
 export * from './reviewer/index.ts';
+export * from './rule-authoring/index.ts';
 export * from './adjudicator/index.ts';
 export {
   ANCHOR_ROLES,
@@ -188,6 +190,9 @@ export {
   type PlanExplanation,
   type ProtocolExplanation,
 } from './explain/explain.ts';
+export { ATC_SYSTEM, atcCodeOfName, isAtcCode, knownAtcCodes } from './terminology/atc.ts';
+export { LOINC_SYSTEM } from './terminology/loinc.ts';
+export { authoredIsLive } from './rules/overrides.ts';
 export {
   orderCodingOf,
   TEST_GROUPS,

@@ -7,6 +7,7 @@ import type {
   AgentStoryRequest,
 } from '../../api/agent-contract.ts';
 import { useAgentPage, useStartAgentStory } from '../../api/agent-queries.ts';
+import { useTrackEvaluatorEvent } from '../../api/evaluator-tracking.ts';
 import { ErrorState, InlineError } from '../../components/states.tsx';
 import { Badge, Button, Card, Skeleton } from '../../components/ui.tsx';
 import { useLocale, useT } from '../../i18n/index.ts';
@@ -30,12 +31,17 @@ function StoryCard({
   const [language, setLanguage] = useState<AgentLanguage>(locale);
   const [story, setStory] = useState<AgentStoryRequest['story']>('maria');
   const start = useStartAgentStory();
+  const track = useTrackEvaluatorEvent();
 
   function handleMode(event: ChangeEvent<HTMLSelectElement>): void {
-    setMode(event.target.value === 'live' ? 'live' : 'scripted');
+    const next = event.target.value === 'live' ? 'live' : 'scripted';
+    setMode(next);
+    track({ action: 'agent_model_switched', mode: next });
   }
   function handleLanguage(event: ChangeEvent<HTMLSelectElement>): void {
-    setLanguage(event.target.value === 'es' ? 'es' : 'en');
+    const next = event.target.value === 'es' ? 'es' : 'en';
+    setLanguage(next);
+    track({ action: 'agent_language_switched', language: next });
   }
   function handleStory(event: ChangeEvent<HTMLSelectElement>): void {
     setStory(event.target.value === 'maria_urgent' ? 'maria_urgent' : 'maria');

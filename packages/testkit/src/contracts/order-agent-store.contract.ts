@@ -98,6 +98,27 @@ export function describeOrderAgentStoreContract(
       expect(await store().listConversations(b)).toEqual([]);
     });
 
+    it('lists conversations oldest first, and the last one started last when they share a time (a restarted story on a stopped lab clock)', async () => {
+      const { a } = freshClinics();
+      // Patient ids sort against the start order, so an id tiebreak would get it wrong.
+      const first = conversation(a, patientId(uniqueId('pat-z')));
+      const second = conversation(a, patientId(uniqueId('pat-m')));
+      const third = conversation(a, patientId(uniqueId('pat-a')));
+      await store().saveConversation(first);
+      await store().saveConversation(second);
+      await store().saveConversation(third);
+      // Updating an earlier one keeps its place.
+      await store().saveConversation({ ...first, status: 'done', updatedAt: at(9) });
+      const earlier = conversation(a, patientId(uniqueId('pat-0')));
+      await store().saveConversation({ ...earlier, createdAt: new Date(at(0).getTime() - 1) });
+      expect((await store().listConversations(a)).map((item) => item.patientId)).toEqual([
+        earlier.patientId,
+        first.patientId,
+        second.patientId,
+        third.patientId,
+      ]);
+    });
+
     it('keeps messages in order and updates them in place', async () => {
       const { a, b } = freshClinics();
       const patient = patientId(uniqueId('pat'));

@@ -343,7 +343,9 @@ describe('check-ups, record quality, utilization and questions', () => {
     expect(english?.summary).toMatch(/^Creatinine rising over the last 3 results/);
     expect(english?.evidence[0]?.quote).toBe('Creatinine: 1.1 mg/dL');
     expect(spanish?.summary).toMatch(/^Creatinina en ascenso en los últimos 3 resultados/);
-    expect(spanish?.evidence[0]?.quote).toBe('Creatinina: 1.1 mg/dL');
+    // The canonical line in Spanish numbers: a decimal comma.
+    expect(spanish?.evidence[0]?.quote).toBe('Creatinina: 1,1 mg/dL');
+    expect(spanish?.summary).toContain('(1,1 → 1,4 → 1,75 mg/dL)');
   });
 
   it("visits far more frequent than the patient's own pattern", () => {

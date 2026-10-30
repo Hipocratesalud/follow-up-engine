@@ -62,7 +62,8 @@ GRANT SELECT ON
   follow_up.contact_communications,
   follow_up.patient_contact_flags,
   follow_up.patient_rule_suppressions,
-  follow_up.plan_item_reviews
+  follow_up.plan_item_reviews,
+  follow_up.expectation_events
 TO authenticated;
 
 -- The clinic row without its API key hash.
@@ -142,6 +143,12 @@ CREATE POLICY clinic_reads_own_rows ON follow_up.patient_rule_suppressions
 -- Plan item reviews (migration 0015): the clinicians' verdicts on AI-read plan items.
 DROP POLICY IF EXISTS clinic_reads_own_rows ON follow_up.plan_item_reviews;
 CREATE POLICY clinic_reads_own_rows ON follow_up.plan_item_reviews
+  FOR SELECT TO authenticated
+  USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id'));
+
+-- Expectation events (migration 0019): closures the engine reclassified after the fact.
+DROP POLICY IF EXISTS clinic_reads_own_rows ON follow_up.expectation_events;
+CREATE POLICY clinic_reads_own_rows ON follow_up.expectation_events
   FOR SELECT TO authenticated
   USING (clinic_id = (SELECT auth.jwt() ->> 'clinic_id'));
 

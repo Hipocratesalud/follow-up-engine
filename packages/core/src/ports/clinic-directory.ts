@@ -12,6 +12,14 @@ export type RecordCapability = (typeof RECORD_CAPABILITIES)[number];
 
 export interface ClinicSettings {
   readonly allowPatientContact: boolean;
+  /**
+   * Whether an unmasked image (a photo of a lab report) may be sent to an
+   * external model provider. A photo cannot be masked: the patient's name
+   * leaves as pixels. Off by default; on only for the synthetic demo clinic
+   * and the evaluators' sandbox labs. Off, every photo read is refused by
+   * the `llm_gateway` before any network call (held for the team).
+   */
+  readonly allowUnmaskedImagesToProvider: boolean;
   /** Backfill release cap, default 20. */
   readonly dailyCaseCapPerOwner: number;
   /** Default 730. */
@@ -54,6 +62,13 @@ export interface ClinicSettings {
    * clinical team validated it; the demo and lab sandboxes run it in shadow.
    */
   readonly adjudicator?: AdjudicatorSettings;
+  /**
+   * Most live clinical-reviewer finding cards each doctor gets per day in
+   * the inbox (PRD V3, alert fatigue). Absent: `DEFAULT_DAILY_FINDING_CAP`
+   * (5). Findings over it wait and are released on later days, most severe
+   * and oldest first; nothing is dropped.
+   */
+  readonly dailyFindingCapPerDoctor?: number;
 }
 
 /**
