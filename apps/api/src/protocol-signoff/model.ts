@@ -365,11 +365,19 @@ export interface NotApplicableFact {
   readonly label: string;
 }
 
+/** One item with no pinpoint citation of its own: a question for the physician to answer first. */
+export interface ToAnswerFirst {
+  readonly key: string;
+  readonly label: string;
+}
+
 export interface SignoffPageData {
   readonly protocol: Protocol;
   readonly name: string;
   /** The protocol's own `sources`, one bullet each (the "Guidelines cited" section). */
   readonly sources: readonly string[];
+  /** Items with no `citation` (see `ItemSection.citation`): raised first, in the opening lines. */
+  readonly toAnswerFirst: readonly ToAnswerFirst[];
   readonly enrollment: readonly string[];
   readonly items: readonly ItemSection[];
   readonly exceptions: readonly ExceptionSection[];
@@ -485,10 +493,14 @@ export function buildSignoffPageData(
       })),
     };
   });
+  const toAnswerFirst = items
+    .filter((item) => item.citation === undefined)
+    .map((item) => ({ key: item.key, label: item.expected }));
   return {
     protocol,
     name: protocolName(locale, protocol),
     sources: sourceCitations(locale, protocol),
+    toAnswerFirst,
     enrollment: enrollmentBullets(locale, protocol),
     items,
     exceptions,
