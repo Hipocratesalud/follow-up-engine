@@ -66,6 +66,7 @@ const nav = {
   engineTests: 'Engine tests',
   lab: 'Lab',
   agent: 'Agent',
+  rules: 'Rules',
   evaluators: 'Evaluators',
   simulatedDate: 'Simulated date:',
   simulatedDateTitle: 'The API runs on a simulated clock for the demo',
@@ -1847,6 +1848,12 @@ const EVALUATOR_ACTION_LABELS = {
   case_viewed: 'Viewed a case',
   patient_documents_viewed: 'Viewed a patient’s documents',
   engine_test_step: 'Loaded an engine-test step',
+  engine_test_verdict: 'Gave a verdict on an engine test',
+  agent_message_sent: 'Wrote to the agent as the patient',
+  lab_rule_drafted: 'Drafted a rule with the agent',
+  lab_rule_enabled: 'Enabled a clinic rule',
+  lab_rule_discarded: 'Discarded or switched off a clinic rule',
+  lab_rule_samples_added: 'Added the rule sample patients',
 } as Record<string, string>;
 
 const lab = {
@@ -2093,6 +2100,172 @@ function rung(id: unknown, action: unknown): string {
   const what = RUNG_ACTIONS[str(action) || 'message'] ?? code(action);
   return `${RUNG_TRACKS[track] ?? track} rung, ${when}: ${what}`;
 }
+
+const rules = {
+  title: 'Rules',
+  subtitle:
+    "Write a follow-up rule in your own words. The agent drafts it in the engine's own format, checks every code against the catalogs and dry-runs it on your sandbox's records. Nothing runs until a clinician enables it.",
+  requestLabel: 'Describe the rule',
+  requestPlaceholder: 'For example: after a positive FIT, colonoscopy within 60 days',
+  requestRequired: 'Describe the rule first.',
+  examplesLabel: 'Try an example',
+  examples: [
+    'For my patients with hypothyroidism on levothyroxine, TSH every 6 months',
+    'After a positive FIT, colonoscopy within 60 days',
+    'If HbA1c comes back above 9%, a control visit within 30 days',
+  ] as readonly string[],
+  modeLabel: 'Agent',
+  modes: { scripted: 'Scripted (offline)', live: 'Muse Spark (live)' } as Record<string, string>,
+  modeHints: {
+    scripted: 'A deterministic stand-in: it drafts the three examples and never calls a model.',
+    live: 'Muse Spark drafts it through the same tools, validator and dry run; a run costs cents.',
+  } as Record<string, string>,
+  liveUnavailable:
+    'The live mode needs a model on the server; the scripted agent drafts the three examples.',
+  draft: 'Draft the rule',
+  drafting:
+    'The agent is working: listing your rules, looking up codes, validating and dry-running the draft…',
+  sandboxPatients: (n: number): string =>
+    n === 0
+      ? 'Your sandbox has no patients yet: the dry run would count nothing.'
+      : `The dry run counts the ${count(n, 'patient', 'patients')} of your sandbox.`,
+  addSamples: 'Add 9 sample patients',
+  samplesAdded: 'Sample patients added (fictitious, dated from your lab’s today).',
+  listTitle: "Your sandbox's rules",
+  empty: 'No clinic rules yet: describe one above, or try an example.',
+  show: 'Show',
+  status: {
+    draft: 'Draft · pending clinical validation',
+    enabled: 'Enabled for this clinic',
+    disabled: 'Switched off',
+  } as Record<string, string>,
+  kinds: { rule: 'Rule', protocol: 'Protocol' } as Record<string, string>,
+  yourRequest: 'Your request',
+  whatItDoes: 'What it does',
+  agentNote: "Agent's note",
+  basedOn: (label: string): string => `Adapts: ${label}`,
+  enable: 'Enable for this clinic',
+  enableHint:
+    'It applies to new records from now on (existing records are not re-read). You are recorded as the clinician who validated it.',
+  discard: 'Discard',
+  switchOff: 'Switch off',
+  enabledBy: (who: string, when: string): string => `Enabled by ${who} on ${when}`,
+  draftedFor: (who: string, when: string): string => `Drafted for ${who} on ${when}`,
+  dryRun: {
+    title: 'Dry run on your records',
+    subtitle: (n: number): string =>
+      `The real engine replayed ${count(n, 'patient', 'patients')} with the draft added; nothing was written.`,
+    truncated: 'Only the first patients were replayed.',
+    patients: 'Patients',
+    overdue: 'Overdue now',
+    open: 'On schedule',
+    closed: 'Already fulfilled',
+    overlaps: 'Overlap with existing rules',
+    overlapLine: (label: string, n: number): string =>
+      `${label}: ${count(n, 'expectation', 'expectations')}`,
+    examples: 'Examples (pseudonymous)',
+    overdueBy: (days: number): string => `overdue by ${count(days, 'day', 'days')}`,
+    dueIn: (days: number): string =>
+      days === 0 ? 'due today' : `due in ${count(days, 'day', 'days')}`,
+    closedExample: 'fulfilled or replaced',
+    alsoAsked: (labels: string): string => `also asked by ${labels}`,
+    none: 'No patient in your sandbox matches it yet.',
+  },
+  codes: {
+    title: 'Codes and sources',
+    systems: { icd10: 'ICD-10', loinc: 'LOINC', atc: 'ATC', procedure: 'Procedure' } as Record<
+      string,
+      string
+    >,
+    catalogs: {
+      'condition-terms': 'condition terms',
+      'test-names': 'test lexicon',
+      'atc-names': 'medication names',
+    } as Record<string, string>,
+    sources: 'Sources cited',
+  },
+  json: {
+    title: 'Configuration (JSON)',
+    newDefinition: 'A new clinic definition: every line is added.',
+    against: (id: string): string => `Changes against ${id}.`,
+    added: 'added',
+    removed: 'removed',
+  },
+  trace: {
+    title: 'How the agent got here',
+    toggle: 'See the steps',
+    empty: 'No steps recorded.',
+    tools: {
+      list_existing_rules: "Listed the clinic's rules",
+      lookup_terminology: 'Looked up a code',
+      validate_rule: 'Validated the draft',
+      dry_run_rule: 'Dry-ran it on the records',
+      submit_draft: 'Submitted the draft',
+      abstain: 'Declined the request',
+    } as Record<string, string>,
+    otherTool: (tool: string): string => `Called ${tool}`,
+    rejected: (outcome: string): string => `Rejected (${outcome})`,
+    model: 'Model',
+    steps: 'Steps',
+    cost: 'Cost',
+    firstValidation: 'First validation',
+    passed: 'Passed',
+    neededFixes: 'Needed fixes',
+    prompt: 'Prompt',
+  },
+  failed: {
+    title: 'No draft',
+    reasons: {
+      abstained: 'The agent declined this request.',
+      no_submission: 'The agent ran out of steps before submitting a draft.',
+      invalid_submission: 'The engine refused the submitted draft.',
+    } as Record<string, string>,
+    agentSaid: 'In the agent’s words',
+    issues: 'What the engine found',
+  },
+  describe: {
+    events: {
+      'result.received': 'a result',
+      'service_request.created': 'an order',
+      'medication.prescribed': 'a prescription',
+      'encounter.finished': 'a visit',
+      'appointment.booked': 'a booked appointment',
+      'condition.recorded': 'a diagnosis',
+    } as Record<string, string>,
+    of: (what: string, codes: string): string => `${what} of ${codes}`,
+    abnormal: 'abnormal',
+    normal: 'normal',
+    above: (n: number): string => `above ${numbers.format(n)}`,
+    atLeast: (n: number): string => `at or above ${numbers.format(n)}`,
+    below: (n: number): string => `below ${numbers.format(n)}`,
+    atMost: (n: number): string => `at or below ${numbers.format(n)}`,
+    when: 'When',
+    expects: 'Expects',
+    fulfilledBy: 'Closed by',
+    replacedBy: 'Replaced by',
+    coveredByPlan: "Not added when the doctor's plan already asks for it by then.",
+    escalation: (policy: string): string => `Escalation policy ${policy}.`,
+    kinds: {
+      lab: 'a lab test',
+      imaging: 'a study',
+      follow_up_visit: 'a visit',
+      session: 'a session',
+      other: 'a follow-up',
+    } as Record<string, string>,
+    within: (what: string, days: string): string => `${what} within ${days}`,
+    every: (what: string, days: string): string => `${what} every ${days}`,
+    days: (n: number): string => count(n, 'day', 'days'),
+    aboutMonths: (days: string, months: number): string =>
+      `${days} (about ${count(months, 'month', 'months')})`,
+    patients: 'Patients',
+    withConditions: (codes: string): string => `with ${codes}`,
+    onTreatment: (codes: string): string => `on ${codes}`,
+    alsoProbableFrom: (codes: string): string => `(also probable from a prescription of ${codes})`,
+    items: 'Expects',
+    visit: 'a visit',
+    or: ' or ',
+  },
+};
 
 const agent = {
   title: 'Order-to-completion agent',
@@ -2542,4 +2715,5 @@ export const en = {
   lab,
   evaluators,
   agent,
+  rules,
 };

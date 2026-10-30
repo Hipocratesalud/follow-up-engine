@@ -14,6 +14,7 @@ const PREFIXES: Readonly<Record<IdKind, string>> = {
   review_run: 'rr',
   plan_item_review: 'pir',
   adjudication: 'adj',
+  expectation_event: 'xev',
 };
 
 /** Deterministic ids (`case-1`, `exp-2`, ...) for tests and reproducible demos. */

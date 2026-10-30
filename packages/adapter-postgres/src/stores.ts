@@ -15,6 +15,7 @@ import {
   PostgresConditionRepository,
   PostgresQualityFindingRepository,
 } from './condition-repository.ts';
+import { PostgresExpectationEventLog } from './expectation-event-log.ts';
 import { PostgresExpectationRepository } from './expectation-repository.ts';
 import { PostgresJobQueue } from './job-queue.ts';
 import { PostgresLlmUsageLog } from './llm-usage-log.ts';
@@ -29,6 +30,7 @@ import type { Queryable, Tables } from './sql.ts';
 export interface PostgresStores extends TransactionalStores {
   readonly clinicalRecords: PostgresClinicalRecordRepository;
   readonly expectations: PostgresExpectationRepository;
+  readonly expectationEvents: PostgresExpectationEventLog;
   readonly cases: PostgresCaseRepository;
   readonly feedback: PostgresFeedbackRepository;
   readonly conditions: PostgresConditionRepository;
@@ -56,6 +58,7 @@ export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): P
   return {
     clinicalRecords: new PostgresClinicalRecordRepository(ctx),
     expectations: new PostgresExpectationRepository(ctx),
+    expectationEvents: new PostgresExpectationEventLog(ctx),
     cases: new PostgresCaseRepository(ctx),
     feedback: new PostgresFeedbackRepository(ctx),
     conditions: new PostgresConditionRepository(ctx),

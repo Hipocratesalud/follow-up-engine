@@ -370,6 +370,18 @@ export function atcNamesOf(atc: string): readonly string[] {
   return ATC_NAMES.filter((entry) => entry.atc === atc).flatMap((entry) => entry.names);
 }
 
+/** Every ATC code the name table knows, each with its name stems (the rule-authoring catalog). */
+export function knownAtcCodes(): readonly {
+  readonly atc: string;
+  readonly names: readonly string[];
+}[] {
+  const byCode = new Map<string, string[]>();
+  for (const entry of ATC_NAMES) {
+    byCode.set(entry.atc, [...(byCode.get(entry.atc) ?? []), ...entry.names]);
+  }
+  return [...byCode.entries()].map(([atc, names]) => ({ atc, names: [...new Set(names)] }));
+}
+
 /** Whether `code` is written like an ATC code (`B01AF02`, `C10`). */
 export function isAtcCode(code: string): boolean {
   return ATC_PATTERN.test(code.trim().toUpperCase());

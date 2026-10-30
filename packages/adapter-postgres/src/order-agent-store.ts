@@ -283,7 +283,7 @@ export class PostgresOrderAgentStore implements OrderAgentStore {
 
   async listConversations(clinicId: ClinicId): Promise<readonly AgentConversation[]> {
     const { rows } = await this.#db().query<Row>(
-      `SELECT * FROM ${this.#t('order_agent_conversations')} WHERE clinic_id = $1 ORDER BY created_at, patient_id`,
+      `SELECT * FROM ${this.#t('order_agent_conversations')} WHERE clinic_id = $1 ORDER BY created_at, seq`,
       [clinicId],
     );
     return rows.map(toConversation);

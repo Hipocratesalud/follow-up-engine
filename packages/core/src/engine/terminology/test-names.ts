@@ -23,6 +23,8 @@ export interface TestGroup {
   readonly kind: 'lab' | 'imaging';
   /** Short English description used when the model's own does not match the quote. */
   readonly label: string;
+  /** Spanish display of the test, where it differs from `label` (the rule-authoring page). */
+  readonly labelEs?: string;
   readonly terms: readonly string[];
   readonly loinc: readonly string[];
   /**
@@ -424,6 +426,33 @@ export const TEST_GROUPS: readonly TestGroup[] = [
       'occult blood',
     ],
     loinc: ['2335-8'],
+  },
+  {
+    // Colorectal cancer screening: the fecal immunochemical test (FIT).
+    id: 'fit',
+    kind: 'lab',
+    label: 'fecal immunochemical test (FIT)',
+    labelEs: 'test inmunoquímico fecal (FIT)',
+    terms: [
+      'prueba fit',
+      'test fit',
+      'fit test',
+      'test inmunoquimico fecal',
+      'prueba inmunoquimica fecal',
+      'sangre oculta inmunologica',
+      'sangre oculta en heces inmunologica',
+      'fecal immunochemical test',
+      'immunochemical fecal occult blood test',
+    ],
+    loinc: ['29771-3', '57905-2', '56490-6', '56491-4'],
+  },
+  {
+    id: 'colonoscopy',
+    kind: 'imaging',
+    label: 'colonoscopy',
+    labelEs: 'colonoscopia',
+    terms: ['colonoscopia', 'videocolonoscopia', 'colonoscopy'],
+    loinc: ['18746-8'],
   },
   {
     id: 'ultrasound',

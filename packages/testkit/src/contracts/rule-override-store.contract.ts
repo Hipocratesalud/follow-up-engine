@@ -1,4 +1,4 @@
-import type { RuleOverrideStore } from '@follow-up-engine/core';
+import type { AuthoredRule, RuleOverrideStore } from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import {
   at,
@@ -10,6 +10,53 @@ import {
 
 const LAB = 'lab_order_result_pending';
 const IMAGING = 'imaging_order_result_pending';
+const AUTHORED_ID = 'clinic_contract_rule';
+
+/** A clinic-authored rule as the authoring service stores it (shape only; the store does not interpret it). */
+const AUTHORED: AuthoredRule = {
+  status: 'draft',
+  definition: {
+    kind: 'rule',
+    rule: {
+      id: AUTHORED_ID,
+      version: '1.0.0',
+      layer: 'universal',
+      description: 'Contract fixture',
+      reason: { code: AUTHORED_ID, label: 'Contract fixture' },
+      trigger: { event: 'result.received', filter: { 'code.code': ['29771-3'] } },
+      dueInDays: 60,
+      fulfilledBy: [{ event: 'result.received', match: 'any' }],
+      priority: 50,
+      escalationPolicy: { id: 'default_v1', steps: [{ afterDays: 14, action: 'notify_clinic' }] },
+      suggestedAction: { code: 'order_follow_up_study', label: 'Order a study' },
+    },
+  },
+  request: 'After a positive FIT, colonoscopy within 60 days',
+  labels: { en: 'Colonoscopy after a positive FIT', es: 'Colonoscopia tras un FIT positivo' },
+  provenance: {
+    mode: 'scripted',
+    modelId: 'fake:fake-rule-author',
+    promptVersion: 'rule-authoring@1',
+    costUsd: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    steps: 1,
+    trace: [{ index: 1, tool: 'submit_draft', arguments: {}, outcome: 'ok', summary: 'submitted' }],
+    firstValidationPassed: true,
+    dryRun: {
+      asOf: '2026-01-05T12:00:00.000Z',
+      patientsScanned: 0,
+      truncated: false,
+      patientsMatched: 0,
+      expectations: { total: 0, open: 0, overdue: 0, closed: 0 },
+      overlaps: { expectations: 0, patients: 0, byRule: [] },
+      examples: [],
+    },
+    terminology: [{ system: 'loinc', code: '29771-3', display: 'FIT', catalog: 'test-names' }],
+    draftedBy: 'dr-ruiz',
+    draftedAt: '2026-01-05T12:00:00.000Z',
+  },
+};
 
 /** Contract every {@link RuleOverrideStore} adapter must pass (HIP-141). */
 export function describeRuleOverrideStoreContract(
@@ -128,6 +175,34 @@ export function describeRuleOverrideStoreContract(
         expectedVersion: 1,
       });
       expect((await store().get(a, LAB))?.override).toEqual({ dueInDays: 5 });
+    });
+
+    it('keeps a clinic-authored rule whole, versioned and in the history', async () => {
+      const { a, b } = freshClinics();
+      const meta = { actor: 'dr-ruiz', reason: 'Draft by the rule-authoring agent', at: at(1) };
+      await store().write(a, { ruleId: AUTHORED_ID, override: { authored: AUTHORED }, ...meta });
+      expect((await store().get(a, AUTHORED_ID))?.override).toEqual({ authored: AUTHORED });
+      const enabled: AuthoredRule = {
+        ...AUTHORED,
+        status: 'enabled',
+        validatedBy: 'dr-ruiz',
+        validatedAt: '2026-01-06T12:00:00.000Z',
+      };
+      const change = await store().write(a, {
+        ruleId: AUTHORED_ID,
+        override: { authored: enabled },
+        ...meta,
+        at: at(2),
+      });
+      expect(change.previous).toEqual({ authored: AUTHORED });
+      expect(change.next).toEqual({ authored: enabled });
+      expect((await store().get(a, AUTHORED_ID))?.version).toBe(2);
+      expect(await store().get(b, AUTHORED_ID)).toBeUndefined();
+      await store().write(a, { ruleId: AUTHORED_ID, ...meta, at: at(3) });
+      expect(await store().get(a, AUTHORED_ID)).toBeUndefined();
+      expect((await store().history(a, { ruleId: AUTHORED_ID }))[0]?.previous).toEqual({
+        authored: enabled,
+      });
     });
 
     it('isolates clinics', async () => {

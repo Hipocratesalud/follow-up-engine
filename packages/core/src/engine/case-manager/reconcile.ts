@@ -37,6 +37,8 @@ export async function closeExpectation(
     ...(closedBy === undefined ? {} : { closedBy }),
     updatedAt: now,
   };
+  // A new closure is read as itself: a reclassification belonged to the closure before.
+  delete closed.reclassification;
   if (recheckAt === undefined) {
     delete closed.recheckAt;
   } else {
@@ -60,6 +62,7 @@ export function reopened(expectation: Expectation, now: Date): Expectation {
   delete open.closedAt;
   delete open.closedReason;
   delete open.closedBy;
+  delete open.reclassification;
   delete open.caseId;
   delete open.recheckAt;
   return open;

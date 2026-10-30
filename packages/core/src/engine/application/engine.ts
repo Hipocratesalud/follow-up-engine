@@ -46,6 +46,11 @@ import type { CaseId } from '../../domain/ids.ts';
 import { type CaseCommands, createCaseCommands } from '../case-manager/commands.ts';
 import { protocolEnabled } from '../../config/protocol.ts';
 import { Catalog } from '../catalog.ts';
+import {
+  type AuthoredRuleCommands,
+  createAuthoredRuleCommands,
+} from '../rule-authoring/commands.ts';
+import { type AuthoredDefinition, authoredDefinitionId } from '../../domain/authored-rule.ts';
 import { createExplainer, type ExpectationExplanation } from '../explain/explain.ts';
 import { type EscalationReport, runEscalation } from '../escalation/escalation.ts';
 import {
@@ -211,6 +216,12 @@ export interface FollowUpEngine {
   readonly suppressions: SuppressionCommands;
   /** Per-clinic rule overrides: deadlines and switches, versioned and audited. */
   readonly ruleOverrides: RuleOverrideCommands;
+  /**
+   * Rules a clinic wrote for itself (the rule-authoring agent's drafts),
+   * kept in its rule overrides: draft, enable (by a clinician), discard,
+   * and the engine's dry run over the clinic's current records.
+   */
+  readonly authoredRules: AuthoredRuleCommands;
   /** The nightly safety net for lost or out-of-order events. */
   readonly reconciliation: ReconciliationCommands;
   /** Per rule: how many cases the team found useful and why it dismissed the rest. */
@@ -257,20 +268,34 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
   // The clinic's stored overrides (a 10-day lab deadline, a rule switched
   // off) layered over the validated rules.
   const rules = new OverridingRuleSource(deps.rules, deps.ruleOverrides ?? deps.unitOfWork);
-  async function loadCatalog(clinicId: ClinicId): Promise<Catalog> {
+  /**
+   * The clinic's catalog; with `extra`, as it would be with that
+   * clinic-authored definition enabled too (the rule-authoring dry run).
+   */
+  async function buildCatalog(clinicId: ClinicId, extra?: AuthoredDefinition): Promise<Catalog> {
     const retired = await rules.listRetiredRules(clinicId);
-    const [enabledRules, protocols, policies, clinic] = await Promise.all([
+    const [enabledRules, protocols, authoredProtocols, policies, clinic] = await Promise.all([
       rules.listRules(clinicId),
       deps.protocols.listProtocols(clinicId),
+      rules.listAuthoredProtocols(clinicId),
       deps.escalationPolicies?.listPolicies(clinicId) ?? Promise.resolve([]),
       deps.clinics.get(clinicId),
     ]);
     // Per-clinic opt-in: a protocol runs only where the clinic enabled it.
+    // A clinic-authored protocol was enabled by a clinician of the clinic.
     const enabled = clinic?.settings.enabledProtocols;
     const clinicPolicyId = clinic?.settings.escalationPolicyId;
+    const extraId = extra === undefined ? undefined : authoredDefinitionId(extra);
     return new Catalog(
-      enabledRules,
-      protocols.filter((protocol) => protocolEnabled(protocol.id, enabled)),
+      [
+        ...enabledRules.filter((rule) => rule.id !== extraId),
+        ...(extra?.kind === 'rule' ? [extra.rule] : []),
+      ],
+      [
+        ...protocols.filter((protocol) => protocolEnabled(protocol.id, enabled)),
+        ...authoredProtocols.filter((protocol) => protocol.id !== extraId),
+        ...(extra?.kind === 'protocol' ? [extra.protocol] : []),
+      ],
       {
         policies,
         ...(clinicPolicyId === undefined ? {} : { clinicPolicyId }),
@@ -278,6 +303,7 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
       },
     );
   }
+  const loadCatalog = (clinicId: ClinicId): Promise<Catalog> => buildCatalog(clinicId);
   const shared = { unitOfWork: deps.unitOfWork, ids: deps.ids, settings, loadCatalog };
   const ingestDeps = {
     ...shared,
@@ -344,6 +370,12 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
       unitOfWork: deps.unitOfWork,
       rules,
       clock: deps.clock,
+    }),
+    authoredRules: createAuthoredRuleCommands({
+      unitOfWork: deps.unitOfWork,
+      rules,
+      clock: deps.clock,
+      dryRun: { ...ingestDeps, catalogWith: buildCatalog },
     }),
     reconciliation: {
       run: (clinicId, options) => runReconciliation(reconciliationDeps, clinicId, options),

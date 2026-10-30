@@ -165,6 +165,24 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
     return { evaluatorEmail, clinic, clock };
   }
 
+  /** Logs a message the evaluator sent as the patient (the text itself stays in the agent's thread). */
+  async function trackAgentMessage(
+    clinicId: AgentMessage['clinicId'],
+    evaluatorEmail: string,
+    message: AgentMessage,
+    payload: { readonly source: 'typed' | 'upload' | 'sample'; readonly sample?: string },
+  ): Promise<void> {
+    await trackEvaluatorEvent(runtime, {
+      clinicId,
+      evaluatorEmail,
+      action: 'agent_message_sent',
+      entityType: 'agent_message',
+      entityId: message.id,
+      patientId: message.patientId,
+      payload: { kind: message.kind, ...payload },
+    });
+  }
+
   async function requireConversation(
     c: Context<AppEnv>,
     clinicId: Parameters<typeof runtime.orderAgent.view>[0],
@@ -369,7 +387,7 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
 
   /** The patient writes: JSON `{ text }`, or multipart with a `file` (a WAV voice note, a photo). */
   app.post('/api/demo/agent/patients/:id/messages', async (c) => {
-    const { clinic } = await lab(c);
+    const { clinic, evaluatorEmail } = await lab(c);
     const view = await requireConversation(c, clinic.id, c.req.param('id'));
     const patientId = view.conversation.patientId;
     const contentType = c.req.header('content-type') ?? '';
@@ -396,13 +414,16 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
         text: body.text,
       });
     }
+    await trackAgentMessage(clinic.id, evaluatorEmail, message, {
+      source: message.kind === 'text' ? 'typed' : 'upload',
+    });
     return c.json(messageView(message), 201);
   });
 
   /** The story's sample media: María's lab report photo, or her voice note in the conversation's language. */
   app.post('/api/demo/agent/patients/:id/samples', async (c) => {
     const body = await readJson(c, AgentSampleSchema);
-    const { clinic } = await lab(c);
+    const { clinic, evaluatorEmail } = await lab(c);
     const view = await requireConversation(c, clinic.id, c.req.param('id'));
     const name =
       body.sample === 'lab_report'
@@ -418,6 +439,10 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
         media: { data: readSample(name), contentType: SAMPLE_FILES[name].contentType },
       },
     );
+    await trackAgentMessage(clinic.id, evaluatorEmail, message, {
+      source: 'sample',
+      sample: body.sample,
+    });
     return c.json(messageView(message), 201);
   });
 

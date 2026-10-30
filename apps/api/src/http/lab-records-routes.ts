@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { ACTIVE_CASE_STATUSES, patientId as toPatientId } from '@follow-up-engine/core';
+import {
+  ACTIVE_CASE_STATUSES,
+  effectiveClosedReason,
+  patientId as toPatientId,
+} from '@follow-up-engine/core';
 import {
   buildConsultationBundle,
   buildPatientBundle,
@@ -264,9 +268,9 @@ export function registerLabRecordRoutes(
         label: presenter.reasonLabel(expectation.ruleId, expectation),
         status: expectation.status,
         dueAt: expectation.dueAt.toISOString(),
-        ...(expectation.closedReason === undefined
+        ...(effectiveClosedReason(expectation) === undefined
           ? {}
-          : { closedReason: expectation.closedReason }),
+          : { closedReason: effectiveClosedReason(expectation) }),
       })),
     });
   });

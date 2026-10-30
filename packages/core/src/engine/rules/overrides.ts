@@ -1,5 +1,7 @@
 import { applyRuleOverrides } from '../../config/loader.ts';
+import type { Protocol } from '../../config/protocol.ts';
 import type { Rule } from '../../config/rule.ts';
+import type { AuthoredDefinition } from '../../domain/authored-rule.ts';
 import { parsedRuleOverride, RuleOverrideSchema } from '../../config/rule-override.ts';
 import { ValidationError } from '../../domain/errors.ts';
 import type { ClinicId } from '../../domain/ids.ts';
@@ -24,6 +26,39 @@ interface CachedRules {
   readonly base: readonly Rule[];
   readonly rules: readonly Rule[];
   readonly retired: readonly Rule[];
+  /** Clinic-authored protocols a clinician enabled (versioned like the rules). */
+  readonly protocols: readonly Protocol[];
+}
+
+/**
+ * Whether a clinic-authored definition runs: a clinician enabled it and
+ * nobody switched it off since. A draft never runs.
+ */
+export function authoredIsLive(override: RuleOverride): boolean {
+  return override.authored?.status === 'enabled' && override.enabled !== false;
+}
+
+/** A clinic-authored definition, stamped with its override version (`1.0.0+clinic.2`). */
+function authoredVersioned(record: RuleOverrideRecord): AuthoredDefinition | undefined {
+  const definition = record.override.authored?.definition;
+  if (definition === undefined) {
+    return undefined;
+  }
+  return definition.kind === 'rule'
+    ? {
+        kind: 'rule',
+        rule: {
+          ...definition.rule,
+          version: overriddenRuleVersion(definition.rule.version, record.version),
+        },
+      }
+    : {
+        kind: 'protocol',
+        protocol: {
+          ...definition.protocol,
+          version: overriddenRuleVersion(definition.protocol.version, record.version),
+        },
+      };
 }
 
 /**
@@ -85,6 +120,14 @@ export class OverridingRuleSource implements RuleSource {
     return (await this.#load(clinicId)).retired;
   }
 
+  /**
+   * Protocols the clinic wrote for itself and a clinician enabled
+   * (`RuleOverride.authored`). Drafts are never listed.
+   */
+  async listAuthoredProtocols(clinicId: ClinicId): Promise<readonly Protocol[]> {
+    return (await this.#load(clinicId)).protocols;
+  }
+
   /** Drops the clinic's cached rules (called after a change in this process). */
   invalidate(clinicId: ClinicId): void {
     this.#cache.delete(clinicId);
@@ -97,22 +140,49 @@ export class OverridingRuleSource implements RuleSource {
     if (cached?.revision === revision && cached.base === base) {
       return cached;
     }
-    const overrides = await this.#overrides.list(clinicId);
+    const records = await this.#overrides.list(clinicId);
+    const overrides = records.filter((record) => record.override.authored === undefined);
     const byRule = Object.fromEntries(
       overrides.map((record) => [record.ruleId, { ...record.override, version: record.version }]),
     );
     const rules = applyRuleOverrides(base, byRule);
     const enabled = new Set(rules.map((rule) => rule.id));
+    const baseIds = new Set(base.map((rule) => rule.id));
+    // Clinic-authored rules: live once a clinician enabled them; a disabled
+    // one stays known (its expectations still close); a draft is invisible.
+    const authored = records.flatMap((record) => {
+      const definition = authoredVersioned(record);
+      return definition === undefined || baseIds.has(record.ruleId)
+        ? []
+        : [
+            {
+              definition,
+              live: authoredIsLive(record.override),
+              // Enabled once, then switched off: still known, drafts nothing.
+              retired:
+                record.override.authored?.status === 'enabled' && !authoredIsLive(record.override),
+            },
+          ];
+    });
+    const authoredRules = authored.flatMap((item) =>
+      item.definition.kind === 'rule' ? [{ ...item, rule: item.definition.rule }] : [],
+    );
     const entry: CachedRules = {
       revision,
       base,
-      rules,
-      retired: base
-        .filter((rule) => !enabled.has(rule.id))
-        .map((rule) => ({
-          ...rule,
-          version: overriddenRuleVersion(rule.version, byRule[rule.id]?.version),
-        })),
+      rules: [...rules, ...authoredRules.filter((item) => item.live).map((item) => item.rule)],
+      retired: [
+        ...base
+          .filter((rule) => !enabled.has(rule.id))
+          .map((rule) => ({
+            ...rule,
+            version: overriddenRuleVersion(rule.version, byRule[rule.id]?.version),
+          })),
+        ...authoredRules.filter((item) => item.retired).map((item) => item.rule),
+      ],
+      protocols: authored.flatMap((item) =>
+        item.live && item.definition.kind === 'protocol' ? [item.definition.protocol] : [],
+      ),
     };
     this.#cache.set(clinicId, entry);
     return entry;

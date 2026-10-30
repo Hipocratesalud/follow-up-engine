@@ -1,5 +1,5 @@
 import type { ClinicalEvent } from '../../domain/clinical-event.ts';
-import type { Expectation } from '../../domain/expectation.ts';
+import { effectiveClosedReason, type Expectation } from '../../domain/expectation.ts';
 import type { ClinicId, ExpectationId, PatientId } from '../../domain/ids.ts';
 import type {
   AgentAppointment,
@@ -336,6 +336,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       )
       .map((expectation) => {
         const descriptor = describeOrder(expectation);
+        const closedReason = effectiveClosedReason(expectation);
         const progress = progressOf(conversation, expectation.id);
         let stage: AgentOrderView['stage'] =
           expectation.status === 'fulfilled' ? 'fulfilled' : (progress?.stage ?? 'open');
@@ -356,9 +357,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
           stage,
           dueAt: expectation.dueAt,
           urgent: isUrgentOrder(expectation),
-          ...(expectation.closedReason === undefined
-            ? {}
-            : { closedReason: expectation.closedReason }),
+          ...(closedReason === undefined ? {} : { closedReason }),
           ...(expectation.closedBy === undefined
             ? {}
             : { closedBy: `${expectation.closedBy.resourceType}/${expectation.closedBy.id}` }),

@@ -7,6 +7,7 @@ import {
   FlaskConical,
   HeartPulse,
   Inbox,
+  ListChecks,
   Stethoscope,
   TrendingUp,
   UserRoundSearch,
@@ -151,8 +152,8 @@ export function Shell(): ReactNode {
   const clock = useDemoClock();
   const evaluator = useEvaluator();
   const { pathname } = useLocation();
-  // The agent runs in the evaluator's sandbox clinic, on its own clock: show that date there.
-  const onAgent = pathname.startsWith('/agent');
+  // The agents run in the evaluator's sandbox clinic, on its own clock: show that date there.
+  const onAgent = pathname.startsWith('/agent') || pathname.startsWith('/rules');
   const labClock = useLabClock({ enabled: onAgent && Boolean(clock.data) });
   const shownNow = onAgent ? labClock.data?.now : clock.data?.now;
   const findings = useOpenShadowFindings();
@@ -164,6 +165,7 @@ export function Shell(): ReactNode {
   if (clock.data) {
     items.push({ to: '/lab', label: t.nav.lab, icon: Beaker });
     items.push({ to: '/agent', label: t.nav.agent, icon: Bot });
+    items.push({ to: '/rules', label: t.nav.rules, icon: ListChecks });
   }
   items.push(
     {

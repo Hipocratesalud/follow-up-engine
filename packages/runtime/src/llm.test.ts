@@ -197,6 +197,69 @@ describe('a recorded Muse Spark snapshot', () => {
     expect(recorder.calls[0]).toMatch(/^https:\/\/relay\.example\/v1\/chat\/completions/);
   });
 
+  it("sends the agent's live voice notes and lab photos through META_BASE_URL too (the hosted demo's relay)", async () => {
+    const config = loadRuntimeConfig({
+      META_API_KEY: 'key',
+      META_BASE_URL: 'https://relay.example/v1',
+    }).llm;
+    const calls: string[] = [];
+    const fetch: FetchLike = (url) => {
+      calls.push(url);
+      const body = url.endsWith('/asr/transcribe')
+        ? { sessionId: 's1', transcript: 'Ya me hice el examen.', audioDurationMs: 1200, turns: [] }
+        : {
+            choices: [
+              {
+                index: 0,
+                finish_reason: 'stop',
+                message: {
+                  role: 'assistant',
+                  content: JSON.stringify({
+                    isLabReport: true,
+                    reportDate: '2026-01-05',
+                    patientName: null,
+                    tests: [
+                      {
+                        name: 'HbA1c',
+                        value: 8.4,
+                        unit: '%',
+                        referenceLow: 4,
+                        referenceHigh: 5.6,
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
+            usage: { prompt_tokens: 900, completion_tokens: 200 },
+          };
+      return Promise.resolve(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    };
+    const configured = createConfiguredExtractor(config, deps(fetch));
+    const voice = await configured.mediaReader.transcribe(clinicId('c1'), {
+      mode: 'live',
+      audio: new Uint8Array([82, 73, 70, 70]),
+      contentType: 'audio/wav',
+    });
+    const photo = await configured.mediaReader.readLabPhoto(clinicId('c1'), {
+      mode: 'live',
+      image: new Uint8Array([255, 216, 255]),
+      contentType: 'image/jpeg',
+    });
+    expect(calls).toEqual([
+      'https://relay.example/v1/asr/transcribe',
+      'https://relay.example/v1/chat/completions',
+    ]);
+    expect(voice.transcript).toBe('Ya me hice el examen.');
+    expect(voice.model).toBe('meta:muse-voice-transcribe-1.0');
+    expect(photo.reading.tests.map((test) => test.name)).toEqual(['HbA1c']);
+  });
+
   it('is ignored with the fake provider', () => {
     const configured = createConfiguredExtractor(loadRuntimeConfig({}).llm, {
       ...deps(metaFetch().fetch),

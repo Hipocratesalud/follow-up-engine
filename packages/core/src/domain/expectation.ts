@@ -22,6 +22,34 @@ export const EXPECTATION_STATUSES = [
 export type ExpectationStatus = (typeof EXPECTATION_STATUSES)[number];
 
 /**
+ * A closed expectation's closure read in the light of a later fact, never a
+ * rewrite of it. A doctor's-plan test folded into the order of the same
+ * visit (`covered_by_order`) whose order the end of the pregnancy then
+ * cancelled (`pregnancy_ended`): the plan item's original closure stays as
+ * it was, and this says it is gone because the pregnancy ended.
+ */
+export interface ClosureReclassification {
+  /** The reason the closure reads as now (`pregnancy_ended`). */
+  readonly closedReason: string;
+  /** When the engine reclassified it. */
+  readonly at: Date;
+  /** The resource whose event led to it (the record that told the delivery). */
+  readonly by: ResourceRef;
+}
+
+/**
+ * Why a closed expectation is gone, as it reads now: its reclassification
+ * when a later fact changed the meaning of its closure, else its
+ * `closedReason`. What the inbox, the FHIR `Task.statusReason` and the
+ * order agent show.
+ */
+export function effectiveClosedReason(
+  expectation: Pick<Expectation, 'closedReason' | 'reclassification'>,
+): string | undefined {
+  return expectation.reclassification?.closedReason ?? expectation.closedReason;
+}
+
+/**
  * Something that should happen for a patient by a date ("imaging result
  * within 30 days of the order"). Persisted and exposed as a FHIR `Task`;
  * `status` maps to `Task.businessStatus`.
@@ -55,6 +83,14 @@ export interface Expectation {
    * fulfilled.
    */
   readonly closedBy?: ResourceRef;
+  /**
+   * What the closure reads as now, when a later fact changed its meaning
+   * (`closedReason`, `closedAt` and `closedBy` keep the original closure,
+   * never rewritten). Each reclassification is also an append-only
+   * `closed_reason_reclassified` entry of the expectation event log. Read
+   * the reason through {@link effectiveClosedReason}.
+   */
+  readonly reclassification?: ClosureReclassification;
   /**
    * Fulfilled by a booking: when to check that the visit took place (the
    * appointment date plus the grace days). A booking whose date passed with

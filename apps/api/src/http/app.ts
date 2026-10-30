@@ -5,6 +5,7 @@ import { cors } from 'hono/cors';
 import { routePath } from 'hono/route';
 import { type ApiLocale, messagesFor, resolveApiLocale } from '../i18n/index.ts';
 import { registerAdminRoutes } from './admin-routes.ts';
+import { registerRuleAuthoringRoutes } from './rule-authoring-routes.ts';
 import { registerAgentRoutes } from './agent-routes.ts';
 import type { App, AppEnv } from './context.ts';
 import { registerDemoRoutes } from './demo-routes.ts';
@@ -404,6 +405,8 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   registerMetricsRoutes(app, runtime);
   registerValueRoutes(app);
   registerAdminRoutes(app, runtime);
+  // Clinic-authored rules: /api/admin/rules/authored always, the lab's on a fake clock.
+  registerRuleAuthoringRoutes(app, runtime, { lab: runtime.fakeClock !== undefined });
   if (runtime.fakeClock !== undefined) {
     registerDemoRoutes(app, runtime, runtime.fakeClock, options.worker);
     registerReviewerDemoRoutes(app, runtime);
