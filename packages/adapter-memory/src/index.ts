@@ -11,6 +11,7 @@ export type { JobRecord, JobStatus, MemoryState, OutboxRecord } from './memory-d
 export { MemoryClinicalRecordRepository } from './repositories/clinical-record-repository.ts';
 export { MemoryExpectationRepository } from './repositories/expectation-repository.ts';
 export { MemoryCaseRepository } from './repositories/case-repository.ts';
+export { MemoryOrderAgentStore } from './repositories/order-agent-store.ts';
 export { MemoryPlanItemReviewLog } from './repositories/plan-item-review-log.ts';
 export {
   MemoryClinicalFindingRepository,

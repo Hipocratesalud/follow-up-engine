@@ -90,6 +90,12 @@ export {
   type ConsultationPrescriptionInput,
 } from './builders/consultation-bundle.ts';
 export {
+  buildAgentAppointmentBundle,
+  buildAgentResultBundle,
+  type AgentAppointmentInput,
+  type AgentResultInput,
+} from './builders/order-agent.ts';
+export {
   buildPatientBundle,
   buildRecordBundle,
   type PatientBundleInput,
