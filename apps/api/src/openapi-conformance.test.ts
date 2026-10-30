@@ -78,6 +78,8 @@ describe('OpenAPI document', () => {
     ['GET', '/api/inbox/patients?limit=-1', {}],
     ['GET', `/api/inbox/patients/${FIXTURE_PATIENT}/documents`, {}],
     ['GET', '/api/inbox/patients/nobody/documents', {}],
+    ['GET', `/api/inbox/patients/${FIXTURE_PATIENT}/before-visit`, {}],
+    ['GET', '/api/inbox/patients/nobody/before-visit', {}],
     ['POST', '/api/inbox/cases/{case}/actions', { body: '{' }],
     ['POST', '/api/inbox/cases/{case}/feedback', { body: '{' }],
     ['POST', '/api/inbox/cases/{case}/feedback', { body: { useful: false } }],

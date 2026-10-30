@@ -418,6 +418,19 @@ const OPERATIONS: readonly Operation[] = [
     errors: [404],
   },
   {
+    method: 'get',
+    path: '/api/inbox/patients/{id}/before-visit',
+    tag: 'Inbox',
+    summary: "Before the visit: the patient's next appointment and what to raise then",
+    description:
+      'Open pre_visit_question and abnormal_result_no_followup findings, newest and most ' +
+      'severe first. A demo or lab clinic also gets its shadow findings here, clearly ' +
+      'labeled as not yet validated; every other clinic sees only live ones.',
+    params: [id('Patient id')],
+    response: 'BeforeVisitResponse',
+    errors: [404],
+  },
+  {
     method: 'post',
     path: '/api/inbox/conditions/{id}/confirm',
     tag: 'Inbox',

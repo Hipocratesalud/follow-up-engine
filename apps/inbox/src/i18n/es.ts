@@ -906,7 +906,7 @@ const review: Messages['review'] = {
     evidenceNote:
       'Cada cita se comprobó palabra por palabra contra el documento antes de guardar el hallazgo.',
     citationCaption: (kind, date) => `${kind} · ${date}`,
-    traceTitle: 'Cómo llegó a esto',
+    traceTitle: 'Cómo llegó el revisor a esto',
     traceToggle: 'Ver los pasos',
     traceFacts: {
       steps: 'Pasos',
@@ -916,6 +916,7 @@ const review: Messages['review'] = {
       stop: 'Cierre',
       signals: 'Señales de las reglas',
     },
+    traceValidatedBy: 'Confirmado por esta cita',
     discardedPrefix: 'Descartado por el motor: ',
     discardedItem: (n, reason) => `${String(n)} ${reason}`,
     verdictTitle: '¿Es relevante este hallazgo?',
@@ -975,9 +976,20 @@ const review: Messages['review'] = {
     reservedBody:
       'Reservada: todavía no existe. Necesita datos de varias clínicas y una validación clínica propia, porque una correlación no es una recomendación.',
   },
-  preVisit: {
-    title: 'Para preguntar en la próxima consulta',
-    suggestedOn: (date) => `Sugerido por el revisor clínico el ${date}`,
+  beforeVisit: {
+    title: 'Antes de la consulta',
+    appointmentOn: (date) => `Próxima cita: ${date}`,
+    emptyWithAppointment: 'No hay nada que señalar antes de esta consulta.',
+    loading: 'Cargando lo que revisar antes de la consulta',
+    error: 'No pudimos cargar lo que revisar antes de la consulta',
+    shadowBadge: 'Sugerencia, aún no validada',
+    citationCaption: (title, date) => `${title} · ${date}`,
+    askedAction: 'Preguntado',
+    notRelevantAction: 'No relevante',
+    reasonLabel: '¿Por qué no es relevante?',
+    reasonRequired: 'Cuéntanos por qué no es relevante.',
+    cancel: 'Cancelar',
+    submit: 'Guardar',
   },
 };
 

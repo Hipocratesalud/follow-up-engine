@@ -243,4 +243,34 @@ describe.each(STORAGES)('clinical reviewer API (%s)', (storage) => {
       403,
     );
   });
+
+  it('plants a pre-visit question for a patient with a booked appointment, and the before-visit panel finds it (HIP-112 V3)', async () => {
+    await sendPatient(h, 'rev-0005');
+    const review = await h.call<{ run: ReviewRunView; findings: FindingView[] }>(
+      '/api/demo/review/rev-0005',
+      { method: 'POST' },
+    );
+    expect(review.status).toBe(200);
+    const question = review.body.findings.find((item) => item.category === 'pre_visit_question');
+    if (question === undefined) throw new Error('no pre_visit_question planted for rev-0005');
+    // Shadow until the clinical team validates it; the demo clinic shows it
+    // in the before-visit panel anyway, clearly marked as not yet validated.
+    expect(question.mode).toBe('shadow');
+    expect(question.citations[0]?.quote.length).toBeGreaterThan(0);
+
+    const beforeVisit = await h.call<{ nextAppointmentAt?: string; items: FindingView[] }>(
+      '/api/inbox/patients/rev-0005/before-visit',
+    );
+    expect(beforeVisit.status).toBe(200);
+    // The appointment the question is about, still in the future from the
+    // clock's point of view: never undefined, never a stale, past date.
+    expect(beforeVisit.body.nextAppointmentAt).toBeDefined();
+    expect(new Date(beforeVisit.body.nextAppointmentAt ?? 0).getTime()).toBeGreaterThan(
+      h.runtime.clock.now().getTime(),
+    );
+    expect(beforeVisit.body.items.map((item) => item.category)).toContain('pre_visit_question');
+    expect(
+      beforeVisit.body.items.find((item) => item.category === 'pre_visit_question'),
+    ).toMatchObject({ mode: 'shadow', id: question.id });
+  });
 });
