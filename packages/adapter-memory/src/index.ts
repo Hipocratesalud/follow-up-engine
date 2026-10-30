@@ -12,6 +12,7 @@ export { MemoryClinicalRecordRepository } from './repositories/clinical-record-r
 export { MemoryExpectationRepository } from './repositories/expectation-repository.ts';
 export { MemoryCaseRepository } from './repositories/case-repository.ts';
 export { MemoryPlanItemReviewLog } from './repositories/plan-item-review-log.ts';
+export { MemoryAdjudicationRepository } from './repositories/adjudication-repository.ts';
 export {
   MemoryClinicalFindingRepository,
   MemoryClinicalReviewRunRepository,

@@ -61,6 +61,7 @@ const TABLES = [
   'rule_override_history',
   'reconciliation_runs',
   'reconciliation_repairs',
+  'adjudications',
 ] as const;
 
 export type TableName = (typeof TABLES)[number];

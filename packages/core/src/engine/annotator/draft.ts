@@ -13,6 +13,8 @@ export interface ExpectationDraft {
   readonly dueAt: Date;
   readonly idempotencyKey: string;
   readonly evidence?: Evidence;
+  /** `doctor_plan`: the extractor's confidence in the plan item. */
+  readonly confidence?: number;
   /** `critical`: triggered by a panic result. */
   readonly severity?: 'critical';
 }
@@ -71,6 +73,7 @@ export function materializeExpectation(
       : { protocolId: definition.protocol.id, protocolVersion: definition.protocol.version }),
     reason: definition.reason,
     ...(draft.evidence === undefined ? {} : { evidence: draft.evidence }),
+    ...(draft.confidence === undefined ? {} : { confidence: draft.confidence }),
     ...(draft.severity === undefined ? {} : { severity: draft.severity }),
     createdAt: context.now,
     updatedAt: context.now,

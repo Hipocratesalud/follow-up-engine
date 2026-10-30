@@ -279,8 +279,13 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
     );
   }
   const shared = { unitOfWork: deps.unitOfWork, ids: deps.ids, settings, loadCatalog };
-  const ingestDeps = { ...shared, noteExtractor: deps.noteExtractor, clock: deps.clock };
-  const reconciliationDeps = { ...ingestDeps, clinics: deps.clinics };
+  const ingestDeps = {
+    ...shared,
+    noteExtractor: deps.noteExtractor,
+    clock: deps.clock,
+    clinics: deps.clinics,
+  };
+  const reconciliationDeps = ingestDeps;
 
   return {
     ingest: (batch) => ingest(ingestDeps, batch),
