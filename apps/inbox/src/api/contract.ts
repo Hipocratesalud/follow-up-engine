@@ -696,7 +696,7 @@ export interface LabHistoryDocumentOutcome {
   heldReportId?: string;
   error?: string;
   /** Why a report is held for the team: nothing was staged, no order closed. */
-  reviewReason?: 'name_mismatch';
+  reviewReason?: 'name_mismatch' | 'photo_not_allowed';
   nameOnReport?: 'matches' | 'mismatch' | 'absent';
   /** `YYYY-MM-DD` dates of a lab report; `used` is the one the result is dated with. */
   dates?: { printed?: string; entered: string; used: 'printed' | 'entered'; mismatch: boolean };
@@ -743,7 +743,7 @@ export interface HeldLabReportView {
   printedDate?: string;
   printedName?: string;
   recordName?: string;
-  reason: 'name_mismatch';
+  reason: 'name_mismatch' | 'photo_not_allowed';
   source: 'photo' | 'text';
   model?: string;
   results: {

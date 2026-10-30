@@ -77,6 +77,12 @@ export interface LabPhotoReading {
   readonly reportDate?: string;
   /** The patient name printed on the report, when any (compared by code, never sent to the model). */
   readonly patientName?: string;
+  /**
+   * Set when the photo was not read at all: the clinic does not send
+   * unmasked images to a model provider (`allowUnmaskedImagesToProvider`).
+   * The team reads it; the agent never asks the patient for another one.
+   */
+  readonly notRead?: 'photo_not_allowed';
 }
 
 export interface AgentMessage {
@@ -282,6 +288,8 @@ export const STAFF_TASK_ASKS = [
   'urgent_unanswered',
   'patient_question',
   'opted_out',
+  /** A lab report photo the clinic does not send to a model: read it and enter the result. */
+  'review_photo',
 ] as const;
 export type StaffTaskAsk = (typeof STAFF_TASK_ASKS)[number];
 

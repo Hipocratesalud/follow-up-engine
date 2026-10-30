@@ -211,6 +211,11 @@ function OutcomeRow({ outcome }: { readonly outcome: LabHistoryDocumentOutcome }
           {t.lab.history.nameMismatch}
         </p>
       ) : null}
+      {outcome.reviewReason === 'photo_not_allowed' ? (
+        <p role="note" className="text-xs font-medium text-danger">
+          {t.lab.history.photoNotAllowed}
+        </p>
+      ) : null}
       {outcome.dates?.mismatch === true && outcome.dates.printed !== undefined ? (
         <p role="note" className="text-xs font-medium text-warning">
           {outcome.dates.used === 'printed'

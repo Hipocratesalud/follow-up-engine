@@ -6,6 +6,7 @@ import {
   codeLabReading,
   type CodedLabResult,
   type FhirResourceJson,
+  isUnmaskedImageRefused,
   type HeldLabReport,
   type HeldLabResult,
   type LabPhotoReading,
@@ -93,7 +94,7 @@ export interface HistoryDocumentOutcome {
   readonly status: HistoryDocumentStatus;
   readonly error?: DocumentExtractionError | 'reading_failed';
   /** Why a report is held (`needs_review`). */
-  readonly reviewReason?: 'name_mismatch';
+  readonly reviewReason?: HeldLabReport['reason'];
   /** The stored held report (`needs_review`, `discarded`): the team decides on it later. */
   readonly heldReportId?: string;
   /** A lab report's name check: the printed name against the patient's, by code. */
@@ -307,6 +308,12 @@ export async function confirmHeldReport(
     readonly by: string;
   },
 ): Promise<HeldReportDecision | undefined> {
+  const held = await runtime.storage.heldLabReports.get(input.clinicId, input.id);
+  // A photo the clinic does not send to a model was never read: there is
+  // nothing to record. The team enters its result by hand, then dismisses it.
+  if (held?.reason === 'photo_not_allowed') {
+    throw new ValidationError('id', 'Nothing was read from this photo: enter the result by hand');
+  }
   const report = await runtime.storage.heldLabReports.decide(input.clinicId, input.id, {
     status: 'confirmed',
     by: input.by,
@@ -478,7 +485,7 @@ export async function importPatientHistory(
           status: held.status === 'pending' ? 'needs_review' : 'discarded',
           reviewReason: held.reason,
           heldReportId: held.id,
-          nameOnReport: 'mismatch',
+          ...(held.reason === 'name_mismatch' ? { nameOnReport: 'mismatch' as const } : {}),
           resources: [],
           ...heldView(held),
         });
@@ -491,6 +498,34 @@ export async function importPatientHistory(
         input.mode ?? 'live',
         redactTerms,
       );
+      if ('refused' in read) {
+        // The clinic does not send photos to a model: held for the team, never dropped.
+        const stored = await runtime.storage.heldLabReports.hold({
+          id: `held-${key}`,
+          clinicId,
+          patientId: patient.id,
+          documentKey: key,
+          filename: document.filename,
+          documentDate: document.documentDate,
+          effectiveAt: document.documentDate,
+          ...(patientName === undefined ? {} : { recordName: patientName }),
+          reason: 'photo_not_allowed',
+          source,
+          results: [],
+          status: 'pending',
+          createdAt: now,
+        });
+        outcomes.push({
+          ...base,
+          readAs,
+          source,
+          status: 'needs_review',
+          reviewReason: 'photo_not_allowed',
+          heldReportId: stored.id,
+          resources: [],
+        });
+        continue;
+      }
       if ('error' in read) {
         outcomes.push({
           ...base,
@@ -661,6 +696,7 @@ async function readLabReport(
 ): Promise<
   | (MediaReadingCost & { readonly reading: LabPhotoReading })
   | { readonly error: DocumentExtractionError | 'reading_failed' }
+  | { readonly refused: 'photo_not_allowed' }
 > {
   try {
     if (isImage(document.contentType)) {
@@ -688,6 +724,8 @@ async function readLabReport(
       { error: error instanceof Error ? error.message : String(error) },
       'history import: lab report not read',
     );
+    // Refused by the gateway before any network call (the clinic's image setting).
+    if (isUnmaskedImageRefused(error)) return { refused: 'photo_not_allowed' };
     return { error: 'reading_failed' };
   }
 }

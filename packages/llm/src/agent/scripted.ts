@@ -168,6 +168,10 @@ const COPY = {
         ? `Thank you, {first_name}. I received the photo of your test and it is now in your record. Your doctor will review it${visitBooked ? ' with you at your visit' : ''}.`
         : 'Thank you, {first_name}. I received the photo of your test and it is now in your record.',
   },
+  photoForTeam: {
+    es: 'Gracias, {first_name}. Recibí la foto de tu examen; el equipo de la clínica la va a revisar.',
+    en: 'Thank you, {first_name}. I received the photo of your test; the clinic team will review it.',
+  },
   documentReceived: {
     es: (review: boolean, visitBooked: boolean): string =>
       review
@@ -319,6 +323,10 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
       return act('scripted:match_photo', 'match_result_to_order', {
         messageId: inbound.id,
       });
+    }
+    if (typeof match['notRead'] === 'string') {
+      // The clinic reads photos by hand (not sent to a model): the team has a task already.
+      return act('scripted:photo_for_team', 'send_message', { text: COPY.photoForTeam[language] });
     }
     const matches = (Array.isArray(match['matches']) ? match['matches'] : []) as {
       orderId: string;

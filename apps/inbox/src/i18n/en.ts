@@ -2040,6 +2040,8 @@ const lab = {
     readAs: { note: 'Clinical note', lab_report: 'Lab report' } as Record<string, string>,
     source: { photo: 'photo', text: 'document text' } as Record<string, string>,
     readBy: (model: string): string => `read by ${model}`,
+    photoNotAllowed:
+      'Photos can’t be read automatically for this clinic: held for the team, nothing sent to a model, nothing recorded.',
     nameMismatch:
       'The name on the report doesn’t match this patient: held for the team, nothing recorded, no order closed.',
     held: {
@@ -2054,6 +2056,9 @@ const lab = {
       names: (printed: string, record: string): string =>
         `Name on the report: ${printed} · In the record: ${record}`,
       noName: 'none printed',
+      photoNotAllowed:
+        'Photos can’t be read automatically for this clinic. Read it, add the result with “Add something without a document”, then mark it reviewed.',
+      markReviewed: 'Mark reviewed',
       dates: (printed: string, entered: string): string =>
         `Collected ${printed} (entered as ${entered})`,
       confirm: 'It’s this patient',
@@ -2561,6 +2566,8 @@ const agent = {
       urgent_unanswered: 'Urgent order unanswered: reach her today.',
       patient_question: 'She asked something only the team can answer: call her back.',
       opted_out: 'She asked not to be messaged: follow up by phone if needed.',
+      review_photo:
+        'She sent a photo of a lab report; this clinic reads photos by hand: read it and enter the result.',
     } as Record<string, string>,
   },
   events: {
@@ -2588,6 +2595,8 @@ const agent = {
     appointment_booked: (): string => 'Appointment booked on the patient’s explicit confirmation.',
     appointment_already_booked: (): string => 'Already booked for this confirmation (idempotent).',
     photo_not_a_report: (): string => 'The photo is not a lab report.',
+    photo_not_allowed: (): string =>
+      'Photos can’t be read automatically for this clinic: not sent to any model, handed to the team.',
     result_matched: (p: Params): string =>
       `Photo matched to ${list(p['matches']).map(code).join(', ') || 'no order'}${list(p['unmatched']).length === 0 ? '' : ` (not ordered: ${list(p['unmatched']).map(code).join(', ')})`}; name on report: ${code(p['nameCheck'])}.`,
     result_submitted: (p: Params): string => `FHIR Observation submitted: ${str(p['resource'])}.`,

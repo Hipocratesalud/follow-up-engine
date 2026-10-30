@@ -1,7 +1,13 @@
 import type { ClinicId, PatientId } from './ids.ts';
 
-/** Why an imported lab report was held instead of recorded. */
-export const HELD_LAB_REPORT_REASONS = ['name_mismatch'] as const;
+/**
+ * Why an imported lab report was held instead of recorded:
+ * `name_mismatch`, the name printed on it is not the patient's;
+ * `photo_not_allowed`, it is a photo and the clinic does not send unmasked
+ * images to a model provider (`allowUnmaskedImagesToProvider`), so nothing
+ * was read: the team reads it and enters the result by hand.
+ */
+export const HELD_LAB_REPORT_REASONS = ['name_mismatch', 'photo_not_allowed'] as const;
 export type HeldLabReportReason = (typeof HELD_LAB_REPORT_REASONS)[number];
 
 export const HELD_LAB_REPORT_STATUSES = ['pending', 'confirmed', 'discarded'] as const;
