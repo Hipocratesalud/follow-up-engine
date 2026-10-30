@@ -14,6 +14,7 @@ import { datingOf } from '../protocols/gestational-age.ts';
 import { encounterOf } from '../timeline.ts';
 import { enrollingConditions, icd10Matches } from './conditions.ts';
 import type { AnnotationContext, ClosedExpectation } from './context.ts';
+import { TEST_REQUEST_REASONS } from './test-requests.ts';
 
 /**
  * `Expectation.closedReason` of a protocol expectation whose episode ended
@@ -125,6 +126,34 @@ function belongsToEpisode(
 }
 
 /**
+ * Doctor's-plan or universal expectations already cancelled as
+ * `covered_by_order` (folded into the order of the same visit, see
+ * `oneRequestPerTest`): bookkeeping, not a clinical resolution. When the
+ * episode they belong to ends before that order's own expectation is
+ * decided, the true reason the plan item is gone is that the episode ended,
+ * so `pregnancy_ended` must win over the dedup reason it was stamped with.
+ */
+async function coveredByOrderOfEpisode(
+  context: AnnotationContext,
+  protocol: Protocol,
+  state: PatientState,
+  episodeEncounters: ReadonlySet<string>,
+  window: { readonly since: Date | undefined; readonly until: number },
+): Promise<Expectation[]> {
+  const cancelled = await context.stores.expectations.listByPatient(
+    context.clinicId,
+    context.patientId,
+    ['cancelled'],
+  );
+  return cancelled.filter(
+    (expectation) =>
+      (expectation.layer === 'doctor_plan' || expectation.layer === 'universal') &&
+      expectation.closedReason === TEST_REQUEST_REASONS.coveredByOrder &&
+      belongsToEpisode(protocol, expectation, state, episodeEncounters, window),
+  );
+}
+
+/**
  * Episodic protocols (a pregnancy) end with an outcome recorded in the
  * record (a delivery, a loss). Once ended: the conditions that enrolled the
  * patient are resolved (a clinician's confirmation was of that episode, so a
@@ -209,7 +238,14 @@ export async function endEpisodes(
       since: episode.since,
       until: closure.occurredAt.getTime(),
     };
-    for (const expectation of state.live.list()) {
+    // A plan item already folded into its order's expectation
+    // (`covered_by_order`) is still of the episode that just ended: its
+    // closedReason is promoted to `pregnancy_ended` below, the same as the
+    // order itself.
+    const alreadyCovered = discharge
+      ? []
+      : await coveredByOrderOfEpisode(context, protocol, state, episodeEncounters, window);
+    for (const expectation of [...state.live.list(), ...alreadyCovered]) {
       if (expectation.layer === 'doctor_plan' || expectation.layer === 'universal') {
         // What the pregnancy's consultations asked for (the next prenatal
         // control, a first-trimester lab, the next ultrasound) has nothing
