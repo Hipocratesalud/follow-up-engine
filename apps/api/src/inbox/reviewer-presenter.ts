@@ -15,7 +15,7 @@ import {
   type ReviewDossier,
   reviewerCopy,
 } from '@follow-up-engine/core';
-import type { EngineRuntime } from '@follow-up-engine/runtime';
+import { type EngineRuntime, reviewLocaleOf } from '@follow-up-engine/runtime';
 import type {
   CitationView,
   FindingView,
@@ -173,13 +173,26 @@ export class FindingPresenter {
    * dedup key. Else (a model's own finding, a record that changed) the
    * stored text.
    */
-  async #text(finding: ClinicalFinding): Promise<FindingText> {
+  async #text(
+    finding: ClinicalFinding,
+  ): Promise<{ readonly text: FindingText; readonly untranslated: boolean }> {
     const locale = this.#t.locale;
-    if (finding.texts?.[locale] !== undefined || finding.origin === 'added') {
-      return findingTextIn(finding, locale);
+    const own = finding.texts?.[locale];
+    if (own !== undefined) return { text: own, untranslated: false };
+    if (finding.origin !== 'added') {
+      const rendered = (await this.#renderedSignals(finding.patientId)).get(finding.dedupKey);
+      if (rendered !== undefined) return { text: rendered, untranslated: false };
     }
-    const rendered = await this.#renderedSignals(finding.patientId);
-    return rendered.get(finding.dedupKey) ?? findingTextIn(finding, locale);
+    // The words as stored: in another language when the finding has some locale but not this one
+    // (or, stored before texts existed, when the clinic writes in another language).
+    const storedIn =
+      finding.texts === undefined
+        ? reviewLocaleOf((await this.#runtime.storage.clinics.get(this.#clinicId))?.settings.locale)
+        : undefined;
+    return {
+      text: findingTextIn(finding, locale),
+      untranslated: finding.texts !== undefined || storedIn !== locale,
+    };
   }
 
   /** The detectors over the patient's whole record, in the reader's language, by dedup key. */
@@ -241,7 +254,7 @@ export class FindingPresenter {
 
   async view(finding: ClinicalFinding): Promise<FindingView> {
     const context = await this.#context(finding.patientId);
-    const text = await this.#text(finding);
+    const { text, untranslated } = await this.#text(finding);
     const citations: CitationView[] = finding.citations.map((citation) => {
       const document = context.dossier.documents.get(
         context.dossier.handleOf(citation.source) ?? '',
@@ -297,6 +310,7 @@ export class FindingPresenter {
       promptVersion: finding.promptVersion,
       runId: finding.runId,
       createdAt: finding.createdAt.toISOString(),
+      ...(untranslated ? { untranslated: true as const } : {}),
       ...(finding.review === undefined
         ? {}
         : {

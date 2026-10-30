@@ -520,6 +520,8 @@ const liveFindings: Messages['liveFindings'] = {
   openPatient: 'Abrir paciente',
   rated: (verdict) => `Calificado como ${verdict}. El hallazgo salió de tu bandeja.`,
   patientBadge: (n) => count(n, 'hallazgo clínico', 'hallazgos clínicos'),
+  queued: (n, cap) =>
+    `${count(n, 'hallazgo más', 'hallazgos más')} en cola para los próximos días (máximo ${String(cap)} por médico al día)`,
   lab: {
     title: 'Revisor clínico en tu laboratorio',
     intro:
@@ -918,7 +920,6 @@ const review: Messages['review'] = {
     category_disabled: 'categoría desactivada',
     category_reserved: 'categoría reservada',
     patient_directed: 'dirigido al paciente',
-    missing_translation: 'sin inglés y español, aun pidiéndolo de nuevo',
     duplicate: 'repetido (últimos 90 días)',
     merged: 'fusionado con otro',
   },
@@ -978,6 +979,8 @@ const review: Messages['review'] = {
     loadMore: 'Cargar más hallazgos',
   },
   row: { severityPrefix: 'Severidad: ', covered: 'Ya cubierto' },
+  untranslated: 'Sin traducir aún',
+  untranslatedHint: 'Escrito en otro idioma; su traducción está en camino.',
   detail: {
     back: 'Volver a la revisión',
     shadowBadge: 'Modo sombra',

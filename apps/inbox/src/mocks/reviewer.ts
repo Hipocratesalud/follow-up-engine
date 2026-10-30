@@ -401,7 +401,7 @@ export interface ReviewerMock {
    * categories live with a sign-off now (never a shadow one, never a
    * pre-visit question), most severe first.
    */
-  listInboxFindings(): InboxFindingList;
+  listInboxFindings(patients?: ReadonlySet<string>): InboxFindingList;
 }
 
 function view(finding: FindingDetail): FindingView {
@@ -579,8 +579,9 @@ export function createReviewerMock(now: () => Date, locale: () => Locale): Revie
       flags.set(update.category, next);
       return { ...flagView(next), review: flagReview(update.category) };
     },
-    listInboxFindings() {
+    listInboxFindings(patients) {
       const items = current()
+        .filter((item) => patients === undefined || patients.has(item.patient.id))
         .filter((item) => {
           const flag = flags.get(item.category);
           return (
@@ -599,7 +600,7 @@ export function createReviewerMock(now: () => Date, locale: () => Locale): Revie
         );
       const byPatient: Record<string, number> = {};
       for (const item of items) byPatient[item.patient.id] = (byPatient[item.patient.id] ?? 0) + 1;
-      return { items, total: items.length, byPatient };
+      return { items, total: items.length, byPatient, queued: 0, dailyCap: 5 };
     },
     beforeVisit(patientId) {
       const items = current()

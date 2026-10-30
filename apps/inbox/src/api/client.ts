@@ -53,6 +53,7 @@ import type {
   FindingPage,
   FindingReviewRequest,
   FindingView,
+  InboxFindingFilters,
   InboxFindingList,
   ReviewerScope,
   ReviewMetrics,
@@ -198,7 +199,10 @@ export interface ApiClient {
   listFindingFlags(scope?: ReviewerScope): Promise<{ items: FindingFlagView[] }>;
   updateFindingFlag(body: FindingFlagUpdate, scope?: ReviewerScope): Promise<FindingFlagView>;
   /** The doctor's inbox cards: live, signed-off categories only. */
-  listInboxFindings(scope?: ReviewerScope): Promise<InboxFindingList>;
+  listInboxFindings(
+    scope?: ReviewerScope,
+    filters?: InboxFindingFilters,
+  ): Promise<InboxFindingList>;
   /** "Review this patient now" in the evaluator's lab. */
   reviewLabPatient(patientId: string): Promise<{ findings: FindingView[] }>;
   listPatientQueue(query: PatientQueueQuery): Promise<PatientQueuePage>;
@@ -422,7 +426,8 @@ export function createApiClient(config: ApiConfig): ApiClient {
     listFindingFlags: (scope) => request('GET', `${reviewerBase(scope)}/finding-flags`),
     updateFindingFlag: (body, scope) =>
       request('PUT', `${reviewerBase(scope)}/finding-flags`, { body }),
-    listInboxFindings: (scope) => request('GET', `${reviewerBase(scope)}/live-findings`),
+    listInboxFindings: (scope, filters) =>
+      request('GET', `${reviewerBase(scope)}/live-findings`, { query: { ...filters } }),
     reviewLabPatient: (patientId) =>
       request('POST', `/demo/lab/patients/${encodeURIComponent(patientId)}/review`),
     listPatientQueue: (query) => request('GET', '/inbox/patients-queue', { query: { ...query } }),

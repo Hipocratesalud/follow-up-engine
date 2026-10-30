@@ -539,6 +539,8 @@ const liveFindings = {
   openPatient: 'Open patient',
   rated: (verdict: string): string => `Rated as ${verdict}. The finding left your inbox.`,
   patientBadge: (n: number): string => count(n, 'clinical finding', 'clinical findings'),
+  queued: (n: number, cap: number): string =>
+    `${count(n, 'more finding', 'more findings')} queued for the coming days (at most ${String(cap)} per doctor a day)`,
   lab: {
     title: 'Clinical reviewer in your lab',
     intro:
@@ -933,7 +935,6 @@ const review = {
     category_disabled: 'category turned off',
     category_reserved: 'reserved category',
     patient_directed: 'addressed to the patient',
-    missing_translation: 'without English and Spanish, even when asked again',
     duplicate: 'repeated (last 90 days)',
     merged: 'merged with another',
   } as Record<string, string>,
@@ -993,6 +994,8 @@ const review = {
     loadMore: 'Load more findings',
   },
   row: { severityPrefix: 'Severity: ', covered: 'Already covered' },
+  untranslated: 'Not translated yet',
+  untranslatedHint: 'Written in another language; its translation is on its way.',
   detail: {
     back: 'Back to the review',
     shadowBadge: 'Shadow mode',

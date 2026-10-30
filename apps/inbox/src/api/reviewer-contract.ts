@@ -97,6 +97,8 @@ export interface FindingView {
   runId: string;
   createdAt: string;
   review?: FindingReviewView;
+  /** Written in another language, its translation not arrived yet (the UI says so). */
+  untranslated?: true;
 }
 
 export interface ReviewStepView {
@@ -207,6 +209,18 @@ export interface InboxFindingList {
   items: FindingView[];
   total: number;
   byPatient: Record<string, number>;
+  /** Live findings over their doctor's daily cap: kept, released on later days. */
+  queued: number;
+  dailyCap: number;
+}
+
+/** The patient list's filters the finding cards follow (same URL params). */
+export interface InboxFindingFilters {
+  view?: string;
+  assignee?: string;
+  q?: string;
+  layer?: string;
+  protocol?: string;
 }
 
 /**

@@ -497,7 +497,23 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     ),
     http.get(
       '*/api/inbox/live-findings',
-      route(() => store.reviewer.listInboxFindings()),
+      route(({ request }) => {
+        // Like the API: with the list's filters set, only the patients the list shows.
+        const url = new URL(request.url);
+        const value = (key: string): string | undefined => url.searchParams.get(key) ?? undefined;
+        const view = VIEWS.find((candidate) => candidate === value('view'));
+        const filtered = ['view', 'assignee', 'q', 'layer', 'protocol'].some((key) => value(key));
+        if (!filtered) return store.reviewer.listInboxFindings();
+        const page = store.listPatientQueue({
+          ...(view ? { view } : {}),
+          ...(value('assignee') ? { assignee: value('assignee') ?? '' } : {}),
+          ...(value('q') ? { q: value('q') ?? '' } : {}),
+          ...(value('layer') ? { layer: value('layer') ?? '' } : {}),
+          ...(value('protocol') ? { protocol: value('protocol') ?? '' } : {}),
+          limit: 200,
+        });
+        return store.reviewer.listInboxFindings(new Set(page.items.map((item) => item.patient.id)));
+      }),
     ),
     http.get(
       '*/api/inbox/finding-flags',

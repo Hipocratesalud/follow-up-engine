@@ -27,12 +27,14 @@ import type { App, AppEnv } from './context.ts';
 import { HttpError, notFound, readJson, readQuery } from './errors.ts';
 import { trackEvaluatorEvent } from './evaluator-tracking.ts';
 import { requireEvaluator } from './lab-records-routes.ts';
+import { queueEntries } from './patient-queue-routes.ts';
 import {
   type FindingFlagView,
   FindingFlagUpdateSchema,
   FindingListQuerySchema,
   FindingReviewRequestSchema,
   type InboxFindingList,
+  type InboxFindingQuery,
   InboxFindingQuerySchema,
 } from './reviewer-schemas.ts';
 import { actorId } from './security.ts';
@@ -253,22 +255,49 @@ async function reviewFindingView(
   }
 }
 
-/** The doctor's inbox cards: the core read model, presented (never a shadow category). */
+/**
+ * The doctor's inbox cards: the core read model (live, signed-off categories
+ * only; today's quota per doctor released, the rest queued), presented, and
+ * narrowed to the patients the list shows when its filters are set.
+ */
 async function inboxFindingList(
   runtime: EngineRuntime,
   t: ApiMessages,
   clinicId: ClinicId,
-  query: { readonly patientId?: string | undefined; readonly limit: number },
+  query: InboxFindingQuery,
+  now?: Date,
 ): Promise<InboxFindingList> {
   const list = await runtime.reviewer.listInboxFindings(clinicId, {
     ...(query.patientId === undefined ? {} : { patientId: toPatientId(query.patientId) }),
-    limit: query.limit,
+    ...(now === undefined ? {} : { now }),
   });
+  const filtered =
+    query.view !== undefined ||
+    query.origin !== undefined ||
+    (query.assignee !== undefined && query.assignee !== '') ||
+    (query.q !== undefined && query.q !== '') ||
+    query.layer !== undefined ||
+    query.protocol !== undefined;
+  const shown = filtered
+    ? new Set(
+        (await queueEntries(runtime, t, clinicId, query)).matching.map(
+          (entry) => entry.item.patient.id,
+        ),
+      )
+    : undefined;
+  const keep = (patientId: string): boolean => shown === undefined || shown.has(patientId);
+  const items = list.items.filter((finding) => keep(finding.patientId));
+  const byPatient: Record<string, number> = {};
+  for (const finding of items) {
+    byPatient[finding.patientId] = (byPatient[finding.patientId] ?? 0) + 1;
+  }
   const presenter = new FindingPresenter(runtime, clinicId, t);
   return {
-    items: await Promise.all(list.items.map((finding) => presenter.view(finding))),
-    total: list.total,
-    byPatient: { ...list.byPatient },
+    items: await Promise.all(items.slice(0, query.limit).map((finding) => presenter.view(finding))),
+    total: items.length,
+    byPatient,
+    queued: list.queued.filter((item) => keep(item.patientId)).length,
+    dailyCap: list.dailyCap,
   };
 }
 
@@ -469,6 +498,7 @@ export function registerReviewerLabRoutes(app: App, runtime: EngineRuntime): voi
   async function labClinic(c: Context<AppEnv>): Promise<{
     readonly clinicId: ClinicId;
     readonly evaluatorEmail: string;
+    readonly now: Date;
   }> {
     const evaluatorEmail = requireEvaluator(c);
     const { clinic, clock } = await ensureLabClinicAndClock(
@@ -482,7 +512,7 @@ export function registerReviewerLabRoutes(app: App, runtime: EngineRuntime): voi
         await stores.findingFlags.upsert(clinic.id, flag);
       }
     });
-    return { clinicId: clinic.id, evaluatorEmail };
+    return { clinicId: clinic.id, evaluatorEmail, now: clock.now() };
   }
 
   app.get('/api/demo/lab/finding-flags', async (c) => {
@@ -507,8 +537,9 @@ export function registerReviewerLabRoutes(app: App, runtime: EngineRuntime): voi
 
   app.get('/api/demo/lab/live-findings', async (c) => {
     const query = readQuery(c, InboxFindingQuerySchema);
-    const { clinicId } = await labClinic(c);
-    return c.json(await inboxFindingList(runtime, c.var.t, clinicId, query));
+    const { clinicId, now } = await labClinic(c);
+    // The lab's own calendar: its daily cap rolls over on the lab clock.
+    return c.json(await inboxFindingList(runtime, c.var.t, clinicId, query, now));
   });
 
   app.post('/api/demo/lab/findings/:id/review', async (c) => {

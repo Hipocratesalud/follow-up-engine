@@ -1,4 +1,5 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { LOCALES, type Locale, messagesFor } from './i18n/index.ts';
 import { formatDate } from './lib/format.ts';
@@ -143,6 +144,71 @@ describe.each(LOCALES)('live findings in the inbox (%s)', (locale: Locale) => {
     const spanish = /\b(los|con|en ascenso|Considera|Sugerencia|Evidencia|Relevante)\b/;
     expect(prose).toMatch(locale === 'es' ? spanish : english);
     expect(prose).not.toMatch(locale === 'es' ? english : spanish);
+  });
+
+  it("follows the patient list filters: a condition or a search hides other patients' cards", async () => {
+    // A protocol (condition) the list narrows to María's patients but not Rafael's.
+    const probe = renderApp('/inbox', {
+      locale,
+      handlers: live('lab_trend', 'unaddressed_symptom'),
+    });
+    await screen.findAllByTestId('inbox-finding-card');
+    const maria = 'pat-001';
+    const rafael = probe.store.reviewer.getFinding('cf-003').patient.id;
+    const protocols = probe.store
+      .listPatientQueue({ limit: 200 })
+      .facets.protocols.map((facet) => facet.id);
+    const condition = protocols.find((id) => {
+      const shown = probe.store
+        .listPatientQueue({ protocol: id, limit: 200 })
+        .items.map((item) => item.patient.id);
+      return shown.includes(maria) !== shown.includes(rafael);
+    });
+    if (condition === undefined) throw new Error('no protocol tells the two patients apart');
+    const keeps = probe.store
+      .listPatientQueue({ protocol: condition, limit: 200 })
+      .items.some((item) => item.patient.id === maria);
+    probe.unmount();
+
+    renderApp(`/inbox?protocol=${condition}`, {
+      locale,
+      handlers: live('lab_trend', 'unaddressed_symptom'),
+    });
+    const cards = await screen.findAllByTestId('inbox-finding-card');
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toHaveTextContent(keeps ? 'María Fernanda Ortiz' : 'Rafael Contreras');
+
+    const searched = renderApp('/inbox?q=Rafael', {
+      locale,
+      handlers: live('lab_trend', 'unaddressed_symptom'),
+    });
+    await waitFor(() => {
+      expect(within(searched.container).getAllByTestId('inbox-finding-card')).toHaveLength(1);
+    });
+    expect(within(searched.container).getByTestId('inbox-finding-card')).toHaveTextContent(
+      'Rafael Contreras',
+    );
+  });
+
+  it('labels a finding written in the other language until its translation arrives', async () => {
+    renderApp('/inbox', {
+      locale,
+      handlers: (store) => [
+        ...live('lab_trend')(store),
+        http.get('*/api/inbox/live-findings', () => {
+          const list = store.reviewer.listInboxFindings();
+          return HttpResponse.json({
+            ...list,
+            items: list.items.map((item) => ({ ...item, untranslated: true })),
+            queued: 3,
+          });
+        }),
+      ],
+    });
+    const card = await screen.findByTestId('inbox-finding-card');
+    expect(within(card).getByText(t.review.untranslated)).toBeInTheDocument();
+    // Findings over the doctors' daily cap wait: the section says how many.
+    expect(screen.getByTestId('inbox-findings-queued')).toHaveTextContent(COPY.queued(3, 5));
   });
 
   it('"not relevant" asks for a reason on click and sends nothing without it', async () => {
