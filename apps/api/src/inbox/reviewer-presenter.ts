@@ -35,7 +35,7 @@ const TREND_CATEGORIES: ReadonlySet<FindingCategory> = new Set([
 
 /**
  * A result's canonical line in the reader's language: "Creatinine: 1.75
- * mg/dL" reads "Creatinina: 1.75 mg/dL" in Spanish. The line is the engine's
+ * mg/dL" reads "Creatinina: 1,75 mg/dL" in Spanish. The line is the engine's
  * own rendering of a structured value (the label of any locale, then the
  * value as recorded), not a document's words; a note's quote never changes.
  */
@@ -46,8 +46,11 @@ export function localizedResultLine(quote: string, locale: string): string {
   const match = labels.find(([, label]) => quote.startsWith(`${label}: `));
   if (match === undefined) return quote;
   const [key, label] = match;
-  const target = reviewerCopy(locale).measurements[key] ?? label;
-  return `${target}${quote.slice(label.length)}`;
+  const copy = reviewerCopy(locale);
+  const target = copy.measurements[key] ?? label;
+  // The value as the reader writes it: "1.75" / "1,75" (back to a point first, from any locale).
+  const value = quote.slice(label.length).replace(/(\d),(\d)/g, '$1.$2');
+  return `${target}${copy.number(value)}`;
 }
 
 function stringField(resource: Record<string, unknown> | undefined, field: string) {

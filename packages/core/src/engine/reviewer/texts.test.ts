@@ -61,6 +61,9 @@ describe('finding texts in every review locale', () => {
       expect(trend.texts?.en?.suggestion).toMatch(/^Consider assessing renal function/);
       expect(trend.texts?.es?.summary).toMatch(/^Creatinina en ascenso en los últimos/);
       expect(trend.texts?.es?.suggestion).toMatch(/^Considera evaluar la función renal/);
+      // Numbers as each reader writes them.
+      expect(trend.texts?.en?.summary).toContain('(1.05 → 1.1 → 1.4 → 1.75 mg/dL)');
+      expect(trend.texts?.es?.summary).toContain('(1,05 → 1,1 → 1,4 → 1,75 mg/dL)');
       // Dates in the sentences in each reader's way, never ISO.
       expect(trend.texts?.en?.rationale).toMatch(/between [A-Z][a-z]{2} \d{1,2}, \d{4} and/);
       expect(trend.texts?.es?.rationale).toMatch(/entre el \d{1,2} [a-z]+ \d{4} y el/);
@@ -77,7 +80,7 @@ describe('finding texts in every review locale', () => {
       expect(outcome.signals.every((signal) => signal.texts?.en && signal.texts.es)).toBe(true);
       // Quotes are the record's canonical lines in the clinic's locale, never translated per text.
       expect(trend.citations.at(-1)?.quote).toBe(
-        locale === 'en' ? 'Creatinine: 1.75 mg/dL' : 'Creatinina: 1.75 mg/dL',
+        locale === 'en' ? 'Creatinine: 1.75 mg/dL' : 'Creatinina: 1,75 mg/dL',
       );
     },
   );

@@ -65,7 +65,10 @@ describe('finding texts in the viewer language', () => {
     expect(es.rationale).not.toMatch(ENGLISH);
     expect(es.categoryLabel).not.toBe(en.categoryLabel);
     // The engine's canonical result line follows the reader; the value stays as recorded.
-    expect(es.citations.map((citation) => citation.quote)).toContain('Creatinina: 1.75 mg/dL');
+    expect(es.citations.map((citation) => citation.quote)).toContain('Creatinina: 1,75 mg/dL');
+    // Spanish numbers in the generated text: "1,05 → 1,1 → 1,4 → 1,75".
+    expect(es.summary).toContain('(1,05 → 1,1 → 1,4 → 1,75 mg/dL)');
+    expect(en.summary).toContain('(1.05 → 1.1 → 1.4 → 1.75 mg/dL)');
     expect(es.trend?.label).toBe('Creatinina');
   });
 
@@ -85,6 +88,19 @@ describe('finding texts in the viewer language', () => {
         ...item.citations.filter((citation) => citation.kind === 'result').map((c) => c.quote),
       ].join(' | ');
       expect(prose, item.category).not.toMatch(ENGLISH);
+      // Spanish decimals: never "1.75" in what the engine writes (drug names are the record's own).
+      const generated = [
+        ...([
+          'lab_trend',
+          'vital_trend',
+          'abnormal_result_no_followup',
+          'utilization_change',
+        ].includes(item.category)
+          ? [item.summary, item.rationale]
+          : []),
+        ...item.citations.filter((citation) => citation.kind === 'result').map((c) => c.quote),
+      ].join(' | ');
+      expect(generated, item.category).not.toMatch(/\d\.\d/);
       // Dates in sentences as the reader writes them, never ISO.
       expect(prose, item.category).not.toMatch(/\d{4}-\d{2}-\d{2}/);
     }

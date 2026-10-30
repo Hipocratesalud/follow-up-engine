@@ -30,6 +30,8 @@ interface RuleCopy {
 }
 
 export interface ReviewerCopy {
+  /** A recorded value as this locale writes it ("1.75" / "1,75"). */
+  readonly number: (text: string) => string;
   /** Label of each measurement key (`creatinine`): also the canonical text of its results. */
   readonly measurements: Readonly<Record<string, string>>;
   readonly specialty: (key: string) => string;
@@ -138,6 +140,7 @@ const enDay = (iso: string): string => dayIn('en-US', iso);
 const esDay = (iso: string): string => dayIn('es', iso);
 
 const EN: ReviewerCopy = {
+  number: (text) => text,
   measurements: {
     creatinine: 'Creatinine',
     egfr: 'Estimated GFR',
@@ -376,6 +379,7 @@ const EN: ReviewerCopy = {
 };
 
 const ES: ReviewerCopy = {
+  number: decimalComma,
   measurements: {
     creatinine: 'Creatinina',
     egfr: 'Filtrado glomerular estimado',
@@ -509,8 +513,8 @@ const ES: ReviewerCopy = {
   },
   egfr: (value, estimated) =>
     estimated
-      ? `filtrado estimado de ${String(value)} mL/min/1.73m² (CKD-EPI 2021, desde la creatinina)`
-      : `filtrado glomerular de ${String(value)} mL/min/1.73m²`,
+      ? `filtrado estimado de ${decimalComma(String(value))} mL/min/1,73 m² (CKD-EPI 2021, desde la creatinina)`
+      : `filtrado glomerular de ${decimalComma(String(value))} mL/min/1,73 m²`,
   diagnosisOf: (condition) => `diagnóstico de ${condition}`,
   drugConditionSummary: (drug, because) => `${drug} con ${because}`,
   symptoms: {
@@ -588,7 +592,7 @@ const ES: ReviewerCopy = {
     suggestion: 'Considera codificar el diagnóstico (CIE-10) en la historia.',
   }),
   utilization: (recent, perQuarter) => ({
-    summary: `${String(recent)} consultas no programadas en los últimos 90 días (antes, unas ${String(perQuarter)} por trimestre)`,
+    summary: `${String(recent)} consultas no programadas en los últimos 90 días (antes, unas ${decimalComma(String(perQuarter))} por trimestre)`,
     rationale: 'El paciente consulta mucho más seguido que en su patrón del año anterior.',
     suggestion:
       'Considera revisar si hay un problema de fondo sin resolver detrás de las consultas repetidas.',
