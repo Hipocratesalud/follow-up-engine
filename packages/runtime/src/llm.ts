@@ -2,13 +2,16 @@ import type {
   ClinicalReviewAgent,
   ClinicDirectory,
   Clock,
+  ExpectationAdjudicator,
   LlmUsageLog,
   NoteExtractor,
 } from '@follow-up-engine/core';
 import {
+  ADJUDICATION_TASK,
   BASETEN_MUSE_SPARK_OPEN_MODEL,
   chainResponders,
   CLINICAL_REVIEW_TASK,
+  createAdjudicator,
   createBasetenProvider,
   createFakeProvider,
   createLlmGateway,
@@ -20,6 +23,7 @@ import {
   createSnapshotProvider,
   DEFAULT_PRICING,
   type FetchLike,
+  FAKE_ADJUDICATOR_MODEL,
   FAKE_DEFAULT_MODEL,
   FAKE_REVIEWER_MODEL,
   heuristicResponder,
@@ -30,6 +34,7 @@ import {
   NOTE_EXTRACTION_TASK,
   type NoteFixture,
   type PricingTable,
+  scriptedAdjudicatorResponder,
   scriptedReviewerResponder,
   type SnapshotProvider,
   type StructuredLlmProvider,
@@ -49,6 +54,10 @@ export interface ConfiguredExtractor {
   readonly reviewAgent: ClinicalReviewAgent;
   /** Model the reviewer runs on (the scripted reviewer on the fake provider). */
   readonly reviewerModel: string;
+  /** The adjudicator of ambiguous plan items, on the same gateway, provider and budget. */
+  readonly adjudicator: ExpectationAdjudicator;
+  /** Model the adjudicator runs on (the scripted adjudicator on the fake provider). */
+  readonly adjudicatorModel: string;
   /** The recorded replies being replayed, when a snapshot of this provider was given. */
   readonly replay?: Pick<SnapshotProvider, 'stats' | 'snapshot'>;
 }
@@ -96,6 +105,8 @@ interface ProviderChoice {
   readonly pricing: PricingTable;
   /** The reviewer's model when it differs from the extractor's (the fake's scripted reviewer). */
   readonly reviewerModel?: string;
+  /** The adjudicator's model when it differs from the extractor's (the fake's scripted adjudicator). */
+  readonly adjudicatorModel?: string;
 }
 
 function chooseProvider(config: LlmConfig, deps: ExtractorDeps): ProviderChoice {
@@ -150,6 +161,7 @@ function chooseProvider(config: LlmConfig, deps: ExtractorDeps): ProviderChoice 
         provider: createFakeProvider({
           respond: chainResponders(
             scriptedReviewerResponder,
+            scriptedAdjudicatorResponder,
             createNoteFixtureResponder(deps.noteFixtures ?? []),
             heuristicResponder,
           ),
@@ -157,6 +169,7 @@ function chooseProvider(config: LlmConfig, deps: ExtractorDeps): ProviderChoice 
         info: { provider: 'fake', model: FAKE_DEFAULT_MODEL },
         pricing: DEFAULT_PRICING,
         reviewerModel: FAKE_REVIEWER_MODEL,
+        adjudicatorModel: FAKE_ADJUDICATOR_MODEL,
       };
   }
 }
@@ -218,6 +231,16 @@ export function createConfiguredExtractor(
         ],
         maxOutputTokens: 4_000,
       },
+      [ADJUDICATION_TASK]: {
+        route: [
+          { provider: choice.info.provider, model: choice.adjudicatorModel ?? choice.info.model },
+          ...(fallback === undefined
+            ? []
+            : [{ provider: fallback.info.provider, model: fallback.adjudicatorModel ?? '' }]),
+        ],
+        // Muse Spark bills its reasoning as output: room to think before a short answer.
+        maxOutputTokens: 3_000,
+      },
     },
     usageLog: deps.usageLog,
     pricing: choice.pricing,
@@ -230,6 +253,8 @@ export function createConfiguredExtractor(
     info: choice.info,
     reviewAgent: createReviewAgent({ gateway }),
     reviewerModel: choice.reviewerModel ?? choice.info.model,
+    adjudicator: createAdjudicator({ gateway }),
+    adjudicatorModel: choice.adjudicatorModel ?? choice.info.model,
     ...(replay === undefined ? {} : { replay }),
   };
 }

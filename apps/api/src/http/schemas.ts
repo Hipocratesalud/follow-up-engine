@@ -230,7 +230,7 @@ export const CaseTimelineEntrySchema = z
     at: isoDate,
     type: z.string(),
     actor: z.object({
-      type: z.enum(['rule', 'user', 'patient', 'system']),
+      type: z.enum(['rule', 'user', 'patient', 'system', 'adjudicator']),
       id: z.string().optional(),
     }),
     label: z.string(),

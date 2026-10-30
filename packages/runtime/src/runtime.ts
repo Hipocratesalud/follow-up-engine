@@ -13,9 +13,11 @@ import {
   clinicId as toClinicId,
   type Clock,
   createClinicalReviewer,
+  createExpectationAdjudication,
   createFollowUpEngine,
   DEFAULT_REVIEW_LOCALE,
   type EventPublisher,
+  type ExpectationAdjudication,
   FakeClock,
   type FollowUpEngine,
   type IdGenerator,
@@ -74,6 +76,13 @@ export const DEMO_DAILY_CASE_CAP_PER_OWNER = 5;
  */
 export const DEMO_ESCALATION_POLICY = 'default_v2';
 
+/**
+ * The adjudicator in the demo and lab sandboxes: on, in shadow (decisions
+ * recorded and shown next to each ambiguous item, nothing suppressed). Real
+ * clinics keep it off until their clinical team validated it.
+ */
+export const DEMO_ADJUDICATOR_SETTINGS = { mode: 'shadow' } as const;
+
 /** Label of the demo clinic's inbox key (`DEMO_INBOX_API_KEY`). */
 export const DEMO_INBOX_KEY_LABEL = 'demo inbox';
 
@@ -105,6 +114,8 @@ export interface EngineRuntime {
   readonly engine: FollowUpEngine;
   /** The clinical reviewer (PRD V3): shadow findings, flags, review runs. */
   readonly reviewer: ClinicalReviewer;
+  /** The adjudicator of ambiguous plan items (PRD V2): decisions, overrides. */
+  readonly adjudicator: ExpectationAdjudication;
   readonly extractor: ExtractorInfo;
   /** Replay of a recorded model snapshot (`CreateRuntimeOptions.llmSnapshot`): hits and live calls. */
   readonly llmReplay?: ConfiguredExtractor['replay'];
@@ -188,13 +199,16 @@ export async function createRuntime(
           ...(options.poolSize === undefined ? {} : { poolSize: options.poolSize }),
         });
 
-  const { extractor, info, reviewAgent, replay } = createConfiguredExtractor(config.llm, {
-    usageLog: storage.llmUsage,
-    clinics: storage.clinics,
-    clock,
-    ...(options.noteFixtures === undefined ? {} : { noteFixtures: options.noteFixtures }),
-    ...(options.llmSnapshot === undefined ? {} : { snapshot: options.llmSnapshot }),
-  });
+  const { extractor, info, reviewAgent, adjudicator, replay } = createConfiguredExtractor(
+    config.llm,
+    {
+      usageLog: storage.llmUsage,
+      clinics: storage.clinics,
+      clock,
+      ...(options.noteFixtures === undefined ? {} : { noteFixtures: options.noteFixtures }),
+      ...(options.llmSnapshot === undefined ? {} : { snapshot: options.llmSnapshot }),
+    },
+  );
 
   const engine = createFollowUpEngine({
     unitOfWork: storage.unitOfWork,
@@ -224,6 +238,16 @@ export async function createRuntime(
     // What the host sends in full: a missing allergy status is a finding only then.
     recordCapabilitiesOf: async (clinicId) =>
       (await storage.clinics.get(clinicId))?.settings.recordCapabilities ?? [],
+  });
+
+  const adjudication = createExpectationAdjudication({
+    unitOfWork: storage.unitOfWork,
+    clinics: storage.clinics,
+    clock,
+    ids: options.ids ?? new UuidIdGenerator(),
+    adjudicator,
+    // Names and identifiers never reach the model (masked in the note and every field).
+    redactTermsOf: patientRedactTerms,
   });
 
   const { url: webhookUrl, secret: webhookSecret } = config.webhooks;
@@ -294,6 +318,7 @@ export async function createRuntime(
     storage,
     engine,
     reviewer,
+    adjudicator: adjudication,
     extractor: info,
     ...(replay === undefined ? {} : { llmReplay: replay }),
     ingestion: new IngestionService({ storage, engine, clock }),
@@ -408,6 +433,9 @@ export async function registerDemoClinic(
       // Nightly reconciliation of what changed, no weekly full sweep: the fake
       // clock crosses a week in seconds (a full sweep stays a CLI command).
       reconciliation: { fullSweepWeekday: null },
+      // The adjudicator of ambiguous plan items, in shadow: decisions are
+      // recorded and shown, nothing is suppressed (docs/adjudicator.md).
+      adjudicator: DEMO_ADJUDICATOR_SETTINGS,
       ...(llmMonthlyBudgetUsd === undefined ? {} : { llmMonthlyBudgetUsd }),
     },
   });
@@ -524,6 +552,7 @@ export async function ensureLabClinic(
       enabledProtocols: [...availableProtocolIds()],
       escalationPolicyId: DEMO_ESCALATION_POLICY,
       reconciliation: { fullSweepWeekday: null, enabled: false },
+      adjudicator: DEMO_ADJUDICATOR_SETTINGS,
     },
   });
 }
