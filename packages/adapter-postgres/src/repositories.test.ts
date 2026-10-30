@@ -775,6 +775,8 @@ describe.skipIf(testDatabaseUrl() === undefined)(
           active: true,
           settings: {
             allowPatientContact: true,
+            // A regular clinic never sends an unmasked photo to a model unless it opts in.
+            allowUnmaskedImagesToProvider: false,
             dailyCaseCapPerOwner: 20,
             backfillNotifyMaxAgeDays: 730,
             llmMonthlyBudgetUsd: 50,
