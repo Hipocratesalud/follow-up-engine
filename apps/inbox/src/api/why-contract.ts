@@ -93,7 +93,7 @@ export interface ReasonWhyView {
     name?: string;
     version: string;
     currentVersion?: string;
-    status?: 'draft' | 'validated';
+    status?: 'draft' | 'ready_for_signoff' | 'validated';
     statusText?: string;
     title: string;
     itemKey?: string;

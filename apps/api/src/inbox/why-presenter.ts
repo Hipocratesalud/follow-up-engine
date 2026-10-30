@@ -599,7 +599,12 @@ export class WhyPresenter {
                 ? {}
                 : {
                     status: protocol.status,
-                    statusText: protocol.status === 'draft' ? t.why.draft : t.why.validated,
+                    statusText:
+                      protocol.status === 'draft'
+                        ? t.why.draft
+                        : protocol.status === 'ready_for_signoff'
+                          ? t.why.readyForSignoff
+                          : t.why.validated,
                   }),
               title: t.why.protocolVersion(
                 protocolRef?.name ?? protocol.protocolId,

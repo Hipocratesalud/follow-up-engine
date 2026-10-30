@@ -113,6 +113,9 @@ const labels = {
   },
   draftProtocol: 'Draft protocol · pending clinical validation',
   draftProtocolHint: 'Your clinic’s clinical team has not validated this protocol yet.',
+  readyForSignoff: 'Ready for sign-off · pending clinical validation',
+  readyForSignoffHint:
+    'A sign-off package is ready for your clinic’s clinical team to review; nobody has approved it yet.',
   protocolPrefix: 'Protocol:',
   statuses: {
     open: 'Open',

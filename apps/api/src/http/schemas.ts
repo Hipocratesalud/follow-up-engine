@@ -124,10 +124,16 @@ export const ProtocolRefViewSchema = z
       description:
         'Name of the protocol in the response language, ready to show ("Pregnancy and postpartum"). Absent when the protocol is no longer enabled for the clinic',
     }),
-    status: z.enum(PROTOCOL_STATUSES).optional().meta({
-      description:
-        'draft: not yet validated by the clinical team (the inbox flags it); validated: approved. Status of the version the clinic runs today; absent when the protocol is no longer enabled for the clinic',
-    }),
+    status: z
+      .enum(PROTOCOL_STATUSES)
+      .optional()
+      .meta({
+        description:
+          'draft: no sign-off package yet (the inbox flags it); ready_for_signoff: a sign-off ' +
+          'package exists but nobody approved it yet (the inbox flags it too); validated: ' +
+          'approved. Status of the version the clinic runs today; absent when the protocol is ' +
+          'no longer enabled for the clinic',
+      }),
   })
   .meta({ id: 'ProtocolRef' });
 

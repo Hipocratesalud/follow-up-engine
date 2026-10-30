@@ -112,7 +112,7 @@ describe('"Why this?" evidence in the inbox API', () => {
       expect(protocol, reason.expectationId).toBeDefined();
       expect(protocol?.id).toBe(reason.protocol?.id);
       expect(protocol?.title).toContain(`v${reason.protocol?.version ?? ''}`);
-      expect(protocol?.statusText).toMatch(/Draft|Validated/);
+      expect(protocol?.statusText).toMatch(/Draft|Ready for sign-off|Validated/);
       expect(protocol?.scheduleText).toBeTruthy();
       expect(protocol?.enrollment.text).not.toBe('');
       if (protocol?.enrollment.episode === 'active') {

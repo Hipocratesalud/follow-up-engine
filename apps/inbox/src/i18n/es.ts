@@ -105,6 +105,9 @@ const labels: Messages['labels'] = {
   },
   draftProtocol: 'Protocolo en borrador · pendiente de validación clínica',
   draftProtocolHint: 'Este protocolo aún no fue validado por el equipo clínico de tu consultorio.',
+  readyForSignoff: 'Listo para aval médico · pendiente de validación clínica',
+  readyForSignoffHint:
+    'Hay un paquete de aval listo para que el equipo clínico de tu consultorio lo revise; todavía nadie lo aprueba.',
   protocolPrefix: 'Protocolo:',
   statuses: {
     open: 'Abierto',

@@ -15,11 +15,16 @@ import { seedSyntheticClinic } from '../test/seed.ts';
 /*
  * HIP-137: every reason that comes from a care protocol says which protocol
  * (its Spanish name) and whether the clinical team validated it, so the
- * inbox can flag the drafts. The synthetic clinic enables every protocol of
- * config/protocols, all of them drafts today.
+ * inbox can flag the ones still unvalidated. The synthetic clinic enables
+ * every protocol of config/protocols; none is `validated` yet (diabetes and
+ * hypertension have a sign-off package and are `ready_for_signoff`, the
+ * rest are still `draft`).
  */
 
 const KEY = 'protocol-reasons-key';
+
+/** Neither is signed off by the clinical team yet (docs/protocols/signoff). */
+const UNVALIDATED_STATUSES = ['draft', 'ready_for_signoff'];
 
 /** Words that would let the front desk infer a mental-health condition. */
 const MENTAL_HEALTH = /depres|ansie|anxi|antidep|psiq|mental|ánimo|animo/i;
@@ -87,14 +92,14 @@ describe('protocol reasons in the inbox API', () => {
     await runtime.close();
   });
 
-  it('names the draft protocol behind each protocol reason of a case', () => {
+  it('names the unvalidated protocol behind each protocol reason of a case', () => {
     const fromProtocols = reasons.filter((reason) => reason.layer === 'protocol');
     expect(fromProtocols.length).toBeGreaterThan(0);
     for (const reason of fromProtocols) {
       const { protocol } = reason;
       expect(protocol, reason.ruleId).toBeDefined();
       expect(reason.ruleId.startsWith(`protocol_${protocol?.id ?? ''}_`)).toBe(true);
-      expect(protocol?.status).toBe('draft');
+      expect(UNVALIDATED_STATUSES).toContain(protocol?.status);
       expect(protocol?.name).toBe(PROTOCOL_NAMES.en[protocol?.id ?? '']);
       expect(protocol?.version).toMatch(/^\d+\.\d+\.\d+$/);
     }
@@ -127,7 +132,7 @@ describe('protocol reasons in the inbox API', () => {
     expect(ids.size).toBeGreaterThanOrEqual(3);
     expect(ids).toContain('pregnancy');
     for (const expectation of fromProtocols) {
-      expect(expectation.protocol?.status).toBe('draft');
+      expect(UNVALIDATED_STATUSES).toContain(expectation.protocol?.status);
       expect(expectation.protocol?.name).toBe(PROTOCOL_NAMES.en[expectation.protocol?.id ?? '']);
       // Labels come from the catalog: copy, never a rule id.
       expect(expectation.label).not.toMatch(/_|protocol/);
