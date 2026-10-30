@@ -26,6 +26,8 @@ export const EVALUATOR_ACTIONS = [
   'lab_patient_created',
   'lab_document_uploaded',
   'lab_record_added',
+  /** "Import history": several historical documents of one patient, replayed by the backfill. */
+  'lab_history_imported',
   'lab_date_viewed',
   'case_viewed',
   'patient_documents_viewed',

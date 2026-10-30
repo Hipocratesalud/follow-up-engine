@@ -12,6 +12,8 @@ const ASSETS = new URL('../../assets/order-agent/', import.meta.url);
 
 export const SAMPLE_FILES = {
   labReport: { file: 'lab-report.jpg', contentType: 'image/jpeg' },
+  /** The same report as a PDF (scripts/generate-history-samples.py). */
+  labReportPdf: { file: 'lab-report.pdf', contentType: 'application/pdf' },
   voiceEs: { file: 'voice-note-es.wav', contentType: 'audio/wav' },
   voiceEn: { file: 'voice-note-en.wav', contentType: 'audio/wav' },
 } as const;
@@ -38,6 +40,9 @@ export const SAMPLE_LAB_READING: ModelLabPhotoReading = {
   ],
 };
 
+/** The sample code printed on María's PDF report: how the scripted reader knows it. */
+export const SAMPLE_LAB_PDF_MARKER = 'DEMO-MFR-20251229';
+
 /** What the sample voice notes say. */
 export const SAMPLE_TRANSCRIPTS = {
   voiceEs:
@@ -56,8 +61,148 @@ function safeHash(name: SampleName): string | undefined {
 
 /** Scripted vision readings by sha256 of the image. */
 export function scriptedPhotoReadings(): Record<string, ModelLabPhotoReading> {
+  const out: Record<string, ModelLabPhotoReading> = {};
   const hash = safeHash('labReport');
-  return hash === undefined ? {} : { [hash]: SAMPLE_LAB_READING };
+  if (hash !== undefined) out[hash] = SAMPLE_LAB_READING;
+  const photo = safeHistoryHash('2025-12-15-foto-resultado.jpg');
+  if (photo !== undefined) out[photo] = HISTORY_RESULT_PHOTO_READING;
+  return out;
+}
+
+/** Scripted readings of lab report texts (PDF, DOCX), by a marker the report prints. */
+export function scriptedDocumentReadings(): Record<string, ModelLabPhotoReading> {
+  return {
+    [SAMPLE_LAB_PDF_MARKER]: SAMPLE_LAB_READING,
+    [HISTORY_LAB_PDF_MARKER]: HISTORY_LAB_PDF_READING,
+  };
+}
+
+/**
+ * The historical-import sample set (scripts/generate-history-samples.py): a
+ * fictitious patient's four documents over two years, for the lab's
+ * "Import history". The scripted readers know its lab report and its photo,
+ * so the import plays without a Meta key; with a key, Muse Spark reads the
+ * very same files.
+ */
+const HISTORY_ASSETS = new URL('../../assets/history/', import.meta.url);
+
+export interface HistorySampleFile {
+  readonly file: string;
+  readonly contentType: string;
+  /** `YYYY-MM-DD`: the date the document was written. */
+  readonly documentDate: string;
+  readonly documentType: 'consultation_note' | 'lab_result' | 'other';
+  readonly specialty: string;
+}
+
+export interface HistorySampleSet {
+  readonly id: string;
+  readonly patient: {
+    readonly name: string;
+    readonly gender: 'male' | 'female';
+    /** Age in years at the lab's date (the lab stores an approximate birth date). */
+    readonly age: number;
+  };
+  readonly files: readonly HistorySampleFile[];
+}
+
+/**
+ * Rafael: four documents over two years (a note asking for an HbA1c and a
+ * control in 3 months, the PDF lab report that answers it, a DOCX referral
+ * letter, a later photo of a result). Carmen: one old note, so two patients
+ * show the daily release cap.
+ */
+export const HISTORY_SAMPLE_SETS: readonly HistorySampleSet[] = [
+  {
+    id: 'rafael',
+    patient: { name: 'Rafael Antonio Méndez', gender: 'male', age: 62 },
+    files: [
+      {
+        file: '2024-02-12-nota-control.pdf',
+        contentType: 'application/pdf',
+        documentDate: '2024-02-12',
+        documentType: 'consultation_note',
+        specialty: 'internal_medicine',
+      },
+      {
+        file: '2024-05-06-informe-laboratorio.pdf',
+        contentType: 'application/pdf',
+        documentDate: '2024-05-06',
+        documentType: 'lab_result',
+        specialty: 'internal_medicine',
+      },
+      {
+        file: '2024-11-18-carta-referencia.docx',
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        documentDate: '2024-11-18',
+        documentType: 'other',
+        specialty: 'internal_medicine',
+      },
+      {
+        file: '2025-12-15-foto-resultado.jpg',
+        contentType: 'image/jpeg',
+        documentDate: '2025-12-15',
+        documentType: 'lab_result',
+        specialty: 'internal_medicine',
+      },
+    ],
+  },
+  {
+    id: 'carmen',
+    patient: { name: 'Carmen Elena Rivas', gender: 'female', age: 57 },
+    files: [
+      {
+        file: '2024-09-10-nota-hta.pdf',
+        contentType: 'application/pdf',
+        documentDate: '2024-09-10',
+        documentType: 'consultation_note',
+        specialty: 'internal_medicine',
+      },
+    ],
+  },
+];
+
+export function readHistorySample(file: string): Uint8Array {
+  return new Uint8Array(readFileSync(new URL(file, HISTORY_ASSETS)));
+}
+
+/** The sample code printed on the historical lab report PDF. */
+export const HISTORY_LAB_PDF_MARKER = 'HIST-LAB-20240506';
+
+/** What the historical lab report PDF says. */
+export const HISTORY_LAB_PDF_READING: ModelLabPhotoReading = {
+  isLabReport: true,
+  reportDate: '2024-05-06',
+  patientName: 'Rafael Antonio Méndez',
+  tests: [
+    {
+      name: 'Hemoglobina glicosilada (HbA1c)',
+      value: 8.4,
+      unit: '%',
+      referenceLow: 4.0,
+      referenceHigh: 5.6,
+    },
+    { name: 'Glucosa en ayunas', value: 158, unit: 'mg/dL', referenceLow: 70, referenceHigh: 99 },
+  ],
+};
+
+/** What the historical result photo shows. */
+export const HISTORY_RESULT_PHOTO_READING: ModelLabPhotoReading = {
+  isLabReport: true,
+  reportDate: '2025-12-15',
+  patientName: 'Rafael Antonio Mendez',
+  tests: [
+    { name: 'Creatinina', value: 0.9, unit: 'mg/dL', referenceLow: 0.6, referenceHigh: 1.2 },
+    { name: 'Colesterol LDL', value: 128, unit: 'mg/dL', referenceLow: 0, referenceHigh: 100 },
+  ],
+};
+
+function safeHistoryHash(file: string): string | undefined {
+  try {
+    return sha256Hex(readHistorySample(file));
+  } catch {
+    return undefined;
+  }
 }
 
 /** Scripted transcripts by sha256 of the audio. */

@@ -95,12 +95,37 @@ export {
   type OrderAgentStory,
 } from './order-agent/story.ts';
 export {
+  HISTORY_LAB_PDF_READING,
+  HISTORY_RESULT_PHOTO_READING,
+  HISTORY_SAMPLE_SETS,
+  readHistorySample,
   readSample,
   SAMPLE_FILES,
+  SAMPLE_LAB_PDF_MARKER,
   SAMPLE_LAB_READING,
   SAMPLE_TRANSCRIPTS,
+  type HistorySampleFile,
+  type HistorySampleSet,
   type SampleName,
 } from './order-agent/samples.ts';
+export {
+  type DocumentExtractionError,
+  type DocumentExtractionFailure,
+  type DocumentExtractionResult,
+  extractDocumentText,
+  MAX_LAB_DOCUMENT_BYTES,
+} from './documents.ts';
+export {
+  HISTORY_DOCUMENT_STATUSES,
+  historyDocumentKey,
+  importPatientHistory,
+  MAX_HISTORY_DOCUMENTS,
+  type HistoryDocument,
+  type HistoryDocumentOutcome,
+  type HistoryDocumentStatus,
+  type HistoryImportInput,
+  type HistoryImportReport,
+} from './history-import.ts';
 /** Gateway task names, for per-task LLM usage (notes read vs clinical reviews). */
 export { CLINICAL_REVIEW_TASK, NOTE_EXTRACTION_TASK } from '@follow-up-engine/llm';
 export { createLogger, type Logger } from './logger.ts';
