@@ -57,11 +57,17 @@ function nullStrings(value: unknown): unknown {
   return value;
 }
 
+/**
+ * Tool arguments with every `"null"` string read as `null` first (Muse
+ * Spark, 2026-10-30, wrote `{"id": "null"}` for an unused nullable id, which
+ * a nullable string schema accepts as the id "null"); the arguments as
+ * written when only those validate.
+ */
 function parseArguments<T>(schema: z.ZodType<T>, args: unknown): z.ZodSafeParseResult<T> {
-  const checked = schema.safeParse(args);
-  if (checked.success) return checked;
   const lenient = schema.safeParse(nullStrings(args));
-  return lenient.success ? lenient : checked;
+  if (lenient.success) return lenient;
+  const checked = schema.safeParse(args);
+  return checked.success ? checked : lenient;
 }
 
 /**
@@ -188,6 +194,18 @@ export function createRuleAuthoringAgent(options: RuleAuthoringAgentOptions): Ru
           record(definition.name, {}, 'ok', 'abstained');
           stopReason = 'abstained';
           return finish();
+        }
+        const refusal = toolbox.checkSubmission?.(checked.data);
+        if (refusal !== undefined && !refusal.ok) {
+          // The engine refused the draft: hand its issues back (one step), not end the run.
+          record(definition.name, auditArguments(checked.data), 'invalid_submission', 'refused');
+          messages.push(
+            authoringToolResult(step, definition.name, {
+              error: 'invalid_submission',
+              detail: refusal.error,
+            }),
+          );
+          continue;
         }
         submission = checked.data;
         record(definition.name, auditArguments(checked.data), 'ok', 'draft submitted');

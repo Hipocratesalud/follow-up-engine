@@ -13,6 +13,8 @@ export interface TerminologyEntry {
   readonly code: string;
   /** English display (`Hypothyroidism`, `TSH`, `levothyroxine`). */
   readonly display: string;
+  /** Spanish display, when the catalog has one (`Hipotiroidismo`, `Colonoscopia`). */
+  readonly displayEs?: string;
   /** The catalog it comes from (`condition-terms`, `test-names`, `atc-names`). */
   readonly catalog: string;
   /** Test entries: `lab` or `imaging`; and the test group (`thyroid`), whose codes are equivalent. */
@@ -68,6 +70,12 @@ export interface AuthoringToolbox {
   readonly definitions: readonly AuthoringToolDefinition[];
   /** Runs a non-terminal tool with already validated arguments. */
   execute(name: string, args: unknown): Promise<AuthoringToolExecution>;
+  /**
+   * Checks a `submit_draft` before the run ends on it: an invalid draft is
+   * handed back to the agent with the engine's issues (it costs a step)
+   * instead of ending the run without a draft.
+   */
+  checkSubmission?(args: unknown): AuthoringToolExecution;
 }
 
 /** How far one authoring run may go. */

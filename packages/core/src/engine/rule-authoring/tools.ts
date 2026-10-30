@@ -63,12 +63,17 @@ export const SubmitDraftArgs = z
       .nullable()
       .describe('Id of the existing rule or protocol this adapts, or null'),
     rationale: z
-      .string()
-      .min(1)
-      .max(300)
-      .describe(
-        'One sentence for the clinician: what the draft does and how it relates to existing rules',
-      ),
+      .object({
+        en: z
+          .string()
+          .min(1)
+          .max(300)
+          .describe(
+            'One sentence for the clinician: what the draft does and how it relates to existing rules',
+          ),
+        es: z.string().min(1).max(300).describe('The same sentence in neutral Spanish'),
+      })
+      .strict(),
   })
   .strict();
 export type SubmitDraft = z.infer<typeof SubmitDraftArgs>;
@@ -234,6 +239,17 @@ export function createAuthoringToolbox(deps: AuthoringToolboxDeps): AuthoringToo
 
   return {
     definitions: AUTHORING_TOOL_DEFINITIONS,
+    checkSubmission(rawArgs) {
+      const parsed = SubmitDraftArgs.safeParse(rawArgs);
+      if (!parsed.success) return { ok: false, error: 'invalid submit_draft arguments' };
+      const validation = validateAuthoredDraft(parsed.data, deps.validation);
+      return validation.ok
+        ? { ok: true, result: { valid: true }, summary: 'valid' }
+        : {
+            ok: false,
+            error: `the engine refused this draft: ${validation.issues.join('; ')}. Fix every issue and submit_draft the whole definition again`,
+          };
+    },
     async execute(name, rawArgs) {
       switch (name) {
         case AUTHORING_TOOLS.listExistingRules: {
@@ -242,8 +258,12 @@ export function createAuthoringToolbox(deps: AuthoringToolboxDeps): AuthoringToo
             const rule = deps.catalog.rules.find((item) => item.id === args.id);
             const protocol = deps.catalog.protocols.find((item) => item.id === args.id);
             const found = rule ?? protocol;
-            if (found === undefined)
-              return { ok: false, error: `no rule or protocol "${args.id}"` };
+            if (found === undefined) {
+              return {
+                ok: false,
+                error: `no rule or protocol "${args.id}": call with id null to list them all`,
+              };
+            }
             return { ok: true, result: found, summary: `full JSON of ${args.id}` };
           }
           const query = args.query?.trim() ?? '';

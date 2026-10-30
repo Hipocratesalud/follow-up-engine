@@ -33,6 +33,8 @@ export interface TerminologyCitation {
   readonly system: string;
   readonly code: string;
   readonly display: string;
+  /** Spanish display, when the catalog has one (ICD-10 categories, some tests). */
+  readonly displayEs?: string;
   /** The catalog it was found in (`condition-terms`, `test-names`, `atc-names`). */
   readonly catalog: string;
 }
@@ -114,8 +116,8 @@ export interface AuthoringProvenance {
   readonly terminology: readonly TerminologyCitation[];
   /** The existing rule or protocol the draft adapts, when it adapts one. */
   readonly basedOn?: string;
-  /** The agent's one-line rationale, English, for the clinician. */
-  readonly rationale?: string;
+  /** The agent's one-line rationale for the clinician, in both UI languages. */
+  readonly rationale?: { readonly en: string; readonly es: string };
   /** Who asked for the draft. */
   readonly draftedBy: string;
   /** ISO 8601. */

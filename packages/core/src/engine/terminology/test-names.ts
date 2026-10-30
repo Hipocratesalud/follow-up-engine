@@ -23,6 +23,8 @@ export interface TestGroup {
   readonly kind: 'lab' | 'imaging';
   /** Short English description used when the model's own does not match the quote. */
   readonly label: string;
+  /** Spanish display of the test, where it differs from `label` (the rule-authoring page). */
+  readonly labelEs?: string;
   readonly terms: readonly string[];
   readonly loinc: readonly string[];
   /**
@@ -430,6 +432,7 @@ export const TEST_GROUPS: readonly TestGroup[] = [
     id: 'fit',
     kind: 'lab',
     label: 'fecal immunochemical test (FIT)',
+    labelEs: 'test inmunoquímico fecal (FIT)',
     terms: [
       'prueba fit',
       'test fit',
@@ -447,6 +450,7 @@ export const TEST_GROUPS: readonly TestGroup[] = [
     id: 'colonoscopy',
     kind: 'imaging',
     label: 'colonoscopy',
+    labelEs: 'colonoscopia',
     terms: ['colonoscopia', 'videocolonoscopia', 'colonoscopy'],
     loinc: ['18746-8'],
   },

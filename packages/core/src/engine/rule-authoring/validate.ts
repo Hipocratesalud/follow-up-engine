@@ -124,6 +124,7 @@ class Checker {
       system,
       code,
       display: entry.display,
+      ...(entry.displayEs === undefined ? {} : { displayEs: entry.displayEs }),
       catalog: entry.catalog,
     });
     return entry;

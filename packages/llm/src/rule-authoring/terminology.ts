@@ -44,6 +44,7 @@ function icd10Entries(
       system: 'icd10',
       code,
       display: capitalized(en[0] ?? es[0] ?? code),
+      ...(es[0] === undefined ? {} : { displayEs: capitalized(es[0]) }),
       catalog: 'condition-terms',
       systemUri: ICD10_SYSTEM,
       terms: [...new Set([...en.slice(0, 4), ...es.slice(0, 4)])],
@@ -53,9 +54,10 @@ function icd10Entries(
 
 function testEntries(): readonly TerminologyEntry[] {
   return TEST_GROUPS.flatMap((group): TerminologyEntry[] => {
-    const terms = group.terms.slice(0, 8);
+    const terms = group.terms;
     const base = {
       display: group.label,
+      ...(group.labelEs === undefined ? {} : { displayEs: group.labelEs }),
       catalog: 'test-names',
       testKind: group.kind,
       group: group.id,
@@ -86,23 +88,41 @@ function atcEntries(): readonly TerminologyEntry[] {
   return knownAtcCodes().map(({ atc, names }) => ({
     system: 'atc',
     code: atc,
-    display: names.join(' / '),
+    display: names.map((name) => `${name}…`).join(' / '),
     catalog: 'atc-names',
     systemUri: ATC_SYSTEM,
     terms: names,
   }));
 }
 
+function tokens(text: string): string[] {
+  return text.split(/[^\p{L}\p{N}]+/u).filter((token) => token.length >= 2);
+}
+
+/**
+ * How well an entry answers a query: an exact code first, then a whole
+ * term, then the share of the query's words the entry's vocabulary has
+ * (so "FIT fecal occult blood" ranks the FIT group above guaiac stool
+ * tests: it shares four words, not three).
+ */
 function score(entry: TerminologyEntry, query: string): number {
   const code = entry.code.toLowerCase();
-  if (code === query) return 100;
-  if (query.length >= 3 && code.startsWith(query)) return 80;
-  const words = [entry.display, ...entry.terms].map(fold);
-  if (words.some((word) => word === query)) return 90;
-  if (words.some((word) => word.startsWith(query) || query.startsWith(word))) return 70;
-  if (query.length >= 4 && words.some((word) => word.includes(query) || query.includes(word)))
-    return 55;
-  return 0;
+  if (code === query) return 1_000;
+  if (query.length >= 3 && code.startsWith(query)) return 800;
+  const phrases = [entry.display, ...entry.terms].map(fold);
+  if (phrases.some((phrase) => phrase === query)) return 900;
+  const vocabulary = new Set(phrases.flatMap(tokens));
+  const words = tokens(query);
+  const shared = words.filter(
+    (word) =>
+      vocabulary.has(word) ||
+      (word.length >= 5 &&
+        [...vocabulary].some(
+          (known) => known.startsWith(word) || (known.length >= 5 && word.startsWith(known)),
+        )),
+  ).length;
+  if (shared === 0) return 0;
+  return Math.round((100 * shared) / words.length) + shared;
 }
 
 export interface RepositoryTerminologyOptions {
@@ -165,10 +185,11 @@ export function createRepositoryTerminology(
         return {
           system: 'atc',
           code: atc,
-          display: `class: ${members
+          // The class, named by the drugs the table knows in it (no language-specific words).
+          display: members
             .slice(0, 4)
             .map((entry) => entry.display)
-            .join(', ')}`,
+            .join(', '),
           catalog: 'atc-names',
           systemUri: ATC_SYSTEM,
           terms: members.flatMap((entry) => entry.terms).slice(0, 8),

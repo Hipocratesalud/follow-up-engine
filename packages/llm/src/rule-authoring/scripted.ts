@@ -175,8 +175,10 @@ const RECIPES: readonly Recipe[] = [
       ...finishing(HYPOTHYROIDISM_DRAFT, {
         labels: { en: 'TSH every 6 months', es: 'TSH cada 6 meses' },
         basedOn: 'hypothyroidism',
-        rationale:
-          'Adapts the hypothyroidism protocol: same enrollment (E03 on levothyroxine), TSH every 182 days instead of yearly; it overlaps with that protocol, whose TSH item stays on.',
+        rationale: {
+          en: 'Adapts the hypothyroidism protocol: same enrollment (E03 on levothyroxine), a TSH every 182 days instead of yearly. It overlaps with that protocol, whose TSH item stays on.',
+          es: 'Adapta el protocolo de hipotiroidismo: la misma inclusión (E03 con levotiroxina), una TSH cada 182 días en lugar de cada año. Se superpone con ese protocolo, cuyo control de TSH sigue activo.',
+        },
       }),
     ],
   },
@@ -196,8 +198,10 @@ const RECIPES: readonly Recipe[] = [
           es: 'Colonoscopia tras un FIT positivo',
         },
         basedOn: null,
-        rationale:
-          'New rule: no existing rule follows a positive FIT; any FIT LOINC code that comes back abnormal expects a colonoscopy result within 60 days.',
+        rationale: {
+          en: 'New rule: no existing rule follows a positive FIT. Any FIT LOINC code that comes back abnormal expects a colonoscopy result within 60 days.',
+          es: 'Regla nueva: ninguna regla existente sigue un FIT positivo. Cualquier código LOINC de FIT con resultado anormal espera una colonoscopia en 60 días.',
+        },
       }),
     ],
   },
@@ -216,8 +220,10 @@ const RECIPES: readonly Recipe[] = [
           es: 'Control por HbA1c mayor de 9 %',
         },
         basedOn: null,
-        rationale:
-          'New rule with a fixed 9 % threshold and a 30-day visit; it overlaps with the abnormal-result rule for results the lab flags, and adds the ones it does not.',
+        rationale: {
+          en: 'New rule with a fixed 9 % threshold and a visit within 30 days. It overlaps with the abnormal-result rule for results the lab flags, and adds the ones it does not.',
+          es: 'Regla nueva con un umbral fijo de 9 % y un control en 30 días. Se superpone con la regla de resultados anormales cuando el laboratorio marca el resultado, y suma los que no marca.',
+        },
       }),
     ],
   },
