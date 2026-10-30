@@ -126,7 +126,7 @@ On Muse Spark (`muse-spark-1.3`, 2026-10-27, [eval report](evals/reviewer/2026-1
 
 ## Findings in the reader's language
 
-A finding is stored with its words in every review locale (`texts`, migration `0019_finding_texts.sql`): `{ en: { summary, rationale, suggestion }, es: { … } }`. `summary`, `rationale` and `suggestion` stay the clinic's locale.
+A finding is stored with its words in every review locale (`texts`, migration `0023_finding_texts.sql`): `{ en: { summary, rationale, suggestion }, es: { … } }`. `summary`, `rationale` and `suggestion` stay the clinic's locale.
 
 - **Detectors** render every locale from the same templates (`copy.ts`): the pipeline runs them once per locale over the same record and pairs each signal with its twin (same index, same rule). Dates inside sentences are written the reader's way ("Jun 10, 2024" / "10 jun 2024"), never ISO.
 - **The model** (prompt `clinical-review@2`) returns `texts` with English and Spanish next to its clinic-locale fields; signals carry both so it can reuse them. The scripted reviewer returns the signals' own `texts`. A translation that addresses the patient discards the finding like the main text would.
