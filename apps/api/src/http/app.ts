@@ -14,6 +14,7 @@ import { fhirErrorResponse, registerFhirRoutes } from './fhir-routes.ts';
 import { registerInboxRoutes } from './inbox-routes.ts';
 import { registerLabRecordRoutes } from './lab-records-routes.ts';
 import { registerMetricsRoutes } from '../metrics/metrics-routes.ts';
+import { registerValueRoutes } from '../value/value-routes.ts';
 import { registerJobRoutes } from './job-routes.ts';
 import { registerPatientQueueRoutes } from './patient-queue-routes.ts';
 import { registerReviewerDemoRoutes, registerReviewerRoutes } from './reviewer-routes.ts';
@@ -397,6 +398,7 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   registerReviewerRoutes(app, runtime);
   registerAdjudicationRoutes(app, runtime);
   registerMetricsRoutes(app, runtime);
+  registerValueRoutes(app);
   registerAdminRoutes(app, runtime);
   if (runtime.fakeClock !== undefined) {
     registerDemoRoutes(app, runtime, runtime.fakeClock, options.worker);

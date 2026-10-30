@@ -259,6 +259,14 @@ describe('the committed snapshot', () => {
   // Run `pnpm simulate` after changing the config or the model: the API serves this file.
   const snapshot = JSON.parse(readFileSync(SIMULATION_SNAPSHOT_URL, 'utf8')) as SimulationReport;
 
+  it('is the same file the inbox mock serves', () => {
+    const inboxCopy = readFileSync(
+      new URL('../../../apps/inbox/src/features/value/simulation-snapshot.json', import.meta.url),
+      'utf8',
+    );
+    expect(inboxCopy).toBe(readFileSync(SIMULATION_SNAPSHOT_URL, 'utf8'));
+  });
+
   it('was made from the current config', () => {
     expect(snapshot.fingerprint).toBe(simulationFingerprint(base));
     expect(snapshot.seeds).toHaveLength(base.cohort.seeds);

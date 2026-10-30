@@ -374,6 +374,25 @@ const OPERATIONS: readonly Operation[] = [
     errors: [422],
   },
   {
+    method: 'get',
+    path: '/api/inbox/value/simulation',
+    tag: 'Inbox',
+    summary: '90-day outcome simulation: order agent vs fixed reminders (synthetic patients)',
+    description:
+      'Seeded simulation with synthetic patients and stated assumptions, not a clinical trial; the same for every clinic. Each metric per arm as the mean over seeds with a 95 % interval. The default size answers at once; another is computed in the background (202 with the progress) and cached. Method: docs/simulation.md.',
+    params: [
+      {
+        name: 'patientsPerArm',
+        in: 'query',
+        description: 'Patients per arm, 50 to 400 (default 400)',
+      },
+      { name: 'seeds', in: 'query', description: 'Seeded runs, 1 to 20 (default 20)' },
+    ],
+    response: 'any',
+    alsoOk: [{ status: 202, description: 'Computing this size; poll again' }],
+    errors: [422],
+  },
+  {
     method: 'post',
     path: '/api/inbox/cases/{id}/feedback',
     tag: 'Inbox',
