@@ -170,6 +170,7 @@ export {
 export { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from './settings.ts';
 
 export * from './reviewer/index.ts';
+export * from './rule-authoring/index.ts';
 export * from './adjudicator/index.ts';
 export {
   ANCHOR_ROLES,
@@ -188,6 +189,9 @@ export {
   type PlanExplanation,
   type ProtocolExplanation,
 } from './explain/explain.ts';
+export { ATC_SYSTEM, atcCodeOfName, isAtcCode, knownAtcCodes } from './terminology/atc.ts';
+export { LOINC_SYSTEM } from './terminology/loinc.ts';
+export { authoredIsLive } from './rules/overrides.ts';
 export {
   orderCodingOf,
   TEST_GROUPS,

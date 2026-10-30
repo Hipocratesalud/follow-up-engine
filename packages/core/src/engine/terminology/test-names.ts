@@ -426,6 +426,31 @@ export const TEST_GROUPS: readonly TestGroup[] = [
     loinc: ['2335-8'],
   },
   {
+    // Colorectal cancer screening: the fecal immunochemical test (FIT).
+    id: 'fit',
+    kind: 'lab',
+    label: 'fecal immunochemical test (FIT)',
+    terms: [
+      'prueba fit',
+      'test fit',
+      'fit test',
+      'test inmunoquimico fecal',
+      'prueba inmunoquimica fecal',
+      'sangre oculta inmunologica',
+      'sangre oculta en heces inmunologica',
+      'fecal immunochemical test',
+      'immunochemical fecal occult blood test',
+    ],
+    loinc: ['29771-3', '57905-2', '56490-6', '56491-4'],
+  },
+  {
+    id: 'colonoscopy',
+    kind: 'imaging',
+    label: 'colonoscopy',
+    terms: ['colonoscopia', 'videocolonoscopia', 'colonoscopy'],
+    loinc: ['18746-8'],
+  },
+  {
     id: 'ultrasound',
     kind: 'imaging',
     label: 'ultrasound',
