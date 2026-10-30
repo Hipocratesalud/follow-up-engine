@@ -146,6 +146,18 @@ export interface FindingPage {
   counts: FindingCounts;
 }
 
+/**
+ * "Before the visit" (PRD V3): the patient's next appointment and the open
+ * `pre_visit_question` / `abnormal_result_no_followup` findings worth
+ * raising then. In a demo or lab clinic shadow findings are included too
+ * (`mode: 'shadow'`, shown as a suggestion not yet validated); elsewhere
+ * only live ones.
+ */
+export interface BeforeVisitView {
+  nextAppointmentAt?: string;
+  items: FindingView[];
+}
+
 export interface FindingListQuery {
   mode?: FindingMode;
   /** `reviewed`: any verdict. */

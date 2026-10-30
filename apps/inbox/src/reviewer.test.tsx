@@ -1,8 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { LOCALES, type Locale, messagesFor } from './i18n/index.ts';
+import { formatDate } from './lib/format.ts';
 import { mockApiCopy } from './mocks/api-copy.ts';
-import { createMockStore } from './mocks/store.ts';
+import { createMockStore, MOCK_START } from './mocks/store.ts';
 import { renderApp } from './test/render.tsx';
 
 function escape(text: string): string {
@@ -29,9 +30,10 @@ describe.each(LOCALES)('clinical review in %s', (locale: Locale) => {
     // The live pre-visit question is not in the shadow list.
     expect(screen.queryByText(finding('cf-005').summary)).not.toBeInTheDocument();
     expect(screen.getByText(review.metrics.patients)).toBeInTheDocument();
-    // The nav counts the open shadow findings (desktop and phone navs).
+    // The nav counts the open shadow findings (desktop and phone navs):
+    // cf-001..cf-004 plus cf-006 (the before-visit panel's shadow abnormal result).
     for (const link of screen.getAllByRole('link', { name: new RegExp(t.nav.review) })) {
-      expect(link).toHaveTextContent('4');
+      expect(link).toHaveTextContent('5');
     }
   });
 
@@ -132,21 +134,31 @@ describe.each(LOCALES)('clinical review in %s', (locale: Locale) => {
     ).toBeInTheDocument();
   });
 
-  it('shows only live questions on the patient page', async () => {
+  it('shows the before-visit panel with the appointment and both live and shadow findings', async () => {
     renderApp('/patients/pat-001', { locale });
     expect(
-      await screen.findByRole('heading', { name: new RegExp(review.preVisit.title) }),
+      await screen.findByRole('heading', { name: new RegExp(review.beforeVisit.title) }),
     ).toBeInTheDocument();
+    // The next appointment, in the page's locale, never as a raw ISO date.
+    const appointmentDate = formatDate(
+      new Date(MOCK_START.getTime() + 12 * 86_400_000).toISOString(),
+    );
+    expect(screen.getByText(review.beforeVisit.appointmentOn(appointmentDate))).toBeInTheDocument();
+    expect(screen.queryByText(/\d{4}-\d{2}-\d{2}T/)).not.toBeInTheDocument();
+    // The live pre-visit question.
     expect(screen.getByText(finding('cf-005').summary)).toBeInTheDocument();
-    // Shadow findings of the same patient never appear there.
+    // The shadow abnormal-result finding, clearly labeled as not yet validated.
+    expect(screen.getByText(finding('cf-006').summary)).toBeInTheDocument();
+    expect(screen.getAllByText(review.beforeVisit.shadowBadge).length).toBeGreaterThan(0);
+    // A shadow finding of the wrong category (lab_trend) never appears here.
     expect(screen.queryByText(finding('cf-001').summary)).not.toBeInTheDocument();
   });
 
-  it('shows no question section when the patient has none', async () => {
+  it('shows nothing before the visit when the patient has no appointment or findings', async () => {
     renderApp('/patients/pat-002', { locale });
     await screen.findAllByText(/José Luis Méndez/);
     expect(
-      screen.queryByRole('heading', { name: new RegExp(review.preVisit.title) }),
+      screen.queryByRole('heading', { name: new RegExp(review.beforeVisit.title) }),
     ).not.toBeInTheDocument();
   });
 });

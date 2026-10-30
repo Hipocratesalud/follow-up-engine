@@ -916,7 +916,7 @@ const review = {
     evidenceNote:
       'Each quote was checked word for word against the document before the finding was saved.',
     citationCaption: (kind: string, date: string): string => `${kind} · ${date}`,
-    traceTitle: 'How it got here',
+    traceTitle: 'How the reviewer got here',
     traceToggle: 'See the steps',
     traceFacts: {
       steps: 'Steps',
@@ -926,6 +926,7 @@ const review = {
       stop: 'Ending',
       signals: 'Rule signals',
     },
+    traceValidatedBy: 'Confirmed by this quote',
     discardedPrefix: 'Discarded by the engine: ',
     discardedItem: (n: number, reason: string): string => `${String(n)} ${reason}`,
     verdictTitle: 'Is this finding relevant?',
@@ -990,9 +991,20 @@ const review = {
     reservedBody:
       'Reserved: it does not exist yet. It needs data from several clinics and its own clinical validation, because a correlation is not a recommendation.',
   },
-  preVisit: {
-    title: 'To ask at the next visit',
-    suggestedOn: (date: string): string => `Suggested by the clinical reviewer on ${date}`,
+  beforeVisit: {
+    title: 'Before the visit',
+    appointmentOn: (date: string): string => `Next appointment: ${date}`,
+    emptyWithAppointment: 'Nothing to flag before this visit.',
+    loading: 'Loading what to check before the visit',
+    error: 'We could not load what to check before the visit',
+    shadowBadge: 'Suggestion, not validated yet',
+    citationCaption: (title: string, date: string): string => `${title} · ${date}`,
+    askedAction: 'Asked',
+    notRelevantAction: 'Not relevant',
+    reasonLabel: 'Why is it not relevant?',
+    reasonRequired: 'Tell us why it is not relevant.',
+    cancel: 'Cancel',
+    submit: 'Save',
   },
 };
 

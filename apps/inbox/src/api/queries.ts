@@ -48,6 +48,7 @@ import type {
   WebhookDelivery,
 } from './contract.ts';
 import type {
+  BeforeVisitView,
   FindingDetail,
   FindingFlagUpdate,
   FindingFlagView,
@@ -75,6 +76,8 @@ export const queryKeys = {
   patients: ['patients'] as const,
   case: (id: string) => ['case', id] as const,
   patient: (id: string) => ['patient', id] as const,
+  beforeVisit: (patientId: string) => ['before-visit', patientId] as const,
+  allBeforeVisit: ['before-visit'] as const,
   recovery: ['recovery'] as const,
   stats: ['stats'] as const,
   clock: ['clock'] as const,
@@ -364,6 +367,15 @@ export function useOpenShadowFindings(): UseQueryResult<FindingPage> {
   return useFindings({ mode: 'shadow', status: 'open', limit: 1 });
 }
 
+/** "Before the visit": the patient's next appointment and what to raise then. */
+export function useBeforeVisit(patientId: string): UseQueryResult<BeforeVisitView> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.beforeVisit(patientId),
+    queryFn: () => api.getBeforeVisit(patientId),
+  });
+}
+
 export function useFinding(id: string): UseQueryResult<FindingDetail> {
   const api = useApi();
   return useQuery({ queryKey: queryKeys.finding(id), queryFn: () => api.getFinding(id) });
@@ -383,6 +395,9 @@ function invalidateAfterFindingChange(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: queryKeys.allFindings });
   void queryClient.invalidateQueries({ queryKey: queryKeys.reviewMetrics });
   void queryClient.invalidateQueries({ queryKey: queryKeys.findingFlags });
+  // "Asked" / "Not relevant" on the before-visit panel resolves a finding
+  // the same way the batch review does: it drops off the patient's panel.
+  void queryClient.invalidateQueries({ queryKey: queryKeys.allBeforeVisit });
 }
 
 export function useFindingReview(

@@ -51,6 +51,7 @@ import {
 import { FeedbackPanel } from './feedback-panel.tsx';
 import { ReasonRuleVersion } from '../metrics/rule-version.tsx';
 import { PlanItemReview } from '../plan-items/plan-item-review.tsx';
+import { BeforeVisitPanel } from '../reviewer/before-visit-panel.tsx';
 import { PatientDocumentsProvider, ViewDocumentsButton } from '../why/documents-drawer.tsx';
 import { WhyThis } from '../why/why-this.tsx';
 
@@ -362,6 +363,8 @@ export function CaseDetailView({
             <ContactStatus detail={detail} now={now} />
           </Card>
         )}
+
+        <BeforeVisitPanel patientId={detail.patient.id} />
 
         {/* One primary action per view: a pending call comes first. */}
         {active && detail.callTask ? (

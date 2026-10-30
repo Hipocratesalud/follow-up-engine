@@ -38,6 +38,7 @@ import type {
   WebhookDelivery,
 } from './contract.ts';
 import type {
+  BeforeVisitView,
   FindingDetail,
   FindingFlagUpdate,
   FindingFlagView,
@@ -155,6 +156,8 @@ export interface ApiClient {
   getPatient(id: string): Promise<PatientDetail>;
   /** Every document of the patient, oldest first: the "View documents" drawer (HIP-142). */
   getPatientDocuments(id: string): Promise<{ items: PatientDocumentView[] }>;
+  /** "Before the visit": the next appointment and what to raise then (HIP-112 V3). */
+  getBeforeVisit(id: string): Promise<BeforeVisitView>;
   confirmCondition(id: string): Promise<ConditionView>;
   rejectCondition(id: string): Promise<ConditionView>;
   listRecovery(query: { cursor?: string; limit?: number }): Promise<RecoveryPage>;
@@ -322,6 +325,8 @@ export function createApiClient(config: ApiConfig): ApiClient {
     getPatient: (id) => request('GET', `/inbox/patients/${encodeURIComponent(id)}`),
     getPatientDocuments: (id) =>
       request('GET', `/inbox/patients/${encodeURIComponent(id)}/documents`),
+    getBeforeVisit: (id) =>
+      request('GET', `/inbox/patients/${encodeURIComponent(id)}/before-visit`),
     confirmCondition: (id) =>
       request('POST', `/inbox/conditions/${encodeURIComponent(id)}/confirm`),
     rejectCondition: (id) => request('POST', `/inbox/conditions/${encodeURIComponent(id)}/reject`),

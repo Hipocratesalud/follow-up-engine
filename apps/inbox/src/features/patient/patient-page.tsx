@@ -29,7 +29,7 @@ import { InlineQuote } from '../../components/evidence.tsx';
 import { PlanItemReview } from '../plan-items/plan-item-review.tsx';
 import { ErrorState, InlineError, NotFoundState } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, Skeleton, type Tone } from '../../components/ui.tsx';
-import { PreVisitQuestions } from '../reviewer/pre-visit-questions.tsx';
+import { BeforeVisitPanel } from '../reviewer/before-visit-panel.tsx';
 import { cx } from '../../lib/cx.ts';
 import { useT } from '../../i18n/index.ts';
 import { ContactFlagNotice } from '../case/contact-panel.tsx';
@@ -417,7 +417,7 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
 
         {contact?.contactFlag ? <ContactFlagNotice flag={contact.contactFlag} now={now} /> : null}
 
-        <PreVisitQuestions patientId={detail.patient.id} />
+        <BeforeVisitPanel patientId={detail.patient.id} />
 
         <section aria-labelledby="conditions-title" className="flex flex-col gap-3">
           <SectionTitle id="conditions-title" count={current.length}>
