@@ -193,6 +193,7 @@ const labels = {
     'backfill.paused': 'History review paused',
   } as Record<string, string>,
   actors: {
+    adjudicator: 'Adjudicator (AI)',
     rule: 'Automatic rule',
     system: 'Follow-up engine',
     patient: 'Patient',
@@ -569,6 +570,49 @@ const planReview = {
   rejectBody:
     'The engine stops expecting it. If it was the only pending reason of its case, the case is resolved.',
   rejectConfirm: 'Reject item',
+};
+
+/** The adjudicator's decision on an ambiguous plan item (PRD V2). */
+const adjudication = {
+  title: 'Adjudicator',
+  hint: 'The AI read this item with low confidence, so a second model checked the note.',
+  decisions: {
+    open: 'The note asks for it',
+    discard: 'The note does not ask for it',
+    needs_human: 'Needs your review',
+  },
+  reasons: {
+    explicit_instruction: 'Explicit instruction',
+    timing_explicit: 'Timing written next to it',
+    timing_vague: 'Vague timing',
+    conditional_plan: 'Only if something happens',
+    hypothetical_mention: 'Mentioned as a possibility',
+    already_done: 'Already done',
+    negated: 'Not needed',
+    patient_declined: 'The patient declined',
+    deferred_to_other_provider: 'Another provider takes care of it',
+    contradictory_signals: 'Contradictory',
+    insufficient_context: 'Not enough context',
+    no_verifiable_quote: 'No quote found in the note',
+    low_probability: 'Too uncertain',
+  },
+  probability: (percent: string): string => `${percent} likely a real follow-up`,
+  shadow: 'Shadow mode',
+  shadowHint: 'Recorded only: nothing was changed.',
+  applied: 'Suppressed by the adjudicator',
+  quotesLabel: 'From the note',
+  rationaleLabel: 'Why',
+  keep: 'Keep it',
+  discard: 'Discard',
+  overriddenKeep: (date: string): string => `You kept it (${date})`,
+  overriddenDiscard: (date: string): string => `You discarded it (${date})`,
+  keptDone: 'Kept and confirmed.',
+  discardedDone: 'Discarded.',
+  discardTitle: 'Discard this plan item',
+  discardBody:
+    'The engine stops expecting it. If it was the only pending reason of its case, the case is resolved.',
+  discardConfirm: 'Discard item',
+  model: (model: string): string => `Model: ${model}`,
 };
 
 const caseRow = {
@@ -1909,6 +1953,7 @@ export const en = {
   inbox,
   patientCard,
   planReview,
+  adjudication,
   caseRow,
   patient,
   recovery,

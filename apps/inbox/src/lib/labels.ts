@@ -93,9 +93,11 @@ export function noteReader(
 /** Label of an actor in the timeline. */
 export function actorLabel(
   t: Messages,
-  actor: { type: 'rule' | 'user' | 'patient' | 'system'; id?: string },
+  actor: { type: 'rule' | 'user' | 'patient' | 'system' | 'adjudicator'; id?: string },
 ): string {
   switch (actor.type) {
+    case 'adjudicator':
+      return t.labels.actors.adjudicator;
     case 'rule':
       return t.labels.actors.rule;
     case 'system':

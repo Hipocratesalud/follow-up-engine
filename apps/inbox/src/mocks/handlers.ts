@@ -25,6 +25,7 @@ import { MOCK_API_KEY } from '../config.ts';
 import { mockMetrics } from '../features/metrics/mock.ts';
 import { DEFAULT_LOCALE, isLocale, type Locale, messagesFor } from '../i18n/index.ts';
 import { INPUT_LIMITS } from '../lib/limits.ts';
+import { createAdjudicationMock } from './adjudications.ts';
 import { type MockApiCopy, mockApiCopy } from './api-copy.ts';
 import { ReviewerMockError } from './reviewer.ts';
 import { MockHttpError, type MockStore } from './store.ts';
@@ -194,6 +195,7 @@ function param(params: Record<string, unknown>, key: string): string {
  */
 export function createHandlers(store: MockStore, options: HandlerOptions = {}): HttpHandler[] {
   const latency = options.latencyMs ?? 0;
+  const adjudications = createAdjudicationMock(store);
 
   function route(
     resolver: (args: {
@@ -359,6 +361,39 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
         return store.requestPatientContact(
           param(params, 'id'),
           typeof note === 'string' ? note : undefined,
+        );
+      }),
+    ),
+    http.get(
+      '*/api/inbox/adjudications',
+      route(({ request, locale }) => {
+        const url = new URL(request.url);
+        const caseId = url.searchParams.get('caseId');
+        const patientId = url.searchParams.get('patientId');
+        return adjudications.list(
+          {
+            ...(caseId ? { caseId } : {}),
+            ...(patientId ? { patientId } : {}),
+          },
+          locale,
+        );
+      }),
+    ),
+    http.post(
+      '*/api/inbox/adjudications/:id/override',
+      route(async ({ request, params, locale }) => {
+        const body = await readJson(request);
+        const decision = body['decision'];
+        if (decision !== 'open' && decision !== 'discard') {
+          const message = messagesFor(locale).errors.generic;
+          throw new MockHttpError(422, 'invalid_request', message, [{ path: 'decision', message }]);
+        }
+        const note = body['note'];
+        return adjudications.override(
+          param(params, 'id'),
+          decision,
+          typeof note === 'string' ? note : undefined,
+          locale,
         );
       }),
     ),

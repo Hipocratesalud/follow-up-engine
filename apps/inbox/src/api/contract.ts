@@ -317,7 +317,7 @@ export interface CaseView {
   patientContact: PatientContact;
 }
 
-export type ActorType = 'rule' | 'user' | 'patient' | 'system';
+export type ActorType = 'rule' | 'user' | 'patient' | 'system' | 'adjudicator';
 
 export interface CaseTimelineEntry {
   at: string;
