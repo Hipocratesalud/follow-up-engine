@@ -2034,6 +2034,11 @@ const agent = {
   storyTitle: 'Maria’s story',
   storyBody:
     'Maria (synthetic) has type 2 diabetes. At her last visit, months ago, her doctor ordered an HbA1c test and a control in three months, and she never came back. Start the story: the agent takes over her open orders in your own sandbox clinic, on its own clock.',
+  storyLabel: 'Story',
+  stories: {
+    maria: 'Routine: she stopped coming',
+    maria_urgent: 'Urgent: her abnormal HbA1c reached the clinic',
+  } as Record<string, string>,
   modeLabel: 'Agent model',
   modes: { live: 'Muse Spark (live)', scripted: 'Scripted (offline)' } as Record<string, string>,
   modeHints: {
@@ -2047,6 +2052,7 @@ const agent = {
   restart: 'Restart with a new Maria',
   starting: 'Loading Maria’s chart and handing her orders to the agent…',
   modelBadge: (model: string): string => `Model: ${model}`,
+  scriptedModel: 'scripted player, no model calls',
   phone: {
     title: 'Simulated WhatsApp',
     contact: 'Clinic follow-up',
@@ -2129,6 +2135,9 @@ const agent = {
       unreachable: 'Unreachable',
     } as Record<string, string>,
     closedBy: (resource: string): string => `Closed by ${resource}`,
+    closedByVisit: (when: string): string => `Closed by the visit on ${when}`,
+    closedByResult: (when: string, value: string): string =>
+      `Closed by the result of ${when}${value === '' ? '' : ` (${value})`}`,
     ignored: (count: number): string =>
       `${String(count)} engine ${count === 1 ? 'suggestion' : 'suggestions'} (protocol items) not pursued: only doctor’s orders.`,
     empty: 'No open orders.',
@@ -2161,6 +2170,8 @@ const agent = {
       'What the clinical reviewer found after the result came in: suggestions for the doctor, never sent to Maria.',
     empty: 'Nothing yet.',
     shadow: 'Shadow mode',
+    routine: (count: number): string =>
+      `${String(count)} routine ${count === 1 ? 'gap' : 'gaps'} (screenings, record)`,
   },
   tasks: {
     title: 'Staff tasks',
@@ -2259,6 +2270,34 @@ const agent = {
       'Undelivered: messaging stopped, likely a wrong number.',
     phone_fixed: (): string => 'Phone updated: the ladder restarts.',
   } as Record<string, (params: Params) => string>,
+  reasons: {
+    'scripted:no_context': 'No turn context.',
+    'scripted:done': 'Done for this turn.',
+    'scripted:list_orders': "First, which of the doctor's orders are still open.",
+    'scripted:check_policy': 'Check whether a message may be sent now.',
+    'scripted:find_slots': 'Find slots for the order to book.',
+    'scripted:offer_rung': 'Offer a slot, as this rung asks.',
+    'scripted:match_photo': 'A photo: which order does it answer?',
+    'scripted:photo_unusable': 'The photo is not a usable report.',
+    'scripted:submit_result': 'Submit the result to the engine: it decides.',
+    'scripted:thank_photo': 'Thank the patient; nothing about the content.',
+    'scripted:hand_over': 'A question about a result: hand over to the team.',
+    'scripted:tell_handover': 'Tell her the team will contact her.',
+    'scripted:confirm_booking': 'Confirm the booking.',
+    'scripted:booking_refused': 'The booking was refused: ask which option.',
+    'scripted:find_other_slots': 'She cannot make it: find other slots.',
+    'scripted:offer_options': 'Offer the new options.',
+    'scripted:book_choice': 'An explicit choice of an offered slot: book it.',
+    'scripted:ask_which': 'A yes without a choice: ask which one.',
+    'scripted:acknowledge': 'Acknowledge.',
+    'scripted:answered': 'answered the message.',
+    'scripted:outreach_sent': 'outreach sent.',
+    'scripted:contact_policy_not_now': 'the contact policy says not now.',
+    'scripted:nothing_to_chase': 'nothing left to chase.',
+    'scripted:no_free_slot': 'no free slot fits.',
+    'scripted:no_patient_message': 'no patient message.',
+    'loop:prose_end': 'the model replied in prose, so the turn ended.',
+  } as Record<string, string>,
   unknownEvent: (event: string): string => code(event),
 };
 

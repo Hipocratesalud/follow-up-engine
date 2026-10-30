@@ -42,10 +42,20 @@ function StepRow({
   const t = useT();
   const locale = useLocale();
   const Icon = KIND_ICONS[step.kind];
+  // The scripted player's reasons and summaries are codes: read in the reader's language.
+  function words(value: TraceValue): TraceValue {
+    return typeof value === 'string' ? (t.agent.reasons[value] ?? value) : value;
+  }
+  const params = Object.fromEntries(
+    Object.entries(step.params ?? {}).map(([key, value]) => [key, words(value)]),
+  );
   const describe = t.agent.events[step.event];
-  const sentence =
-    describe === undefined ? t.agent.unknownEvent(step.event) : describe(step.params ?? {});
-  const args = Object.entries(step.arguments ?? {});
+  const sentence = describe === undefined ? t.agent.unknownEvent(step.event) : describe(params);
+  const args = Object.entries(step.arguments ?? {}).map(([key, value]): [string, TraceValue] => [
+    key,
+    words(value),
+  ]);
+  const reason = step.reason === undefined ? undefined : words(step.reason);
   const refused = step.outcome === 'rejected' || step.outcome === 'error';
   return (
     <li
@@ -77,10 +87,10 @@ function StepRow({
           </span>
         </div>
         <p className="text-fg">{sentence}</p>
-        {step.reason === undefined || step.reason === '' || step.kind === 'model' ? null : (
+        {reason === undefined || reason === '' || step.kind === 'model' ? null : (
           <p className="text-muted">
             <span className="font-medium">{t.agent.console.reason}: </span>
-            <span className="italic">{step.reason}</span>
+            <span className="italic">{String(reason)}</span>
           </p>
         )}
         {args.length === 0 ? null : (

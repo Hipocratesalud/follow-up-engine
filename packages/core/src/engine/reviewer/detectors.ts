@@ -124,8 +124,9 @@ function labTrends(dossier: ReviewDossier): SignalDraft[] {
     const change = ((last.value - first.value) / Math.abs(first.value)) * 100;
     if (Math.abs(change) < measurement.minChangePct) continue;
     if (!trend.latestOutOfRange && Math.abs(change) < 2 * measurement.minChangePct) continue;
-    // A trend the doctor already wrote about is not silent.
-    if (commentedAfter(dossier, measurement, run[1]?.at ?? first.at)) continue;
+    // A trend the doctor already wrote about, after its latest value, is not silent;
+    // a newer, worse value than the one they commented on is news again.
+    if (commentedAfter(dossier, measurement, last.at)) continue;
     const rising = change > 0;
     // A trend that never left the reference range is at most low; for some
     // measurements (potassium) it is noise unless it nears the limit.
@@ -903,7 +904,25 @@ function preVisitQuestions(dossier: ReviewDossier): SignalDraft[] {
   const signals: SignalDraft[] = [];
   for (const rule of PRE_VISIT_QUESTIONS) {
     let evidence: { handle: string; quote: string } | undefined;
-    if (rule.icd10Prefixes !== undefined) {
+    if (rule.worseningTest !== undefined) {
+      const trend = dossier.trends.find((item) => item.test === rule.worseningTest);
+      const measurement = trend === undefined ? undefined : measurementOf(trend);
+      const latest = trend?.points.at(-1);
+      const previous = trend?.points.at(-2);
+      let document: CitableDocument | undefined;
+      if (measurement !== undefined && latest !== undefined && previous !== undefined) {
+        const worse =
+          !inRange(measurement, latest.value) &&
+          (measurement.worseWhen === 'down'
+            ? latest.value < previous.value
+            : latest.value > previous.value) &&
+          !dossier.encounters.some((encounter) => encounter.occurredAt > latest.at);
+        document = worse ? dossier.documents.get(latest.handle) : undefined;
+      }
+      if (document === undefined) continue;
+      if (rule.icd10Prefixes !== undefined && !hasCondition(dossier, rule.icd10Prefixes)) continue;
+      evidence = quoteOf(document);
+    } else if (rule.icd10Prefixes !== undefined) {
       if (
         !hasCondition(dossier, rule.icd10Prefixes) &&
         !(rule.key === 'diabetic_neuropathy' && isDiabetic(dossier))

@@ -67,6 +67,16 @@ export interface AgentOrderView {
   readonly urgent: boolean;
   readonly closedBy?: string;
   readonly closedAt?: string;
+  /** What closed it, for the doctor: the visit's date, or the result's date and value. */
+  readonly closedByDetail?:
+    | { readonly kind: 'appointment'; readonly at: string }
+    | {
+        readonly kind: 'result';
+        readonly at: string;
+        readonly value?: number;
+        readonly unit?: string;
+        readonly test?: string;
+      };
 }
 
 export type StaffTaskAsk =
@@ -104,6 +114,8 @@ export interface AgentFindingView {
   readonly mode: 'shadow' | 'live';
   readonly modelId: string;
   readonly createdAt: string;
+  /** Screenings and record quality: shown collapsed, after what the result changed. */
+  readonly routine: boolean;
 }
 
 export interface AgentLadderView {
@@ -162,7 +174,7 @@ export interface AgentPageView {
 }
 
 export interface AgentStoryRequest {
-  readonly story: 'maria';
+  readonly story: 'maria' | 'maria_urgent';
   readonly mode: AgentMode;
   readonly language: AgentLanguage;
 }

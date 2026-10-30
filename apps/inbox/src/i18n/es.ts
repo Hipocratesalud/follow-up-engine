@@ -2015,6 +2015,11 @@ const agent = {
   storyTitle: 'La historia de María',
   storyBody:
     'María (sintética) tiene diabetes tipo 2. En su última consulta, hace meses, su médico le pidió una HbA1c y un control en tres meses, y no volvió. Inicia la historia: el agente toma sus órdenes abiertas en tu propia clínica de prueba, con su propio reloj.',
+  storyLabel: 'Historia',
+  stories: {
+    maria: 'Rutina: dejó de venir',
+    maria_urgent: 'Urgente: su HbA1c anormal llegó a la clínica',
+  } as Record<string, string>,
   modeLabel: 'Modelo del agente',
   modes: { live: 'Muse Spark (en vivo)', scripted: 'Guionado (sin conexión)' } as Record<
     string,
@@ -2031,6 +2036,7 @@ const agent = {
   restart: 'Reiniciar con una nueva María',
   starting: 'Cargando la historia clínica de María y entregando sus órdenes al agente…',
   modelBadge: (model: string): string => `Modelo: ${model}`,
+  scriptedModel: 'reproductor guionado, sin llamadas a modelos',
   phone: {
     title: 'WhatsApp simulado',
     contact: 'Seguimiento de la clínica',
@@ -2116,6 +2122,9 @@ const agent = {
       unreachable: 'Sin respuesta',
     } as Record<string, string>,
     closedBy: (resource: string): string => `Cerrada por ${resource}`,
+    closedByVisit: (when: string): string => `Cerrada por la cita del ${when}`,
+    closedByResult: (when: string, value: string): string =>
+      `Cerrada por el resultado del ${when}${value === '' ? '' : ` (${value})`}`,
     ignored: (count: number): string =>
       `${String(count)} ${count === 1 ? 'sugerencia del motor' : 'sugerencias del motor'} (ítems de protocolo) sin perseguir: solo órdenes del médico.`,
     empty: 'No hay órdenes abiertas.',
@@ -2148,6 +2157,8 @@ const agent = {
       'Lo que encontró el revisor clínico cuando llegó el resultado: sugerencias para el médico, nunca enviadas a María.',
     empty: 'Nada todavía.',
     shadow: 'Modo sombra',
+    routine: (count: number): string =>
+      `${String(count)} ${count === 1 ? 'pendiente rutinario' : 'pendientes rutinarios'} (tamizajes, historia)`,
   },
   tasks: {
     title: 'Tareas del equipo',
@@ -2255,6 +2266,34 @@ const agent = {
       'No entregado: se dejó de escribir, probablemente un número equivocado.',
     phone_fixed: (): string => 'Teléfono actualizado: la escalera vuelve a empezar.',
   } as Record<string, (params: Params) => string>,
+  reasons: {
+    'scripted:no_context': 'Sin contexto del turno.',
+    'scripted:done': 'Listo por este turno.',
+    'scripted:list_orders': 'Primero, qué órdenes del médico siguen abiertas.',
+    'scripted:check_policy': 'Ver si se puede enviar un mensaje ahora.',
+    'scripted:find_slots': 'Buscar horarios para la orden a agendar.',
+    'scripted:offer_rung': 'Ofrecer un horario, como pide este escalón.',
+    'scripted:match_photo': 'Una foto: ¿a qué orden responde?',
+    'scripted:photo_unusable': 'La foto no es un informe utilizable.',
+    'scripted:submit_result': 'Enviar el resultado al motor: él decide.',
+    'scripted:thank_photo': 'Agradecer a la paciente; nada sobre el contenido.',
+    'scripted:hand_over': 'Una pregunta sobre un resultado: pasarla al equipo.',
+    'scripted:tell_handover': 'Decirle que el equipo la va a contactar.',
+    'scripted:confirm_booking': 'Confirmar la reserva.',
+    'scripted:booking_refused': 'La reserva fue rechazada: preguntar qué opción.',
+    'scripted:find_other_slots': 'No puede: buscar otros horarios.',
+    'scripted:offer_options': 'Ofrecer las nuevas opciones.',
+    'scripted:book_choice': 'Eligió explícitamente un horario ofrecido: agendarlo.',
+    'scripted:ask_which': 'Un sí sin elegir: preguntar cuál.',
+    'scripted:acknowledge': 'Acusar recibo.',
+    'scripted:answered': 'respondió el mensaje.',
+    'scripted:outreach_sent': 'contacto enviado.',
+    'scripted:contact_policy_not_now': 'la política de contacto dice que ahora no.',
+    'scripted:nothing_to_chase': 'no queda nada pendiente.',
+    'scripted:no_free_slot': 'ningún horario libre sirve.',
+    'scripted:no_patient_message': 'no hay mensaje de la paciente.',
+    'loop:prose_end': 'el modelo respondió en texto, así que el turno terminó.',
+  } as Record<string, string>,
   unknownEvent: (event: string): string => code(event),
 };
 

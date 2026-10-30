@@ -748,12 +748,25 @@ export interface PreVisitQuestionRule {
   readonly icd10Prefixes?: readonly string[];
   /** ... or taking a drug of this class. */
   readonly drugClass?: string;
+  /**
+   * Only when this measurement's latest value is out of range and worse
+   * than the one before (a result that came in since the last visit).
+   * Evidence: that latest result.
+   */
+  readonly worseningTest?: string;
   /** Not asked when a note of the last `withinDays` already talks about it (folded phrases). */
   readonly answeredBy: readonly string[];
   readonly withinDays: number;
 }
 
 export const PRE_VISIT_QUESTIONS: readonly PreVisitQuestionRule[] = [
+  {
+    key: 'rising_hba1c_adherence',
+    icd10Prefixes: ['E10', 'E11', 'E13', 'E14'],
+    worseningTest: 'hba1c',
+    answeredBy: ['adherencia', 'olvida dosis', 'cumplimiento', 'adherence', 'missed doses'],
+    withinDays: 30,
+  },
   {
     key: 'diabetic_neuropathy',
     icd10Prefixes: ['E10', 'E11', 'E13', 'E14'],

@@ -1170,7 +1170,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
               ? new Date(`${message.reading.reportDate}T12:00:00Z`)
               : message.at;
           const effectiveAt = reportDate.getTime() > state.now.getTime() ? message.at : reportDate;
-          const observationId = `agent-obs-${message.id}-${hit.groupId}`;
+          const observationId = `agent-obs-${message.id.replace(/^agent-message-/, '')}-${hit.groupId}`;
           const outcome = await deps.effects.submitResult(clinicId, {
             patientId,
             observationId,
@@ -2151,7 +2151,8 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
 
 /** The FHIR `Appointment.id` of an agent booking (deterministic: a retry re-sends the same resource). */
 export function appointmentFhirId(appointmentId: string): string {
-  return `agent-${appointmentId}`.replace(/[^A-Za-z0-9\-.]/g, '-').slice(0, 64);
+  const id = appointmentId.startsWith('agent-') ? appointmentId : `agent-${appointmentId}`;
+  return id.replace(/[^A-Za-z0-9\-.]/g, '-').slice(0, 64);
 }
 
 /** Every slot offered so far in a conversation (for tests and the console). */

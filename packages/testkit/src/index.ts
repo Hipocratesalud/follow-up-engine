@@ -77,6 +77,7 @@ export { describeClockContract } from './clock-contract.ts';
 export { describeCaseRepositoryContract } from './contracts/case-repository.contract.ts';
 export { describeContactRepositoryContract } from './contracts/contact-repository.contract.ts';
 export { describeSuppressionRepositoryContract } from './contracts/suppression-repository.contract.ts';
+export { describeOrderAgentStoreContract } from './contracts/order-agent-store.contract.ts';
 export {
   aClinic,
   type ClinicSeed,
