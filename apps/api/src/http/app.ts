@@ -1,15 +1,11 @@
-import {
-  type EngineRuntime,
-  hashApiKey,
-  LabClockRegistry,
-  type Worker,
-} from '@follow-up-engine/runtime';
+import { type EngineRuntime, hashApiKey, type Worker } from '@follow-up-engine/runtime';
 import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { routePath } from 'hono/route';
 import { type ApiLocale, messagesFor, resolveApiLocale } from '../i18n/index.ts';
 import { registerAdminRoutes } from './admin-routes.ts';
+import { registerAgentRoutes } from './agent-routes.ts';
 import type { App, AppEnv } from './context.ts';
 import { registerDemoRoutes } from './demo-routes.ts';
 import { errorResponse, HttpError, toHttpError } from './errors.ts';
@@ -302,8 +298,9 @@ function accessLog(runtime: EngineRuntime): MiddlewareHandler<AppEnv> {
 export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   const app = new Hono<AppEnv>();
   // One registry for the whole process: every evaluator's lab clinic clock
-  // (docs/deploy.md#hosted-demo), shared by every route that touches the lab.
-  const labClocks = new LabClockRegistry();
+  // (docs/deploy.md#hosted-demo), shared by every route that touches the lab
+  // and by the order agent, which runs on each lab clinic's own clock.
+  const labClocks = runtime.labClocks;
 
   app.use('*', accessLog(runtime));
   app.use('*', localize());
@@ -405,6 +402,7 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
     registerLabRecordRoutes(app, runtime, labClocks);
     registerEngineTestsRoutes(app, runtime, labClocks);
     registerEvaluatorRoutes(app, runtime);
+    registerAgentRoutes(app, runtime);
   }
 
   app.notFound((c) => {

@@ -376,6 +376,12 @@ export interface ApiMessages {
     readonly labFutureDate: string;
     /** "See the impact on a date": the lab clinic's own clock only moves forward. */
     readonly labPastDate: string;
+    /** The order agent has no conversation for this patient yet. */
+    readonly agentNotStarted: string;
+    /** A voice note must be a WAV file; a photo a JPEG, PNG or WebP image. */
+    readonly agentMediaType: string;
+    /** The live mode needs a real model (`LLM_PROVIDER` is `fake`). */
+    readonly agentLiveUnavailable: string;
     /** Why the evaluator lab could not read an uploaded document (`DocumentExtractionError`). */
     readonly labDocumentErrors: Readonly<Record<DocumentExtractionError, string>>;
   };
