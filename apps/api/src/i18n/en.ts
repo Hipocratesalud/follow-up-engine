@@ -478,6 +478,7 @@ export const EN = {
     },
     protocolVersion: (name, version) => `${name} v${version}`,
     draft: 'Draft: not yet validated by the clinical team',
+    readyForSignoff: 'Ready for sign-off: not yet validated by the clinical team',
     validated: 'Validated by the clinical team',
     schedule: {
       interval: (days) => `Every ${String(days)} days.`,

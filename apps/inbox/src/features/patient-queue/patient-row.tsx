@@ -4,12 +4,12 @@ import { Link } from 'react-router';
 import type { PatientQueueItem } from '../../api/patient-queue-contract.ts';
 import { useNow } from '../../api/queries.ts';
 import {
-  DraftProtocolBadge,
   EscalationMeter,
   LayerChip,
   PriorityBadge,
+  ProtocolValidationBadge,
   StatusBadge,
-  isDraftProtocol,
+  isUnvalidatedProtocol,
   overdueTone,
 } from '../../components/case-badges.tsx';
 import { Badge } from '../../components/ui.tsx';
@@ -61,7 +61,9 @@ export function PatientRow({
   const top = item.topReason;
   const extra = item.reasonCount - 1;
   const escalation = furthestEscalation(item);
-  const draft = item.protocols.some((protocol) => isDraftProtocol(protocol));
+  const unvalidatedStatus = item.protocols.find((protocol) =>
+    isUnvalidatedProtocol(protocol),
+  )?.status;
   const named = item.protocols.filter((protocol) => protocol.name !== undefined);
   return (
     <Link
@@ -125,7 +127,7 @@ export function PatientRow({
               {protocol.name}
             </span>
           ))}
-          {draft ? <DraftProtocolBadge describe={false} /> : null}
+          <ProtocolValidationBadge status={unvalidatedStatus} describe={false} />
         </span>
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
           {top ? (

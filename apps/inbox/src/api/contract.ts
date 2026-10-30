@@ -217,7 +217,7 @@ export interface ReasonEvidence {
   noteExcerpt?: string;
 }
 
-export type ProtocolStatus = 'draft' | 'validated';
+export type ProtocolStatus = 'draft' | 'ready_for_signoff' | 'validated';
 
 /**
  * The care protocol behind a `protocol` layer reason. `name` (Spanish) and
@@ -229,7 +229,11 @@ export interface ProtocolRef {
   /** Version of the protocol that created the expectation. */
   version: string;
   name?: string;
-  /** `draft`: not yet validated by the clinic's clinical team. */
+  /**
+   * `draft`: no sign-off package yet. `ready_for_signoff`: a sign-off
+   * package exists but nobody has approved it. Neither is validated by the
+   * clinic's clinical team.
+   */
   status?: ProtocolStatus;
 }
 

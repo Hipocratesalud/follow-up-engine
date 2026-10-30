@@ -106,9 +106,10 @@ export const CLINIC_NAME = 'Centro Médico Los Álamos';
 
 /**
  * The mock clinic's care protocols, by id. Like the real ones in
- * config/protocols, diabetes, hypertension and pregnancy are drafts (their
- * reasons carry the draft badge); the two mock-only ones are validated, so
- * the inbox also shows protocol reasons without it.
+ * config/protocols: diabetes and hypertension have a sign-off package
+ * (`ready_for_signoff`), pregnancy is still a plain `draft` — both carry the
+ * unvalidated badge, with different text; the two mock-only ones are
+ * validated, so the inbox also shows protocol reasons without it.
  */
 export const MOCK_PROTOCOLS: Readonly<
   Record<
@@ -119,12 +120,12 @@ export const MOCK_PROTOCOLS: Readonly<
   diabetes: {
     name: { en: 'Diabetes follow-up', es: 'Control de diabetes' },
     version: '1.2.1',
-    status: 'draft',
+    status: 'ready_for_signoff',
   },
   hypertension: {
     name: { en: 'Hypertension follow-up', es: 'Control de hipertensión' },
     version: '1.1.1',
-    status: 'draft',
+    status: 'ready_for_signoff',
   },
   pregnancy: {
     name: { en: 'Pregnancy and postpartum', es: 'Embarazo y puerperio' },

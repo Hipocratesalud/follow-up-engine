@@ -83,6 +83,7 @@ export interface WhyMessages {
   };
   readonly protocolVersion: (name: string, version: string) => string;
   readonly draft: string;
+  readonly readyForSignoff: string;
   readonly validated: string;
   /** "Every 90 days", per schedule type. */
   readonly schedule: {

@@ -177,7 +177,7 @@ describe('OpenAPI document', () => {
     expect(reason).toContain('"protocol":{');
     expect(reason).toContain('#/components/schemas/ProtocolRef');
     const protocol = JSON.stringify(doc.components.schemas['ProtocolRef']);
-    expect(protocol).toContain('"enum":["draft","validated"]');
+    expect(protocol).toContain('"enum":["draft","ready_for_signoff","validated"]');
     expect(protocol).toMatch(/"required":\["id","version"\]/);
   });
 
