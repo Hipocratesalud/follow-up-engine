@@ -637,7 +637,10 @@ export const EN = {
     labFutureDate: "That date is after the lab clinic's own current date.",
     labPastDate: "The lab clinic's date can only move forward.",
     agentNotStarted: 'The agent does not own orders for this patient yet: start the story first.',
-    agentMediaType: 'A voice note must be a WAV file and a photo a JPEG, PNG or WebP image.',
+    agentMediaType:
+      'A voice note must be a WAV file, a photo a JPEG, PNG or WebP image, and a report a PDF.',
+    labHistoryDocuments: 'Give each file its own date and type (one entry per file, in order).',
+    labHistoryBusy: 'Another history import is still running in your lab. Try again in a moment.',
     agentLiveUnavailable:
       'The live mode needs a Meta API key on the server: use the scripted mode.',
     noteNotRead: (model, error) =>

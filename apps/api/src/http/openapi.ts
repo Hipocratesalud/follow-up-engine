@@ -7,6 +7,7 @@ import './patient-queue-schemas.ts';
 import './plan-item-schemas.ts';
 import './admin-schemas.ts';
 import './why-schemas.ts';
+import './lab-schemas.ts';
 
 /*
  * OpenAPI 3.1 document of the API. Component schemas are generated from the
@@ -752,6 +753,39 @@ const OPERATIONS: readonly Operation[] = [
     ],
     response: 'WebhookList',
     errors: [404],
+  },
+  {
+    method: 'post',
+    path: '/api/demo/lab/history',
+    tag: 'Demo',
+    summary:
+      "Import a patient's history into the evaluator's lab: several documents (PDF, DOCX, TXT, " +
+      'photos of results) with their dates, replayed chronologically by the initial backfill',
+    description:
+      'Notes go to the note extractor; lab reports and photos to the lab-result reading (Muse ' +
+      'Spark) as FHIR Observations. Expectations and cases are origin=backfill, held and released ' +
+      'by the daily cap per owner. Idempotent. Also accepts multipart/form-data: one `files` part ' +
+      "per document and a `documents` JSON field with each file's date and type, in order.",
+    body: 'LabHistoryImport',
+    response: 'LabHistoryImportResponse',
+    status: 201,
+    errors: [403, 409, 422],
+  },
+  {
+    method: 'get',
+    path: '/api/demo/lab/history/samples',
+    tag: 'Demo',
+    summary: 'The synthetic sample history (four documents over two years) to try the import with',
+    response: 'LabHistorySampleSet',
+    errors: [403],
+  },
+  {
+    method: 'get',
+    path: '/api/demo/lab/recovery',
+    tag: 'Demo',
+    summary: "The lab's patients to recover: backfill cases still held, as of the lab's own date",
+    response: 'RecoveryPage',
+    errors: [403],
   },
   {
     method: 'post',

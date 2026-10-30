@@ -392,8 +392,12 @@ export interface ApiMessages {
     readonly labPastDate: string;
     /** The order agent has no conversation for this patient yet. */
     readonly agentNotStarted: string;
-    /** A voice note must be a WAV file; a photo a JPEG, PNG or WebP image. */
+    /** A voice note must be a WAV file; a photo a JPEG, PNG or WebP image; a report a PDF. */
     readonly agentMediaType: string;
+    /** "Import history": a multipart request needs one date and type per file. */
+    readonly labHistoryDocuments: string;
+    /** "Import history": another import of this lab clinic is still running. */
+    readonly labHistoryBusy: string;
     /** The live mode needs a real model (`LLM_PROVIDER` is `fake`). */
     readonly agentLiveUnavailable: string;
     /** Why the evaluator lab could not read an uploaded document (`DocumentExtractionError`). */
