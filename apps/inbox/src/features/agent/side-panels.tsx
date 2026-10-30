@@ -9,7 +9,7 @@ import type {
 import { useAdvanceAgentClock } from '../../api/agent-queries.ts';
 import { InlineError } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, type Tone } from '../../components/ui.tsx';
-import { useLocale, useT } from '../../i18n/index.ts';
+import { INTL_LOCALES, useLocale, useT } from '../../i18n/index.ts';
 import { cx } from '../../lib/cx.ts';
 import { clinicDate, clinicDateTime } from './format.ts';
 
@@ -21,6 +21,38 @@ const STAGE_TONES: Readonly<Record<AgentOrderView['stage'], Tone>> = {
   fulfilled: 'success',
   unreachable: 'danger',
 };
+
+function ClosedBy({
+  order,
+  timeZone,
+}: {
+  readonly order: AgentOrderView;
+  readonly timeZone: string | undefined;
+}): ReactNode {
+  const t = useT();
+  const locale = useLocale();
+  const detail = order.closedByDetail;
+  let text = t.agent.orders.closedBy(order.closedBy ?? '');
+  if (detail?.kind === 'appointment') {
+    text = t.agent.orders.closedByVisit(clinicDateTime(detail.at, timeZone, locale));
+  } else if (detail?.kind === 'result') {
+    const value =
+      detail.value === undefined
+        ? ''
+        : `${detail.test ?? ''} ${new Intl.NumberFormat(INTL_LOCALES[locale]).format(detail.value)}${
+            detail.unit === undefined ? '' : ` ${detail.unit}`
+          }`.trim();
+    text = t.agent.orders.closedByResult(clinicDate(detail.at, timeZone, locale), value);
+  }
+  return (
+    <div className="mt-1 flex flex-col">
+      <p className="text-xs font-medium text-success">{text}</p>
+      <p className="font-mono text-[10.5px] text-subtle" title={order.closedBy}>
+        {order.closedBy}
+      </p>
+    </div>
+  );
+}
 
 export function OrdersPanel({
   orders,
@@ -57,11 +89,7 @@ export function OrdersPanel({
               {t.agent.orders.sources[order.source] ?? order.source} ·{' '}
               {t.agent.orders.due(clinicDate(order.dueAt, timeZone, locale))}
             </p>
-            {order.closedBy === undefined ? null : (
-              <p className="mt-1 font-mono text-[11px] text-success">
-                {t.agent.orders.closedBy(order.closedBy)}
-              </p>
-            )}
+            {order.closedBy === undefined ? null : <ClosedBy order={order} timeZone={timeZone} />}
           </li>
         ))}
       </ul>
@@ -227,36 +255,65 @@ export function TasksPanel({
   );
 }
 
+function FindingItem({ finding }: { readonly finding: AgentFindingView }): ReactNode {
+  const t = useT();
+  return (
+    <li className="rounded-lg border border-border px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Stethoscope className="size-4 text-muted" aria-hidden="true" />
+        <Badge
+          tone={
+            finding.category === 'pre_visit_question'
+              ? 'info'
+              : finding.routine
+                ? 'neutral'
+                : 'warning'
+          }
+        >
+          {(t.review.categories as Readonly<Record<string, string | undefined>>)[
+            finding.category
+          ] ?? finding.category}
+        </Badge>
+        {finding.mode === 'shadow' ? (
+          <span className="ml-auto text-[11px] text-subtle">{t.agent.doctor.shadow}</span>
+        ) : null}
+      </div>
+      <p className="mt-1 text-sm text-fg">{finding.summary}</p>
+      <p className="mt-0.5 text-xs text-muted">{finding.suggestion}</p>
+    </li>
+  );
+}
+
 export function DoctorPanel({
   findings,
 }: {
   readonly findings: readonly AgentFindingView[];
 }): ReactNode {
   const t = useT();
+  const main = findings.filter((finding) => !finding.routine);
+  const routine = findings.filter((finding) => finding.routine);
   return (
     <Card className="flex flex-col gap-3 p-4">
       <SectionTitle count={findings.length}>{t.agent.doctor.title}</SectionTitle>
       <p className="text-xs text-muted">{t.agent.doctor.subtitle}</p>
       {findings.length === 0 ? <p className="text-sm text-muted">{t.agent.doctor.empty}</p> : null}
       <ul className="flex flex-col gap-2">
-        {findings.map((finding) => (
-          <li key={finding.id} className="rounded-lg border border-border px-3 py-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Stethoscope className="size-4 text-muted" aria-hidden="true" />
-              <Badge tone={finding.category === 'pre_visit_question' ? 'info' : 'warning'}>
-                {(t.review.categories as Readonly<Record<string, string | undefined>>)[
-                  finding.category
-                ] ?? finding.category}
-              </Badge>
-              {finding.mode === 'shadow' ? (
-                <span className="ml-auto text-[11px] text-subtle">{t.agent.doctor.shadow}</span>
-              ) : null}
-            </div>
-            <p className="mt-1 text-sm text-fg">{finding.summary}</p>
-            <p className="mt-0.5 text-xs text-muted">{finding.suggestion}</p>
-          </li>
+        {main.map((finding) => (
+          <FindingItem key={finding.id} finding={finding} />
         ))}
       </ul>
+      {routine.length === 0 ? null : (
+        <details className="group rounded-lg border border-dashed border-border px-3 py-2">
+          <summary className="cursor-pointer text-xs font-medium text-muted">
+            {t.agent.doctor.routine(routine.length)}
+          </summary>
+          <ul className="mt-2 flex flex-col gap-2">
+            {routine.map((finding) => (
+              <FindingItem key={finding.id} finding={finding} />
+            ))}
+          </ul>
+        </details>
+      )}
     </Card>
   );
 }

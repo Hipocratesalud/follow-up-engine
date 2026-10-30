@@ -223,7 +223,8 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
   const context = request.messages
     .map((message) => (message.role === 'user' ? parseContext(message.content) : undefined))
     .find((parsed) => parsed !== undefined);
-  if (context === undefined) return act('No context.', 'end_turn', { summary: 'no context' });
+  if (context === undefined)
+    return act('scripted:no_context', 'end_turn', { summary: 'scripted:no_context' });
   const language: Language = context.patientLanguage === 'en' ? 'en' : 'es';
   const observations = request.messages.flatMap((message) => {
     if (message.role !== 'user') return [];
@@ -233,12 +234,11 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
   const last = (tool: string): Record<string, unknown> | undefined =>
     observations.findLast((item) => item.tool === tool)?.body;
   const called = (tool: string): number => observations.filter((item) => item.tool === tool).length;
-  const end = (summary: string): OrderAgentAction =>
-    act('Done for this turn.', 'end_turn', { summary });
+  const end = (summary: string): OrderAgentAction => act('scripted:done', 'end_turn', { summary });
 
   const ordersBody = last('list_open_orders');
   if (ordersBody === undefined) {
-    return act('First, which doctor orders are still open.', 'list_open_orders', {});
+    return act('scripted:list_orders', 'list_open_orders', {});
   }
   const orders = (Array.isArray(ordersBody['orders']) ? ordersBody['orders'] : []) as OrderView[];
   const chasing = orders.filter((order) => order.stage === 'open' || order.stage === 'contacted');
@@ -253,24 +253,24 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
 
   // --- Outreach: first contact, a ladder rung, a fixed phone --------------------------
   if (context.trigger !== 'inbound_message') {
-    if (sentOk > 0 || sent >= 2) return end('outreach sent');
+    if (sentOk > 0 || sent >= 2) return end('scripted:outreach_sent');
     const policy = last('get_contact_policy');
     if (policy === undefined) {
-      return act('Check whether a message may be sent now.', 'get_contact_policy', {});
+      return act('scripted:check_policy', 'get_contact_policy', {});
     }
-    if (policy['canSendNow'] !== true) return end('contact policy: not now');
+    if (policy['canSendNow'] !== true) return end('scripted:contact_policy_not_now');
     const target = chasing.find((order) => order.kind === 'visit') ?? chasing[0];
-    if (target === undefined) return end('nothing to chase');
+    if (target === undefined) return end('scripted:nothing_to_chase');
     const slots = last('get_available_slots');
     if (slots === undefined) {
-      return act('Find slots for the order to book.', 'get_available_slots', {
+      return act('scripted:find_slots', 'get_available_slots', {
         orderId: target.orderId,
         preference: null,
         excludeWeekdays: null,
       });
     }
     const ids = ((slots['slots'] ?? []) as { slotId: string }[]).map((slot) => slot.slotId);
-    if (ids.length === 0) return end('no free slot');
+    if (ids.length === 0) return end('scripted:no_free_slot');
     const brief = context.rung?.brief ?? 'first_contact_one_slot';
     const both = target.kind === 'visit' && testPending;
     const text =
@@ -285,7 +285,7 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
               : target.kind === 'test'
                 ? COPY.firstContactTest[language]
                 : COPY.firstContact[language](both);
-    return act(`Rung ${brief}: offer a slot.`, 'propose_slots', {
+    return act('scripted:offer_rung', 'propose_slots', {
       orderId: target.orderId,
       slotIds: brief === 'remove_friction' ? ids.slice(0, 2) : ids.slice(0, 1),
       text,
@@ -294,13 +294,13 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
 
   // --- A patient message ------------------------------------------------------------------
   const inbound = context.latestPatientMessage;
-  if (inbound === null) return end('no patient message');
-  if (sentOk > 0 || sent >= 2) return end('answered');
+  if (inbound === null) return end('scripted:no_patient_message');
+  if (sentOk > 0 || sent >= 2) return end('scripted:answered');
 
   if (inbound.hasLabPhoto) {
     const match = last('match_result_to_order');
     if (match === undefined) {
-      return act('A photo: which order does it answer?', 'match_result_to_order', {
+      return act('scripted:match_photo', 'match_result_to_order', {
         messageId: inbound.id,
       });
     }
@@ -312,7 +312,7 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
       matches.length === 0 ||
       match['nameOnReport'] === 'mismatch'
     ) {
-      return act('The photo is not a usable report.', 'send_message', {
+      return act('scripted:photo_unusable', 'send_message', {
         text: COPY.photoUnreadable[language],
       });
     }
@@ -321,7 +321,7 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
       .map((item) => item.body);
     const next = matches[submitted.length];
     if (next !== undefined) {
-      return act('Submit the result to the engine: it decides.', 'submit_fhir_result', {
+      return act('scripted:submit_result', 'submit_fhir_result', {
         orderId: next.orderId,
         messageId: inbound.id,
       });
@@ -333,7 +333,7 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
     const visitBooked =
       upcoming.some((item) => item.kind === 'visit') ||
       orders.some((order) => order.kind === 'visit' && order.stage === 'booked');
-    return act('Thank the patient; nothing about the content.', 'send_message', {
+    return act('scripted:thank_photo', 'send_message', {
       text: COPY.photoReceived[language](review, visitBooked),
     });
   }
@@ -341,11 +341,11 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
   const text = inbound.text;
   if (asksAboutResult(text)) {
     if (last('create_staff_task') === undefined) {
-      return act('A question about a result: hand over.', 'create_staff_task', {
+      return act('scripted:hand_over', 'create_staff_task', {
         reason: 'patient_question',
       });
     }
-    return act('Tell them the team will contact them.', 'send_message', {
+    return act('scripted:tell_handover', 'send_message', {
       text: COPY.handOver[language],
     });
   }
@@ -358,14 +358,14 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
   const booking = last('create_appointment');
   if (booking !== undefined) {
     if (booking['booked'] === true) {
-      return act('Confirm the booking.', 'send_message', {
+      return act('scripted:confirm_booking', 'send_message', {
         text: COPY.booked[language](
           typeof booking['where'] === 'string' ? booking['where'] : '',
           testPending,
         ),
       });
     }
-    return act('The booking was refused: ask which option.', 'send_message', {
+    return act('scripted:booking_refused', 'send_message', {
       text: COPY.whichOne[language],
     });
   }
@@ -374,15 +374,15 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
   if (isNegative(text) && offered[0] !== undefined) {
     const slots = last('get_available_slots');
     if (slots === undefined) {
-      return act('They cannot make it: find other slots.', 'get_available_slots', {
+      return act('scripted:find_other_slots', 'get_available_slots', {
         orderId: offered[0].orderId,
         preference: excluded.length > 0 ? 'earliest' : 'other_time',
         excludeWeekdays: excluded.length > 0 ? excluded : null,
       });
     }
     const ids = ((slots['slots'] ?? []) as { slotId: string }[]).map((slot) => slot.slotId);
-    if (ids.length === 0) return end('no free slot');
-    return act('Offer the new options.', 'propose_slots', {
+    if (ids.length === 0) return end('scripted:no_free_slot');
+    return act('scripted:offer_options', 'propose_slots', {
       orderId: offered[0].orderId,
       slotIds: ids.slice(0, 2),
       text: COPY.newOptions[language](alreadyDidTest(text) && testPending),
@@ -392,16 +392,16 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
   const option = offered.length > 0 ? chosenOption(text, offered.length) : undefined;
   const chosen = option === undefined ? undefined : offered[option - 1];
   if (chosen !== undefined) {
-    return act('An explicit choice of an offered slot: book it.', 'create_appointment', {
+    return act('scripted:book_choice', 'create_appointment', {
       orderId: chosen.orderId,
       slotId: chosen.slotId,
       confirmationMessageId: inbound.id,
     });
   }
   if (offered.length > 1 && isAffirmative(text)) {
-    return act('A yes without a choice: ask which.', 'send_message', {
+    return act('scripted:ask_which', 'send_message', {
       text: COPY.whichOne[language],
     });
   }
-  return act('Acknowledge.', 'send_message', { text: COPY.thanks[language] });
+  return act('scripted:acknowledge', 'send_message', { text: COPY.thanks[language] });
 };

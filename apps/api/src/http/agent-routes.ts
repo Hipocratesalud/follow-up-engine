@@ -2,6 +2,7 @@ import {
   type AgentConversationView,
   type AgentMessage,
   type AgentStep,
+  type ClinicalFinding,
   ladderTimeline,
   patientId as toPatientId,
 } from '@follow-up-engine/core';
@@ -104,6 +105,36 @@ function stepView(step: AgentStep): Record<string, unknown> {
   };
 }
 
+/**
+ * What the doctor reads first: a worsening result, then what to ask about it
+ * at the visit; routine gaps (screenings, record quality) last, collapsed.
+ */
+const FINDING_ORDER = [
+  'lab_trend',
+  'abnormal_result_no_followup',
+  'vital_trend',
+  'pre_visit_question',
+  'drug_interaction',
+  'drug_condition_conflict',
+  'unaddressed_symptom',
+  'utilization_change',
+  'missing_screening',
+  'record_quality',
+];
+const ROUTINE_CATEGORIES: ReadonlySet<string> = new Set(['missing_screening', 'record_quality']);
+
+function findingRank(finding: ClinicalFinding): number {
+  const index = FINDING_ORDER.indexOf(finding.category);
+  const rank = index === -1 ? FINDING_ORDER.length : index;
+  // Among questions, the one about the result that just came in goes first.
+  const aboutResult = finding.citations.some((citation) => /hba1c|a1c/i.test(citation.quote));
+  return rank * 2 + (finding.category === 'pre_visit_question' && aboutResult ? 0 : 1);
+}
+
+function byPriority(left: ClinicalFinding, right: ClinicalFinding): number {
+  return findingRank(left) - findingRank(right);
+}
+
 /** Whether the agent still has work queued or running for the patient (the console's "working" state). */
 function isBusy(view: AgentConversationView): boolean {
   if (view.runs.some((run) => run.status === 'running')) return true;
@@ -166,6 +197,43 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
     };
     if (target === undefined) return c.json({ ...base, conversation: null });
     const view = await requireConversation(c, clinic.id, target.patientId);
+    /** What closed an order, in words a doctor reads: the visit's date, or the result's date and value. */
+    const closedByDetail = async (
+      reference: string | undefined,
+    ): Promise<Record<string, unknown> | undefined> => {
+      if (reference === undefined) return undefined;
+      const [resourceType, id] = reference.split('/');
+      if (resourceType === 'Appointment') {
+        const appointment = view.appointments.find((item) => item.fhirAppointmentId === reference);
+        return appointment === undefined
+          ? undefined
+          : { kind: 'appointment', at: appointment.slot.start.toISOString() };
+      }
+      if (resourceType !== 'Observation' || id === undefined) return undefined;
+      const stored = await runtime.storage.stores.clinicalRecords.getResource(clinic.id, {
+        resourceType: 'Observation',
+        id,
+      });
+      const resource = stored?.resource as
+        | {
+            effectiveDateTime?: unknown;
+            valueQuantity?: { value?: unknown; unit?: unknown };
+            code?: { text?: unknown };
+          }
+        | undefined;
+      const at = resource?.effectiveDateTime;
+      if (typeof at !== 'string') return undefined;
+      const value = resource?.valueQuantity?.value;
+      const unit = resource?.valueQuantity?.unit;
+      const test = resource?.code?.text;
+      return {
+        kind: 'result',
+        at,
+        ...(typeof value === 'number' ? { value } : {}),
+        ...(typeof unit === 'string' ? { unit } : {}),
+        ...(typeof test === 'string' ? { test } : {}),
+      };
+    };
     const findings = await runtime.reviewer.listFindings(clinic.id, {
       patientId: target.patientId,
       limit: 20,
@@ -196,7 +264,14 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
       },
       timeZone: view.timeZone,
       messages: view.messages.map(messageView),
-      orders: view.orders.map((order) => ({
+      orders: (
+        await Promise.all(
+          view.orders.map(async (order) => ({
+            order,
+            detail: await closedByDetail(order.closedBy),
+          })),
+        )
+      ).map(({ order, detail }) => ({
         orderId: order.orderId,
         kind: order.descriptor.kind,
         ...(order.descriptor.test === undefined ? {} : { test: order.descriptor.test }),
@@ -207,6 +282,7 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
         urgent: order.urgent,
         ...(order.closedBy === undefined ? {} : { closedBy: order.closedBy }),
         ...(order.closedAt === undefined ? {} : { closedAt: order.closedAt.toISOString() }),
+        ...(detail === undefined ? {} : { closedByDetail: detail }),
       })),
       ignoredEngineItems: view.ignoredEngineItems,
       steps: view.steps.map(stepView),
@@ -252,7 +328,7 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
           ? {}
           : { originCaseId: appointment.originCaseId }),
       })),
-      findings: findings.items.map((finding) => ({
+      findings: [...findings.items].sort(byPriority).map((finding) => ({
         id: finding.id,
         category: finding.category,
         severity: finding.severity,
@@ -261,6 +337,7 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
         mode: finding.mode,
         modelId: finding.modelId,
         createdAt: finding.createdAt.toISOString(),
+        routine: ROUTINE_CATEGORIES.has(finding.category),
       })),
     });
   });

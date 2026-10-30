@@ -63,7 +63,7 @@ interface Page {
     readonly fhirAppointmentId?: string;
     readonly originCaseId?: string;
   }[];
-  readonly findings: readonly { readonly category: string }[];
+  readonly findings: readonly { readonly category: string; readonly summary: string }[];
   readonly tasks: readonly { readonly kind: string; readonly summary: { readonly ask: string } }[];
 }
 
@@ -183,7 +183,13 @@ describe('the order-to-completion agent (scripted mode)', () => {
       expect(String(closed?.params?.['by'])).toMatch(/^Observation\//);
       expect(page.orders.find((order) => order.test === 'HbA1c')?.stage).toBe('fulfilled');
       // Abnormal result → the clinical reviewer ran; a pre-visit question reached the doctor.
-      expect(page.findings.map((finding) => finding.category)).toContain('pre_visit_question');
+      expect(page.findings.map((finding) => finding.category)).toEqual(
+        expect.arrayContaining(['lab_trend', 'pre_visit_question']),
+      );
+      // Shown first: the HbA1c rise, then the question about it.
+      expect(page.findings[0]?.category).toBe('lab_trend');
+      expect(page.findings[0]?.summary).toContain('HbA1c');
+      expect(page.findings[1]?.summary).toContain('medicación');
       // Never a value to the patient.
       const last = page.messages.at(-1);
       expect(last?.direction).toBe('outbound');

@@ -51,7 +51,9 @@ function StoryCard({
           <h2 className="text-sm font-semibold text-fg">{t.agent.storyTitle}</h2>
           <p className="mt-1 max-w-3xl text-sm text-muted">{t.agent.storyBody}</p>
         </div>
-        <Badge tone="primary">{t.agent.modelBadge(page.model)}</Badge>
+        <Badge tone={mode === 'live' ? 'primary' : 'neutral'}>
+          {t.agent.modelBadge(mode === 'live' ? page.model : t.agent.scriptedModel)}
+        </Badge>
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs font-medium text-muted">

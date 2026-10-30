@@ -111,11 +111,7 @@ export function createOrderAgentModel(options: OrderAgentModelOptions): OrderAge
         // A model that answers in prose instead of calling end_turn, once it
         // already acted, has finished its turn: nothing it wrote is sent.
         if (error instanceof LlmOutputError && toolCalls > 0) {
-          await toolbox.execute(
-            'end_turn',
-            { summary: 'the model replied in prose: turn ended' },
-            '',
-          );
+          await toolbox.execute('end_turn', { summary: 'loop:prose_end' }, '');
           return finish('end_turn');
         }
         throw error;

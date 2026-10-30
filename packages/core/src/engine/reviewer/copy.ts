@@ -324,6 +324,12 @@ const EN: ReviewerCopy = {
     suggestion: 'Consider whether an unresolved underlying problem is behind the repeated visits.',
   }),
   questions: {
+    rising_hba1c_adherence: {
+      question:
+        'Ask how they take their diabetes medication (missed doses, side effects) and about diet and activity since the last visit.',
+      rationale:
+        'The latest HbA1c is above target and higher than the previous one, with no visit since: adherence and lifestyle come first.',
+    },
     diabetic_neuropathy: {
       question: 'Ask whether they have noticed tingling, burning or numbness in the feet.',
       rationale:
@@ -561,6 +567,12 @@ const ES: ReviewerCopy = {
       'Considera revisar si hay un problema de fondo sin resolver detrás de las consultas repetidas.',
   }),
   questions: {
+    rising_hba1c_adherence: {
+      question:
+        'Pregunta cómo toma su medicación para la diabetes (dosis olvidadas, efectos adversos) y por la dieta y la actividad desde la última consulta.',
+      rationale:
+        'La HbA1c más reciente está por encima de la meta y es más alta que la anterior, sin consulta desde entonces: primero la adherencia y el estilo de vida.',
+    },
     diabetic_neuropathy: {
       question: 'Pregunta si ha notado hormigueo, ardor o adormecimiento en los pies.',
       rationale:
