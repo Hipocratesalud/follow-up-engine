@@ -90,4 +90,10 @@ export {
   zonedParts,
   type ZonedParts,
 } from './zoned-time.ts';
-export { codeLabReading, interpretationOfRange, type CodedLabResult } from './lab-reading.ts';
+export {
+  codeLabReading,
+  interpretationOfRange,
+  nameOnReport,
+  type CodedLabResult,
+  type NameOnReport,
+} from './lab-reading.ts';

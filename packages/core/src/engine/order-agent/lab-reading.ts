@@ -1,5 +1,6 @@
 import type { LabPhotoReading } from '../../domain/order-agent.ts';
 import { testGroupsNamedIn } from '../terminology/test-names.ts';
+import { fold } from './confirmation.ts';
 
 type ReadTest = LabPhotoReading['tests'][number];
 
@@ -58,4 +59,26 @@ export function codeLabReading(reading: LabPhotoReading): {
     });
   }
   return { results, unrecognized };
+}
+
+/** Whether the name printed on a report is the patient's: compared by code, never by a model. */
+export type NameOnReport = 'matches' | 'mismatch' | 'absent';
+
+/**
+ * Compares the name printed on a lab report with the patient's full name
+ * (accents and case folded): it matches when any distinctive part (longer
+ * than two letters) of the patient's name is printed. A printed name with
+ * none of them is another patient's report; no printed name is `absent`.
+ */
+export function nameOnReport(
+  printed: string | undefined,
+  patientFullName: string | undefined,
+): NameOnReport {
+  if (printed === undefined || printed.trim() === '') return 'absent';
+  const known = fold(patientFullName ?? '')
+    .trim()
+    .split(' ')
+    .filter((part) => part.length > 2);
+  const seen = fold(printed).trim().split(' ');
+  return known.length > 0 && known.some((part) => seen.includes(part)) ? 'matches' : 'mismatch';
 }

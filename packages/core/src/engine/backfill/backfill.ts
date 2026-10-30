@@ -49,16 +49,6 @@ export interface BackfillOptions {
   readonly shadow?: boolean;
   /** Patients per page of `listPatientIds`; default `EngineSettings.backfillPageSize`. */
   readonly pageSize?: number;
-  /**
-   * Replays only these patients (a patient's imported history, the lab's
-   * "Import history") instead of the whole clinic. Same replay, same
-   * release plan and cap; resumable in id order like a full run. A scoped
-   * run records no reconciliation baseline: the other patients were not
-   * replayed.
-   */
-  readonly patientIds?: readonly PatientId[];
-  /** The clock the run happens on; default the engine's (a sandbox clinic has its own). */
-  readonly clock?: Clock;
 }
 
 /** Outcome of one call to {@link runBackfill}. */
@@ -180,15 +170,16 @@ function extractionCost(pass: ExtractionPass): number {
  * history left unmet into held backfill cases, and advances the run's cursor
  * past the patient. A crash rolls the whole patient back.
  */
-async function replayPatient(
+async function replayPatient<T>(
   deps: BackfillDeps,
   input: {
     readonly clinicId: ClinicId;
     readonly patientId: PatientId;
-    readonly runId: string;
     readonly catalog: Catalog;
+    /** Records the patient's counters in the same transaction as its writes. */
+    readonly account: (stores: TransactionalStores, delta: BackfillCounts) => Promise<T>;
   },
-): Promise<BackfillProgress> {
+): Promise<T> {
   const { clinicId, patientId } = input;
   const events = await deps.unitOfWork.withTransaction(clinicId, (stores) =>
     stores.clinicalRecords.listEventsForPatient(clinicId, patientId),
@@ -255,11 +246,7 @@ async function replayPatient(
       casesOpened: after.cases - before.cases,
       llmCostUsd: extractionCost(pass),
     };
-    return stores.backfillProgress.advance(clinicId, input.runId, {
-      cursor: patientId,
-      delta,
-      now: deps.clock.now(),
-    });
+    return input.account(stores, delta);
   });
 }
 
@@ -309,38 +296,14 @@ async function startOrResume(
  *   scheduled for release.
  */
 export async function runBackfill(
-  engineDeps: BackfillDeps,
+  deps: BackfillDeps,
   clinicId: ClinicId,
   options: BackfillOptions = {},
 ): Promise<BackfillReport> {
-  const deps = options.clock === undefined ? engineDeps : { ...engineDeps, clock: options.clock };
   const catalog = await deps.loadCatalog(clinicId);
   const pageSize = options.pageSize ?? deps.settings.backfillPageSize;
   const started = await startOrResume(deps, clinicId, options);
   let progress = started.progress;
-  if (options.patientIds !== undefined) {
-    // Id order, as `listPatientIds` pages: the cursor resumes a scoped run too.
-    const scope = [...new Set(options.patientIds)].sort();
-    for (const patientId of scope) {
-      if (progress.cursor !== undefined && patientId <= progress.cursor) {
-        continue;
-      }
-      try {
-        progress = await replayPatient(deps, {
-          clinicId,
-          patientId,
-          runId: progress.runId,
-          catalog,
-        });
-      } catch (error) {
-        if (!isBudgetExceeded(error)) {
-          throw error;
-        }
-        return { progress: await pause(deps, progress), resumed: started.resumed };
-      }
-    }
-    return complete(deps, progress, catalog, started.resumed, { baseline: false });
-  }
   for (;;) {
     const page = await deps.unitOfWork.withTransaction(clinicId, (stores) =>
       stores.clinicalRecords.listPatientIds(clinicId, {
@@ -350,11 +313,17 @@ export async function runBackfill(
     );
     for (const patientId of page.patientIds) {
       try {
+        const runId = progress.runId;
         progress = await replayPatient(deps, {
           clinicId,
           patientId,
-          runId: progress.runId,
           catalog,
+          account: (stores, delta) =>
+            stores.backfillProgress.advance(clinicId, runId, {
+              cursor: patientId,
+              delta,
+              now: deps.clock.now(),
+            }),
         });
       } catch (error) {
         if (!isBudgetExceeded(error)) {
@@ -367,7 +336,7 @@ export async function runBackfill(
       break;
     }
   }
-  return complete(deps, progress, catalog, started.resumed, { baseline: true });
+  return complete(deps, progress, catalog, started.resumed);
 }
 
 async function pause(deps: BackfillDeps, progress: BackfillProgress): Promise<BackfillProgress> {
@@ -420,7 +389,6 @@ async function complete(
   progress: BackfillProgress,
   catalog: Catalog,
   resumed: boolean,
-  options: { readonly baseline: boolean },
 ): Promise<BackfillReport> {
   const now = deps.clock.now();
   const { clinicId } = progress;
@@ -430,9 +398,7 @@ async function complete(
       status: 'completed',
       now,
     });
-    if (options.baseline) {
-      await recordReconciliationBaseline(stores, clinicId, done.runId, now);
-    }
+    await recordReconciliationBaseline(stores, clinicId, done.runId, now);
     await new CaseWriter(stores, deps.ids, clinicId).emit('backfill.completed', now, {
       runId: done.runId,
       shadow: done.shadow,
@@ -446,4 +412,63 @@ async function complete(
     await releaseDueBackfillCases(deps, clinicId, now, catalog);
   }
   return { progress: finished, resumed, ...(release === undefined ? {} : { release }) };
+}
+
+/** Outcome of {@link replayPatients}: its own run, never the clinic's backfill run. */
+export interface PatientReplayReport {
+  /** Id of this replay (never stored as a backfill run). */
+  readonly runId: string;
+  /** `paused_budget`: the LLM budget ran out; calling again continues (each patient is idempotent). */
+  readonly status: 'completed' | 'paused_budget';
+  /** The patients fully replayed by this call, in id order. */
+  readonly replayed: readonly PatientId[];
+  readonly counts: BackfillCounts;
+  /** The release plan made once every patient was replayed (absent when paused). */
+  readonly release?: BackfillReleasePlan;
+}
+
+/**
+ * Replays a few patients' imported history (the lab's "Import history")
+ * through the same per-patient replay as the initial backfill: notes read,
+ * every batch annotated as of its own time, what history left unmet held as
+ * `backfill` cases, then released by the same plan and daily cap per owner.
+ *
+ * It is its own run with its own state: it never starts, resumes, advances
+ * or completes the clinic's backfill run (`BackfillProgressStore`), so a
+ * clinic-wide backfill in progress is left exactly as it was. Each patient
+ * commits in one transaction; calling again with the same patients replays
+ * them again idempotently (a crash or a budget pause resumes that way).
+ */
+export async function replayPatients(
+  engineDeps: BackfillDeps,
+  clinicId: ClinicId,
+  patientIds: readonly PatientId[],
+  options: { readonly clock?: Clock; readonly runId?: string } = {},
+): Promise<PatientReplayReport> {
+  const deps = options.clock === undefined ? engineDeps : { ...engineDeps, clock: options.clock };
+  const catalog = await deps.loadCatalog(clinicId);
+  const runId = options.runId ?? `patients-${deps.clock.now().toISOString()}`;
+  let counts: BackfillCounts = ZERO_BACKFILL_COUNTS;
+  const replayed: PatientId[] = [];
+  for (const patientId of [...new Set(patientIds)].sort()) {
+    try {
+      const delta = await replayPatient(deps, {
+        clinicId,
+        patientId,
+        catalog,
+        account: (_stores, patientDelta) => Promise.resolve(patientDelta),
+      });
+      counts = addBackfillCounts(counts, delta);
+      replayed.push(patientId);
+    } catch (error) {
+      if (!isBudgetExceeded(error)) {
+        throw error;
+      }
+      return { runId, status: 'paused_budget', replayed, counts };
+    }
+  }
+  const now = deps.clock.now();
+  const release = await planBackfillRelease(deps, clinicId, now);
+  await releaseDueBackfillCases(deps, clinicId, now, catalog);
+  return { runId, status: 'completed', replayed, counts, release };
 }

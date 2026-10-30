@@ -34,6 +34,8 @@ import type { UnitOfWork } from '../../ports/unit-of-work.ts';
 import {
   type BackfillOptions,
   type BackfillReport,
+  type PatientReplayReport,
+  replayPatients,
   runBackfill,
   stageHistory,
 } from '../backfill/backfill.ts';
@@ -162,6 +164,15 @@ export interface BackfillCommands {
    * paused on budget). Returns when it completes or pauses.
    */
   run(clinicId: ClinicId, options?: BackfillOptions): Promise<BackfillReport>;
+  /**
+   * Replays a few patients' imported history ("Import history") like the
+   * backfill, as its own run: the clinic's backfill run is never touched.
+   */
+  replayPatients(
+    clinicId: ClinicId,
+    patientIds: readonly PatientId[],
+    options?: { readonly clock?: Clock; readonly runId?: string },
+  ): Promise<PatientReplayReport>;
   /** A run by id, or the clinic's unfinished run when `runId` is absent. */
   status(clinicId: ClinicId, runId?: string): Promise<BackfillProgress | undefined>;
   /** Activates the held cases whose release day came (the watcher also does it on every sweep). */
@@ -336,6 +347,8 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
       stage: (batch) => stageHistory(deps, batch),
       run: (clinicId, options) =>
         runBackfill({ ...ingestDeps, clinics: deps.clinics }, clinicId, options),
+      replayPatients: (clinicId, patientIds, options) =>
+        replayPatients({ ...ingestDeps, clinics: deps.clinics }, clinicId, patientIds, options),
       status: (clinicId, runId) =>
         deps.unitOfWork.withTransaction(clinicId, (stores) =>
           runId === undefined

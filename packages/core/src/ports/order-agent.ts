@@ -161,8 +161,8 @@ export interface PatientMediaReader {
   ): Promise<MediaReadingCost & { readonly reading: LabPhotoReading }>;
   /**
    * A lab report the patient sent as a document (PDF): its text is
-   * extracted and read by the same lab-result reading as a photo, into the
-   * same {@link LabPhotoReading}.
+   * extracted, masked and read by the same lab-result reading as a photo,
+   * into the same {@link LabPhotoReading}.
    */
   readLabDocument(
     clinicId: ClinicId,
@@ -170,6 +170,12 @@ export interface PatientMediaReader {
       readonly mode: OrderAgentMode;
       readonly document: Uint8Array;
       readonly contentType: string;
+      /**
+       * The patient's names and identifiers: masked in the text before it
+       * reaches the model (a photo cannot be masked). A masked mention read
+       * back as the printed name is restored by code, for the name check.
+       */
+      readonly redactTerms?: readonly string[];
     },
   ): Promise<MediaReadingCost & { readonly reading: LabPhotoReading }>;
 }
