@@ -1,4 +1,5 @@
 import type {
+  RuleAuthoringAgent,
   ClinicalReviewAgent,
   ClinicDirectory,
   ClinicId,
@@ -56,6 +57,10 @@ import {
   type PricingTable,
   scriptedAdjudicatorResponder,
   scriptedReviewerResponder,
+  createRuleAuthoringAgent,
+  FAKE_RULE_AUTHOR_MODEL,
+  RULE_AUTHORING_TASK,
+  scriptedRuleAuthorResponder,
   type SnapshotProvider,
   type StructuredLlmProvider,
 } from '@follow-up-engine/llm';
@@ -64,6 +69,9 @@ import { scriptedPhotoReadings, scriptedTranscripts } from './order-agent/sample
 
 /** Gateway task of the clinical reviewer on the scripted fake (the agent's scripted mode). */
 export const SCRIPTED_CLINICAL_REVIEW_TASK = 'clinical_review_scripted';
+
+/** Gateway task of the rule-authoring agent on the scripted fake (its scripted mode never spends). */
+export const SCRIPTED_RULE_AUTHORING_TASK = 'rule_authoring_scripted';
 
 /** Which provider and model read the notes, as shown in the inbox stats. */
 export interface ExtractorInfo {
@@ -92,6 +100,11 @@ export interface ConfiguredExtractor {
   readonly scriptedReviewAgent: ClinicalReviewAgent;
   /** Whether the agent's live mode runs a real model (anything but the fake provider). */
   readonly liveAgent: boolean;
+  /** The rule-authoring agent (docs/agent/rule-authoring.md): the configured model, and the scripted fake. */
+  readonly ruleAuthorAgents: {
+    readonly live: RuleAuthoringAgent;
+    readonly scripted: RuleAuthoringAgent;
+  };
 }
 
 /**
@@ -197,6 +210,7 @@ function chooseProvider(config: LlmConfig, deps: ExtractorDeps): ProviderChoice 
             scriptedOrderAgentResponder,
             createScriptedLabPhotoResponder(scriptedPhotoReadings()),
             scriptedReviewerResponder,
+            scriptedRuleAuthorResponder,
             scriptedAdjudicatorResponder,
             createNoteFixtureResponder(deps.noteFixtures ?? []),
             heuristicResponder,
@@ -306,6 +320,15 @@ export function createConfiguredExtractor(
       [SCRIPTED_CLINICAL_REVIEW_TASK]: {
         route: [{ provider: 'fake', model: FAKE_REVIEWER_MODEL }],
       },
+      [RULE_AUTHORING_TASK]: {
+        route: [{ provider: live, model: isFake ? FAKE_RULE_AUTHOR_MODEL : choice.info.model }],
+        // Muse Spark bills its reasoning as output, and a draft is a long JSON.
+        maxOutputTokens: 8_000,
+        timeoutMs: 120_000,
+      },
+      [SCRIPTED_RULE_AUTHORING_TASK]: {
+        route: [{ provider: 'fake', model: FAKE_RULE_AUTHOR_MODEL }],
+      },
       [ORDER_AGENT_TASK]: {
         route: [{ provider: live, model: isFake ? FAKE_ORDER_AGENT_MODEL : choice.info.model }],
         maxOutputTokens: 3_000,
@@ -336,5 +359,9 @@ export function createConfiguredExtractor(
     mediaReader: createPatientMediaReader({ gateway }),
     scriptedReviewAgent: createReviewAgent({ gateway, task: SCRIPTED_CLINICAL_REVIEW_TASK }),
     liveAgent: !isFake,
+    ruleAuthorAgents: {
+      live: createRuleAuthoringAgent({ gateway, maxOutputTokens: 8_000 }),
+      scripted: createRuleAuthoringAgent({ gateway, task: SCRIPTED_RULE_AUTHORING_TASK }),
+    },
   };
 }

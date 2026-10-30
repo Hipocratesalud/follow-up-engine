@@ -33,6 +33,11 @@ export const EVALUATOR_ACTIONS = [
   'engine_test_verdict',
   /** One step of a guided engine test, loaded (or saved/confirmed) by the physician. */
   'engine_test_step',
+  /** The rule-authoring agent drafted a rule in the lab (docs/agent/rule-authoring.md). */
+  'lab_rule_drafted',
+  'lab_rule_enabled',
+  'lab_rule_discarded',
+  'lab_rule_samples_added',
 ] as const;
 export type EvaluatorAction = (typeof EVALUATOR_ACTIONS)[number];
 
