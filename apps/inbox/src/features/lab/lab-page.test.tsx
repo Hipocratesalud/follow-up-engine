@@ -144,6 +144,10 @@ function labHandlers() {
     }),
     http.get('*/api/demo/lab/cases', () => HttpResponse.json({ items: [] })),
     http.get('*/api/demo/lab/recovery', () => HttpResponse.json({ items: [], total: 0 })),
+    // The lab's finding cards (LabFindingsPanel): none live in these tests.
+    http.get('*/api/demo/lab/live-findings', () =>
+      HttpResponse.json({ items: [], total: 0, byPatient: {}, queued: 0, dailyCap: 0 }),
+    ),
     http.get('*/api/demo/lab/history/samples', () => HttpResponse.json({ sets: [] })),
   ];
 }
@@ -195,6 +199,10 @@ describe('the Lab page', () => {
         ),
         http.get('*/api/demo/lab/cases', () => HttpResponse.json({ items: [] })),
         http.get('*/api/demo/lab/recovery', () => HttpResponse.json({ items: [], total: 0 })),
+        // The lab's finding cards (LabFindingsPanel): none live in these tests.
+        http.get('*/api/demo/lab/live-findings', () =>
+          HttpResponse.json({ items: [], total: 0, byPatient: {}, queued: 0, dailyCap: 0 }),
+        ),
         http.get('*/api/demo/lab/history/samples', () => HttpResponse.json({ sets: [] })),
         http.post('*/api/demo/lab/records', () => {
           throw new Error('must not be called: the diagnosis field was left empty');

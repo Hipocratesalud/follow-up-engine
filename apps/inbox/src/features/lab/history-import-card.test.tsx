@@ -69,13 +69,26 @@ const RESPONSE: LabHistoryImportResponse = {
       ],
       resources: ['Observation/hist-obs-1-hba1c'],
       reading: { model: 'meta:muse-spark-1.3', costUsd: 0.004, latencyMs: 900 },
+      nameOnReport: 'matches',
+      dates: { printed: '2025-12-01', entered: '2025-12-15', used: 'printed', mismatch: true },
+    },
+    {
+      index: 2,
+      filename: 'otro-paciente.pdf',
+      documentDate: '2024-05-06',
+      documentType: 'lab_result',
+      readAs: 'lab_report',
+      source: 'text',
+      status: 'needs_review',
+      reviewReason: 'name_mismatch',
+      nameOnReport: 'mismatch',
+      resources: [],
     },
   ],
   eventsStaged: 3,
   backfill: {
     runId: 'history-1',
     status: 'completed',
-    resumed: false,
     expectationsCreated: 5,
     expectationsFulfilled: 2,
     casesOpened: 1,
@@ -100,6 +113,10 @@ describe('Import history (the Lab page)', () => {
         ),
         http.get('*/api/demo/lab/cases', () => HttpResponse.json({ items: [] })),
         http.get('*/api/demo/lab/recovery', () => HttpResponse.json({ items: [], total: 0 })),
+        // The lab's finding cards (LabFindingsPanel): none live in these tests.
+        http.get('*/api/demo/lab/live-findings', () =>
+          HttpResponse.json({ items: [], total: 0, byPatient: {}, queued: 0, dailyCap: 0 }),
+        ),
         http.get('*/api/demo/lab/history/samples', () => HttpResponse.json(SAMPLES)),
         http.post('*/api/demo/lab/history', async ({ request }) => {
           const form = await request.formData();
@@ -142,5 +159,19 @@ describe('Import history (the Lab page)', () => {
     ).toBeInTheDocument();
     // The test as printed on the report (clinical content stays as written).
     expect(screen.getByText('Hemoglobina glicosilada (HbA1c): 8.4 % (high)')).toBeInTheDocument();
+    // Dated by the printed date, with the gap to the entered one flagged.
+    expect(screen.getByText('Dec 1, 2025')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Dated by the report: collected Dec 1, 2025 (you entered Dec 15, 2025). Check the date.',
+      ),
+    ).toBeInTheDocument();
+    // Another patient's report: held, shown as such.
+    expect(screen.getByText('Needs review')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'The name on the report doesn’t match this patient: held for the team, nothing recorded, no order closed.',
+      ),
+    ).toBeInTheDocument();
   });
 });

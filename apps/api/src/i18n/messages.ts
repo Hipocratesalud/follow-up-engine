@@ -404,8 +404,6 @@ export interface ApiMessages {
     readonly agentMediaType: string;
     /** "Import history": a multipart request needs one date and type per file. */
     readonly labHistoryDocuments: string;
-    /** "Import history": another import of this lab clinic is still running. */
-    readonly labHistoryBusy: string;
     /** The live mode needs a real model (`LLM_PROVIDER` is `fake`). */
     readonly agentLiveUnavailable: string;
     /** Why the evaluator lab could not read an uploaded document (`DocumentExtractionError`). */

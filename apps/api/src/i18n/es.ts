@@ -658,8 +658,6 @@ export const ES = {
     agentMediaType:
       'Una nota de voz debe ser un archivo WAV, una foto una imagen JPEG, PNG o WebP y un informe un PDF.',
     labHistoryDocuments: 'Indica la fecha y el tipo de cada archivo (uno por archivo, en orden).',
-    labHistoryBusy:
-      'Otra importación de historial sigue en curso en tu laboratorio. Inténtalo de nuevo en un momento.',
     agentLiveUnavailable:
       'El modo en vivo necesita una clave de Meta en el servidor: usa el modo guionado.',
     noteNotRead: (model, error) =>

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
   ACTIVE_CASE_STATUSES,
-  ConflictError,
   effectiveClosedReason,
   type PatientId,
   patientId as toPatientId,
@@ -556,42 +555,34 @@ export function registerLabRecordRoutes(
     const patientId = toPatientId(body.patientId ?? `pat-lab-${randomUUID().slice(0, 8)}`);
     const newPatient = body.newPatient;
     const usageBefore = await runtime.storage.llmUsage.summary(clinic.id, new Date(0));
-    let report;
-    try {
-      report = await importPatientHistory(runtime, {
-        clinicId: clinic.id,
-        clock,
-        patient: {
-          id: patientId,
-          ...(newPatient === undefined
+    const report = await importPatientHistory(runtime, {
+      clinicId: clinic.id,
+      clock,
+      patient: {
+        id: patientId,
+        ...(newPatient === undefined
+          ? {}
+          : {
+              name: newPatient.name,
+              ...(newPatient.sex === undefined ? {} : { gender: newPatient.sex }),
+              ...(newPatient.age === undefined
+                ? {}
+                : { birthDate: birthDateFromAge(newPatient.age, clock.now()) }),
+            }),
+      },
+      documents: body.documents.map((document) => ({
+        filename: document.filename,
+        contentType: document.contentType,
+        data: new Uint8Array(Buffer.from(document.dataBase64, 'base64')),
+        documentDate: dayAsDate(document.documentDate),
+        documentType: document.documentType,
+        ...(document.specialty === undefined
+          ? newPatient?.specialty === undefined
             ? {}
-            : {
-                name: newPatient.name,
-                ...(newPatient.sex === undefined ? {} : { gender: newPatient.sex }),
-                ...(newPatient.age === undefined
-                  ? {}
-                  : { birthDate: birthDateFromAge(newPatient.age, clock.now()) }),
-              }),
-        },
-        documents: body.documents.map((document) => ({
-          filename: document.filename,
-          contentType: document.contentType,
-          data: new Uint8Array(Buffer.from(document.dataBase64, 'base64')),
-          documentDate: dayAsDate(document.documentDate),
-          documentType: document.documentType,
-          ...(document.specialty === undefined
-            ? newPatient?.specialty === undefined
-              ? {}
-              : { specialty: newPatient.specialty }
-            : { specialty: document.specialty }),
-        })),
-      });
-    } catch (error) {
-      if (error instanceof ConflictError) {
-        throw new HttpError(409, 'lab_history_busy', c.var.t.errors.labHistoryBusy);
-      }
-      throw error;
-    }
+            : { specialty: newPatient.specialty }
+          : { specialty: document.specialty }),
+      })),
+    });
     const usageAfter = await runtime.storage.llmUsage.summary(clinic.id, new Date(0));
     const cases = await patientBackfillCases(runtime, clinic.id, patientId, clock.now());
     if (newPatient !== undefined) {
@@ -634,6 +625,20 @@ export function registerLabRecordRoutes(
         source: document.source,
         status: document.status,
         ...(document.error === undefined ? {} : { error: document.error }),
+        ...(document.reviewReason === undefined ? {} : { reviewReason: document.reviewReason }),
+        ...(document.nameOnReport === undefined ? {} : { nameOnReport: document.nameOnReport }),
+        ...(document.dates === undefined
+          ? {}
+          : {
+              dates: {
+                ...(document.dates.printed === undefined
+                  ? {}
+                  : { printed: document.dates.printed.toISOString().slice(0, 10) }),
+                entered: document.dates.entered.toISOString().slice(0, 10),
+                used: document.dates.used,
+                mismatch: document.dates.mismatch,
+              },
+            }),
         ...(document.results === undefined ? {} : { results: [...document.results] }),
         ...(document.unrecognizedTests === undefined
           ? {}
@@ -645,7 +650,6 @@ export function registerLabRecordRoutes(
       backfill: {
         runId: report.backfill.runId,
         status: report.backfill.status,
-        resumed: report.backfill.resumed,
         expectationsCreated: report.backfill.expectationsCreated,
         expectationsFulfilled: report.backfill.expectationsFulfilled,
         casesOpened: report.backfill.casesOpened,

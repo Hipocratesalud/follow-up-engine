@@ -648,7 +648,6 @@ export const EN = {
     agentMediaType:
       'A voice note must be a WAV file, a photo a JPEG, PNG or WebP image, and a report a PDF.',
     labHistoryDocuments: 'Give each file its own date and type (one entry per file, in order).',
-    labHistoryBusy: 'Another history import is still running in your lab. Try again in a moment.',
     agentLiveUnavailable:
       'The live mode needs a Meta API key on the server: use the scripted mode.',
     noteNotRead: (model, error) =>

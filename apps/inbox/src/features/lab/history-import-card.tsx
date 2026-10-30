@@ -184,12 +184,19 @@ function OutcomeRow({ outcome }: { readonly outcome: LabHistoryDocumentOutcome }
       ? 'success'
       : outcome.status === 'already_imported'
         ? 'neutral'
-        : 'warning';
+        : outcome.status === 'needs_review'
+          ? 'danger'
+          : 'warning';
+  // A lab report is dated by the date printed on it (collection or report date) when read.
+  const shownDate =
+    outcome.dates?.used === 'printed' && outcome.dates.printed !== undefined
+      ? outcome.dates.printed
+      : outcome.documentDate;
   return (
     <li className="flex flex-col gap-1 px-3 py-2.5 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex min-w-0 flex-wrap items-center gap-2 text-fg">
-          <span className="font-medium">{dayLabel(outcome.documentDate)}</span>
+          <span className="font-medium">{dayLabel(shownDate)}</span>
           <span className="truncate text-muted">{outcome.filename}</span>
         </span>
         <Badge tone={tone}>{t.lab.history.statuses[outcome.status] ?? outcome.status}</Badge>
@@ -199,6 +206,24 @@ function OutcomeRow({ outcome }: { readonly outcome: LabHistoryDocumentOutcome }
         {outcome.readAs === 'lab_report' ? ` · ${t.lab.history.source[outcome.source] ?? ''}` : ''}
         {outcome.reading ? ` · ${t.lab.history.readBy(outcome.reading.model)}` : ''}
       </p>
+      {outcome.reviewReason === 'name_mismatch' ? (
+        <p role="note" className="text-xs font-medium text-danger">
+          {t.lab.history.nameMismatch}
+        </p>
+      ) : null}
+      {outcome.dates?.mismatch === true && outcome.dates.printed !== undefined ? (
+        <p role="note" className="text-xs font-medium text-warning">
+          {outcome.dates.used === 'printed'
+            ? t.lab.history.datePrinted(
+                dayLabel(outcome.dates.printed),
+                dayLabel(outcome.dates.entered),
+              )
+            : t.lab.history.datePrintedLater(
+                dayLabel(outcome.dates.printed),
+                dayLabel(outcome.dates.entered),
+              )}
+        </p>
+      ) : null}
       {outcome.results && outcome.results.length > 0 ? (
         <ul className="flex flex-wrap gap-1.5">
           {outcome.results.map((result) => (

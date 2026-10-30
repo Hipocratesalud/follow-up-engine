@@ -71,7 +71,13 @@ interface Page {
   }[];
 }
 
-async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
+/** Muse Spark's HTTP API, stubbed (the live path's real gateway requests go through it). */
+type LlmFetch = (input: string, init: RequestInit) => Promise<Response>;
+
+async function harness(
+  storage: 'memory' | 'postgres' = 'memory',
+  llmFetch?: LlmFetch,
+): Promise<{
   readonly call: (
     path: string,
     init?: { method?: string; body?: unknown; headers?: Record<string, string>; form?: FormData },
@@ -88,12 +94,14 @@ async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
       CLOCK: 'fake',
       LOG_LEVEL: 'silent',
       DEMO_API_KEY: KEY,
-      LLM_PROVIDER: 'fake',
+      ...(llmFetch === undefined
+        ? { LLM_PROVIDER: 'fake' }
+        : { LLM_PROVIDER: 'meta', META_API_KEY: 'test-key' }),
       ...(schema === undefined
         ? { DATABASE_URL: '' }
         : { DATABASE_URL: TEST_DATABASE_URL ?? '', DATABASE_SCHEMA: schema }),
     }),
-    { poolSize: 3 },
+    { poolSize: 3, ...(llmFetch === undefined ? {} : { llmFetch }) },
   );
   const { app }: { app: App } = createApiServer(runtime, loadApiConfig({ DEMO_ACCESS_CODE: CODE }));
   const secret = deriveSessionSecret(CODE);
@@ -276,6 +284,51 @@ describe('the order-to-completion agent (scripted mode)', () => {
       expect(last?.text).not.toMatch(/8[.,]4/);
     },
   );
+
+  it('masks María’s name in her PDF report’s text before the live reading (the gateway request never carries it)', async () => {
+    const reports: string[] = [];
+    const { call, upload, worker } = await harness('memory', async (_url, init) => {
+      const body = init.body as string;
+      if (!body.includes('<report>')) {
+        // Nothing else is stubbed: the note reading and the agent's turns fail, the reading does not.
+        return Promise.resolve(new Response('{"error":"not stubbed"}', { status: 400 }));
+      }
+      reports.push(body);
+      const reading = {
+        isLabReport: true,
+        reportDate: '2025-12-29',
+        patientName: '[REDACTADO]',
+        tests: [{ name: 'HbA1c', value: 8.4, unit: '%', referenceLow: 4, referenceHigh: 5.6 }],
+      };
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: JSON.stringify(reading) }, finish_reason: 'stop' }],
+            usage: { prompt_tokens: 400, completion_tokens: 150 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      );
+    });
+    const started = await call('/api/demo/agent/story', {
+      body: { story: 'maria', mode: 'live', language: 'es' },
+    });
+    expect(started.status).toBe(201);
+    await worker.runJobs();
+    const patientId = (started.body as { patientId: string }).patientId;
+    const sent = await upload(
+      `/api/demo/agent/patients/${patientId}/messages`,
+      new File([readSample('labReportPdf')], 'informe.pdf', { type: 'application/pdf' }),
+    );
+    expect(sent.status).toBe(201);
+    await worker.runJobs();
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toContain('HbA1c');
+    expect(reports[0]).toContain('[REDACTADO]');
+    for (const part of ['María', 'Maria', 'Fernanda', 'Rojas']) {
+      expect(reports[0]).not.toContain(part);
+    }
+  });
 
   it('refuses a file the simulated phone does not take (not WAV, an image or a PDF)', async () => {
     const { call, upload, worker } = await harness();

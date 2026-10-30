@@ -2009,11 +2009,18 @@ const lab: Messages['lab'] = {
       staged: 'Importado',
       already_imported: 'Ya importado',
       no_results: 'Sin resultados de exámenes conocidos',
+      needs_review: 'Requiere revisión',
       unreadable: 'No se pudo leer',
     },
     readAs: { note: 'Nota clínica', lab_report: 'Informe de laboratorio' },
     source: { photo: 'foto', text: 'texto del documento' },
     readBy: (model: string): string => `leído por ${model}`,
+    nameMismatch:
+      'El nombre del informe no coincide con este paciente: queda retenido para el equipo, no se registró nada ni se cerró ninguna orden.',
+    datePrinted: (printed: string, entered: string): string =>
+      `Fechado según el informe: tomado el ${printed} (indicaste ${entered}). Revisa la fecha.`,
+    datePrintedLater: (printed: string, entered: string): string =>
+      `El informe indica ${printed}, después de la fecha de tu laboratorio: se usa la fecha que indicaste (${entered}). Revisa la fecha.`,
     unrecognized: (tests: string): string => `No es un examen que el motor conozca: ${tests}`,
     interpretations: { H: 'alto', L: 'bajo', N: 'en rango' },
     recoveryTitle: 'Por recuperar',

@@ -2031,11 +2031,18 @@ const lab = {
       staged: 'Imported',
       already_imported: 'Already imported',
       no_results: 'No known test results',
+      needs_review: 'Needs review',
       unreadable: 'Could not be read',
     } as Record<string, string>,
     readAs: { note: 'Clinical note', lab_report: 'Lab report' } as Record<string, string>,
     source: { photo: 'photo', text: 'document text' } as Record<string, string>,
     readBy: (model: string): string => `read by ${model}`,
+    nameMismatch:
+      'The name on the report doesn’t match this patient: held for the team, nothing recorded, no order closed.',
+    datePrinted: (printed: string, entered: string): string =>
+      `Dated by the report: collected ${printed} (you entered ${entered}). Check the date.`,
+    datePrintedLater: (printed: string, entered: string): string =>
+      `The report prints ${printed}, after your lab’s date: dated as entered (${entered}). Check the date.`,
     unrecognized: (tests: string): string => `Not a test the engine knows: ${tests}`,
     interpretations: { H: 'high', L: 'low', N: 'in range' } as Record<string, string>,
     recoveryTitle: 'To recover',

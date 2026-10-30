@@ -197,8 +197,28 @@ export const LabHistoryDocumentOutcomeSchema = z.object({
   documentType: z.enum(CONSULTATION_DOCUMENT_TYPES),
   readAs: z.enum(['note', 'lab_report']),
   source: z.enum(['photo', 'text']),
-  status: z.enum(['staged', 'already_imported', 'no_results', 'unreadable']),
+  status: z.enum(['staged', 'already_imported', 'no_results', 'needs_review', 'unreadable']),
   error: z.string().optional(),
+  reviewReason: z
+    .enum(['name_mismatch'])
+    .optional()
+    .meta({ description: 'Why a report is held for the team (nothing staged, no order closed)' }),
+  nameOnReport: z
+    .enum(['matches', 'mismatch', 'absent'])
+    .optional()
+    .meta({ description: "The printed name against the patient's, compared by code" }),
+  dates: z
+    .object({
+      printed: calendarDay.optional(),
+      entered: calendarDay,
+      used: z.enum(['printed', 'entered']),
+      mismatch: z.boolean(),
+    })
+    .optional()
+    .meta({
+      description:
+        'A lab report is dated by its printed collection/report date when read; mismatch: it differs from the entered date by more than 3 days',
+    }),
   results: z
     .array(
       z.object({
@@ -228,7 +248,6 @@ export const LabHistoryImportResponseSchema = z
     backfill: z.object({
       runId: z.string(),
       status: z.string(),
-      resumed: z.boolean(),
       expectationsCreated: z.number().int(),
       expectationsFulfilled: z.number().int(),
       casesOpened: z.number().int(),

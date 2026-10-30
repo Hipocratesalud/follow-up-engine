@@ -690,8 +690,13 @@ export interface LabHistoryDocumentOutcome {
   documentType: LabDocumentType;
   readAs: 'note' | 'lab_report';
   source: 'photo' | 'text';
-  status: 'staged' | 'already_imported' | 'no_results' | 'unreadable';
+  status: 'staged' | 'already_imported' | 'no_results' | 'needs_review' | 'unreadable';
   error?: string;
+  /** Why a report is held for the team: nothing was staged, no order closed. */
+  reviewReason?: 'name_mismatch';
+  nameOnReport?: 'matches' | 'mismatch' | 'absent';
+  /** `YYYY-MM-DD` dates of a lab report; `used` is the one the result is dated with. */
+  dates?: { printed?: string; entered: string; used: 'printed' | 'entered'; mismatch: boolean };
   results?: {
     /** As printed on the report (clinical content, shown as written). */
     name: string;
@@ -714,7 +719,6 @@ export interface LabHistoryImportResponse {
   backfill: {
     runId: string;
     status: string;
-    resumed: boolean;
     expectationsCreated: number;
     expectationsFulfilled: number;
     casesOpened: number;

@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto';
 import {
   createRuntime,
   type EngineRuntime,
+  HISTORY_OTHER_PATIENT_MARKER,
   labClinicId,
   loadRuntimeConfig,
 } from '@follow-up-engine/runtime';
@@ -220,6 +221,50 @@ describe('POST /api/demo/lab/history', () => {
     expect(body.backfill.expectationsCreated).toBe(0);
     expect(body.llm.calls).toBe(0);
     expect(body.documents.every((document) => document.status === 'already_imported')).toBe(true);
+  });
+
+  it('holds a report printed for another patient as needs review: nothing recorded, no order closed', async () => {
+    const { app } = await harness();
+    const email = 'doctor@example.com';
+    const note = (await samples(app, email)).sets
+      .find((item) => item.id === 'rafael')
+      ?.documents.find((document) => document.documentType === 'consultation_note');
+    const response = await app.request('/api/demo/lab/history', {
+      method: 'POST',
+      headers: headers(email),
+      body: JSON.stringify({
+        newPatient: { name: 'Rafael Antonio Méndez' },
+        documents: [
+          note,
+          {
+            filename: 'otro-paciente.txt',
+            contentType: 'text/plain',
+            dataBase64: Buffer.from(
+              `Código de muestra: ${HISTORY_OTHER_PATIENT_MARKER}\nHbA1c 6.1 %`,
+            ).toString('base64'),
+            documentDate: '2024-05-06',
+            documentType: 'lab_result',
+          },
+        ],
+      }),
+    });
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as LabHistoryImportResponse;
+    expect(body.documents[1]).toMatchObject({
+      status: 'needs_review',
+      reviewReason: 'name_mismatch',
+      nameOnReport: 'mismatch',
+      resources: [],
+      dates: { printed: '2024-05-06', entered: '2024-05-06', used: 'printed', mismatch: false },
+    });
+    const expectations = (await (
+      await app.request(`/api/demo/lab/patients/${body.patientId}/expectations`, {
+        headers: headers(email),
+      })
+    ).json()) as { items: { label: string; status: string; closedReason?: string }[] };
+    expect(expectations.items.some((item) => item.closedReason === 'fulfilled_by_result')).toBe(
+      false,
+    );
   });
 
   it('refuses a document dated after the lab’s date, and every request without an evaluator', async () => {

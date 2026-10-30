@@ -832,7 +832,7 @@ const OPERATIONS: readonly Operation[] = [
     body: 'LabHistoryImport',
     response: 'LabHistoryImportResponse',
     status: 201,
-    errors: [403, 409, 422],
+    errors: [403, 422],
   },
   {
     method: 'get',
