@@ -156,7 +156,7 @@ function ProtocolSection({
       <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-fg">
         {protocol.title}
         {protocol.statusText === undefined ? null : (
-          <Badge tone={protocol.status === 'draft' ? 'warning' : 'success'}>
+          <Badge tone={protocol.status === 'validated' ? 'success' : 'warning'}>
             {protocol.statusText}
           </Badge>
         )}

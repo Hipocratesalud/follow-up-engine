@@ -106,6 +106,9 @@ const labels: Messages['labels'] = {
   },
   draftProtocol: 'Protocolo en borrador · pendiente de validación clínica',
   draftProtocolHint: 'Este protocolo aún no fue validado por el equipo clínico de tu consultorio.',
+  readyForSignoff: 'Listo para aval médico · pendiente de validación clínica',
+  readyForSignoffHint:
+    'Hay un paquete de aval listo para que el equipo clínico de tu consultorio lo revise; todavía nadie lo aprueba.',
   protocolPrefix: 'Protocolo:',
   statuses: {
     open: 'Abierto',
@@ -504,6 +507,40 @@ const inbox: Messages['inbox'] = {
     'Verás todos los casos del paciente, la evidencia citada de la nota y el siguiente paso sugerido.',
 };
 
+const liveFindings: Messages['liveFindings'] = {
+  title: 'Hallazgos clínicos',
+  intro:
+    'Sugerencias del revisor clínico en categorías que tu equipo clínico validó, cada una con la evidencia que cita. Califica cada una: una vez calificada, sale de tu bandeja.',
+  loading: 'Cargando hallazgos clínicos',
+  error: 'No pudimos cargar los hallazgos clínicos',
+  validatedBadge: 'Categoría validada',
+  suggestionTitle: 'Sugerencia',
+  evidenceTitle: 'Evidencia',
+  coveredBy: (labels) => `Ya en seguimiento: ${labels}`,
+  openPatient: 'Abrir paciente',
+  rated: (verdict) => `Calificado como ${verdict}. El hallazgo salió de tu bandeja.`,
+  patientBadge: (n) => count(n, 'hallazgo clínico', 'hallazgos clínicos'),
+  queued: (n, cap) =>
+    `${count(n, 'hallazgo más', 'hallazgos más')} en cola para los próximos días (máximo ${String(cap)} por médico al día)`,
+  lab: {
+    title: 'Revisor clínico en tu laboratorio',
+    intro:
+      'Tu laboratorio empieza como un piloto en sombra: todas las categorías activas, en sombra, así que nada llega al médico. Pasa una a en vivo, firmada con tu correo, y sus hallazgos aparecen aquí como tarjetas de la bandeja del médico. La demo compartida nunca cambia.',
+    categoriesLink: 'Categorías de tu laboratorio',
+    reviewNow: 'Revisar este paciente ahora',
+    reviewed: (n) => `Revisión lista: ${count(n, 'hallazgo nuevo', 'hallazgos nuevos')}.`,
+    empty:
+      'Aún no hay tarjetas de hallazgos: todas las categorías de tu laboratorio están en sombra, o no hay hallazgos en vivo abiertos.',
+    back: 'Volver al laboratorio',
+    categoriesTitle: 'Categorías del revisor en tu laboratorio',
+    categoriesIntro:
+      'Aquí solo cambia tu laboratorio. Pasar a en vivo se firma con tu correo de evaluador, como lo firmaría el equipo clínico en una clínica real.',
+    signedOffAs: (email) => `Firmado como ${email}`,
+    signOffHint:
+      'En vivo, los hallazgos abiertos de esta categoría se vuelven tarjetas de la bandeja de tu laboratorio.',
+  },
+};
+
 const patientCard: Messages['patientCard'] = {
   cases: (n) => count(n, 'caso', 'casos'),
   activeCases: (n) => count(n, 'caso activo', 'casos activos'),
@@ -852,6 +889,7 @@ const review: Messages['review'] = {
     invalid_arguments: 'Argumentos inválidos: se le devolvió el error',
     unknown_tool: 'Herramienta inexistente: se le devolvió el error',
     tool_budget_exhausted: 'Sin llamadas disponibles: se le pidió entregar',
+    missing_translation: 'Hallazgos sin inglés y español: se le pidió entregarlos de nuevo',
   },
   summaries: {
     points: (n) => `${n} valores`,
@@ -941,6 +979,8 @@ const review: Messages['review'] = {
     loadMore: 'Cargar más hallazgos',
   },
   row: { severityPrefix: 'Severidad: ', covered: 'Ya cubierto' },
+  untranslated: 'Sin traducir aún',
+  untranslatedHint: 'Escrito en otro idioma; su traducción está en camino.',
   detail: {
     back: 'Volver a la revisión',
     shadowBadge: 'Modo sombra',
@@ -1138,6 +1178,13 @@ const metrics: MetricsCopy = {
     tasks: {
       note_extraction: 'Lectura de notas',
       clinical_review: 'Revisión clínica',
+      expectation_adjudication: 'Adjudicación de ítems ambiguos del plan',
+      order_agent: 'Agente de órdenes',
+      order_agent_scripted: 'Agente de órdenes (guion)',
+      lab_photo_reading: 'Lectura de fotos de exámenes',
+      lab_photo_reading_scripted: 'Lectura de fotos de exámenes (guion)',
+      voice_transcription: 'Transcripción de notas de voz',
+      voice_transcription_scripted: 'Transcripción de notas de voz (guion)',
     },
     calls: (count) => `${String(count)} ${count === 1 ? 'llamada' : 'llamadas'}`,
     tokens: (count) => `${count} tokens`,
@@ -1800,6 +1847,17 @@ const EVALUATOR_ACTION_LABELS: Record<string, string> = {
   lab_rule_enabled: 'Activó una regla del consultorio',
   lab_rule_discarded: 'Descartó o desactivó una regla del consultorio',
   lab_rule_samples_added: 'Agregó los pacientes de ejemplo de reglas',
+  page_viewed: 'Abrió una página',
+  agent_story_started: 'Inició o reinició la historia del agente',
+  agent_model_switched: 'Cambió el modelo del agente',
+  agent_language_switched: 'Cambió el idioma de la paciente',
+  agent_reply_suggested: 'Envió una respuesta sugerida como paciente',
+  agent_message_typed: 'Escribió un mensaje como paciente',
+  agent_media_uploaded: 'Subió una nota de voz o una foto como paciente',
+  agent_sample_sent: 'Envió una nota de voz o foto de ejemplo como paciente',
+  agent_clock_jumped: 'Movió el reloj de la clínica del agente',
+  agent_delivery_status_set: 'Cambió el estado de entrega de un mensaje',
+  agent_phone_fixed: 'Marcó el teléfono como actualizado',
 };
 
 const lab: Messages['lab'] = {
@@ -1974,7 +2032,7 @@ const evaluators: Messages['evaluators'] = {
   intro: 'Todos los que han abierto la demo alojada, y qué han hecho con ella.',
   loading: 'Cargando evaluadores',
   error: 'No pudimos cargar los evaluadores',
-  empty: 'Todavía ningún evaluador ha iniciado sesión.',
+  empty: 'Todavía ningún médico ha iniciado sesión (las cuentas de prueba y QA se listan aparte).',
   email: 'Evaluador',
   lastSeen: 'Última vez visto',
   firstSeen: 'Primera vez visto',
@@ -1986,6 +2044,12 @@ const evaluators: Messages['evaluators'] = {
   filterByEvaluator: 'Filtrar por evaluador',
   allEvaluators: 'Todos los evaluadores',
   downloadCsv: 'Descargar CSV',
+  testAccountsTitle: 'Cuentas de prueba y QA',
+  testAccountsHint:
+    'Se guardan en el registro de actividad y en el CSV (is_test_evaluator), fuera de este resumen y de todas las cifras de Métricas y de la bandeja.',
+  testAccountBadge: 'Prueba',
+  testAccountActions: (count: number): string =>
+    count === 1 ? '1 acción' : `${String(count)} acciones`,
   action: EVALUATOR_ACTION_LABELS,
 };
 
@@ -2713,6 +2777,7 @@ export const es: Messages = {
   caseDetail,
   feedback,
   inbox,
+  liveFindings,
   patientCard,
   planReview,
   adjudication,

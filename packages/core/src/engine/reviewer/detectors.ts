@@ -1,5 +1,9 @@
 import type { EncounterFinishedEvent } from '../../domain/clinical-event.ts';
-import type { FindingCategory, FindingSeverity } from '../../domain/clinical-finding.ts';
+import type {
+  FindingCategory,
+  FindingSeverity,
+  FindingTexts,
+} from '../../domain/clinical-finding.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import type { SignalTopic, SignalView } from '../../ports/clinical-review-agent.ts';
 import type { CitableDocument, MedicationEntry, NoteDocument, ReviewDossier } from './dossier.ts';
@@ -60,6 +64,8 @@ export interface Signal {
   readonly topic?: SignalTopic;
   /** Which detector rule produced it (`lab_trend:creatinine`), for evals and logs. */
   readonly rule: string;
+  /** Its words in every review locale (the same templates, rendered per locale). */
+  readonly texts?: FindingTexts;
 }
 
 type SignalDraft = Omit<Signal, 'id'>;
@@ -1003,5 +1009,6 @@ export function signalView(signal: Signal): SignalView {
     suggestion: signal.suggestion,
     evidence: signal.evidence.map((item) => ({ docId: item.handle, quote: item.quote })),
     ...(signal.topic === undefined ? {} : { topic: signal.topic }),
+    ...(signal.texts === undefined ? {} : { texts: signal.texts }),
   };
 }

@@ -236,10 +236,10 @@ function input(): MetricsInput {
       condition('E66', 'probable', { sourceType: 'inferred_from_medication' }),
     ],
     planItemReviews: [
-      { type: 'plan_item_confirmed', at: at(3) },
-      { type: 'plan_item_corrected', at: at(2) },
-      { type: 'plan_item_rejected', at: at(1) },
-      { type: 'plan_item_confirmed', at: at(50) },
+      { type: 'plan_item_confirmed', at: at(3), userId: 'dr-a' },
+      { type: 'plan_item_corrected', at: at(2), userId: 'dr-a' },
+      { type: 'plan_item_rejected', at: at(1), userId: 'dr-a' },
+      { type: 'plan_item_confirmed', at: at(50), userId: 'dr-a' },
     ],
     llmUsage: [
       {
@@ -384,6 +384,57 @@ describe('clinic metrics (HIP-141)', () => {
 
   it('is pure: the same input gives the same output', () => {
     expect(computeClinicMetrics(input())).toEqual(metrics);
+  });
+
+  it("leaves test and QA accounts out of every number: the physicians' metrics are unchanged", () => {
+    const QA = 'qa@example.com';
+    const base = input();
+    const withQa: MetricsInput = {
+      ...base,
+      // QA resolved the active case b, and acted first on b and on f.
+      cases: base.cases.map((followUpCase) =>
+        followUpCase.id === caseId('b')
+          ? {
+              ...followUpCase,
+              status: 'resolved',
+              resolution: { kind: 'not_needed', resolvedAt: at(14), resolvedBy: QA },
+            }
+          : followUpCase,
+      ),
+      events: [
+        ...base.events,
+        event('b', 'resolved', at(15, 1), { actor: { type: 'user', id: QA } }),
+        event('f', 'assigned', at(5, 1), { actor: { type: 'user', id: QA } }),
+      ],
+      // QA's later verdicts would override the team's (latest per case wins).
+      feedback: [
+        ...base.feedback,
+        { ...feedback('fb-qa-1', 'd', true, at(6)), authorId: QA },
+        { ...feedback('fb-qa-2', 'c', true, at(9)), authorId: QA },
+      ],
+      planItemReviews: [
+        ...base.planItemReviews,
+        { type: 'plan_item_confirmed', at: at(2), userId: QA },
+        { type: 'plan_item_confirmed', at: at(1), userId: 'evidence-orchestrator@example.com' },
+      ],
+      isTestActor: (actorId) => actorId.endsWith('@example.com'),
+    };
+    const filtered = computeClinicMetrics(withQa);
+    expect(filtered.cases).toEqual(metrics.cases);
+    expect(filtered.feedback).toEqual(metrics.feedback);
+    expect(filtered.extractionReviews.planItems).toEqual(metrics.extractionReviews.planItems);
+    expect(filtered.timeToFirstAction).toEqual(metrics.timeToFirstAction);
+    expect(filtered.dismissals).toEqual(metrics.dismissals);
+    expect(filtered.bookings).toEqual(metrics.bookings);
+
+    // Without the predicate the QA rows count: the guard above is not vacuous.
+    const counted = computeClinicMetrics({ ...withQa, isTestActor: () => false });
+    expect(counted.cases.resolved).toBe(metrics.cases.resolved + 1);
+    expect(counted.feedback.useful).toBe(metrics.feedback.useful + 2);
+    expect(counted.extractionReviews.planItems.confirmed).toBe(
+      metrics.extractionReviews.planItems.confirmed + 2,
+    );
+    expect(counted.timeToFirstAction.measured).toBe(metrics.timeToFirstAction.measured + 1);
   });
 });
 

@@ -14,7 +14,7 @@ Submission to the **Meta AI Developer Hackathon 2026**.
 
 - **Physicians agreed with what Muse Spark read.** In a review session on 2026-10-27, practicing physicians checked the hosted demo against 148 synthetic patients' documents: **21 plan items confirmed, 0 corrected, 0 rejected**; **28 cases resolved**; **6 cases rated useful, 0 not useful**. [Details](#clinical-validation-with-physicians)
 - **The doctor's plan is read accurately and never invented.** On 101 gold notes, Muse Spark reaches **99.2% plan-item recall** and **98.1% medication F1**, with **0 of 348 quotes hallucinated**, at **$0.0049 per note**. [Eval](docs/evals/2026-10-27-meta-muse-spark-1.3.md)
-- **The reviewer agent cites or stays silent.** On a 20-patient cohort it found **13 of 13 planted findings**, flagged **0 of 10 controls**, and stored **0 of 44 hallucinated citations**, at **$0.0132 per review**. [Eval](docs/evals/reviewer/2026-10-27-meta-muse-spark-1.3.md)
+- **The reviewer agent cites or stays silent.** On a 20-patient cohort, with the shipped bilingual prompt, it found **13 of 13 planted findings** (precision 92.9%: one control of 10 got a finding the note had already addressed) and stored **0 of 43 hallucinated citations**, at about **$0.016 per review**. [Eval](docs/evals/reviewer/2026-10-30-meta-muse-spark-1.3.md)
 
 ## The problem
 
@@ -114,16 +114,19 @@ Every model call and its reply are recorded (`packages/testkit/fixtures/llm-snap
 
 The rule-based baseline's regexes were written looking at these same gold notes, so it overstates how well it generalizes; its plan-item precision is high because the gold labeling convention matches its rules exactly. Every Muse Spark miss is catalogued note by note, with the fix applied in code, in the [eval README](docs/evals/README.md#what-each-muse-spark-miss-is).
 
-**Clinical reviewer agent, 20-patient cohort: 10 planted findings, 10 controls** ([full report](docs/evals/reviewer/2026-10-27-meta-muse-spark-1.3.md)):
+**Clinical reviewer agent, 20-patient cohort: 10 planted findings, 10 controls** (Muse Spark, shipped prompt `clinical-review@2`, live 2026-10-30, [full report](docs/evals/reviewer/2026-10-30-meta-muse-spark-1.3.md)):
 
-| Metric                        | Value                      |
-| ----------------------------- | -------------------------- |
-| Precision                     | 100.0% (13 of 13 findings) |
-| Recall                        | 100.0% (13 of 13 planted)  |
-| Controls with any finding     | 0 of 10                    |
-| Hallucinated citations stored | **0** of 44                |
-| Steps / tool calls per review | 2.6 / 1.6                  |
-| Cost per review               | $0.0132                    |
+| Metric                          | Value                       |
+| ------------------------------- | --------------------------- |
+| Precision                       | 92.9% (13 of 14 findings)   |
+| Recall                          | 100.0% (13 of 13 planted)   |
+| Controls with any finding       | 1 of 10                     |
+| Hallucinated citations stored   | **0** of 43                 |
+| Findings in English and Spanish | 14 of 14                    |
+| Steps / tool calls per review   | 2.5 / 1.5                   |
+| Cost per review                 | $0.0164 (list price $0.021) |
+
+The false positive is a control whose note already comments on a creatinine rise: Muse Spark added its own trend finding there (verbatim citations, wrong judgment). Details in the [eval README](docs/evals/README.md).
 
 Both evals gate prompt and model changes: a regression fails the eval. The principle behind the reviewer ([ADR 0006](docs/adr/0006-clinical-reviewer-agent.md)) is **deterministic where it matters, agentic where it helps.** Code computes every trend and runs the curated checks; the model only confirms, discards or adds to what code found; every citation it returns is checked word for word against the stored record. One bad quote drops the whole finding, and it is never silently rewritten.
 
@@ -235,17 +238,17 @@ A rule declares a **trigger**, what **fulfils** it, what **supersedes** it, and 
 
 Escalation policies are named and versioned too: `default_v1` (notify day 0, contact day 14, coordinator day 21, lost day 35) and `default_v2` (the demo clinic's: WhatsApp day 14, front-desk call day 21 if unanswered, coordinator day 21, second WhatsApp day 28, lost day 35). A case keeps the policy it opened with.
 
-Every care protocol is `draft` by design: a draft runs only for a clinic that opts in, and every reason it produces is labeled "pending clinical validation" until a clinical team signs it off ([docs/protocols.md](docs/protocols.md)).
+No care protocol is validated by a clinical team yet: every one opts in per clinic and every reason it produces is labeled "pending clinical validation" until a clinical team signs it off ([docs/protocols.md](docs/protocols.md)). Diabetes and hypertension are `ready_for_signoff`: a generated sign-off package lets a physician approve them in one sitting ([docs/protocols/signoff/](docs/protocols/signoff/), `pnpm protocols:signoff`); the rest are plain `draft`.
 
-| Protocol                            | Id                       | Version | Status | On by default |
-| ----------------------------------- | ------------------------ | ------- | ------ | ------------- |
-| Diabetes                            | `diabetes`               | 1.2.1   | draft  | yes (legacy)  |
-| Hypertension                        | `hypertension`           | 1.1.1   | draft  | yes (legacy)  |
-| Pregnancy and postpartum            | `pregnancy`              | 0.1.0   | draft  | no            |
-| Depression and anxiety on treatment | `treatment_followup`     | 0.2.0   | draft  | no            |
-| Hypothyroidism                      | `hypothyroidism`         | 0.1.0   | draft  | no            |
-| Dyslipidemia                        | `dyslipidemia`           | 0.1.0   | draft  | no            |
-| Chronic kidney disease              | `chronic_kidney_disease` | 0.1.0   | draft  | no            |
+| Protocol                            | Id                       | Version | Status            | On by default |
+| ----------------------------------- | ------------------------ | ------- | ----------------- | ------------- |
+| Diabetes                            | `diabetes`               | 1.2.1   | ready_for_signoff | yes (legacy)  |
+| Hypertension                        | `hypertension`           | 1.1.1   | ready_for_signoff | yes (legacy)  |
+| Pregnancy and postpartum            | `pregnancy`              | 0.1.0   | draft             | no            |
+| Depression and anxiety on treatment | `treatment_followup`     | 0.2.0   | draft             | no            |
+| Hypothyroidism                      | `hypothyroidism`         | 0.1.0   | draft             | no            |
+| Dyslipidemia                        | `dyslipidemia`           | 0.1.0   | draft             | no            |
+| Chronic kidney disease              | `chronic_kidney_disease` | 0.1.0   | draft             | no            |
 
 ## Run it locally
 

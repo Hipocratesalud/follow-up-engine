@@ -165,16 +165,17 @@ export function describeMetricsReadModelContract(
     it('counts the plan-item reviews of the review log in the period, a case or not', async () => {
       const { a, b } = freshClinics();
       const followUpCase = aCase(a);
-      for (const [type, day, caseId] of [
-        ['plan_item_confirmed', 1, undefined],
-        ['plan_item_corrected', 2, followUpCase.id],
-        ['plan_item_rejected', 40, followUpCase.id],
+      for (const [type, day, caseId, userId] of [
+        ['plan_item_confirmed', 1, undefined, 'dr-rojas'],
+        ['plan_item_corrected', 2, followUpCase.id, 'qa@example.com'],
+        ['plan_item_rejected', 40, followUpCase.id, 'dr-rojas'],
       ] as const) {
         await stores().planItemReviews.append(
           a,
           aPlanItemReview(a, {
             type,
             at: at(day),
+            userId,
             ...(caseId === undefined ? {} : { caseId }),
             ...(type === 'plan_item_corrected'
               ? {
@@ -191,9 +192,10 @@ export function describeMetricsReadModelContract(
         a,
         aCaseEvent(a, { caseId: followUpCase.id, type: 'plan_item_rejected', at: at(3) }),
       );
+      // With who reviewed each: the metrics leave test and QA accounts out.
       expect(await metrics().planItemReviews(a, PERIOD)).toEqual([
-        { type: 'plan_item_confirmed', at: at(1) },
-        { type: 'plan_item_corrected', at: at(2) },
+        { type: 'plan_item_confirmed', at: at(1), userId: 'dr-rojas' },
+        { type: 'plan_item_corrected', at: at(2), userId: 'qa@example.com' },
       ]);
     });
 

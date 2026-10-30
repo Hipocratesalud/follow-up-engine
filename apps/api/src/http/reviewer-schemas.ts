@@ -10,6 +10,7 @@ import {
   REVIEW_TRIGGERS,
 } from '@follow-up-engine/core';
 import { z } from 'zod';
+import { PatientQueueQuerySchema } from './patient-queue-schemas.ts';
 
 /**
  * The clinical reviewer's JSON contract (`/api/inbox/findings`,
@@ -108,6 +109,10 @@ export const FindingViewSchema = z
     runId: z.string(),
     createdAt: isoDate,
     review: FindingReviewViewSchema.optional(),
+    untranslated: z.literal(true).optional().meta({
+      description:
+        'The reviewing model wrote it in another language and its translation has not arrived yet: summary, rationale and suggestion are in that language (the UI says so)',
+    }),
   })
   .meta({ id: 'Finding' });
 
@@ -283,6 +288,50 @@ export const BeforeVisitResponseSchema = z
       'live ones',
   });
 
+/**
+ * The doctor's inbox cards, and the patient list's own filters: with any of
+ * `view`, `origin`, `assignee`, `q`, `layer` or `protocol` set, only the
+ * findings of the patients the list shows (filtering by the diabetes
+ * protocol hides the cards of patients outside it).
+ */
+export const InboxFindingQuerySchema = PatientQueueQuerySchema.pick({
+  origin: true,
+  assignee: true,
+  q: true,
+  layer: true,
+  protocol: true,
+}).extend({
+  view: z.enum(['active', 'closed', 'all']).optional(),
+  patientId: z.string().min(1).max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export const InboxFindingListSchema = z
+  .object({
+    items: z.array(FindingViewSchema).meta({
+      description: 'Open findings of live, signed-off categories, most severe first, then newest',
+    }),
+    total: z.number().int().meta({ description: 'Every matching finding, not only `items`' }),
+    byPatient: z.record(z.string(), z.number().int()).meta({
+      description: "Matching findings per patient id (the badge on the patient's follow-up card)",
+    }),
+    queued: z.number().int().meta({
+      description:
+        "Live findings over their doctor's daily cap (same filters): kept, released on later days, most severe then oldest first",
+    }),
+    dailyCap: z.number().int().meta({ description: 'Live finding cards per doctor and day' }),
+  })
+  .meta({
+    id: 'InboxFindingList',
+    description:
+      "The doctor's inbox cards of the clinical reviewer (PRD V3): only categories that are " +
+      'live with a clinical sign-off under the flags in force now. A shadow category never ' +
+      'appears here, whatever mode its findings were stored with; pre_visit_question goes to ' +
+      '"Before the visit" instead',
+  });
+
+export type InboxFindingList = z.infer<typeof InboxFindingListSchema>;
+export type InboxFindingQuery = z.infer<typeof InboxFindingQuerySchema>;
 export type FindingView = z.infer<typeof FindingViewSchema>;
 export type FindingDetail = z.infer<typeof FindingDetailSchema>;
 export type CitationView = z.infer<typeof CitationViewSchema>;

@@ -104,6 +104,11 @@ export interface FollowUpEngineDeps {
    * `unitOfWork` (fine on Postgres, which nests with savepoints).
    */
   readonly ruleOverrides?: RuleOverrideStore;
+  /**
+   * Test and QA accounts (actor ids): left out of the metrics and the rule
+   * calibration, never of the stored history. Without it, every actor counts.
+   */
+  readonly isTestActor?: (actorId: string) => boolean;
 }
 
 /** Whether the engine may contact a patient, for the inbox. */
@@ -304,7 +309,13 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
     );
   }
   const loadCatalog = (clinicId: ClinicId): Promise<Catalog> => buildCatalog(clinicId);
-  const shared = { unitOfWork: deps.unitOfWork, ids: deps.ids, settings, loadCatalog };
+  const shared = {
+    unitOfWork: deps.unitOfWork,
+    ids: deps.ids,
+    settings,
+    loadCatalog,
+    ...(deps.isTestActor === undefined ? {} : { isTestActor: deps.isTestActor }),
+  };
   const ingestDeps = {
     ...shared,
     noteExtractor: deps.noteExtractor,
@@ -392,7 +403,15 @@ export function createFollowUpEngine(deps: FollowUpEngineDeps): FollowUpEngine {
     },
     calibration: (clinicId, options) => calibrationReport(shared, clinicId, options),
     metrics: (clinicId, period) =>
-      clinicMetrics({ unitOfWork: deps.unitOfWork, clock: deps.clock }, clinicId, period),
+      clinicMetrics(
+        {
+          unitOfWork: deps.unitOfWork,
+          clock: deps.clock,
+          ...(deps.isTestActor === undefined ? {} : { isTestActor: deps.isTestActor }),
+        },
+        clinicId,
+        period,
+      ),
     catalog: loadCatalog,
     async explain(clinicId, patientId, expectationIds) {
       const catalog = await loadCatalog(clinicId);

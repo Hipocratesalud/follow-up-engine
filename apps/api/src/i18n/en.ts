@@ -478,6 +478,7 @@ export const EN = {
     },
     protocolVersion: (name, version) => `${name} v${version}`,
     draft: 'Draft: not yet validated by the clinical team',
+    readyForSignoff: 'Ready for sign-off: not yet validated by the clinical team',
     validated: 'Validated by the clinical team',
     schedule: {
       interval: (days) => `Every ${String(days)} days.`,
@@ -820,6 +821,7 @@ export const EN = {
     emailLabel: 'Your email',
     codeLabel: 'Access code',
     submit: 'Enter',
+    languageLabel: 'Language',
     wrongCode: 'That code is not valid. Check it and try again.',
     invalidEmail: 'Enter a valid email address.',
     tooManyAttempts: 'Too many attempts. Wait a minute and try again.',

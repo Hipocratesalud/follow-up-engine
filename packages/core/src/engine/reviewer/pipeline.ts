@@ -3,7 +3,10 @@ import {
   type DiscardReason,
   type FindingCategory,
   type FindingCoverage,
+  type FindingText,
+  type FindingTexts,
   IMPLEMENTED_FINDING_CATEGORIES,
+  REVIEW_LOCALES,
   type ReviewLocale,
   type ReviewRunStatus,
 } from '../../domain/clinical-finding.ts';
@@ -70,7 +73,65 @@ function asProposal(signal: Signal): ProposedFinding {
     suggestion: signal.suggestion,
     citations: signal.evidence.map((item) => ({ docId: item.handle, quote: item.quote })),
     signalIds: [signal.id],
+    ...(signal.texts === undefined ? {} : { texts: signal.texts }),
   };
+}
+
+function textOf(item: FindingText): FindingText {
+  return { summary: item.summary, rationale: item.rationale, suggestion: item.suggestion };
+}
+
+/**
+ * The detector signals with their words in every review locale: the same
+ * detectors over the same record, rendered with each locale's templates
+ * (the dossier's handles and the detectors' order do not depend on the
+ * language; a twin of another rule is never taken).
+ */
+export function withLocaleTexts(
+  snapshot: PatientRecordSnapshot,
+  locale: ReviewLocale,
+  signals: readonly Signal[],
+  enabled: (category: FindingCategory) => boolean,
+): Signal[] {
+  const others = REVIEW_LOCALES.filter((item) => item !== locale).map(
+    (other) => [other, detectSignals(buildDossier(snapshot, other), enabled)] as const,
+  );
+  return signals.map((signal, index) => {
+    const texts: Partial<Record<ReviewLocale, FindingText>> = { [locale]: textOf(signal) };
+    for (const [other, list] of others) {
+      const twin = list[index];
+      if (twin?.rule === signal.rule && twin.category === signal.category) {
+        texts[other] = textOf(twin);
+      }
+    }
+    return { ...signal, texts };
+  });
+}
+
+/**
+ * A draft's words per locale. The model's own `texts` win (Muse Spark has
+ * written its main fields in Spanish for an English clinic, with a correct
+ * English entry in `texts`); the stored text only fills the clinic's locale
+ * when the model gave none for it.
+ */
+function draftTexts(
+  draft: FindingDraft,
+  locale: ReviewLocale,
+  signals: readonly Signal[],
+): FindingTexts {
+  const own = textOf(draft);
+  // A detector signal stored as is (no agent, or the agent's very words): its other renderings.
+  const twin =
+    draft.texts === undefined && draft.signalIds.length === 1
+      ? signals.find((signal) => signal.id === draft.signalIds[0])
+      : undefined;
+  const inherited =
+    twin?.texts !== undefined &&
+    twin.summary === draft.summary &&
+    twin.suggestion === draft.suggestion
+      ? twin.texts
+      : undefined;
+  return { [locale]: own, ...(draft.texts ?? inherited) };
 }
 
 function describeError(error: unknown): string {
@@ -106,7 +167,12 @@ export async function reviewRecord(
       stopReason: 'no_enabled_category',
     };
   }
-  const signals = detectSignals(dossier, enabledForPatient);
+  const signals = withLocaleTexts(
+    snapshot,
+    locale,
+    detectSignals(dossier, enabledForPatient),
+    enabledForPatient,
+  );
 
   let proposals: readonly ProposedFinding[] | undefined;
   let agent: ReviewAgentResult | undefined;
@@ -159,7 +225,8 @@ export async function reviewRecord(
       count('merged');
       continue;
     }
-    const draft = degraded ? { ...check.draft, origin: 'fallback' as const } : check.draft;
+    const checked = { ...check.draft, texts: draftTexts(check.draft, locale, signals) };
+    const draft = degraded ? { ...checked, origin: 'fallback' as const } : checked;
     const coveredBy = coverageOf(draft, dossier, signals);
     findings.push({ ...draft, alreadyCovered: coveredBy.length > 0, coveredBy });
   }

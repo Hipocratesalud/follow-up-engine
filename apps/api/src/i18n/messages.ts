@@ -83,6 +83,7 @@ export interface WhyMessages {
   };
   readonly protocolVersion: (name: string, version: string) => string;
   readonly draft: string;
+  readonly readyForSignoff: string;
   readonly validated: string;
   /** "Every 90 days", per schedule type. */
   readonly schedule: {
@@ -426,6 +427,8 @@ export interface AccessGateMessages {
   readonly emailLabel: string;
   readonly codeLabel: string;
   readonly submit: string;
+  /** The EN / ES switch's accessible name. */
+  readonly languageLabel: string;
   readonly wrongCode: string;
   readonly invalidEmail: string;
   readonly tooManyAttempts: string;

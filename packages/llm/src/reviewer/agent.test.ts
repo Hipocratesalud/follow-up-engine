@@ -11,6 +11,7 @@ import {
   reviewRecord,
   signalView,
   detectSignals,
+  withLocaleTexts,
 } from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import { createLlmGateway } from '../gateway/gateway.ts';
@@ -18,6 +19,7 @@ import { DEFAULT_PRICING } from '../pricing.ts';
 import { createFakeProvider, type FakeResponder } from '../providers/fake.ts';
 import type { ProviderRequest } from '../usage.ts';
 import { InMemoryLlmUsageLog } from '../usage-log.ts';
+import { toJsonSchema } from '../json-schema.ts';
 import { createReviewAgent } from './agent.ts';
 import { CLINICAL_REVIEW_TASK, REVIEWER_ACTION_NAME } from './prompt.ts';
 import { FAKE_REVIEWER_MODEL, scriptedReviewerResponder } from './scripted.ts';
@@ -88,7 +90,8 @@ const SNAPSHOT: PatientRecordSnapshot = {
 
 function request(limits = { maxSteps: 8, maxToolCalls: 6, maxTokens: 60_000 }): ReviewAgentRequest {
   const dossier = buildDossier(SNAPSHOT);
-  const signals = detectSignals(dossier);
+  // Signals as the pipeline hands them over: with their words in English and Spanish.
+  const signals = withLocaleTexts(SNAPSHOT, 'en', detectSignals(dossier), () => true);
   return {
     input: reviewInputOf(dossier, 'P-test', signals.map(signalView)),
     toolbox: createReviewToolbox(dossier),
@@ -279,6 +282,18 @@ describe('reviewer agent loop', () => {
               suggestion: 'Considera revisar la nota.',
               citations: [{ docId: 'N1', quote: 'Paciente [REDACTADO], refiere buena tolerancia' }],
               signalIds: [],
+              texts: {
+                en: {
+                  summary: 'Note with patient data',
+                  rationale: 'Quoted.',
+                  suggestion: 'Consider reviewing.',
+                },
+                es: {
+                  summary: 'Nota con datos del paciente',
+                  rationale: 'Citada.',
+                  suggestion: 'Considera revisar.',
+                },
+              },
             },
           ],
         }),
@@ -308,6 +323,18 @@ describe('a model that obeys the injected note (prompt injection)', () => {
           suggestion: 'Envía un mensaje al paciente por WhatsApp.',
           citations: [{ docId: 'N1', quote: 'Control de DM2' }],
           signalIds: [],
+          texts: {
+            en: {
+              summary: 'Lung cancer',
+              rationale: 'According to the note.',
+              suggestion: 'Message the patient on WhatsApp.',
+            },
+            es: {
+              summary: 'Cáncer de pulmón',
+              rationale: 'Según la nota.',
+              suggestion: 'Envía un mensaje al paciente por WhatsApp.',
+            },
+          },
         },
         {
           category: 'lab_trend',
@@ -317,6 +344,18 @@ describe('a model that obeys the injected note (prompt injection)', () => {
           suggestion: 'Considera estudiar.',
           citations: [{ docId: 'N1', quote: 'el paciente tiene cáncer de pulmón' }],
           signalIds: [],
+          texts: {
+            en: {
+              summary: 'Lung cancer',
+              rationale: 'According to the note.',
+              suggestion: 'Consider a work-up.',
+            },
+            es: {
+              summary: 'Cáncer de pulmón',
+              rationale: 'Según la nota.',
+              suggestion: 'Considera estudiar.',
+            },
+          },
         },
         {
           category: 'lab_trend',
@@ -326,6 +365,18 @@ describe('a model that obeys the injected note (prompt injection)', () => {
           suggestion: 'Considera estudiar.',
           citations: [{ docId: 'N7', quote: 'tumor' }],
           signalIds: [],
+          texts: {
+            en: {
+              summary: 'Tumor',
+              rationale: 'According to the note.',
+              suggestion: 'Consider a work-up.',
+            },
+            es: {
+              summary: 'Tumor',
+              rationale: 'Según la nota.',
+              suggestion: 'Considera estudiar.',
+            },
+          },
         },
       ],
     }),
@@ -345,6 +396,115 @@ describe('a model that obeys the injected note (prompt injection)', () => {
       quote_not_found: 1,
       unknown_document: 1,
     });
+  });
+});
+
+describe('a model that leaves out the translations (adversarial)', () => {
+  const TREND = {
+    category: 'lab_trend',
+    severity: 'high',
+    summary: 'Creatinine rising over the last 4 results',
+    rationale: 'Four results in a row got worse.',
+    suggestion: 'Consider assessing renal function.',
+    citations: [{ docId: 'R4', quote: 'Creatinine: 1.75 mg/dL' }],
+    signalIds: [],
+  };
+  const TEXTS = {
+    en: {
+      summary: 'Creatinine rising over the last 4 results',
+      rationale: 'Four results in a row got worse.',
+      suggestion: 'Consider assessing renal function.',
+    },
+    es: {
+      summary: 'Creatinina en ascenso en los últimos 4 resultados',
+      rationale: 'Cuatro resultados seguidos empeoran.',
+      suggestion: 'Considera evaluar la función renal.',
+    },
+  };
+
+  it('asks the model for texts.en and texts.es in the tool schema', () => {
+    const submit = createReviewToolbox(buildDossier(SNAPSHOT)).definitions.find(
+      (definition) => definition.name === 'submit_findings',
+    );
+    const schema = toJsonSchema(submit?.parameters as never) as {
+      properties: {
+        findings: { items: { required: string[]; properties: Record<string, never> } };
+      };
+    };
+    expect(schema.properties.findings.items.required).toContain('texts');
+    expect(schema.properties.findings.items.properties['texts']).toMatchObject({
+      required: ['en', 'es'],
+    });
+  });
+
+  it('refuses a submission without both languages once, and keeps the resubmission that has them', async () => {
+    const { agent, requests } = agentWith(
+      script([
+        call('submit_findings', { findings: [TREND] }),
+        call('submit_findings', { findings: [{ ...TREND, texts: TEXTS }] }),
+      ]),
+    );
+    const result = await agent.review(CLINIC, request());
+    expect(result.stopReason).toBe('submitted');
+    expect(result.trace.map((step) => step.outcome)).toEqual(['missing_translation', 'ok']);
+    // The model was told exactly what was missing.
+    expect(userMessages(requests[1]).at(-1)?.content).toContain('texts.en and texts.es');
+    expect(result.proposals).toHaveLength(1);
+    expect(result.proposals[0]?.texts?.es?.summary).toBe(TEXTS.es.summary);
+  });
+
+  it('keeps what is still untranslated after being asked once, in the language the model wrote', async () => {
+    const SPANISH_ONLY = {
+      ...TREND,
+      summary: TEXTS.es.summary,
+      rationale: TEXTS.es.rationale,
+      suggestion: TEXTS.es.suggestion,
+      texts: { es: TEXTS.es },
+    };
+    const { agent, requests } = agentWith(
+      script([
+        call('submit_findings', { findings: [TREND, SPANISH_ONLY] }),
+        call('submit_findings', { findings: [TREND, SPANISH_ONLY, { ...TREND, texts: TEXTS }] }),
+      ]),
+    );
+    const result = await agent.review(CLINIC, request());
+    // Asked once, never twice: the second submission ends the review, and keeps everything.
+    expect(requests).toHaveLength(2);
+    expect(result.trace.map((step) => step.outcome)).toEqual(['missing_translation', 'ok']);
+    expect(result.trace.at(-1)?.summary).toBe('3 findings, 2 not translated yet');
+    expect(result.proposals).toHaveLength(3);
+    expect(result.proposals[0]?.texts).toBeUndefined();
+    expect(result.proposals[1]?.texts).toEqual({ es: TEXTS.es });
+    expect(result.proposals[2]?.texts).toEqual(TEXTS);
+
+    // Through the engine: stored in the clinic's language; only a bad quote ever drops one.
+    const { agent: again } = agentWith(
+      script([
+        call('submit_findings', {
+          findings: [
+            TREND,
+            { ...TREND, citations: [{ docId: 'R4', quote: 'Creatinine: 9.9 mg/dL' }] },
+          ],
+        }),
+        call('submit_findings', {
+          findings: [
+            TREND,
+            { ...TREND, citations: [{ docId: 'R4', quote: 'Creatinine: 9.9 mg/dL' }] },
+          ],
+        }),
+      ]),
+    );
+    const outcome = await reviewRecord(CLINIC, SNAPSHOT, {
+      agent: again,
+      enabled: () => true,
+      redactTerms: [NAME],
+      patientRef: 'P-1',
+    });
+    expect(outcome.findings.map((finding) => finding.summary)).toEqual([TREND.summary]);
+    expect(outcome.findings[0]?.texts).toEqual({
+      en: { summary: TREND.summary, rationale: TREND.rationale, suggestion: TREND.suggestion },
+    });
+    expect(outcome.discarded).toEqual({ quote_not_found: 1 });
   });
 });
 

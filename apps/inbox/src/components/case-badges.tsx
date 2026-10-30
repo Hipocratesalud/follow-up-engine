@@ -174,8 +174,9 @@ export function EscalationMeter({
   );
 }
 
-export function isDraftProtocol(protocol: ProtocolRef | undefined): boolean {
-  return protocol?.status === 'draft';
+/** A protocol the clinical team has not validated yet: `draft` or `ready_for_signoff`. */
+export function isUnvalidatedProtocol(protocol: ProtocolRef | undefined): boolean {
+  return protocol?.status === 'draft' || protocol?.status === 'ready_for_signoff';
 }
 
 /**
@@ -206,8 +207,52 @@ export function DraftProtocolBadge({
 }
 
 /**
+ * Marks a reason that comes from a protocol with a sign-off package
+ * (docs/protocols/signoff) nobody has approved yet: still unvalidated, but
+ * further along than a plain draft.
+ */
+export function ReadyForSignoffBadge({
+  describe = true,
+}: {
+  readonly describe?: boolean;
+}): ReactNode {
+  const t = useT();
+  return (
+    <Badge
+      tone="warning"
+      wrap
+      title={t.labels.readyForSignoffHint}
+      icon={<FilePen className="mt-0.5 size-3 shrink-0" aria-hidden="true" />}
+    >
+      <span>
+        {t.labels.readyForSignoff}
+        {describe ? <span className="sr-only">. {t.labels.readyForSignoffHint}</span> : null}
+      </span>
+    </Badge>
+  );
+}
+
+/** The right unvalidated badge for a protocol's status, or nothing for a validated one. */
+export function ProtocolValidationBadge({
+  status,
+  describe = true,
+}: {
+  readonly status: ProtocolRef['status'];
+  readonly describe?: boolean;
+}): ReactNode {
+  if (status === 'ready_for_signoff') {
+    return <ReadyForSignoffBadge describe={describe} />;
+  }
+  if (status === 'draft') {
+    return <DraftProtocolBadge describe={describe} />;
+  }
+  return null;
+}
+
+/**
  * Where a reason comes from when a protocol asks for it: the protocol's
- * name (in the request's language) and, for a draft, the draft badge. Nothing for other reasons.
+ * name (in the request's language) and, when it is not validated yet, its
+ * badge (draft or ready for sign-off). Nothing for other reasons.
  */
 export function ReasonProtocol({
   protocol,
@@ -218,8 +263,8 @@ export function ReasonProtocol({
   readonly withDraftBadge?: boolean;
 }): ReactNode {
   const t = useT();
-  const draft = withDraftBadge && isDraftProtocol(protocol);
-  if (protocol?.name === undefined && !draft) {
+  const unvalidated = withDraftBadge && isUnvalidatedProtocol(protocol);
+  if (protocol?.name === undefined && !unvalidated) {
     return null;
   }
   return (
@@ -229,7 +274,7 @@ export function ReasonProtocol({
           {t.labels.protocolPrefix} <span className="font-medium text-fg">{protocol.name}</span>
         </span>
       )}
-      {draft ? <DraftProtocolBadge /> : null}
+      {unvalidated ? <ProtocolValidationBadge status={protocol?.status} /> : null}
     </div>
   );
 }

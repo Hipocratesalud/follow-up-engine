@@ -114,6 +114,9 @@ const labels = {
   },
   draftProtocol: 'Draft protocol · pending clinical validation',
   draftProtocolHint: 'Your clinic’s clinical team has not validated this protocol yet.',
+  readyForSignoff: 'Ready for sign-off · pending clinical validation',
+  readyForSignoffHint:
+    'A sign-off package is ready for your clinic’s clinical team to review; nobody has approved it yet.',
   protocolPrefix: 'Protocol:',
   statuses: {
     open: 'Open',
@@ -518,6 +521,44 @@ const inbox = {
     'You will see every case of the patient, the quoted evidence from the note and the suggested next step.',
 };
 
+/**
+ * The clinical reviewer's cards in the doctor's inbox (PRD V3): findings of
+ * the categories the clinical team switched live. A shadow category never
+ * shows up here.
+ */
+const liveFindings = {
+  title: 'Clinical findings',
+  intro:
+    'Suggestions of the clinical reviewer in categories your clinical team validated, each with the evidence it quotes. Rate each one: once rated, it leaves your inbox.',
+  loading: 'Loading clinical findings',
+  error: 'We could not load the clinical findings',
+  validatedBadge: 'Validated category',
+  suggestionTitle: 'Suggestion',
+  evidenceTitle: 'Evidence',
+  coveredBy: (labels: string): string => `Already in follow-up: ${labels}`,
+  openPatient: 'Open patient',
+  rated: (verdict: string): string => `Rated as ${verdict}. The finding left your inbox.`,
+  patientBadge: (n: number): string => count(n, 'clinical finding', 'clinical findings'),
+  queued: (n: number, cap: number): string =>
+    `${count(n, 'more finding', 'more findings')} queued for the coming days (at most ${String(cap)} per doctor a day)`,
+  lab: {
+    title: 'Clinical reviewer in your lab',
+    intro:
+      'Your lab starts like a shadow pilot: every category on, in shadow, so nothing reaches the doctor. Switch one live, signed off with your email, and its findings show up here as the doctor’s inbox cards. The shared demo never changes.',
+    categoriesLink: 'Your lab’s categories',
+    reviewNow: 'Review this patient now',
+    reviewed: (n: number): string => `Review done: ${count(n, 'new finding', 'new findings')}.`,
+    empty:
+      'No finding cards yet: every category of your lab is in shadow, or no live finding is open.',
+    back: 'Back to the Lab',
+    categoriesTitle: 'Reviewer categories in your lab',
+    categoriesIntro:
+      'Only your lab changes here. Going live is signed off with your evaluator email, as the clinical team’s sign-off would be in a real clinic.',
+    signedOffAs: (email: string): string => `Signed off as ${email}`,
+    signOffHint: 'Live, this category’s open findings become inbox cards in your lab.',
+  },
+};
+
 /** The patient card of the inbox (HIP-141): one patient, every case. */
 const patientCard = {
   cases: (n: number): string => count(n, 'case', 'cases'),
@@ -862,6 +903,7 @@ const review = {
     invalid_arguments: 'Invalid arguments: the error was sent back to it',
     unknown_tool: 'Unknown tool: the error was sent back to it',
     tool_budget_exhausted: 'No calls left: it was asked to submit',
+    missing_translation: 'Findings without English and Spanish: it was asked to resubmit',
   } as Record<string, string>,
   summaries: {
     points: (n: string): string => `${n} values`,
@@ -952,6 +994,8 @@ const review = {
     loadMore: 'Load more findings',
   },
   row: { severityPrefix: 'Severity: ', covered: 'Already covered' },
+  untranslated: 'Not translated yet',
+  untranslatedHint: 'Written in another language; its translation is on its way.',
   detail: {
     back: 'Back to the review',
     shadowBadge: 'Shadow mode',
@@ -1153,6 +1197,13 @@ const metrics: MetricsCopy = {
     tasks: {
       note_extraction: 'Reading notes',
       clinical_review: 'Clinical review',
+      expectation_adjudication: 'Adjudicating ambiguous plan items',
+      order_agent: 'Order agent',
+      order_agent_scripted: 'Order agent (scripted)',
+      lab_photo_reading: 'Reading lab photos',
+      lab_photo_reading_scripted: 'Reading lab photos (scripted)',
+      voice_transcription: 'Transcribing voice notes',
+      voice_transcription_scripted: 'Transcribing voice notes (scripted)',
     },
     calls: (count) => `${String(count)} ${count === 1 ? 'call' : 'calls'}`,
     tokens: (count) => `${count} tokens`,
@@ -1819,6 +1870,17 @@ const EVALUATOR_ACTION_LABELS = {
   lab_rule_enabled: 'Enabled a clinic rule',
   lab_rule_discarded: 'Discarded or switched off a clinic rule',
   lab_rule_samples_added: 'Added the rule sample patients',
+  page_viewed: 'Opened a page',
+  agent_story_started: 'Started or restarted the agent story',
+  agent_model_switched: 'Switched the agent model',
+  agent_language_switched: 'Switched the patient’s language',
+  agent_reply_suggested: 'Sent a suggested reply as the patient',
+  agent_message_typed: 'Typed a message as the patient',
+  agent_media_uploaded: 'Uploaded a voice note or photo as the patient',
+  agent_sample_sent: 'Sent a sample voice note or photo as the patient',
+  agent_clock_jumped: 'Moved the agent’s clinic clock',
+  agent_delivery_status_set: 'Changed a message’s delivery status',
+  agent_phone_fixed: 'Marked the phone as updated',
 } as Record<string, string>;
 
 const lab = {
@@ -1991,7 +2053,7 @@ const evaluators = {
   intro: 'Everyone who has opened the hosted demo, and what they have done with it.',
   loading: 'Loading evaluators',
   error: 'We could not load the evaluators',
-  empty: 'No evaluator has logged in yet.',
+  empty: 'No physician has logged in yet (test and QA accounts are listed apart).',
   email: 'Evaluator',
   lastSeen: 'Last seen',
   firstSeen: 'First seen',
@@ -2003,6 +2065,12 @@ const evaluators = {
   filterByEvaluator: 'Filter by evaluator',
   allEvaluators: 'All evaluators',
   downloadCsv: 'Download CSV',
+  testAccountsTitle: 'Test and QA accounts',
+  testAccountsHint:
+    'Kept in the activity log and the CSV (is_test_evaluator), left out of this summary and of every number in Metrics and the inbox.',
+  testAccountBadge: 'Test',
+  testAccountActions: (count: number): string =>
+    count === 1 ? '1 action' : `${String(count)} actions`,
   action: EVALUATOR_ACTION_LABELS,
 };
 
@@ -2722,6 +2790,7 @@ export const en = {
   caseDetail,
   feedback,
   inbox,
+  liveFindings,
   patientCard,
   planReview,
   adjudication,

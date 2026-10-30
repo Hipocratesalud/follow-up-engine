@@ -144,6 +144,48 @@ export function describeClinicalFindingRepositoryContract(
       );
     });
 
+    it('stores and replaces the words per locale (a translation arrives), scoped to its clinic', async () => {
+      const { a, b } = freshClinics();
+      const es = {
+        summary: 'Creatinina en ascenso',
+        rationale: 'Tres resultados seguidos empeoran.',
+        suggestion: 'Considera evaluar la función renal.',
+      };
+      const finding = aClinicalFinding(a, { texts: { es } });
+      await repo().create(a, finding);
+      expect((await repo().get(a, finding.id))?.texts).toEqual({ es });
+      const en = {
+        summary: 'Creatinine rising',
+        rationale: 'Three results in a row got worse.',
+        suggestion: 'Consider assessing renal function.',
+      };
+      const updated = await repo().setTexts(a, finding.id, { es, en });
+      expect(updated.texts).toEqual({ es, en });
+      expect((await repo().get(a, finding.id))?.texts).toEqual({ es, en });
+      await expectRejectsWithName(repo().setTexts(b, finding.id, { en }), 'NotFoundError');
+    });
+
+    it('marks a finding released to the inbox, and lists those released since an instant', async () => {
+      const { a, b } = freshClinics();
+      const early = aClinicalFinding(a);
+      const late = aClinicalFinding(a);
+      const waiting = aClinicalFinding(a);
+      for (const finding of [early, late, waiting]) await repo().create(a, finding);
+      await repo().release(a, early.id, { at: at(1), doctor: 'dr-medina' });
+      await repo().release(a, late.id, { at: at(3), doctor: 'unassigned' });
+      expect((await repo().get(a, early.id))?.inboxRelease).toEqual({
+        at: at(1),
+        doctor: 'dr-medina',
+      });
+      expect((await repo().get(a, waiting.id))?.inboxRelease).toBeUndefined();
+      const since = await repo().list(a, { releasedSince: at(2), limit: 10 });
+      expect(since.items.map((item) => item.id)).toEqual([late.id]);
+      await expectRejectsWithName(
+        repo().release(b, early.id, { at: at(1), doctor: 'x' }),
+        'NotFoundError',
+      );
+    });
+
     it('finds duplicates: open, or created or reviewed since the window start', async () => {
       const { a } = freshClinics();
       const key = 'lab_trend|Observation/obs-9';

@@ -28,7 +28,7 @@ import type {
   DemoConsultationResponse,
   EvaluatorEventView,
   EvaluatorIdentity,
-  EvaluatorSummaryView,
+  EvaluatorsView,
   FeedbackRequest,
   InboxStats,
   LabDateImpact,
@@ -59,6 +59,9 @@ import type {
   FindingPage,
   FindingReviewRequest,
   FindingView,
+  InboxFindingFilters,
+  InboxFindingList,
+  ReviewerScope,
   ReviewMetrics,
 } from './reviewer-contract.ts';
 
@@ -90,6 +93,10 @@ export const queryKeys = {
   finding: (id: string) => ['finding', id] as const,
   reviewMetrics: ['review-metrics'] as const,
   findingFlags: ['finding-flags'] as const,
+  scopedFindingFlags: (scope: ReviewerScope) => ['finding-flags', scope] as const,
+  inboxFindings: (scope: ReviewerScope, filters: InboxFindingFilters) =>
+    ['inbox-findings', scope, filters] as const,
+  allInboxFindings: ['inbox-findings'] as const,
   evaluator: ['evaluator'] as const,
   labPatients: ['lab-patients'] as const,
   labPatientExpectations: (patientId: string) => ['lab-patient-expectations', patientId] as const,
@@ -390,15 +397,56 @@ export function useReviewMetrics(): UseQueryResult<ReviewMetrics> {
   return useQuery({ queryKey: queryKeys.reviewMetrics, queryFn: () => api.getReviewMetrics() });
 }
 
-export function useFindingFlags(): UseQueryResult<{ items: FindingFlagView[] }> {
+export function useFindingFlags(
+  scope: ReviewerScope = 'clinic',
+): UseQueryResult<{ items: FindingFlagView[] }> {
   const api = useApi();
-  return useQuery({ queryKey: queryKeys.findingFlags, queryFn: () => api.listFindingFlags() });
+  return useQuery({
+    queryKey: queryKeys.scopedFindingFlags(scope),
+    queryFn: () => api.listFindingFlags(scope),
+  });
+}
+
+/**
+ * The doctor's inbox cards (PRD V3): open findings of live, signed-off
+ * categories. The API never returns a shadow category.
+ */
+export function useInboxFindings(
+  scope: ReviewerScope = 'clinic',
+  filters: InboxFindingFilters = {},
+): UseQueryResult<InboxFindingList> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.inboxFindings(scope, filters),
+    queryFn: () => api.listInboxFindings(scope, filters),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** "Review this patient now" in the evaluator's lab: new findings show up as cards when live. */
+export function useLabPatientReview(): UseMutationResult<
+  { findings: FindingView[] },
+  Error,
+  string
+> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (patientId: string) => api.reviewLabPatient(patientId),
+    onSuccess: () => {
+      invalidateAfterFindingChange(queryClient);
+    },
+  });
 }
 
 function invalidateAfterFindingChange(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: queryKeys.allFindings });
   void queryClient.invalidateQueries({ queryKey: queryKeys.reviewMetrics });
   void queryClient.invalidateQueries({ queryKey: queryKeys.findingFlags });
+  // A rated finding leaves the inbox; a category switched live or back to shadow
+  // brings its cards in or takes them out, and the patient cards' badges follow.
+  void queryClient.invalidateQueries({ queryKey: queryKeys.allInboxFindings });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.allCases });
   // "Asked" / "Not relevant" on the before-visit panel resolves a finding
   // the same way the batch review does: it drops off the patient's panel.
   void queryClient.invalidateQueries({ queryKey: queryKeys.allBeforeVisit });
@@ -406,11 +454,12 @@ function invalidateAfterFindingChange(queryClient: QueryClient): void {
 
 export function useFindingReview(
   findingId: string,
+  scope: ReviewerScope = 'clinic',
 ): UseMutationResult<FindingView, Error, FindingReviewRequest> {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (request: FindingReviewRequest) => api.reviewFinding(findingId, request),
+    mutationFn: (request: FindingReviewRequest) => api.reviewFinding(findingId, request, scope),
     onSuccess: (view: FindingView) => {
       queryClient.setQueryData<FindingDetail>(queryKeys.finding(findingId), (previous) =>
         previous ? { ...previous, ...view } : previous,
@@ -436,15 +485,13 @@ export function useReactivateSuppression(
   });
 }
 
-export function useFindingFlagUpdate(): UseMutationResult<
-  FindingFlagView,
-  Error,
-  FindingFlagUpdate
-> {
+export function useFindingFlagUpdate(
+  scope: ReviewerScope = 'clinic',
+): UseMutationResult<FindingFlagView, Error, FindingFlagUpdate> {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (request: FindingFlagUpdate) => api.updateFindingFlag(request),
+    mutationFn: (request: FindingFlagUpdate) => api.updateFindingFlag(request, scope),
     onSuccess: () => {
       invalidateAfterFindingChange(queryClient);
     },
@@ -630,7 +677,7 @@ export function useAdvanceLabDate(): UseMutationResult<LabDateImpact, Error, str
   });
 }
 
-export function useEvaluators(): UseQueryResult<{ items: EvaluatorSummaryView[] }> {
+export function useEvaluators(): UseQueryResult<EvaluatorsView> {
   const api = useApi();
   return useQuery({
     queryKey: queryKeys.evaluators,

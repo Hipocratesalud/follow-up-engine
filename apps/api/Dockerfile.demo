@@ -37,8 +37,11 @@ RUN pnpm install --frozen-lockfile --ignore-scripts --filter "@follow-up-engine/
 COPY tsconfig.base.json ./
 COPY apps/inbox ./apps/inbox
 ARG DEMO_INBOX_API_KEY=demo-inbox-key
-# Same origin: the inbox calls /api on the host that served it.
-RUN cd apps/inbox && VITE_API_URL=/ VITE_API_KEY="$DEMO_INBOX_API_KEY" pnpm exec vite build
+# Same origin: the inbox calls /api on the host that served it. The key is read
+# by the inner shell from the build argument's environment variable: inside
+# single quotes the builder does not substitute it into the step name it
+# prints, so the key never appears in the build log.
+RUN cd apps/inbox && sh -c 'VITE_API_URL=/ VITE_API_KEY="$DEMO_INBOX_API_KEY" exec pnpm exec vite build'
 
 FROM base AS runtime
 ENV NODE_ENV=production

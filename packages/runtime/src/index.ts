@@ -32,6 +32,7 @@ export {
   DEMO_INBOX_KEY_LABEL,
   ensureLabClinic,
   isLabClinicId,
+  reviewLocaleOf,
   LAB_CLINIC_PREFIX,
   labClinicId,
   registerDemoClinic,
@@ -67,6 +68,7 @@ export {
   type StoredEntry,
 } from './ingestion.ts';
 export {
+  CLIENT_EVALUATOR_ACTIONS,
   EVALUATOR_ACTIONS,
   isEvaluatorAction,
   MemoryEvaluatorEventStore,
@@ -178,3 +180,9 @@ export {
   type SimulationReportCache,
   type SimulationReportState,
 } from './simulation.ts';
+export {
+  DEFAULT_TEST_EVALUATORS_URL,
+  isTestEvaluator,
+  loadTestEvaluatorPolicy,
+  type TestEvaluatorPolicy,
+} from './test-evaluators.ts';

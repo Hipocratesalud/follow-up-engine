@@ -25,7 +25,8 @@ import type {
   DemoConsultationResponse,
   EvaluatorEventView,
   EvaluatorIdentity,
-  EvaluatorSummaryView,
+  ClientEvaluatorEvent,
+  EvaluatorsView,
   FeedbackRequest,
   InboxStats,
   LabDateImpact,
@@ -56,6 +57,9 @@ import type {
   FindingPage,
   FindingReviewRequest,
   FindingView,
+  InboxFindingFilters,
+  InboxFindingList,
+  ReviewerScope,
   ReviewMetrics,
 } from './reviewer-contract.ts';
 import type {
@@ -190,10 +194,21 @@ export interface ApiClient {
   listWebhooks(limit: number, type?: string): Promise<{ items: WebhookDelivery[] }>;
   listFindings(query: FindingListQuery): Promise<FindingPage>;
   getFinding(id: string): Promise<FindingDetail>;
-  reviewFinding(id: string, body: FindingReviewRequest): Promise<FindingView>;
+  reviewFinding(
+    id: string,
+    body: FindingReviewRequest,
+    scope?: ReviewerScope,
+  ): Promise<FindingView>;
   getReviewMetrics(): Promise<ReviewMetrics>;
-  listFindingFlags(): Promise<{ items: FindingFlagView[] }>;
-  updateFindingFlag(body: FindingFlagUpdate): Promise<FindingFlagView>;
+  listFindingFlags(scope?: ReviewerScope): Promise<{ items: FindingFlagView[] }>;
+  updateFindingFlag(body: FindingFlagUpdate, scope?: ReviewerScope): Promise<FindingFlagView>;
+  /** The doctor's inbox cards: live, signed-off categories only. */
+  listInboxFindings(
+    scope?: ReviewerScope,
+    filters?: InboxFindingFilters,
+  ): Promise<InboxFindingList>;
+  /** "Review this patient now" in the evaluator's lab. */
+  reviewLabPatient(patientId: string): Promise<{ findings: FindingView[] }>;
   listPatientQueue(query: PatientQueueQuery): Promise<PatientQueuePage>;
   getPatientCard(patientId: string): Promise<PatientQueueItem>;
   requestPatientContact(patientId: string, body: { note?: string }): Promise<PatientQueueItem>;
@@ -231,6 +246,8 @@ export interface ApiClient {
   getEvaluator(): Promise<EvaluatorIdentity>;
   /** "Change" in the header banner: back to the code page. */
   logoutEvaluator(): Promise<void>;
+  /** Records a page view or an agent-page select for the signed-in evaluator. */
+  trackEvaluatorEvent(event: ClientEvaluatorEvent): Promise<void>;
   /** The lab clinic's own "today" (never the shared clock's). */
   getLabClock(): Promise<DemoClock>;
   listLabPatients(): Promise<{ items: LabPatient[] }>;
@@ -246,7 +263,7 @@ export interface ApiClient {
   getLabHistorySamples(): Promise<LabHistorySampleSet>;
   /** The lab's "To recover": backfill cases still held, as of the lab's own date. */
   getLabRecovery(): Promise<{ items: CaseView[]; total: number }>;
-  listEvaluators(): Promise<{ items: EvaluatorSummaryView[] }>;
+  listEvaluators(): Promise<EvaluatorsView>;
   listEvaluatorEvents(query: {
     evaluatorEmail?: string;
     limit?: number;
@@ -274,7 +291,11 @@ export interface ApiClient {
   /** The lab clinic's agent page: the given (or latest) patient's conversation, trace, orders and tasks. */
   getAgent(patientId?: string): Promise<AgentPageView>;
   startAgentStory(body: AgentStoryRequest): Promise<{ patientId: string }>;
-  sendAgentText(patientId: string, text: string): Promise<AgentMessageView>;
+  sendAgentText(
+    patientId: string,
+    text: string,
+    source?: 'suggested' | 'typed',
+  ): Promise<AgentMessageView>;
   /** A voice note (WAV) or a photo, as multipart. */
   sendAgentFile(patientId: string, file: File): Promise<AgentMessageView>;
   sendAgentSample(
@@ -290,6 +311,11 @@ export interface ApiClient {
   advanceAgentClock(days: number): Promise<{ from: string; to: string }>;
   /** A voice note or photo, fetched with the API key (an <img> cannot send it). */
   getAgentMedia(mediaId: string): Promise<Blob>;
+}
+
+/** The path prefix of the reviewer's inbox endpoints for a scope ({@link ReviewerScope}). */
+function reviewerBase(scope: ReviewerScope | undefined): string {
+  return scope === 'lab' ? '/demo/lab' : '/inbox';
 }
 
 export function createApiClient(config: ApiConfig): ApiClient {
@@ -432,11 +458,16 @@ export function createApiClient(config: ApiConfig): ApiClient {
     listWebhooks: (limit, type) => request('GET', '/demo/webhooks', { query: { limit, type } }),
     listFindings: (query) => request('GET', '/inbox/findings', { query: { ...query } }),
     getFinding: (id) => request('GET', `/inbox/findings/${encodeURIComponent(id)}`),
-    reviewFinding: (id, body) =>
-      request('POST', `/inbox/findings/${encodeURIComponent(id)}/review`, { body }),
+    reviewFinding: (id, body, scope) =>
+      request('POST', `${reviewerBase(scope)}/findings/${encodeURIComponent(id)}/review`, { body }),
     getReviewMetrics: () => request('GET', '/inbox/findings/metrics'),
-    listFindingFlags: () => request('GET', '/inbox/finding-flags'),
-    updateFindingFlag: (body) => request('PUT', '/inbox/finding-flags', { body }),
+    listFindingFlags: (scope) => request('GET', `${reviewerBase(scope)}/finding-flags`),
+    updateFindingFlag: (body, scope) =>
+      request('PUT', `${reviewerBase(scope)}/finding-flags`, { body }),
+    listInboxFindings: (scope, filters) =>
+      request('GET', `${reviewerBase(scope)}/live-findings`, { query: { ...filters } }),
+    reviewLabPatient: (patientId) =>
+      request('POST', `/demo/lab/patients/${encodeURIComponent(patientId)}/review`),
     listPatientQueue: (query) => request('GET', '/inbox/patients-queue', { query: { ...query } }),
     getPatientCard: (patientId) =>
       request('GET', `/inbox/patients-queue/${encodeURIComponent(patientId)}`),
@@ -480,6 +511,7 @@ export function createApiClient(config: ApiConfig): ApiClient {
       }
     },
     logoutEvaluator: () => request('POST', '/evaluator/logout'),
+    trackEvaluatorEvent: (event) => request('POST', '/evaluator/events', { body: event }),
     getLabClock: async () => ({
       ...(await request<{ now: string }>('GET', '/demo/lab/clock')),
       fake: true,
@@ -510,9 +542,9 @@ export function createApiClient(config: ApiConfig): ApiClient {
     getAgent: (patientId) =>
       request('GET', '/demo/agent', { query: patientId === undefined ? {} : { patientId } }),
     startAgentStory: (body) => request('POST', '/demo/agent/story', { body }),
-    sendAgentText: (patientId, text) =>
+    sendAgentText: (patientId, text, source) =>
       request('POST', `/demo/agent/patients/${encodeURIComponent(patientId)}/messages`, {
-        body: { text },
+        body: source === undefined ? { text } : { text, source },
       }),
     sendAgentFile: async (patientId, file) => {
       const form = new FormData();

@@ -17,6 +17,7 @@ import { AddWithoutDocument } from './add-without-document.tsx';
 import { ExpectationChips } from './expectation-chips.tsx';
 import { ExpectationsTable } from './expectations-table.tsx';
 import { HistoryImportCard } from './history-import-card.tsx';
+import { LabFindingsPanel } from './lab-findings-panel.tsx';
 import { ImpactPanel } from './impact-panel.tsx';
 import { LabRecoveryPanel } from './lab-recovery-panel.tsx';
 import { DocumentReadback } from './readback.tsx';
@@ -178,6 +179,8 @@ export function LabPage(): ReactNode {
           {t.lab.noPatientSelected}
         </p>
       )}
+
+      <LabFindingsPanel patientId={patientId} />
 
       <LabRecoveryPanel />
 

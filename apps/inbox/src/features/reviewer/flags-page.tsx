@@ -1,8 +1,8 @@
 import { ArrowLeft, Lock, ShieldCheck } from 'lucide-react';
 import { type ChangeEvent, type ReactNode, useId, useState } from 'react';
 import { Link } from 'react-router';
-import type { FindingFlagView } from '../../api/reviewer-contract.ts';
-import { useFindingFlagUpdate, useFindingFlags } from '../../api/queries.ts';
+import type { FindingFlagView, ReviewerScope } from '../../api/reviewer-contract.ts';
+import { useEvaluator, useFindingFlagUpdate, useFindingFlags } from '../../api/queries.ts';
 import { ErrorState, fieldError, InlineError } from '../../components/states.tsx';
 import { Badge, Button, INPUT_CLASS, Skeleton } from '../../components/ui.tsx';
 import { useT } from '../../i18n/index.ts';
@@ -66,10 +66,20 @@ function EnabledSwitch({
   );
 }
 
-function FlagRow({ flag }: { readonly flag: FindingFlagView }): ReactNode {
-  const COPY = useT().review.flags;
+function FlagRow({
+  flag,
+  scope,
+  signer,
+}: {
+  readonly flag: FindingFlagView;
+  readonly scope: ReviewerScope;
+  /** In the lab: the evaluator's email, the sign-off of going live there. */
+  readonly signer: string | undefined;
+}): ReactNode {
+  const t = useT();
+  const COPY = t.review.flags;
   const ids = useId();
-  const mutation = useFindingFlagUpdate();
+  const mutation = useFindingFlagUpdate(scope);
   const [promoting, setPromoting] = useState(false);
   const [validator, setValidator] = useState('');
   const [validatorError, setValidatorError] = useState<string>();
@@ -103,7 +113,8 @@ function FlagRow({ flag }: { readonly flag: FindingFlagView }): ReactNode {
 
   function handleConfirmPromotion(): void {
     if (mutation.isPending) return;
-    const validatedBy = validator.trim();
+    // In the lab the API signs off with the evaluator's own email, whatever is sent.
+    const validatedBy = (scope === 'lab' ? (signer ?? '') : validator).trim();
     if (validatedBy === '') {
       setValidatorError(COPY.validatorRequired);
       return;
@@ -176,7 +187,35 @@ function FlagRow({ flag }: { readonly flag: FindingFlagView }): ReactNode {
           </Button>
         )}
       </div>
-      {promoting ? (
+      {promoting && scope === 'lab' ? (
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-2 p-3">
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-medium text-fg">
+              {t.liveFindings.lab.signedOffAs(signer ?? t.common.noValue)}
+            </p>
+            <p className="text-xs text-muted">{t.liveFindings.lab.signOffHint}</p>
+            {validatorError ? (
+              <p role="alert" className="text-sm text-danger">
+                {validatorError}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={handleConfirmPromotion}
+              loading={mutation.isPending}
+              disabled={mutation.isPending}
+            >
+              {COPY.confirm}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleCancelPromotion}>
+              {COPY.cancel}
+            </Button>
+          </div>
+        </div>
+      ) : promoting ? (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-2 p-3">
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${ids}-validator`} className="text-sm font-medium text-fg">
@@ -240,25 +279,38 @@ function ReservedRow({ flag }: { readonly flag: FindingFlagView }): ReactNode {
   );
 }
 
-export function FlagsPage(): ReactNode {
-  const COPY = useT().review.flags;
-  const flags = useFindingFlags();
+/**
+ * The reviewer's categories: on/off and shadow/live (live needs a clinical
+ * sign-off). `scope="lab"` shows the identified evaluator's own lab clinic
+ * instead, where going live is signed off with their email and nothing of
+ * the shared demo changes.
+ */
+export function FlagsPage({ scope = 'clinic' }: { readonly scope?: ReviewerScope }): ReactNode {
+  const t = useT();
+  const COPY = t.review.flags;
+  const LAB = t.liveFindings.lab;
+  const flags = useFindingFlags(scope);
+  const evaluator = useEvaluator();
   function handleRetry(): void {
     void flags.refetch();
   }
   const items = flags.data?.items ?? [];
+  const signer = scope === 'lab' ? evaluator.data?.email : undefined;
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <Link
-        to="/clinical-review"
+        to={scope === 'lab' ? '/lab' : '/clinical-review'}
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-fg"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        {COPY.back}
+        {scope === 'lab' ? LAB.back : COPY.back}
       </Link>
       <header className="flex flex-col gap-0.5">
-        <h1 className="text-xl font-semibold tracking-tight text-fg">{COPY.title}</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-fg">
+          {scope === 'lab' ? LAB.categoriesTitle : COPY.title}
+        </h1>
         <p className="text-sm text-muted">{COPY.intro}</p>
+        {scope === 'lab' ? <p className="text-sm text-muted">{LAB.categoriesIntro}</p> : null}
       </header>
       <ShadowBanner />
       {flags.isPending ? (
@@ -273,7 +325,12 @@ export function FlagsPage(): ReactNode {
         <ul className="flex flex-col gap-3">
           {items.map((flag) =>
             flag.implemented ? (
-              <FlagRow key={`${flag.category}-${flag.specialty ?? ''}`} flag={flag} />
+              <FlagRow
+                key={`${flag.category}-${flag.specialty ?? ''}`}
+                flag={flag}
+                scope={scope}
+                signer={signer}
+              />
             ) : (
               <ReservedRow key={flag.category} flag={flag} />
             ),

@@ -3,10 +3,12 @@ import type {
   ClinicalReviewRun,
   FindingCategory,
   FindingFlag,
+  FindingInboxRelease,
   FindingMode,
   FindingReview,
   FindingSeverity,
   FindingStatus,
+  FindingTexts,
 } from '../domain/clinical-finding.ts';
 import type { ClinicId, PatientId } from '../domain/ids.ts';
 
@@ -16,6 +18,8 @@ export interface FindingListQuery {
   readonly categories?: readonly FindingCategory[];
   readonly severities?: readonly FindingSeverity[];
   readonly patientId?: PatientId;
+  /** Only findings released to the inbox at or after this instant (the daily cap's count). */
+  readonly releasedSince?: Date;
   /** Newest first. */
   readonly limit: number;
   /** Opaque cursor from a previous page of the same query; anything else throws `InvalidCursorError`. */
@@ -48,6 +52,12 @@ export interface ClinicalFindingRepository {
 
   /** Records the clinician's verdict (the status becomes the verdict). Throws `NotFoundError`. */
   review(clinicId: ClinicId, id: string, review: FindingReview): Promise<ClinicalFinding>;
+
+  /** Replaces the finding's words per locale (a translation arrived). Throws `NotFoundError`. */
+  setTexts(clinicId: ClinicId, id: string, texts: FindingTexts): Promise<ClinicalFinding>;
+
+  /** Marks the finding released to the doctor's inbox. Throws `NotFoundError`. */
+  release(clinicId: ClinicId, id: string, release: FindingInboxRelease): Promise<void>;
 
   /**
    * Findings of a patient with this dedup key that are still open, or were

@@ -236,13 +236,13 @@ export function PhonePanel({
     event.preventDefault();
     const text = draft.trim();
     if (text === '') return;
-    send.mutate({ kind: 'text', text }, { onSuccess: clearDraft });
+    send.mutate({ kind: 'text', text, source: 'typed' }, { onSuccess: clearDraft });
   }
   function clearDraft(): void {
     setDraft('');
   }
   function pickSuggestion(text: string): void {
-    send.mutate({ kind: 'text', text });
+    send.mutate({ kind: 'text', text, source: 'suggested' });
   }
   function sendSampleVoice(): void {
     send.mutate({ kind: 'sample', sample: 'voice_note' });

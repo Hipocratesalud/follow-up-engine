@@ -216,6 +216,13 @@ export {
   type ReviewerAction,
 } from './reviewer/prompt.ts';
 export { FAKE_REVIEWER_MODEL, scriptedReviewerResponder } from './reviewer/scripted.ts';
+export {
+  createFindingTranslator,
+  FINDING_TRANSLATION_OUTPUT_NAME,
+  FINDING_TRANSLATION_PROMPT_VERSION,
+  FINDING_TRANSLATION_TASK,
+  findingTranslationMessages,
+} from './reviewer/translation.ts';
 
 // Rule-authoring agent (V1-C, docs/agent/rule-authoring.md)
 export {

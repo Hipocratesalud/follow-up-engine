@@ -1,14 +1,14 @@
 import { ChevronRight, History } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { CaseView, Layer } from '../../api/contract.ts';
+import type { CaseView, Layer, ProtocolRef } from '../../api/contract.ts';
 import {
-  DraftProtocolBadge,
   EscalationMeter,
   LayerChip,
   PriorityBadge,
+  ProtocolValidationBadge,
   StatusBadge,
-  isDraftProtocol,
+  isUnvalidatedProtocol,
   overdueTone,
 } from '../../components/case-badges.tsx';
 import { Badge } from '../../components/ui.tsx';
@@ -62,9 +62,13 @@ function uniqueLayers(item: CaseView): Layer[] {
   return [...new Set(item.reasons.map((reason) => reason.layer))];
 }
 
-/** One of the case's reasons comes from a protocol the clinical team has not validated yet. */
-function hasDraftProtocol(item: CaseView): boolean {
-  return item.reasons.some((reason) => isDraftProtocol(reason.protocol));
+/**
+ * The status of the first reason that comes from an unvalidated protocol
+ * (draft or ready for sign-off), if any: the card shows one badge, so a
+ * mix of reasons shows the first one's.
+ */
+function unvalidatedProtocolStatus(item: CaseView): ProtocolRef['status'] {
+  return item.reasons.find((reason) => isUnvalidatedProtocol(reason.protocol))?.protocol?.status;
 }
 
 export function CaseRow({
@@ -133,7 +137,7 @@ export function CaseRow({
           {uniqueLayers(item).map((layer) => (
             <LayerChip key={layer} layer={layer} />
           ))}
-          {hasDraftProtocol(item) ? <DraftProtocolBadge describe={false} /> : null}
+          <ProtocolValidationBadge status={unvalidatedProtocolStatus(item)} describe={false} />
         </span>
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
           {top ? (

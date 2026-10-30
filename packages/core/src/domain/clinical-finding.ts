@@ -80,6 +80,31 @@ export interface FindingCoverage {
   readonly code: string;
 }
 
+/** A finding's words in one language: what the clinician reads. */
+export interface FindingText {
+  readonly summary: string;
+  readonly rationale: string;
+  readonly suggestion: string;
+}
+
+/**
+ * A finding's words in each review locale it was written in. The deterministic
+ * detectors render every locale from the same templates; the reviewing model
+ * returns both languages. The inbox shows the viewer's language; quotes are
+ * never translated (they stay the record's own words).
+ */
+export type FindingTexts = Readonly<Partial<Record<ReviewLocale, FindingText>>>;
+
+/**
+ * When a live finding reached the doctor's inbox, and whose daily quota it
+ * took (the patient's owner, or `unassigned`). Findings over a doctor's
+ * daily cap wait without one (PRD V3: cap per doctor per day).
+ */
+export interface FindingInboxRelease {
+  readonly at: Date;
+  readonly doctor: string;
+}
+
 export interface FindingReview {
   readonly verdict: FindingVerdict;
   readonly reason?: string;
@@ -109,6 +134,14 @@ export interface ClinicalFinding {
   /** Computed by code against the open expectations and active cases; the model cannot set it. */
   readonly alreadyCovered: boolean;
   readonly coveredBy: readonly FindingCoverage[];
+  /**
+   * The words in every locale available (`summary`, `rationale` and
+   * `suggestion` above are the clinic's locale). Absent on findings stored
+   * before it existed: readers fall back to the fields above.
+   */
+  readonly texts?: FindingTexts;
+  /** Set when the finding was released to the doctor's inbox (daily cap per doctor). */
+  readonly inboxRelease?: FindingInboxRelease;
   /** Specialty of the record the finding rests on (for per-specialty flags), when known. */
   readonly specialty?: string;
   readonly mode: FindingMode;
@@ -229,4 +262,24 @@ export interface FindingFlag {
   readonly validatedAt?: Date;
   readonly updatedBy?: string;
   readonly updatedAt: Date;
+}
+
+/**
+ * A finding's words in `locale`: its own rendering in that language when it
+ * has one, else the stored (clinic-locale) text.
+ */
+export function findingTextIn(
+  finding: Pick<ClinicalFinding, 'summary' | 'rationale' | 'suggestion' | 'texts'>,
+  locale: string,
+): FindingText {
+  const own = (REVIEW_LOCALES as readonly string[]).includes(locale)
+    ? finding.texts?.[locale as ReviewLocale]
+    : undefined;
+  return (
+    own ?? {
+      summary: finding.summary,
+      rationale: finding.rationale,
+      suggestion: finding.suggestion,
+    }
+  );
 }

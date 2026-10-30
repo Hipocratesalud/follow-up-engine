@@ -51,7 +51,12 @@ export function useStartAgentStory(): UseMutationResult<
 }
 
 export type PatientInput =
-  | { readonly kind: 'text'; readonly text: string }
+  | {
+      readonly kind: 'text';
+      readonly text: string;
+      /** A suggested reply, or typed (the evaluator log tells them apart). */
+      readonly source?: 'suggested' | 'typed';
+    }
   | { readonly kind: 'file'; readonly file: File }
   | { readonly kind: 'sample'; readonly sample: 'lab_report' | 'lab_report_pdf' | 'voice_note' };
 
@@ -64,7 +69,7 @@ export function useSendPatientMessage(
     mutationFn: (input: PatientInput) => {
       switch (input.kind) {
         case 'text':
-          return api.sendAgentText(patientId, input.text);
+          return api.sendAgentText(patientId, input.text, input.source);
         case 'file':
           return api.sendAgentFile(patientId, input.file);
         case 'sample':

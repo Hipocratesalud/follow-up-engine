@@ -26,6 +26,7 @@ import { HttpError, readJson, readQuery } from './errors.ts';
 import { trackEvaluatorEvent } from './evaluator-tracking.ts';
 import {
   type PatientQueueItem,
+  type PatientQueueQuery,
   PatientContactRequestSchema,
   PatientQueueQuerySchema,
   type PlanItemReviewResponse,
@@ -161,6 +162,58 @@ async function reviewPlanItem(
   }
 }
 
+/** The filters of the patient queue that narrow who is listed (no view paging). */
+export type PatientQueueFilters = {
+  readonly [Key in 'view' | 'origin' | 'assignee' | 'q' | 'layer' | 'protocol']?:
+    PatientQueueQuery[Key] | undefined;
+};
+
+/**
+ * Every patient of the queue matching its filters (view, origin, owner,
+ * search, then reason type and condition), with their cards: what the list
+ * pages over, and what the inbox's finding cards follow when filtered.
+ */
+export async function queueEntries(
+  runtime: EngineRuntime,
+  t: ApiMessages,
+  clinicId: ClinicId,
+  query: PatientQueueFilters,
+): Promise<{
+  readonly presenter: InboxPresenter;
+  readonly entries: readonly { readonly item: PatientQueueItem; readonly cases: number }[];
+  readonly matching: readonly { readonly item: PatientQueueItem; readonly cases: number }[];
+}> {
+  const presenter = await InboxPresenter.create(runtime, clinicId, t);
+  const view = query.view ?? 'active';
+  const statuses =
+    view === 'active' ? ACTIVE_CASE_STATUSES : view === 'closed' ? CLOSED_STATUSES : undefined;
+  const filter: CaseFilter = {
+    ...(statuses === undefined ? {} : { statuses }),
+    ...(query.origin === undefined ? {} : { origin: query.origin }),
+    ...(query.assignee === undefined || query.assignee === '' ? {} : { assignee: query.assignee }),
+    ...(query.q === undefined || query.q === ''
+      ? {}
+      : { patientIds: await searchPatientIds(runtime, clinicId, query.q) }),
+    releasedAsOf: presenter.now,
+  };
+  const orderBy = view === 'closed' ? 'created_at' : 'priority';
+  const allPatients = await listAllPatients(runtime, clinicId, filter, orderBy);
+  const allItems = await patientQueueItems(presenter, allPatients);
+  const entries = allItems.map((item, index) => ({
+    item,
+    cases: allPatients[index]?.cases.length ?? 0,
+  }));
+  const matching = entries.filter(
+    (entry) =>
+      matchesAny(query.layer, entry.item.layers) &&
+      matchesAny(
+        query.protocol,
+        entry.item.protocols.map((protocol) => protocol.id),
+      ),
+  );
+  return { presenter, entries, matching };
+}
+
 /**
  * The patient queue (HIP-141): the inbox's one card per patient, all their
  * reasons grouped, over the engine's per-reason cases; and the review of the
@@ -225,40 +278,16 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
   app.get('/api/inbox/patients-queue', async (c) => {
     const query = readQuery(c, PatientQueueQuerySchema);
     const clinicId = c.var.clinicId;
-    const presenter = await InboxPresenter.create(runtime, clinicId, c.var.t);
-    const statuses =
-      query.view === 'active'
-        ? ACTIVE_CASE_STATUSES
-        : query.view === 'closed'
-          ? CLOSED_STATUSES
-          : undefined;
-    const filter: CaseFilter = {
-      ...(statuses === undefined ? {} : { statuses }),
-      ...(query.origin === undefined ? {} : { origin: query.origin }),
-      ...(query.assignee === undefined || query.assignee === ''
-        ? {}
-        : { assignee: query.assignee }),
-      ...(query.q === undefined || query.q === ''
-        ? {}
-        : { patientIds: await searchPatientIds(runtime, clinicId, query.q) }),
-      releasedAsOf: presenter.now,
-    };
-    const orderBy = query.view === 'closed' ? 'created_at' : 'priority';
-    const allPatients = await listAllPatients(runtime, clinicId, filter, orderBy);
-    const allItems = await patientQueueItems(presenter, allPatients);
-    const entries = allItems.map((item, index) => ({
-      item,
-      cases: allPatients[index]?.cases.length ?? 0,
-    }));
+    const [{ entries, matching, presenter }, liveFindings] = await Promise.all([
+      queueEntries(runtime, c.var.t, clinicId, query),
+      runtime.reviewer.listInboxFindings(clinicId, { limit: 0 }),
+    ]);
     const matchesLayer = (item: PatientQueueItem): boolean => matchesAny(query.layer, item.layers);
     const matchesProtocol = (item: PatientQueueItem): boolean =>
       matchesAny(
         query.protocol,
         item.protocols.map((protocol) => protocol.id),
       );
-    const matching = entries.filter(
-      (entry) => matchesLayer(entry.item) && matchesProtocol(entry.item),
-    );
     const layers = EXPECTATION_LAYERS.map((layer) => ({
       layer,
       label: c.var.t.layerLabels[layer],
@@ -274,11 +303,17 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
           matchesLayer(entry.item) && entry.item.protocols.some((ref) => ref.id === protocol.id),
       ).length,
     }));
+    // A patient's live finding cards are their own cards (/api/inbox/live-findings):
+    // the follow-up card only carries how many, so both views stay one per patient.
+    const withFindings = (item: PatientQueueItem): PatientQueueItem => {
+      const count = liveFindings.byPatient[item.patient.id] ?? 0;
+      return count === 0 ? item : { ...item, liveFindings: count };
+    };
     const offset = offsetCursor(query.cursor);
     const page = matching.slice(offset, offset + query.limit);
     const next = offset + page.length;
     return c.json({
-      items: page.map((entry) => entry.item),
+      items: page.map((entry) => withFindings(entry.item)),
       total: matching.length,
       totalCases: matching.reduce((sum, entry) => sum + entry.cases, 0),
       ...(next < matching.length ? { nextCursor: String(next) } : {}),
