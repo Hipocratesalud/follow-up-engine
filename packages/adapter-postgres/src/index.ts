@@ -24,6 +24,7 @@ export {
 export {
   loadMigrations,
   migrate,
+  DuplicateMigrationVersionError,
   MigrationChecksumError,
   type Migration,
   type MigrateOptions,

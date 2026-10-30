@@ -1,7 +1,16 @@
 import { randomBytes } from 'node:crypto';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { loadMigrations, migrate, MigrationChecksumError } from './migrate.ts';
+import {
+  DuplicateMigrationVersionError,
+  loadMigrations,
+  migrate,
+  MigrationChecksumError,
+} from './migrate.ts';
 import { InvalidSchemaNameError } from './sql.ts';
 import { databaseSuiteTitle, testDatabaseUrl } from './testing.ts';
 
@@ -13,6 +22,25 @@ describe('loadMigrations', () => {
     );
     expect(migrations[0]).toMatchObject({ version: '0001', name: 'init' });
     expect(migrations[0]?.checksum).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('gives every bundled migration its own version', async () => {
+    const versions = (await loadMigrations()).map((migration) => migration.version);
+    expect(new Set(versions).size).toBe(versions.length);
+  });
+
+  it('refuses two files that share a version', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'fue-migrations-'));
+    try {
+      await writeFile(join(directory, '0001_init.sql'), 'SELECT 1;');
+      await writeFile(join(directory, '0002_first.sql'), 'SELECT 2;');
+      await writeFile(join(directory, '0002_second.sql'), 'SELECT 3;');
+      await expect(loadMigrations(pathToFileURL(`${directory}/`))).rejects.toThrow(
+        DuplicateMigrationVersionError,
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });
 
