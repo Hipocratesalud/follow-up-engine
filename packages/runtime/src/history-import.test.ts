@@ -11,7 +11,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { loadRuntimeConfig } from './config.ts';
 import { type HistoryDocument, importPatientHistory } from './history-import.ts';
 import { ensureLabClinicAndClock, setLabClinicDate } from './lab.ts';
-import { HISTORY_SAMPLE_SETS, readHistorySample } from './order-agent/samples.ts';
+import {
+  HISTORY_EARLY_LAB_MARKER,
+  HISTORY_LAB_PDF_READING,
+  HISTORY_OTHER_PATIENT_MARKER,
+  HISTORY_SAMPLE_SETS,
+  readHistorySample,
+} from './order-agent/samples.ts';
 import { createRuntime, type EngineRuntime } from './runtime.ts';
 
 /*
@@ -44,6 +50,23 @@ async function lab(email = 'history@example.com'): Promise<{
   );
   const { clinic, clock } = await ensureLabClinicAndClock(runtime, runtime.labClocks, email);
   return { runtime, clinicId: clinic.id, clock };
+}
+
+const RAFAEL = 'Rafael Antonio Méndez';
+const NOTE = '2024-02-12-nota-control.pdf';
+const LAB_PDF = '2024-05-06-informe-laboratorio.pdf';
+
+/** A lab report as text, carrying a sample code the scripted reader knows. */
+function textReport(marker: string, entered: string): HistoryDocument {
+  return {
+    filename: `${marker}.txt`,
+    contentType: 'text/plain',
+    data: new TextEncoder().encode(
+      `Laboratorio Clínico Demo\nCódigo de muestra: ${marker}\nHemoglobina glicosilada (HbA1c)\n`,
+    ),
+    documentDate: day(entered),
+    documentType: 'lab_result',
+  };
 }
 
 function day(value: string): Date {
@@ -172,28 +195,30 @@ describe('importing a patient’s history (V1-A, historical mode)', () => {
     expect(order?.closedAt?.toISOString().slice(0, 10)).toBe('2024-05-06');
   });
 
-  it('chronological order matters: a result dated after the order closes it, one dated before does not', async () => {
+  it('chronology on the printed date: a report collected after the order closes it, one collected before does not', async () => {
     const { runtime: rt, clinicId, clock } = await lab();
-    const files = ['2024-02-12-nota-control.pdf', '2024-05-06-informe-laboratorio.pdf'];
     const after = toPatientId('pat-result-after');
     const before = toPatientId('pat-result-before');
-    await importPatientHistory(rt, {
+    // The 2024-02-12 note orders the HbA1c; the PDF report was collected on 2024-05-06.
+    const afterImport = await importPatientHistory(rt, {
       clinicId,
       clock,
-      patient: { id: after, name: 'Paciente Después' },
-      documents: sampleDocuments('rafael', {}, files),
+      patient: { id: after, name: RAFAEL },
+      documents: sampleDocuments('rafael', {}, [NOTE, LAB_PDF]),
     });
-    await importPatientHistory(rt, {
+    // Same note; a report collected on 2023-11-20, three months before the order.
+    const beforeImport = await importPatientHistory(rt, {
       clinicId,
       clock,
-      patient: { id: before, name: 'Paciente Antes' },
-      // The same report, dated a month before the note that orders the HbA1c.
-      documents: sampleDocuments(
-        'rafael',
-        { '2024-05-06-informe-laboratorio.pdf': '2024-01-10' },
-        files,
-      ),
+      patient: { id: before, name: RAFAEL },
+      documents: [
+        ...sampleDocuments('rafael', {}, [NOTE]),
+        textReport(HISTORY_EARLY_LAB_MARKER, '2023-11-20'),
+      ],
     });
+    expect(afterImport.documents[1]?.dates).toMatchObject({ used: 'printed', mismatch: false });
+    expect(beforeImport.documents[1]?.dates).toMatchObject({ used: 'printed', mismatch: false });
+
     const closed = hba1cOrder(await expectationsOf(rt, clinicId, after));
     expect(closed?.status).toBe('fulfilled');
     expect(closed?.closedReason).toBe('fulfilled_by_result');
@@ -207,6 +232,90 @@ describe('importing a patient’s history (V1-A, historical mode)', () => {
       stores.clinicalRecords.listEventsForPatient(clinicId, before, { types: ['result.received'] }),
     );
     expect(results.some((event) => event.source.id.endsWith('-hba1c'))).toBe(true);
+  });
+
+  it('dates a result by the date printed on it, not the date entered: entered after but collected before does not close the order (flagged)', async () => {
+    const { runtime: rt, clinicId, clock } = await lab();
+    const patientId = toPatientId('pat-entered-late');
+    const report = await importPatientHistory(rt, {
+      clinicId,
+      clock,
+      patient: { id: patientId, name: RAFAEL },
+      documents: [
+        ...sampleDocuments('rafael', {}, [NOTE]),
+        // Entered as 2024-05-06 (after the order), but collected on 2023-11-20.
+        textReport(HISTORY_EARLY_LAB_MARKER, '2024-05-06'),
+      ],
+    });
+    expect(report.documents[1]?.dates).toEqual({
+      printed: day('2023-11-20'),
+      entered: day('2024-05-06'),
+      used: 'printed',
+      mismatch: true,
+    });
+    const order = hba1cOrder(await expectationsOf(rt, clinicId, patientId));
+    expect(order?.status).not.toBe('fulfilled');
+    expect(order?.closedBy).toBeUndefined();
+  });
+
+  it('dates a result by the date printed on it: entered before but collected after the order closes it, as of the printed date (flagged)', async () => {
+    const { runtime: rt, clinicId, clock } = await lab();
+    const patientId = toPatientId('pat-entered-early');
+    const report = await importPatientHistory(rt, {
+      clinicId,
+      clock,
+      patient: { id: patientId, name: RAFAEL },
+      // The 2024-05-06 report entered as 2024-01-10, a month before the note.
+      documents: sampleDocuments('rafael', { [LAB_PDF]: '2024-01-10' }, [NOTE, LAB_PDF]),
+    });
+    expect(report.documents[1]?.dates).toEqual({
+      printed: day('2024-05-06'),
+      entered: day('2024-01-10'),
+      used: 'printed',
+      mismatch: true,
+    });
+    const order = hba1cOrder(await expectationsOf(rt, clinicId, patientId));
+    expect(order?.status).toBe('fulfilled');
+    expect(order?.closedAt?.toISOString().slice(0, 10)).toBe('2024-05-06');
+  });
+
+  it('never lets another patient’s report close an order: held as needs review (name on the report does not match)', async () => {
+    const { runtime: rt, clinicId, clock } = await lab();
+    const patientId = toPatientId('pat-wrong-report');
+    const report = await importPatientHistory(rt, {
+      clinicId,
+      clock,
+      patient: { id: patientId, name: RAFAEL },
+      documents: [
+        ...sampleDocuments('rafael', {}, [NOTE]),
+        // A report printed for Laura Beatriz Ortega, collected after the order.
+        textReport(HISTORY_OTHER_PATIENT_MARKER, '2024-05-06'),
+      ],
+    });
+    expect(report.documents[1]).toMatchObject({
+      status: 'needs_review',
+      reviewReason: 'name_mismatch',
+      nameOnReport: 'mismatch',
+      resources: [],
+    });
+    const order = hba1cOrder(await expectationsOf(rt, clinicId, patientId));
+    expect(order).toBeDefined();
+    expect(order?.status).not.toBe('fulfilled');
+    expect(order?.closedBy).toBeUndefined();
+    const results = await rt.storage.unitOfWork.withTransaction(clinicId, (stores) =>
+      stores.clinicalRecords.listEventsForPatient(clinicId, patientId, {
+        types: ['result.received'],
+      }),
+    );
+    expect(results).toHaveLength(0);
+    // The patient's own reports pass the same check.
+    const own = await importPatientHistory(rt, {
+      clinicId,
+      clock,
+      patient: { id: toPatientId('pat-own-report'), name: RAFAEL },
+      documents: sampleDocuments('rafael', {}, [LAB_PDF]),
+    });
+    expect(own.documents[0]).toMatchObject({ status: 'staged', nameOnReport: 'matches' });
   });
 
   it('respects the daily cap per owner: one patient released today, the next waits in To recover until tomorrow', async () => {
@@ -350,5 +459,93 @@ describe('importing a patient’s history (V1-A, historical mode)', () => {
     expect(inB.backfill.expectationsCreated).toBe(
       (await expectationsOf(rt, a.clinicId, patientId)).length,
     );
+  });
+
+  it('masks the patient’s name in a PDF report’s text before it reaches Muse Spark, and still checks the printed name by code', async () => {
+    const bodies: string[] = [];
+    runtime = await createRuntime(
+      loadRuntimeConfig({
+        CLOCK: 'fake',
+        LOG_LEVEL: 'silent',
+        LLM_PROVIDER: 'meta',
+        META_API_KEY: 'test-key',
+        DATABASE_URL: '',
+      }),
+      {
+        // Muse Spark's API, stubbed: the request is what the gateway really sends.
+        llmFetch: async (_url, init) => {
+          const body = init.body as string;
+          bodies.push(body);
+          if (!body.includes('<report>')) {
+            return Promise.resolve(new Response('{"error":"not stubbed"}', { status: 400 }));
+          }
+          // A model that only saw the mask reads the mask back as the name.
+          const reading = { ...HISTORY_LAB_PDF_READING, patientName: '[REDACTADO]' };
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                choices: [{ message: { content: JSON.stringify(reading) }, finish_reason: 'stop' }],
+                usage: { prompt_tokens: 500, completion_tokens: 200 },
+              }),
+              { status: 200, headers: { 'content-type': 'application/json' } },
+            ),
+          );
+        },
+      },
+    );
+    const { clinicId, clock } = await lab('masking@example.com');
+    const report = await importPatientHistory(runtime, {
+      clinicId,
+      clock,
+      patient: { id: toPatientId('pat-masked'), name: RAFAEL },
+      documents: sampleDocuments('rafael', {}, [LAB_PDF]),
+    });
+    const sent = bodies.filter((body) => body.includes('<report>'));
+    expect(sent).toHaveLength(1);
+    // The report's text went out (its values), the patient's name did not.
+    expect(sent[0]).toContain('HbA1c');
+    expect(sent[0]).toContain('[REDACTADO]');
+    for (const part of ['Rafael', 'Antonio', 'Méndez', 'Mendez']) {
+      expect(sent[0]).not.toContain(part);
+    }
+    // The masked mention is the patient's own name: restored by code, so the check passes.
+    expect(report.documents[0]).toMatchObject({
+      status: 'staged',
+      nameOnReport: 'matches',
+      reading: { model: 'meta:muse-spark-1.3' },
+    });
+  });
+
+  it('never resumes, advances or completes a clinic-wide backfill run in progress', async () => {
+    const { runtime: rt, clinicId, clock } = await lab();
+    // The clinic's own backfill, started and unfinished (a crash or a deploy mid-run).
+    const clinicRun = await rt.storage.unitOfWork.withTransaction(clinicId, (stores) =>
+      stores.backfillProgress.start(clinicId, 'backfill-clinic-wide', { now: clock.now() }),
+    );
+    const report = await importPatientHistory(rt, {
+      clinicId,
+      clock,
+      patient: { id: toPatientId('pat-rafael'), name: RAFAEL },
+      documents: sampleDocuments('rafael'),
+    });
+    expect(report.backfill.status).toBe('completed');
+    expect(report.backfill.runId).not.toBe(clinicRun.runId);
+    expect(report.backfill.expectationsCreated).toBeGreaterThan(0);
+
+    const after = await rt.storage.unitOfWork.withTransaction(clinicId, (stores) =>
+      stores.backfillProgress.findRunning(clinicId),
+    );
+    // Untouched: same run, still running, no cursor, no counters, same timestamps.
+    expect(after).toEqual(clinicRun);
+    const stored = await rt.storage.unitOfWork.withTransaction(clinicId, (stores) =>
+      stores.backfillProgress.get(clinicId, report.backfill.runId),
+    );
+    expect(stored).toBeUndefined();
+
+    // The clinic's run resumes on its own afterwards, over every patient.
+    const resumed = await rt.engine.backfill.run(clinicId);
+    expect(resumed.resumed).toBe(true);
+    expect(resumed.progress.runId).toBe('backfill-clinic-wide');
+    expect(resumed.progress.status).toBe('completed');
   });
 });

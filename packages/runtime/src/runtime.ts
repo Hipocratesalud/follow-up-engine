@@ -40,6 +40,7 @@ import {
 } from '@follow-up-engine/core';
 import {
   createRepositoryTerminology,
+  type FetchLike,
   type NoteFixture,
   outboundSafetyTerms,
 } from '@follow-up-engine/llm';
@@ -208,6 +209,8 @@ export interface CreateRuntimeOptions {
   readonly poolSize?: number;
   /** Test and QA evaluator accounts; config/demo/test-evaluators.json by default. */
   readonly testEvaluators?: TestEvaluatorPolicy;
+  /** The HTTP client of the real LLM providers (tests stub the provider's API with it). */
+  readonly llmFetch?: FetchLike;
 }
 
 /**
@@ -257,6 +260,7 @@ export async function createRuntime(
     fallbackBudgetUsd: (clinicId) => (isLabClinicId(clinicId) ? demoBudget : undefined),
     ...(options.noteFixtures === undefined ? {} : { noteFixtures: options.noteFixtures }),
     ...(options.llmSnapshot === undefined ? {} : { snapshot: options.llmSnapshot }),
+    ...(options.llmFetch === undefined ? {} : { llmFetch: options.llmFetch }),
   });
 
   const testEvaluators = options.testEvaluators ?? loadTestEvaluatorPolicy();

@@ -74,6 +74,8 @@ export function scriptedDocumentReadings(): Record<string, ModelLabPhotoReading>
   return {
     [SAMPLE_LAB_PDF_MARKER]: SAMPLE_LAB_READING,
     [HISTORY_LAB_PDF_MARKER]: HISTORY_LAB_PDF_READING,
+    [HISTORY_EARLY_LAB_MARKER]: HISTORY_EARLY_LAB_READING,
+    [HISTORY_OTHER_PATIENT_MARKER]: HISTORY_OTHER_PATIENT_READING,
   };
 }
 
@@ -183,6 +185,42 @@ export const HISTORY_LAB_PDF_READING: ModelLabPhotoReading = {
       referenceHigh: 5.6,
     },
     { name: 'Glucosa en ayunas', value: 158, unit: 'mg/dL', referenceLow: 70, referenceHigh: 99 },
+  ],
+};
+
+/**
+ * Two more synthetic lab reports the scripted reader knows (tests write them
+ * as text with the sample code): an HbA1c collected on 2023-11-20, before
+ * the 2024 note that orders one, and a report printed for another patient.
+ */
+export const HISTORY_EARLY_LAB_MARKER = 'HIST-LAB-20231120';
+export const HISTORY_EARLY_LAB_READING: ModelLabPhotoReading = {
+  isLabReport: true,
+  reportDate: '2023-11-20',
+  patientName: 'Rafael Antonio Méndez',
+  tests: [
+    {
+      name: 'Hemoglobina glicosilada (HbA1c)',
+      value: 7.6,
+      unit: '%',
+      referenceLow: 4.0,
+      referenceHigh: 5.6,
+    },
+  ],
+};
+export const HISTORY_OTHER_PATIENT_MARKER = 'HIST-LAB-OTHER-PATIENT';
+export const HISTORY_OTHER_PATIENT_READING: ModelLabPhotoReading = {
+  isLabReport: true,
+  reportDate: '2024-05-06',
+  patientName: 'Laura Beatriz Ortega',
+  tests: [
+    {
+      name: 'Hemoglobina glicosilada (HbA1c)',
+      value: 6.1,
+      unit: '%',
+      referenceLow: 4.0,
+      referenceHigh: 5.6,
+    },
   ],
 };
 

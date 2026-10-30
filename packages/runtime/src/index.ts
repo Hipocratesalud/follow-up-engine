@@ -97,7 +97,9 @@ export {
   type OrderAgentStory,
 } from './order-agent/story.ts';
 export {
+  HISTORY_EARLY_LAB_MARKER,
   HISTORY_LAB_PDF_READING,
+  HISTORY_OTHER_PATIENT_MARKER,
   HISTORY_RESULT_PHOTO_READING,
   HISTORY_SAMPLE_SETS,
   readHistorySample,
@@ -118,6 +120,7 @@ export {
   MAX_LAB_DOCUMENT_BYTES,
 } from './documents.ts';
 export {
+  DATE_TOLERANCE_DAYS,
   HISTORY_DOCUMENT_STATUSES,
   historyDocumentKey,
   importPatientHistory,
