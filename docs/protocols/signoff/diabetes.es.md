@@ -8,7 +8,7 @@ Esta página se genera a partir de `config/protocols/diabetes.json` (y, cuando c
 
 ## Para responder primero
 
-Estos puntos no tienen una sección específica de guía citada (ver Guías citadas abajo): confírmalos con el médico antes que todo lo demás.
+Estos puntos no tienen una sección específica de guía citada (ver Guías citadas abajo): el médico los confirma antes que todo lo demás.
 
 - `visit` — Agendar control de diabetes
 

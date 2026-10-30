@@ -8,7 +8,7 @@ This page is generated from `config/protocols/hypertension.json` (and, for a sha
 
 ## To answer first
 
-These points have no specific guideline section cited (see Guidelines cited below): confirm them with the physician before anything else.
+These points have no specific guideline section cited (see Guidelines cited below): the physician confirms these before anything else.
 
 - `visit` — Schedule a hypertension visit
 - `labs` — Order creatinine and potassium

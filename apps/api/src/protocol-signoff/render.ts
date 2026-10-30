@@ -65,7 +65,7 @@ const T: Readonly<
     toAnswerHeading: 'To answer first',
     toAnswerIntro:
       'These points have no specific guideline section cited (see Guidelines cited below): ' +
-      'confirm them with the physician before anything else.',
+      'the physician confirms these before anything else.',
     sourcesHeading: 'Guidelines cited',
     notItemized:
       'Not itemized for this point — see Guidelines cited above; physician to confirm it applies.',
@@ -122,7 +122,7 @@ const T: Readonly<
     toAnswerHeading: 'Para responder primero',
     toAnswerIntro:
       'Estos puntos no tienen una sección específica de guía citada (ver Guías citadas abajo): ' +
-      'confírmalos con el médico antes que todo lo demás.',
+      'el médico los confirma antes que todo lo demás.',
     sourcesHeading: 'Guías citadas',
     notItemized:
       'Sin punto específico citado — ver Guías citadas arriba; el médico debe confirmar que aplica.',
