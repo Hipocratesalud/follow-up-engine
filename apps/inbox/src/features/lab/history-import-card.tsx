@@ -46,6 +46,16 @@ function isCalendarDay(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00Z`));
 }
 
+/** A file just added: dated today (the evaluator sets its real date), typed by its kind. */
+function newRow(file: File, today: string): DocumentRowState {
+  return {
+    key: rowKey(),
+    file,
+    documentDate: today,
+    documentType: isPhoto(file) ? 'lab_result' : 'consultation_note',
+  };
+}
+
 function rowKey(): string {
   return `${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -307,15 +317,7 @@ export function HistoryImportCard({
   function handleFiles(event: ChangeEvent<HTMLInputElement>): void {
     const picked = [...(event.target.files ?? [])];
     setRows((previous) =>
-      [
-        ...previous,
-        ...picked.map((file) => ({
-          key: rowKey(),
-          file,
-          documentDate: today,
-          documentType: isPhoto(file) ? 'lab_result' : 'consultation_note',
-        })),
-      ].slice(0, MAX_DOCUMENTS),
+      [...previous, ...picked.map((file) => newRow(file, today))].slice(0, MAX_DOCUMENTS),
     );
     setError(undefined);
     setResult(undefined);
