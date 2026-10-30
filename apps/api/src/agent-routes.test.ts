@@ -64,7 +64,10 @@ interface Page {
     readonly originCaseId?: string;
   }[];
   readonly findings: readonly { readonly category: string; readonly summary: string }[];
-  readonly tasks: readonly { readonly kind: string; readonly summary: { readonly ask: string } }[];
+  readonly tasks: readonly {
+    readonly kind: string;
+    readonly summary: { readonly ask: string; readonly orders: readonly string[] };
+  }[];
 }
 
 async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
@@ -229,7 +232,9 @@ describe('the order-to-completion agent (scripted mode)', () => {
     // Day 0, day 4 and day 9: three proactive messages, never more than two in seven days.
     expect(outbound).toHaveLength(3);
     expect(page.tasks.some((task) => task.kind === 'call_patient')).toBe(true);
-    expect(page.tasks.some((task) => task.kind === 'doctor_notice')).toBe(true);
+    const notice = page.tasks.find((task) => task.kind === 'doctor_notice');
+    expect(notice?.summary.ask).toBe('patient_unreachable');
+    expect(notice?.summary.orders.length).toBe(2);
     expect(page.conversation?.status).toBe('unreachable');
   });
 

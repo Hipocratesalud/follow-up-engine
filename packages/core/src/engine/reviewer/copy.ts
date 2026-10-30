@@ -110,6 +110,16 @@ export interface ReviewerCopy {
 
 const signed = (value: number): string => `${value > 0 ? '+' : ''}${String(Math.round(value))}`;
 
+/** A test name inside a sentence: "Creatinine" → "creatinine", but "HbA1c" and "LDL" keep their casing. */
+function inSentence(label: string): string {
+  return /[A-Z]/.test(label.slice(1)) ? label : label.toLowerCase();
+}
+
+/** Spanish decimals: "6.6 → 7.1" → "6,6 → 7,1". */
+function decimalComma(text: string): string {
+  return text.replace(/(\d)\.(\d)/g, '$1,$2');
+}
+
 const EN: ReviewerCopy = {
   measurements: {
     creatinine: 'Creatinine',
@@ -140,7 +150,7 @@ const EN: ReviewerCopy = {
     rationale: `${String(a.count)} results in a row got worse (${signed(a.changePct)} % between ${a.from} and ${a.to})${a.outOfRange ? ', the latest out of range' : ''}, and no later note mentions it.`,
     suggestion: a.renal
       ? 'Consider assessing renal function and reviewing drugs that depend on it (metformin, NSAIDs).'
-      : `Consider reviewing ${a.label.toLowerCase()} and the treatment at the next visit.`,
+      : `Consider reviewing ${inSentence(a.label)} and the treatment at the next visit.`,
   }),
   vitalTrend: (a) => ({
     summary:
@@ -373,16 +383,16 @@ const ES: ReviewerCopy = {
     })[key] ?? key.replace(/_/g, ' '),
   noteTitle: (specialty) => (specialty === undefined ? 'Nota clínica' : `Nota de ${specialty}`),
   labTrend: (a) => ({
-    summary: `${a.label} ${a.rising ? 'en ascenso' : 'en descenso'} en los últimos ${String(a.count)} resultados (${a.series} ${a.unit}) sin comentario en las notas`,
+    summary: `${a.label} ${a.rising ? 'en ascenso' : 'en descenso'} en los últimos ${String(a.count)} resultados (${decimalComma(a.series)} ${a.unit}) sin comentario en las notas`,
     rationale: `${String(a.count)} resultados seguidos empeoran (${signed(a.changePct)} % entre el ${a.from} y el ${a.to})${a.outOfRange ? ', el último fuera de rango' : ''}, y ninguna nota posterior lo menciona.`,
     suggestion: a.renal
       ? 'Considera evaluar la función renal y revisar los fármacos que dependen de ella (metformina, AINE).'
-      : `Considera revisar ${a.label.toLowerCase()} y el tratamiento en la próxima consulta.`,
+      : `Considera revisar ${inSentence(a.label)} y el tratamiento en la próxima consulta.`,
   }),
   vitalTrend: (a) => ({
     summary:
       a.kind === 'weight'
-        ? `Peso ${a.delta > 0 ? 'en aumento' : 'en descenso'} sostenido (${a.values} kg, ${signed(a.changePct)} %)`
+        ? `Peso ${a.delta > 0 ? 'en aumento' : 'en descenso'} sostenido (${decimalComma(a.values)} kg, ${signed(a.changePct)} %)`
         : `Presión arterial sistólica en ascenso en ${String(a.count)} controles (${a.values} mmHg)`,
     rationale: `${String(a.count)} mediciones seguidas en la misma dirección entre el ${a.from} y el ${a.to}.${(a.redFlags ?? []).length > 0 ? ` Signos de alarma de una pérdida de peso no buscada: ${(a.redFlags ?? []).join(', ')}.` : ''}`,
     suggestion:
@@ -407,8 +417,8 @@ const ES: ReviewerCopy = {
     severe_loss: 'una pérdida del 10 % o más',
   },
   abnormalResult: (a) => ({
-    summary: `${a.label} de ${a.value} ${a.unit} sin consulta ni comentario posterior`,
-    rationale: `Resultado del ${a.date} ${a.high ? 'muy por encima' : 'muy por debajo'} del rango (${a.high ? `objetivo < ${a.threshold}` : `> ${a.threshold}`} ${a.unit}); hace ${String(a.days)} días y no hay visita, cita próxima ni nota que lo comente.`,
+    summary: `${a.label} de ${decimalComma(a.value)} ${a.unit} sin consulta ni comentario posterior`,
+    rationale: `Resultado del ${a.date} ${a.high ? 'muy por encima' : 'muy por debajo'} del rango (${a.high ? `objetivo < ${decimalComma(a.threshold)}` : `> ${decimalComma(a.threshold)}`} ${a.unit}); hace ${String(a.days)} días y no hay visita, cita próxima ni nota que lo comente.`,
     suggestion: 'Considera contactar al paciente para revisar el resultado y ajustar el plan.',
   }),
   interactions: {
