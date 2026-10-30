@@ -9,6 +9,7 @@
 
 import {
   DEFAULT_REVIEW_LOCALE,
+  type FindingText,
   REVIEW_LOCALES,
   type ReviewLocale,
 } from '../../domain/clinical-finding.ts';
@@ -21,11 +22,7 @@ export const LOCALE_LANGUAGE: Readonly<Record<ReviewLocale, string>> = {
   es: 'neutral Spanish (addressing the clinician with "tú")',
 };
 
-export interface FindingText {
-  readonly summary: string;
-  readonly rationale: string;
-  readonly suggestion: string;
-}
+export type { FindingText };
 
 interface RuleCopy {
   readonly risk: string;
@@ -120,6 +117,26 @@ function decimalComma(text: string): string {
   return text.replace(/(\d)\.(\d)/g, '$1,$2');
 }
 
+/**
+ * A calendar day (`YYYY-MM-DD`, as the detectors pass it) as a reader of the
+ * locale writes it: "Jun 10, 2024" / "10 jun 2024". Never an ISO date in a
+ * sentence for the clinician.
+ */
+function dayIn(locale: string, iso: string): string {
+  const date = new Date(`${iso}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+    .format(date)
+    .replace('.', '');
+}
+const enDay = (iso: string): string => dayIn('en-US', iso);
+const esDay = (iso: string): string => dayIn('es', iso);
+
 const EN: ReviewerCopy = {
   measurements: {
     creatinine: 'Creatinine',
@@ -147,7 +164,7 @@ const EN: ReviewerCopy = {
     specialty === undefined ? 'Clinical note' : `${capitalize(specialty)} note`,
   labTrend: (a) => ({
     summary: `${a.label} ${a.rising ? 'rising' : 'falling'} over the last ${String(a.count)} results (${a.series} ${a.unit}) with no comment in the notes`,
-    rationale: `${String(a.count)} results in a row got worse (${signed(a.changePct)} % between ${a.from} and ${a.to})${a.outOfRange ? ', the latest out of range' : ''}, and no later note mentions it.`,
+    rationale: `${String(a.count)} results in a row got worse (${signed(a.changePct)} % between ${enDay(a.from)} and ${enDay(a.to)})${a.outOfRange ? ', the latest out of range' : ''}, and no later note mentions it.`,
     suggestion: a.renal
       ? 'Consider assessing renal function and reviewing drugs that depend on it (metformin, NSAIDs).'
       : `Consider reviewing ${inSentence(a.label)} and the treatment at the next visit.`,
@@ -157,7 +174,7 @@ const EN: ReviewerCopy = {
       a.kind === 'weight'
         ? `Steady weight ${a.delta > 0 ? 'gain' : 'loss'} (${a.values} kg, ${signed(a.changePct)} %)`
         : `Systolic blood pressure rising over ${String(a.count)} visits (${a.values} mmHg)`,
-    rationale: `${String(a.count)} measurements in a row moved the same way between ${a.from} and ${a.to}.${(a.redFlags ?? []).length > 0 ? ` Red flags of an unintentional weight loss: ${(a.redFlags ?? []).join(', ')}.` : ''}`,
+    rationale: `${String(a.count)} measurements in a row moved the same way between ${enDay(a.from)} and ${enDay(a.to)}.${(a.redFlags ?? []).length > 0 ? ` Red flags of an unintentional weight loss: ${(a.redFlags ?? []).join(', ')}.` : ''}`,
     suggestion:
       a.kind !== 'weight'
         ? 'Consider confirming the readings (ambulatory or home monitoring) and reviewing the antihypertensive treatment.'
@@ -167,7 +184,7 @@ const EN: ReviewerCopy = {
   }),
   uncontrolledBp: (a) => ({
     summary: `Blood pressure above target at ${String(a.count)} visits in a row (${a.readings} mmHg) with no treatment change`,
-    rationale: `Readings of ${a.from} and ${a.to} at or above 140/90 mmHg while the antihypertensive treatment stayed the same (${a.treatment}).`,
+    rationale: `Readings of ${enDay(a.from)} and ${enDay(a.to)} at or above 140/90 mmHg while the antihypertensive treatment stayed the same (${a.treatment}).`,
     suggestion:
       'Consider confirming the readings (ambulatory or home monitoring) and intensifying the antihypertensive treatment, with an earlier control.',
   }),
@@ -181,7 +198,7 @@ const EN: ReviewerCopy = {
   },
   abnormalResult: (a) => ({
     summary: `${a.label} of ${a.value} ${a.unit} with no visit or comment afterwards`,
-    rationale: `Result of ${a.date} ${a.high ? 'well above' : 'well below'} range (${a.high ? `target < ${a.threshold}` : `> ${a.threshold}`} ${a.unit}); ${String(a.days)} days ago, with no visit, upcoming appointment or note about it.`,
+    rationale: `Result of ${enDay(a.date)} ${a.high ? 'well above' : 'well below'} range (${a.high ? `target < ${a.threshold}` : `> ${a.threshold}`} ${a.unit}); ${String(a.days)} days ago, with no visit, upcoming appointment or note about it.`,
     suggestion: 'Consider contacting the patient to review the result and adjust the plan.',
   }),
   interactions: {
@@ -384,7 +401,7 @@ const ES: ReviewerCopy = {
   noteTitle: (specialty) => (specialty === undefined ? 'Nota clínica' : `Nota de ${specialty}`),
   labTrend: (a) => ({
     summary: `${a.label} ${a.rising ? 'en ascenso' : 'en descenso'} en los últimos ${String(a.count)} resultados (${decimalComma(a.series)} ${a.unit}) sin comentario en las notas`,
-    rationale: `${String(a.count)} resultados seguidos empeoran (${signed(a.changePct)} % entre el ${a.from} y el ${a.to})${a.outOfRange ? ', el último fuera de rango' : ''}, y ninguna nota posterior lo menciona.`,
+    rationale: `${String(a.count)} resultados seguidos empeoran (${signed(a.changePct)} % entre el ${esDay(a.from)} y el ${esDay(a.to)})${a.outOfRange ? ', el último fuera de rango' : ''}, y ninguna nota posterior lo menciona.`,
     suggestion: a.renal
       ? 'Considera evaluar la función renal y revisar los fármacos que dependen de ella (metformina, AINE).'
       : `Considera revisar ${inSentence(a.label)} y el tratamiento en la próxima consulta.`,
@@ -394,7 +411,7 @@ const ES: ReviewerCopy = {
       a.kind === 'weight'
         ? `Peso ${a.delta > 0 ? 'en aumento' : 'en descenso'} sostenido (${decimalComma(a.values)} kg, ${signed(a.changePct)} %)`
         : `Presión arterial sistólica en ascenso en ${String(a.count)} controles (${a.values} mmHg)`,
-    rationale: `${String(a.count)} mediciones seguidas en la misma dirección entre el ${a.from} y el ${a.to}.${(a.redFlags ?? []).length > 0 ? ` Signos de alarma de una pérdida de peso no buscada: ${(a.redFlags ?? []).join(', ')}.` : ''}`,
+    rationale: `${String(a.count)} mediciones seguidas en la misma dirección entre el ${esDay(a.from)} y el ${esDay(a.to)}.${(a.redFlags ?? []).length > 0 ? ` Signos de alarma de una pérdida de peso no buscada: ${(a.redFlags ?? []).join(', ')}.` : ''}`,
     suggestion:
       a.kind !== 'weight'
         ? 'Considera confirmar las cifras (MAPA o automedida) y revisar el tratamiento antihipertensivo.'
@@ -404,7 +421,7 @@ const ES: ReviewerCopy = {
   }),
   uncontrolledBp: (a) => ({
     summary: `Presión arterial fuera de meta en ${String(a.count)} controles seguidos (${a.readings} mmHg) sin cambio de tratamiento`,
-    rationale: `Cifras del ${a.from} y del ${a.to} en 140/90 mmHg o más, con el mismo tratamiento antihipertensivo (${a.treatment}).`,
+    rationale: `Cifras del ${esDay(a.from)} y del ${esDay(a.to)} en 140/90 mmHg o más, con el mismo tratamiento antihipertensivo (${a.treatment}).`,
     suggestion:
       'Considera confirmar las cifras (MAPA o automedida) e intensificar el tratamiento antihipertensivo, con un control más cercano.',
   }),
@@ -418,7 +435,7 @@ const ES: ReviewerCopy = {
   },
   abnormalResult: (a) => ({
     summary: `${a.label} de ${decimalComma(a.value)} ${a.unit} sin consulta ni comentario posterior`,
-    rationale: `Resultado del ${a.date} ${a.high ? 'muy por encima' : 'muy por debajo'} del rango (${a.high ? `objetivo < ${decimalComma(a.threshold)}` : `> ${decimalComma(a.threshold)}`} ${a.unit}); hace ${String(a.days)} días y no hay visita, cita próxima ni nota que lo comente.`,
+    rationale: `Resultado del ${esDay(a.date)} ${a.high ? 'muy por encima' : 'muy por debajo'} del rango (${a.high ? `objetivo < ${decimalComma(a.threshold)}` : `> ${decimalComma(a.threshold)}`} ${a.unit}); hace ${String(a.days)} días y no hay visita, cita próxima ni nota que lo comente.`,
     suggestion: 'Considera contactar al paciente para revisar el resultado y ajustar el plan.',
   }),
   interactions: {

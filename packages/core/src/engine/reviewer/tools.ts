@@ -73,17 +73,37 @@ export const CheckInteractionArgs = z
   })
   .strict();
 
+/** A finding's words in one language (the inbox shows the reader's language). */
+const FindingTextSchema = z
+  .object({
+    summary: z.string().min(5).max(240),
+    rationale: z.string().min(5).max(800),
+    suggestion: z.string().min(5).max(400),
+  })
+  .strict();
+
 export const ProposedFindingSchema = z
   .object({
     category: z.string().min(3).max(40),
     severity: z.enum(FINDING_SEVERITIES),
-    summary: z.string().min(5).max(240).describe('One line, Spanish, for the clinician'),
-    rationale: z.string().min(5).max(800).describe('Why it matters, Spanish'),
+    summary: z
+      .string()
+      .min(5)
+      .max(240)
+      .describe("One line, in the clinic's language, for the clinician"),
+    rationale: z.string().min(5).max(800).describe("Why it matters, in the clinic's language"),
     suggestion: z
       .string()
       .min(5)
       .max(400)
-      .describe('What to consider reviewing, Spanish, for the clinician'),
+      .describe("What to consider reviewing, in the clinic's language, for the clinician"),
+    texts: z
+      .object({ en: FindingTextSchema, es: FindingTextSchema })
+      .strict()
+      .optional()
+      .describe(
+        'The same summary, rationale and suggestion in English (en) and in neutral Spanish with "tú" (es). Quotes are never translated',
+      ),
     citations: z
       .array(
         z

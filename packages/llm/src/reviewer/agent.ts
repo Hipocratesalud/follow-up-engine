@@ -184,8 +184,9 @@ export function createReviewAgent(options: ReviewAgentOptions): ClinicalReviewAg
       }
       if (definition.terminal) {
         const submission = SubmitFindingsArgs.parse(checked.data);
-        proposals = submission.findings.map((finding) => ({
+        proposals = submission.findings.map(({ texts, ...finding }) => ({
           ...finding,
+          ...(texts === undefined ? {} : { texts }),
           citations: finding.citations.map((citation) => ({
             docId: citation.docId,
             quote: quoteFromOriginal(

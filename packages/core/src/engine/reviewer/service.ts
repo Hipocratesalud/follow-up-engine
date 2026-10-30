@@ -404,6 +404,7 @@ export function createClinicalReviewer(deps: ClinicalReviewerDeps): ClinicalRevi
           citations: draft.citations,
           alreadyCovered: draft.alreadyCovered,
           coveredBy: draft.coveredBy,
+          ...(draft.texts === undefined ? {} : { texts: draft.texts }),
           ...(draft.specialty === undefined ? {} : { specialty: draft.specialty }),
           mode,
           status: 'open',
