@@ -203,12 +203,6 @@ export async function reviewRecord(
   const count = (reason: DiscardReason): void => {
     discarded[reason] = (discarded[reason] ?? 0) + 1;
   };
-  // What the agent already dropped (a finding without both languages, asked twice).
-  if (!degraded) {
-    for (const [reason, count] of Object.entries(agent?.discarded ?? {})) {
-      discarded[reason as DiscardReason] = (discarded[reason as DiscardReason] ?? 0) + count;
-    }
-  }
   const knownSignals = new Set(signals.map((signal) => signal.id));
   const signalRules = new Map(signals.map((signal) => [signal.id, signal.rule]));
   const findings: ReviewedFinding[] = [];

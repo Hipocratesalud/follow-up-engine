@@ -451,33 +451,47 @@ describe('a model that leaves out the translations (adversarial)', () => {
     expect(userMessages(requests[1]).at(-1)?.content).toContain('texts.en and texts.es');
     expect(result.proposals).toHaveLength(1);
     expect(result.proposals[0]?.texts?.es?.summary).toBe(TEXTS.es.summary);
-    expect(result.discarded).toBeUndefined();
   });
 
-  it('drops what is still untranslated after being asked once, with the audit reason missing_translation', async () => {
+  it('keeps what is still untranslated after being asked once, in the language the model wrote', async () => {
+    const SPANISH_ONLY = {
+      ...TREND,
+      summary: TEXTS.es.summary,
+      rationale: TEXTS.es.rationale,
+      suggestion: TEXTS.es.suggestion,
+      texts: { es: TEXTS.es },
+    };
     const { agent, requests } = agentWith(
       script([
-        call('submit_findings', { findings: [TREND, { ...TREND, texts: { en: TEXTS.en } }] }),
-        call('submit_findings', {
-          findings: [TREND, { ...TREND, texts: { en: TEXTS.en } }, { ...TREND, texts: TEXTS }],
-        }),
+        call('submit_findings', { findings: [TREND, SPANISH_ONLY] }),
+        call('submit_findings', { findings: [TREND, SPANISH_ONLY, { ...TREND, texts: TEXTS }] }),
       ]),
     );
     const result = await agent.review(CLINIC, request());
-    // Asked once, never twice: the second submission ends the review.
+    // Asked once, never twice: the second submission ends the review, and keeps everything.
     expect(requests).toHaveLength(2);
-    expect(result.trace.map((step) => step.outcome)).toEqual([
-      'missing_translation',
-      'missing_translation',
-    ]);
-    expect(result.proposals).toHaveLength(1);
-    expect(result.discarded).toEqual({ missing_translation: 2 });
+    expect(result.trace.map((step) => step.outcome)).toEqual(['missing_translation', 'ok']);
+    expect(result.trace.at(-1)?.summary).toBe('3 findings, 2 not translated yet');
+    expect(result.proposals).toHaveLength(3);
+    expect(result.proposals[0]?.texts).toBeUndefined();
+    expect(result.proposals[1]?.texts).toEqual({ es: TEXTS.es });
+    expect(result.proposals[2]?.texts).toEqual(TEXTS);
 
-    // Through the engine: counted with the other discards, never stored.
+    // Through the engine: stored in the clinic's language; only a bad quote ever drops one.
     const { agent: again } = agentWith(
       script([
-        call('submit_findings', { findings: [TREND] }),
-        call('submit_findings', { findings: [TREND] }),
+        call('submit_findings', {
+          findings: [
+            TREND,
+            { ...TREND, citations: [{ docId: 'R4', quote: 'Creatinine: 9.9 mg/dL' }] },
+          ],
+        }),
+        call('submit_findings', {
+          findings: [
+            TREND,
+            { ...TREND, citations: [{ docId: 'R4', quote: 'Creatinine: 9.9 mg/dL' }] },
+          ],
+        }),
       ]),
     );
     const outcome = await reviewRecord(CLINIC, SNAPSHOT, {
@@ -486,9 +500,11 @@ describe('a model that leaves out the translations (adversarial)', () => {
       redactTerms: [NAME],
       patientRef: 'P-1',
     });
-    expect(outcome.findings).toEqual([]);
-    expect(outcome.status).toBe('completed');
-    expect(outcome.discarded).toEqual({ missing_translation: 1 });
+    expect(outcome.findings.map((finding) => finding.summary)).toEqual([TREND.summary]);
+    expect(outcome.findings[0]?.texts).toEqual({
+      en: { summary: TREND.summary, rationale: TREND.rationale, suggestion: TREND.suggestion },
+    });
+    expect(outcome.discarded).toEqual({ quote_not_found: 1 });
   });
 });
 

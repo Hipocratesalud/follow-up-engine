@@ -6,7 +6,10 @@ import {
   type DiscardReason,
   FINDING_CATEGORIES,
   type FindingFlag,
+  type FindingText,
+  type FindingTexts,
   type FindingVerdict,
+  REVIEW_LOCALES,
   type ReviewLocale,
   REVIEW_TRIGGERS,
   type ReviewTrigger,
@@ -21,6 +24,7 @@ import type {
   ReviewRunStats,
 } from '../../ports/clinical-finding-repository.ts';
 import type { ClinicalReviewAgent, ReviewLimits } from '../../ports/clinical-review-agent.ts';
+import type { FindingTranslator } from '../../ports/finding-translator.ts';
 import type { RecordCapability } from '../../ports/clinic-directory.ts';
 import type { Clock } from '../../ports/clock.ts';
 import type { IdGenerator } from '../../ports/id-generator.ts';
@@ -46,6 +50,12 @@ import { reviewRecord, type ReviewOutcome } from './pipeline.ts';
 /** Job that reviews one patient (debounced after new results, notes and prescriptions). */
 export const CLINICAL_REVIEW_JOB = 'clinical_review.run';
 export const CLINICAL_REVIEW_PROMPT_FALLBACK = 'detectors@1';
+/** Job that translates a finding the model wrote in one language only. */
+export const FINDING_TRANSLATION_JOB = 'clinical_finding.translate';
+/** Live finding cards per doctor per day when the clinic sets none (PRD V3, alert fatigue). */
+export const DEFAULT_DAILY_FINDING_CAP = 5;
+/** Owner key of a finding whose patient has no assigned owner. */
+export const UNASSIGNED_DOCTOR = 'unassigned';
 
 /** What starts a review, and the PRD's limits on when it runs. */
 export interface ReviewerSettings {
@@ -108,6 +118,20 @@ export interface ClinicalReviewerDeps {
    * expectation's own code counts.
    */
   readonly loadCatalog?: (clinicId: ClinicId) => Promise<Catalog>;
+  /**
+   * Translates a finding the model wrote in one language only (a job after
+   * the review). Absent: such a finding stays labeled "not translated yet".
+   */
+  readonly translator?: FindingTranslator;
+  /**
+   * The clinic's inbox cap per doctor and day and its time zone (the day
+   * boundary). Absent: `DEFAULT_DAILY_FINDING_CAP`, UTC.
+   */
+  readonly inboxSettingsOf?: (
+    clinicId: ClinicId,
+  ) =>
+    | { readonly dailyFindingCapPerDoctor?: number; readonly timezone?: string }
+    | Promise<{ readonly dailyFindingCapPerDoctor?: number; readonly timezone?: string }>;
 }
 
 /** One review and what it stored. */
@@ -141,6 +165,28 @@ export interface InboxFindingList {
   readonly total: number;
   /** Matching findings per patient (the badge on a patient's follow-up card). */
   readonly byPatient: Readonly<Record<string, number>>;
+  /** Live findings over their doctor's daily cap: kept, released on a later day. */
+  readonly queued: readonly {
+    readonly id: string;
+    readonly patientId: PatientId;
+    readonly doctor: string;
+  }[];
+  /** The cap in force per doctor and day. */
+  readonly dailyCap: number;
+}
+
+/** `YYYY-MM-DD` of an instant in a time zone (the clinic's day). */
+export function clinicDay(at: Date, timeZone: string | undefined): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: timeZone ?? 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(at);
+  } catch {
+    return at.toISOString().slice(0, 10);
+  }
 }
 
 /** Most findings an inbox read scans: a cap, so a misconfigured category never floods it. */
@@ -186,8 +232,21 @@ export interface ClinicalReviewer {
    */
   listInboxFindings(
     clinicId: ClinicId,
-    query?: { readonly patientId?: PatientId; readonly limit?: number },
+    query?: {
+      readonly patientId?: PatientId;
+      readonly limit?: number;
+      /** The clinic's "now" (a lab clinic's own clock); default the reviewer's clock. */
+      readonly now?: Date;
+    },
   ): Promise<InboxFindingList>;
+  /**
+   * Handler of {@link FINDING_TRANSLATION_JOB}: fills the locales a finding
+   * lacks. Returns the locales added (none when nothing was missing).
+   */
+  runTranslationJob(
+    clinicId: ClinicId,
+    payload: Readonly<Record<string, unknown>>,
+  ): Promise<readonly string[]>;
   /** Records the clinician's verdict. A reason is required for `not_relevant` (`ValidationError`). */
   reviewFinding(
     clinicId: ClinicId,
@@ -418,6 +477,19 @@ export function createClinicalReviewer(deps: ClinicalReviewerDeps): ClinicalRevi
           updatedAt: now,
         };
         await stores.clinicalFindings.create(clinicId, finding);
+        // Written in one language only: kept as it is, translated by a job (never dropped).
+        if (
+          deps.translator !== undefined &&
+          REVIEW_LOCALES.some((locale) => finding.texts?.[locale] === undefined)
+        ) {
+          await stores.jobs.enqueue(clinicId, {
+            type: FINDING_TRANSLATION_JOB,
+            payload: { findingId: finding.id },
+            runAt: now,
+            dedupKey: `${FINDING_TRANSLATION_JOB}:${finding.id}`,
+            maxAttempts: 5,
+          });
+        }
         if (mode === 'live') {
           await stores.outbox.add(clinicId, {
             id: deps.ids.next('domain_event'),
@@ -550,38 +622,157 @@ export function createClinicalReviewer(deps: ClinicalReviewerDeps): ClinicalRevi
       ),
     listInboxFindings: (clinicId, query = {}) =>
       deps.unitOfWork.withTransaction(clinicId, async (stores) => {
+        const inbox = (await deps.inboxSettingsOf?.(clinicId)) ?? {};
+        const dailyCap = Math.max(0, inbox.dailyFindingCapPerDoctor ?? DEFAULT_DAILY_FINDING_CAP);
         const flags = await stores.findingFlags.list(clinicId);
         const categories = inboxCategories(flags);
-        if (categories.length === 0) return { items: [], total: 0, byPatient: {} };
-        const matching: ClinicalFinding[] = [];
+        if (categories.length === 0) {
+          return { items: [], total: 0, byPatient: {}, queued: [], dailyCap };
+        }
+        const eligible: ClinicalFinding[] = [];
         let cursor: string | undefined;
         do {
           const page = await stores.clinicalFindings.list(clinicId, {
             statuses: ['open'],
             categories,
-            ...(query.patientId === undefined ? {} : { patientId: query.patientId }),
             limit: INBOX_PAGE_SIZE,
             ...(cursor === undefined ? {} : { cursor }),
           });
-          matching.push(...page.items.filter((finding) => inInbox(flags, finding)));
+          eligible.push(...page.items.filter((finding) => inInbox(flags, finding)));
           cursor = page.nextCursor;
-        } while (cursor !== undefined && matching.length < INBOX_SCAN_LIMIT);
-        matching.sort(
-          (left, right) =>
-            SEVERITY_RANK[left.severity] - SEVERITY_RANK[right.severity] ||
-            right.createdAt.getTime() - left.createdAt.getTime() ||
-            (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+        } while (cursor !== undefined && eligible.length < INBOX_SCAN_LIMIT);
+
+        // The daily cap per doctor (PRD V3): today's slots go to the waiting
+        // findings, most severe then oldest first; the rest wait for a later day.
+        const now = query.now ?? deps.clock.now();
+        const today = clinicDay(now, inbox.timezone);
+        const doctors = new Map<string, string>();
+        const doctorOf = async (patientId: PatientId): Promise<string> => {
+          const known = doctors.get(patientId);
+          if (known !== undefined) return known;
+          const cases = await listPatientCases(stores, clinicId, patientId, {
+            statuses: ACTIVE_CASE_STATUSES,
+          });
+          const owner =
+            [...cases].sort((left, right) => right.priority - left.priority)[0]?.assignee ??
+            UNASSIGNED_DOCTOR;
+          doctors.set(patientId, owner);
+          return owner;
+        };
+        const recent = await stores.clinicalFindings.list(clinicId, {
+          releasedSince: new Date(now.getTime() - 2 * 86_400_000),
+          limit: 1_000,
+        });
+        const usedToday = new Map<string, number>();
+        for (const finding of recent.items) {
+          const release = finding.inboxRelease;
+          if (release === undefined || clinicDay(release.at, inbox.timezone) !== today) continue;
+          usedToday.set(release.doctor, (usedToday.get(release.doctor) ?? 0) + 1);
+        }
+        const waiting = eligible
+          .filter((finding) => finding.inboxRelease === undefined)
+          .sort(
+            (left, right) =>
+              SEVERITY_RANK[left.severity] - SEVERITY_RANK[right.severity] ||
+              left.createdAt.getTime() - right.createdAt.getTime() ||
+              (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+          );
+        const released = new Set(
+          eligible.filter((finding) => finding.inboxRelease !== undefined).map((item) => item.id),
         );
+        const queued: { id: string; patientId: PatientId; doctor: string }[] = [];
+        for (const finding of waiting) {
+          const doctor = await doctorOf(finding.patientId);
+          const used = usedToday.get(doctor) ?? 0;
+          if (used < dailyCap) {
+            await stores.clinicalFindings.release(clinicId, finding.id, { at: now, doctor });
+            usedToday.set(doctor, used + 1);
+            released.add(finding.id);
+          } else {
+            queued.push({ id: finding.id, patientId: finding.patientId, doctor });
+          }
+        }
+
+        const visible = eligible
+          .filter(
+            (finding) =>
+              released.has(finding.id) &&
+              (query.patientId === undefined || finding.patientId === query.patientId),
+          )
+          .sort(
+            (left, right) =>
+              SEVERITY_RANK[left.severity] - SEVERITY_RANK[right.severity] ||
+              right.createdAt.getTime() - left.createdAt.getTime() ||
+              (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+          );
         const byPatient: Record<string, number> = {};
-        for (const finding of matching) {
+        for (const finding of visible) {
           byPatient[finding.patientId] = (byPatient[finding.patientId] ?? 0) + 1;
         }
         return {
-          items: query.limit === undefined ? matching : matching.slice(0, query.limit),
-          total: matching.length,
+          items: query.limit === undefined ? visible : visible.slice(0, query.limit),
+          total: visible.length,
           byPatient,
+          queued:
+            query.patientId === undefined
+              ? queued
+              : queued.filter((item) => item.patientId === query.patientId),
+          dailyCap,
         };
       }),
+    async runTranslationJob(clinicId, payload) {
+      const findingId = payload['findingId'];
+      if (typeof findingId !== 'string' || findingId === '') {
+        throw new ValidationError('payload', `Invalid ${FINDING_TRANSLATION_JOB} payload`);
+      }
+      const translator = deps.translator;
+      if (translator === undefined) return [];
+      const { finding, redactTerms } = await deps.unitOfWork.withTransaction(
+        clinicId,
+        async (stores) => {
+          const found = await stores.clinicalFindings.get(clinicId, findingId);
+          const patient =
+            found === undefined
+              ? undefined
+              : await stores.clinicalRecords.getResource(clinicId, {
+                  resourceType: 'Patient',
+                  id: found.patientId,
+                });
+          return {
+            finding: found,
+            redactTerms:
+              patient === undefined ? [] : (deps.redactTermsOf?.(patient.resource) ?? []),
+          };
+        },
+      );
+      if (finding === undefined) return [];
+      const clinicLocale = (await deps.localeOf?.(clinicId)) ?? 'en';
+      const texts: Partial<Record<ReviewLocale, FindingText>> = { ...finding.texts };
+      const from = REVIEW_LOCALES.find((locale) => texts[locale] !== undefined) ?? clinicLocale;
+      const source: FindingText = texts[from] ?? {
+        summary: finding.summary,
+        rationale: finding.rationale,
+        suggestion: finding.suggestion,
+      };
+      texts[from] = source;
+      const added: string[] = [];
+      // The model's call happens outside any transaction; only the three texts leave.
+      for (const to of REVIEW_LOCALES.filter((locale) => texts[locale] === undefined)) {
+        const translation = await translator.translate(clinicId, {
+          from,
+          to,
+          text: source,
+          redactTerms,
+        });
+        texts[to] = translation.text;
+        added.push(to);
+      }
+      if (added.length === 0) return [];
+      await deps.unitOfWork.withTransaction(clinicId, (stores) =>
+        stores.clinicalFindings.setTexts(clinicId, findingId, texts as FindingTexts),
+      );
+      return added;
+    },
     async reviewFinding(clinicId, id, input) {
       const reason = input.reason?.trim();
       if (input.verdict === 'not_relevant' && (reason === undefined || reason === '')) {
