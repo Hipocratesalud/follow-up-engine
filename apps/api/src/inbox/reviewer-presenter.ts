@@ -1,12 +1,19 @@
 import {
   buildDossier,
+  type ClinicalEvent,
   type ClinicalFinding,
   type ClinicalReviewRun,
   type ClinicId,
+  detectSignals,
   type FindingCategory,
+  findingDedupKey,
+  type FindingText,
+  findingTextIn,
   observationComponents,
   type PatientId,
+  REVIEWER_COPY,
   type ReviewDossier,
+  reviewerCopy,
 } from '@follow-up-engine/core';
 import type { EngineRuntime } from '@follow-up-engine/runtime';
 import type {
@@ -26,6 +33,31 @@ const TREND_CATEGORIES: ReadonlySet<FindingCategory> = new Set([
   'drug_condition_conflict',
 ]);
 
+/**
+ * A result's canonical line in the reader's language: "Creatinine: 1.75
+ * mg/dL" reads "Creatinina: 1,75 mg/dL" in Spanish. The line is the engine's
+ * own rendering of a structured value (the label of any locale, then the
+ * value as recorded), not a document's words; a note's quote never changes.
+ */
+export function localizedResultLine(quote: string, locale: string): string {
+  const labels = Object.values(REVIEWER_COPY)
+    .flatMap((copy) => Object.entries(copy.measurements))
+    .sort((left, right) => right[1].length - left[1].length);
+  const match = labels.find(([, label]) => quote.startsWith(`${label}: `));
+  if (match === undefined) return quote;
+  const [key, label] = match;
+  const copy = reviewerCopy(locale);
+  const target = copy.measurements[key] ?? label;
+  // The value as the reader writes it: "1.75" / "1,75" (back to a point first, from any locale).
+  const value = quote.slice(label.length).replace(/(\d),(\d)/g, '$1.$2');
+  return `${target}${copy.number(value)}`;
+}
+
+function stringField(resource: Record<string, unknown> | undefined, field: string) {
+  const value = resource?.[field];
+  return typeof value === 'string' && value !== '' ? value : undefined;
+}
+
 interface PatientContext {
   readonly summary: FindingView['patient'];
   readonly dossier: ReviewDossier;
@@ -43,6 +75,7 @@ export class FindingPresenter {
   readonly #runtime: EngineRuntime;
   readonly #clinicId: ClinicId;
   readonly #patients = new Map<string, Promise<PatientContext>>();
+  readonly #rendered = new Map<string, Promise<ReadonlyMap<string, FindingText>>>();
   readonly #t: ApiMessages;
 
   constructor(runtime: EngineRuntime, clinicId: ClinicId, t: ApiMessages) {
@@ -57,6 +90,28 @@ export class FindingPresenter {
     const loading = this.#load(patientId);
     this.#patients.set(patientId, loading);
     return loading;
+  }
+
+  /** Numeric components of the panels among the events (a blood pressure's systolic and diastolic). */
+  async #components(
+    events: readonly ClinicalEvent[],
+  ): Promise<Map<string, ReturnType<typeof observationComponents>>> {
+    const components = new Map<string, ReturnType<typeof observationComponents>>();
+    for (const event of events) {
+      if (event.type === 'result.received' && event.value === undefined) {
+        const stored = await this.#runtime.storage.stores.clinicalRecords.getResource(
+          this.#clinicId,
+          event.source,
+        );
+        if (stored !== undefined) {
+          components.set(
+            `${event.source.resourceType}/${event.source.id}`,
+            observationComponents(stored.resource),
+          );
+        }
+      }
+    }
+    return components;
   }
 
   async #load(patientId: PatientId): Promise<PatientContext> {
@@ -78,18 +133,7 @@ export class FindingPresenter {
       }),
       stores.expectations.listByPatient(clinicId, patientId),
     ]);
-    const components = new Map<string, ReturnType<typeof observationComponents>>();
-    for (const event of events) {
-      if (event.type === 'result.received' && event.value === undefined) {
-        const stored = await stores.clinicalRecords.getResource(clinicId, event.source);
-        if (stored !== undefined) {
-          components.set(
-            `${event.source.resourceType}/${event.source.id}`,
-            observationComponents(stored.resource),
-          );
-        }
-      }
-    }
+    const components = await this.#components(events);
     const dossier = buildDossier(
       {
         clinicId,
@@ -122,8 +166,82 @@ export class FindingPresenter {
     };
   }
 
+  /**
+   * A finding's words in the reader's language. Findings store every locale
+   * (`texts`); one stored before that, from a detector, is rendered again
+   * from the same templates over the patient's record and matched by its
+   * dedup key. Else (a model's own finding, a record that changed) the
+   * stored text.
+   */
+  async #text(finding: ClinicalFinding): Promise<FindingText> {
+    const locale = this.#t.locale;
+    if (finding.texts?.[locale] !== undefined || finding.origin === 'added') {
+      return findingTextIn(finding, locale);
+    }
+    const rendered = await this.#renderedSignals(finding.patientId);
+    return rendered.get(finding.dedupKey) ?? findingTextIn(finding, locale);
+  }
+
+  /** The detectors over the patient's whole record, in the reader's language, by dedup key. */
+  #renderedSignals(patientId: PatientId): Promise<ReadonlyMap<string, FindingText>> {
+    const cached = this.#rendered.get(patientId);
+    if (cached !== undefined) return cached;
+    const loading = (async () => {
+      const { stores } = this.#runtime.storage;
+      const clinicId = this.#clinicId;
+      const [patient, events, conditions] = await Promise.all([
+        stores.clinicalRecords.getResource(clinicId, { resourceType: 'Patient', id: patientId }),
+        stores.clinicalRecords.listEventsForPatient(clinicId, patientId),
+        stores.conditions.listByPatient(clinicId, patientId),
+      ]);
+      const birthDate = stringField(patient?.resource, 'birthDate');
+      const gender = stringField(patient?.resource, 'gender');
+      const dossier = buildDossier(
+        {
+          clinicId,
+          patientId,
+          now: this.#runtime.clock.now(),
+          ...(birthDate === undefined ? {} : { birthDate }),
+          ...(gender === undefined ? {} : { gender }),
+          events,
+          conditions,
+          liveExpectations: [],
+          activeCases: [],
+          components: await this.#components(events),
+        },
+        this.#t.locale,
+      );
+      const byKey = new Map<string, FindingText>();
+      for (const signal of detectSignals(dossier, () => true)) {
+        const citations = signal.evidence.flatMap((item) => {
+          const document = dossier.documents.get(item.handle);
+          return document === undefined
+            ? []
+            : [
+                {
+                  source: document.source,
+                  kind: document.kind,
+                  quote: item.quote,
+                  occurredAt: document.occurredAt,
+                },
+              ];
+        });
+        const key = findingDedupKey(signal.category, citations, signal.rule);
+        byKey.set(key, {
+          summary: signal.summary,
+          rationale: signal.rationale,
+          suggestion: signal.suggestion,
+        });
+      }
+      return byKey;
+    })();
+    this.#rendered.set(patientId, loading);
+    return loading;
+  }
+
   async view(finding: ClinicalFinding): Promise<FindingView> {
     const context = await this.#context(finding.patientId);
+    const text = await this.#text(finding);
     const citations: CitationView[] = finding.citations.map((citation) => {
       const document = context.dossier.documents.get(
         context.dossier.handleOf(citation.source) ?? '',
@@ -131,7 +249,10 @@ export class FindingPresenter {
       return {
         docId: `${citation.source.resourceType}/${citation.source.id}`,
         kind: citation.kind,
-        quote: citation.quote,
+        quote:
+          citation.kind === 'result'
+            ? localizedResultLine(citation.quote, this.#t.locale)
+            : citation.quote,
         date: citation.occurredAt.toISOString(),
         title:
           citation.kind === 'condition'
@@ -157,9 +278,9 @@ export class FindingPresenter {
       severity: finding.severity,
       mode: finding.mode,
       status: finding.status,
-      summary: finding.summary,
-      rationale: finding.rationale,
-      suggestion: finding.suggestion,
+      summary: text.summary,
+      rationale: text.rationale,
+      suggestion: text.suggestion,
       alreadyCovered: finding.alreadyCovered,
       coveredBy: finding.coveredBy.map((coverage) => ({
         ...coverage,

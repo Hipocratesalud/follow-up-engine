@@ -244,8 +244,16 @@ export function registerPatientQueueRoutes(app: App, runtime: EngineRuntime): vo
       releasedAsOf: presenter.now,
     };
     const orderBy = query.view === 'closed' ? 'created_at' : 'priority';
-    const allPatients = await listAllPatients(runtime, clinicId, filter, orderBy);
-    const allItems = await patientQueueItems(presenter, allPatients);
+    const [allPatients, liveFindings] = await Promise.all([
+      listAllPatients(runtime, clinicId, filter, orderBy),
+      runtime.reviewer.listInboxFindings(clinicId, { limit: 0 }),
+    ]);
+    // A patient's live finding cards are their own cards (/api/inbox/live-findings):
+    // the follow-up card only carries how many, so both views stay one per patient.
+    const allItems = (await patientQueueItems(presenter, allPatients)).map((item) => {
+      const count = liveFindings.byPatient[item.patient.id] ?? 0;
+      return count === 0 ? item : { ...item, liveFindings: count };
+    });
     const entries = allItems.map((item, index) => ({
       item,
       cases: allPatients[index]?.cases.length ?? 0,

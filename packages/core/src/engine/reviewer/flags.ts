@@ -34,6 +34,56 @@ export function modeOf(
   return flag.mode === 'live' && flag.validatedBy !== undefined ? 'live' : 'shadow';
 }
 
+/**
+ * Categories that never become inbox cards even when live: a pre-visit
+ * question is read in the consultation preview ("Before the visit"), not
+ * rated in the doctor's work queue (PRD V3, "Flags per category").
+ */
+export const INBOX_EXCLUDED_CATEGORIES: readonly FindingCategory[] = ['pre_visit_question'];
+
+/**
+ * Categories with at least one flag in force that is live and signed off
+ * (clinic-wide or for one specialty), minus {@link INBOX_EXCLUDED_CATEGORIES}:
+ * the only categories whose findings can reach the doctor's inbox. Empty
+ * while everything is in shadow.
+ */
+export function inboxCategories(flags: readonly FindingFlag[]): FindingCategory[] {
+  return IMPLEMENTED_FINDING_CATEGORIES.filter(
+    (category) =>
+      !INBOX_EXCLUDED_CATEGORIES.includes(category) &&
+      flags.some(
+        (flag) =>
+          flag.category === category &&
+          flag.enabled &&
+          flag.mode === 'live' &&
+          flag.validatedBy !== undefined,
+      ),
+  );
+}
+
+/**
+ * Whether a finding belongs in the doctor's inbox now: open, of an inbox
+ * category, and live under the flag in force today for its specialty
+ * ({@link modeOf}: off, shadow or a live flag without sign-off all say no).
+ * The flag in force decides, not the mode the finding was stored with: a
+ * category validated after its shadow pilot brings its open findings to
+ * the inbox, and a category sent back to shadow takes them out again.
+ */
+export function inInbox(
+  flags: readonly FindingFlag[],
+  finding: {
+    readonly category: FindingCategory;
+    readonly specialty?: string;
+    readonly status: string;
+  },
+): boolean {
+  return (
+    finding.status === 'open' &&
+    !INBOX_EXCLUDED_CATEGORIES.includes(finding.category) &&
+    modeOf(flags, finding.category, finding.specialty) === 'live'
+  );
+}
+
 export function categoryGate(flags: readonly FindingFlag[]): CategoryGate {
   return (category, specialty) => modeOf(flags, category, specialty) !== undefined;
 }

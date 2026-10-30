@@ -20,6 +20,9 @@ export {
   applyFlagUpdate,
   categoryGate,
   type FlagUpdate,
+  INBOX_EXCLUDED_CATEGORIES,
+  inboxCategories,
+  inInbox,
   modeOf,
   resolveFlag,
   shadowPilotFlags,
@@ -41,6 +44,7 @@ export {
   type ReviewedFinding,
   type ReviewOptions,
   type ReviewOutcome,
+  withLocaleTexts,
 } from './pipeline.ts';
 export {
   CLINICAL_REVIEW_JOB,
@@ -50,6 +54,7 @@ export {
   type ClinicalReviewJobPayload,
   createClinicalReviewer,
   DEFAULT_REVIEWER_SETTINGS,
+  type InboxFindingList,
   observationComponents,
   type ResolvedFlag,
   type ReviewerSettings,
@@ -64,6 +69,7 @@ export {
   type ReviewToolName,
   SUBMIT_FINDINGS_TOOL,
   SubmitFindingsArgs,
+  SubmitFindingsDraftArgs,
 } from './tools.ts';
 export { ckdEpi2021, summarizeTrend, type TrendSummary } from './trends.ts';
 export { checkProposal, findingDedupKey, type FindingDraft } from './validation.ts';

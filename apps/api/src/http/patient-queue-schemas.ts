@@ -73,6 +73,10 @@ export const PatientQueueItemSchema = z
     assignees: z.array(z.string()).meta({ description: 'Display names of the case owners' }),
     patientContact: PatientContactSchema,
     cases: z.array(CaseViewSchema).meta({ description: 'The cases, most urgent first' }),
+    liveFindings: z.number().int().optional().meta({
+      description:
+        'Open clinical reviewer findings of the patient in live, signed-off categories (their own cards in /api/inbox/live-findings); absent when none. Never counts a shadow category',
+    }),
   })
   .meta({ id: 'PatientQueueItem' });
 

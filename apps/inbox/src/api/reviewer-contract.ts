@@ -198,6 +198,24 @@ export interface FindingFlagView {
   };
 }
 
+/**
+ * The doctor's inbox cards (`GET /api/inbox/live-findings`): open findings
+ * of the categories live with a sign-off now, most severe first. Never a
+ * shadow category (the API filters them).
+ */
+export interface InboxFindingList {
+  items: FindingView[];
+  total: number;
+  byPatient: Record<string, number>;
+}
+
+/**
+ * Where the reviewer's inbox endpoints point: the clinic of the API key
+ * (`/api/inbox/...`), or the identified evaluator's own lab clinic
+ * (`/api/demo/lab/...`, docs/deploy.md#hosted-demo).
+ */
+export type ReviewerScope = 'clinic' | 'lab';
+
 export interface FindingFlagUpdate {
   category: FindingCategory;
   specialty?: string | null;

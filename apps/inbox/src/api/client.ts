@@ -53,6 +53,8 @@ import type {
   FindingPage,
   FindingReviewRequest,
   FindingView,
+  InboxFindingList,
+  ReviewerScope,
   ReviewMetrics,
 } from './reviewer-contract.ts';
 import type {
@@ -187,10 +189,18 @@ export interface ApiClient {
   listWebhooks(limit: number, type?: string): Promise<{ items: WebhookDelivery[] }>;
   listFindings(query: FindingListQuery): Promise<FindingPage>;
   getFinding(id: string): Promise<FindingDetail>;
-  reviewFinding(id: string, body: FindingReviewRequest): Promise<FindingView>;
+  reviewFinding(
+    id: string,
+    body: FindingReviewRequest,
+    scope?: ReviewerScope,
+  ): Promise<FindingView>;
   getReviewMetrics(): Promise<ReviewMetrics>;
-  listFindingFlags(): Promise<{ items: FindingFlagView[] }>;
-  updateFindingFlag(body: FindingFlagUpdate): Promise<FindingFlagView>;
+  listFindingFlags(scope?: ReviewerScope): Promise<{ items: FindingFlagView[] }>;
+  updateFindingFlag(body: FindingFlagUpdate, scope?: ReviewerScope): Promise<FindingFlagView>;
+  /** The doctor's inbox cards: live, signed-off categories only. */
+  listInboxFindings(scope?: ReviewerScope): Promise<InboxFindingList>;
+  /** "Review this patient now" in the evaluator's lab. */
+  reviewLabPatient(patientId: string): Promise<{ findings: FindingView[] }>;
   listPatientQueue(query: PatientQueueQuery): Promise<PatientQueuePage>;
   getPatientCard(patientId: string): Promise<PatientQueueItem>;
   requestPatientContact(patientId: string, body: { note?: string }): Promise<PatientQueueItem>;
@@ -282,6 +292,11 @@ export interface ApiClient {
   advanceAgentClock(days: number): Promise<{ from: string; to: string }>;
   /** A voice note or photo, fetched with the API key (an <img> cannot send it). */
   getAgentMedia(mediaId: string): Promise<Blob>;
+}
+
+/** The path prefix of the reviewer's inbox endpoints for a scope ({@link ReviewerScope}). */
+function reviewerBase(scope: ReviewerScope | undefined): string {
+  return scope === 'lab' ? '/demo/lab' : '/inbox';
 }
 
 export function createApiClient(config: ApiConfig): ApiClient {
@@ -401,11 +416,15 @@ export function createApiClient(config: ApiConfig): ApiClient {
     listWebhooks: (limit, type) => request('GET', '/demo/webhooks', { query: { limit, type } }),
     listFindings: (query) => request('GET', '/inbox/findings', { query: { ...query } }),
     getFinding: (id) => request('GET', `/inbox/findings/${encodeURIComponent(id)}`),
-    reviewFinding: (id, body) =>
-      request('POST', `/inbox/findings/${encodeURIComponent(id)}/review`, { body }),
+    reviewFinding: (id, body, scope) =>
+      request('POST', `${reviewerBase(scope)}/findings/${encodeURIComponent(id)}/review`, { body }),
     getReviewMetrics: () => request('GET', '/inbox/findings/metrics'),
-    listFindingFlags: () => request('GET', '/inbox/finding-flags'),
-    updateFindingFlag: (body) => request('PUT', '/inbox/finding-flags', { body }),
+    listFindingFlags: (scope) => request('GET', `${reviewerBase(scope)}/finding-flags`),
+    updateFindingFlag: (body, scope) =>
+      request('PUT', `${reviewerBase(scope)}/finding-flags`, { body }),
+    listInboxFindings: (scope) => request('GET', `${reviewerBase(scope)}/live-findings`),
+    reviewLabPatient: (patientId) =>
+      request('POST', `/demo/lab/patients/${encodeURIComponent(patientId)}/review`),
     listPatientQueue: (query) => request('GET', '/inbox/patients-queue', { query: { ...query } }),
     getPatientCard: (patientId) =>
       request('GET', `/inbox/patients-queue/${encodeURIComponent(patientId)}`),

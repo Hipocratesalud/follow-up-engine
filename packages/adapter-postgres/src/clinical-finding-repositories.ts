@@ -8,6 +8,7 @@ import {
   type FindingCitation,
   type FindingCounts,
   type FindingCoverage,
+  type FindingTexts,
   type FindingFlag,
   type FindingFlagRepository,
   type FindingListQuery,
@@ -35,6 +36,7 @@ interface FindingRow {
   readonly citations: readonly (Omit<FindingCitation, 'occurredAt'> & { occurredAt: string })[];
   readonly already_covered: boolean;
   readonly covered_by: readonly FindingCoverage[];
+  readonly texts: FindingTexts | null;
   readonly specialty: string | null;
   readonly mode: ClinicalFinding['mode'];
   readonly status: ClinicalFinding['status'];
@@ -52,7 +54,7 @@ interface FindingRow {
 
 const FINDING_COLUMNS = `clinic_id, id, patient_id, category, severity, summary, rationale, suggestion,
   citations, already_covered, covered_by, specialty, mode, status, origin, dedup_key, run_id,
-  model_id, prompt_version, reviewed_by, reviewed_at, review_reason, created_at, updated_at`;
+  model_id, prompt_version, reviewed_by, reviewed_at, review_reason, created_at, updated_at, texts`;
 
 function toFinding(row: FindingRow): ClinicalFinding {
   const verdict =
@@ -85,6 +87,7 @@ function toFinding(row: FindingRow): ClinicalFinding {
     })),
     alreadyCovered: row.already_covered,
     coveredBy: row.covered_by,
+    ...(row.texts === null ? {} : { texts: row.texts }),
     ...optional('specialty', row.specialty),
     mode: row.mode,
     status: row.status,
@@ -152,7 +155,7 @@ export class PostgresClinicalFindingRepository implements ClinicalFindingReposit
       await this.#ctx.db().query(
         `INSERT INTO ${this.#ctx.tables.clinical_findings} (${FINDING_COLUMNS})
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11::jsonb, $12, $13, $14, $15,
-                 $16, $17, $18, $19, $20, $21, $22, $23, $24)`,
+                 $16, $17, $18, $19, $20, $21, $22, $23, $24, $25::jsonb)`,
         [
           clinicId,
           finding.id,
@@ -178,6 +181,7 @@ export class PostgresClinicalFindingRepository implements ClinicalFindingReposit
           finding.review?.reason ?? null,
           finding.createdAt,
           finding.updatedAt,
+          finding.texts === undefined ? null : jsonParam(finding.texts),
         ],
       );
     } catch (error) {

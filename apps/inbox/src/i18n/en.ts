@@ -521,6 +521,42 @@ const inbox = {
     'You will see every case of the patient, the quoted evidence from the note and the suggested next step.',
 };
 
+/**
+ * The clinical reviewer's cards in the doctor's inbox (PRD V3): findings of
+ * the categories the clinical team switched live. A shadow category never
+ * shows up here.
+ */
+const liveFindings = {
+  title: 'Clinical findings',
+  intro:
+    'Suggestions of the clinical reviewer in categories your clinical team validated, each with the evidence it quotes. Rate each one: once rated, it leaves your inbox.',
+  loading: 'Loading clinical findings',
+  error: 'We could not load the clinical findings',
+  validatedBadge: 'Validated category',
+  suggestionTitle: 'Suggestion',
+  evidenceTitle: 'Evidence',
+  coveredBy: (labels: string): string => `Already in follow-up: ${labels}`,
+  openPatient: 'Open patient',
+  rated: (verdict: string): string => `Rated as ${verdict}. The finding left your inbox.`,
+  patientBadge: (n: number): string => count(n, 'clinical finding', 'clinical findings'),
+  lab: {
+    title: 'Clinical reviewer in your lab',
+    intro:
+      'Your lab starts like a shadow pilot: every category on, in shadow, so nothing reaches the doctor. Switch one live, signed off with your email, and its findings show up here as the doctor’s inbox cards. The shared demo never changes.',
+    categoriesLink: 'Your lab’s categories',
+    reviewNow: 'Review this patient now',
+    reviewed: (n: number): string => `Review done: ${count(n, 'new finding', 'new findings')}.`,
+    empty:
+      'No finding cards yet: every category of your lab is in shadow, or no live finding is open.',
+    back: 'Back to the Lab',
+    categoriesTitle: 'Reviewer categories in your lab',
+    categoriesIntro:
+      'Only your lab changes here. Going live is signed off with your evaluator email, as the clinical team’s sign-off would be in a real clinic.',
+    signedOffAs: (email: string): string => `Signed off as ${email}`,
+    signOffHint: 'Live, this category’s open findings become inbox cards in your lab.',
+  },
+};
+
 /** The patient card of the inbox (HIP-141): one patient, every case. */
 const patientCard = {
   cases: (n: number): string => count(n, 'case', 'cases'),
@@ -865,6 +901,7 @@ const review = {
     invalid_arguments: 'Invalid arguments: the error was sent back to it',
     unknown_tool: 'Unknown tool: the error was sent back to it',
     tool_budget_exhausted: 'No calls left: it was asked to submit',
+    missing_translation: 'Findings without English and Spanish: it was asked to resubmit',
   } as Record<string, string>,
   summaries: {
     points: (n: string): string => `${n} values`,
@@ -896,6 +933,7 @@ const review = {
     category_disabled: 'category turned off',
     category_reserved: 'reserved category',
     patient_directed: 'addressed to the patient',
+    missing_translation: 'without English and Spanish, even when asked again',
     duplicate: 'repeated (last 90 days)',
     merged: 'merged with another',
   } as Record<string, string>,
@@ -2667,6 +2705,7 @@ export const en = {
   caseDetail,
   feedback,
   inbox,
+  liveFindings,
   patientCard,
   planReview,
   adjudication,

@@ -2390,7 +2390,16 @@ export function createMockStore(options: MockStoreOptions = {}): MockStore {
           limit: 200,
         }),
       );
-      return mockPatientQueuePage(views, query, locale);
+      const page = mockPatientQueuePage(views, query, locale);
+      // Like the API: a patient's live finding cards are counted on their follow-up card.
+      const { byPatient } = reviewer.listInboxFindings();
+      return {
+        ...page,
+        items: page.items.map((item) => {
+          const count = byPatient[item.patient.id] ?? 0;
+          return count === 0 ? item : { ...item, liveFindings: count };
+        }),
+      };
     },
 
     getPatientCard,

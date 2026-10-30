@@ -302,7 +302,8 @@ export function buildDossier(
     const measured = measuredValues(event, snapshot.components);
     for (const { measurement, value } of measured) {
       const label = copy.measurements[measurement.key] ?? measurement.key;
-      const text = `${label}: ${formatValue(value, measurement.decimals)} ${measurement.unit}`;
+      // The canonical line in the locale's own numbers ("Creatinina: 1,75 mg/dL").
+      const text = `${label}: ${copy.number(formatValue(value, measurement.decimals))} ${measurement.unit}`;
       const document = register(
         'R',
         {

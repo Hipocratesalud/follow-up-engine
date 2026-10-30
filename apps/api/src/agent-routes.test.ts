@@ -73,7 +73,7 @@ interface Page {
 async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
   readonly call: (
     path: string,
-    init?: { method?: string; body?: unknown },
+    init?: { method?: string; body?: unknown; headers?: Record<string, string> },
   ) => Promise<{ status: number; body: unknown }>;
   readonly page: () => Promise<Page>;
   readonly worker: Worker;
@@ -108,11 +108,11 @@ async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
 
   async function call(
     path: string,
-    init: { method?: string; body?: unknown } = {},
+    init: { method?: string; body?: unknown; headers?: Record<string, string> } = {},
   ): Promise<{ status: number; body: unknown }> {
     const response = await app.request(path, {
       method: init.method ?? (init.body === undefined ? 'GET' : 'POST'),
-      headers,
+      headers: { ...headers, ...init.headers },
       ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
     });
     const text = await response.text();
@@ -192,7 +192,11 @@ describe('the order-to-completion agent (scripted mode)', () => {
       // Shown first: the HbA1c rise, then the question about it.
       expect(page.findings[0]?.category).toBe('lab_trend');
       expect(page.findings[0]?.summary).toContain('HbA1c');
-      expect(page.findings[1]?.summary).toContain('medicación');
+      // In the reader's language (both are stored): English by default, Spanish on request.
+      expect(page.findings[1]?.summary).toContain('medication');
+      const spanish = (await call('/api/demo/agent', { headers: { 'accept-language': 'es' } }))
+        .body as Page;
+      expect(spanish.findings[1]?.summary).toContain('medicación');
       // Never a value to the patient.
       const last = page.messages.at(-1);
       expect(last?.direction).toBe('outbound');

@@ -496,6 +496,10 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
       }),
     ),
     http.get(
+      '*/api/inbox/live-findings',
+      route(() => store.reviewer.listInboxFindings()),
+    ),
+    http.get(
       '*/api/inbox/finding-flags',
       route(() => store.reviewer.listFlags()),
     ),

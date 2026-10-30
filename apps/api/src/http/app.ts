@@ -18,7 +18,11 @@ import { registerMetricsRoutes } from '../metrics/metrics-routes.ts';
 import { registerValueRoutes } from '../value/value-routes.ts';
 import { registerJobRoutes } from './job-routes.ts';
 import { registerPatientQueueRoutes } from './patient-queue-routes.ts';
-import { registerReviewerDemoRoutes, registerReviewerRoutes } from './reviewer-routes.ts';
+import {
+  registerReviewerDemoRoutes,
+  registerReviewerLabRoutes,
+  registerReviewerRoutes,
+} from './reviewer-routes.ts';
 import { registerAdjudicationRoutes } from './adjudication-routes.ts';
 import { registerEngineTestsRoutes } from './engine-tests-routes.ts';
 import { docsPage, openApiDocument } from './openapi.ts';
@@ -406,6 +410,7 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   if (runtime.fakeClock !== undefined) {
     registerDemoRoutes(app, runtime, runtime.fakeClock, options.worker);
     registerReviewerDemoRoutes(app, runtime);
+    registerReviewerLabRoutes(app, runtime);
     registerLabRecordRoutes(app, runtime, labClocks);
     registerEngineTestsRoutes(app, runtime, labClocks);
     registerEvaluatorRoutes(app, runtime);

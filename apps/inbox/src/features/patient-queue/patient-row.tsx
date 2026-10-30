@@ -1,4 +1,4 @@
-import { ChevronRight, Layers3 } from 'lucide-react';
+import { ChevronRight, Layers3, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { PatientQueueItem } from '../../api/patient-queue-contract.ts';
@@ -128,6 +128,11 @@ export function PatientRow({
             </span>
           ))}
           <ProtocolValidationBadge status={unvalidatedStatus} describe={false} />
+          {item.liveFindings ? (
+            <Badge tone="primary" icon={<Sparkles className="size-3" aria-hidden="true" />}>
+              {t.liveFindings.patientBadge(item.liveFindings)}
+            </Badge>
+          ) : null}
         </span>
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
           {top ? (

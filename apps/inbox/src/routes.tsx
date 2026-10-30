@@ -36,6 +36,11 @@ function InboxCaseRoute(): ReactNode {
   );
 }
 
+/** The evaluator lab's own reviewer categories (docs/deploy.md#hosted-demo). */
+function LabFlagsRoute(): ReactNode {
+  return <FlagsPage scope="lab" />;
+}
+
 function ReviewFindingRoute(): ReactNode {
   const { findingId = '' } = useParams();
   const [searchParams] = useSearchParams();
@@ -93,6 +98,7 @@ export const routes: RouteObject[] = [
       { path: 'demo', element: <DemoPage /> },
       { path: 'engine-tests', element: <EngineTestsPage /> },
       { path: 'lab', element: <LabPage /> },
+      { path: 'lab/categories', element: <LabFlagsRoute /> },
       { path: 'agent', element: <AgentPage /> },
       { path: 'rules', element: <RulesPage /> },
       { path: 'evaluators', element: <EvaluatorsPage /> },

@@ -35,6 +35,8 @@ import {
   applyFlagUpdate,
   categoryGate,
   type FlagUpdate,
+  inboxCategories,
+  inInbox,
   modeOf,
   resolveFlag,
 } from './flags.ts';
@@ -128,6 +130,28 @@ export interface ResolvedFlag {
   readonly updatedAt?: Date;
 }
 
+/**
+ * The doctor's inbox cards (PRD V3 "Inbox cards per validated category"):
+ * the open findings of live, signed-off categories, most severe first, then
+ * newest. Never a shadow-category finding.
+ */
+export interface InboxFindingList {
+  readonly items: readonly ClinicalFinding[];
+  /** Every matching finding, not only the ones returned. */
+  readonly total: number;
+  /** Matching findings per patient (the badge on a patient's follow-up card). */
+  readonly byPatient: Readonly<Record<string, number>>;
+}
+
+/** Most findings an inbox read scans: a cap, so a misconfigured category never floods it. */
+const INBOX_SCAN_LIMIT = 500;
+const INBOX_PAGE_SIZE = 100;
+const SEVERITY_RANK: Readonly<Record<ClinicalFinding['severity'], number>> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
 export interface ClinicalReviewer {
   /** Reviews a patient now. Never throws on an agent failure (falls back to the detectors). */
   reviewPatient(
@@ -155,6 +179,15 @@ export interface ClinicalReviewer {
     query: Pick<FindingListQuery, 'mode' | 'patientId'>,
   ): Promise<FindingCounts>;
   getFinding(clinicId: ClinicId, id: string): Promise<ClinicalFinding | undefined>;
+  /**
+   * The doctor's inbox read model: open findings whose category is live and
+   * signed off under the flags in force now (see `inInbox`). Shadow
+   * categories are filtered here, in the read model, whatever the caller.
+   */
+  listInboxFindings(
+    clinicId: ClinicId,
+    query?: { readonly patientId?: PatientId; readonly limit?: number },
+  ): Promise<InboxFindingList>;
   /** Records the clinician's verdict. A reason is required for `not_relevant` (`ValidationError`). */
   reviewFinding(
     clinicId: ClinicId,
@@ -371,6 +404,7 @@ export function createClinicalReviewer(deps: ClinicalReviewerDeps): ClinicalRevi
           citations: draft.citations,
           alreadyCovered: draft.alreadyCovered,
           coveredBy: draft.coveredBy,
+          ...(draft.texts === undefined ? {} : { texts: draft.texts }),
           ...(draft.specialty === undefined ? {} : { specialty: draft.specialty }),
           mode,
           status: 'open',
@@ -514,6 +548,40 @@ export function createClinicalReviewer(deps: ClinicalReviewerDeps): ClinicalRevi
       deps.unitOfWork.withTransaction(clinicId, (stores) =>
         stores.clinicalFindings.get(clinicId, id),
       ),
+    listInboxFindings: (clinicId, query = {}) =>
+      deps.unitOfWork.withTransaction(clinicId, async (stores) => {
+        const flags = await stores.findingFlags.list(clinicId);
+        const categories = inboxCategories(flags);
+        if (categories.length === 0) return { items: [], total: 0, byPatient: {} };
+        const matching: ClinicalFinding[] = [];
+        let cursor: string | undefined;
+        do {
+          const page = await stores.clinicalFindings.list(clinicId, {
+            statuses: ['open'],
+            categories,
+            ...(query.patientId === undefined ? {} : { patientId: query.patientId }),
+            limit: INBOX_PAGE_SIZE,
+            ...(cursor === undefined ? {} : { cursor }),
+          });
+          matching.push(...page.items.filter((finding) => inInbox(flags, finding)));
+          cursor = page.nextCursor;
+        } while (cursor !== undefined && matching.length < INBOX_SCAN_LIMIT);
+        matching.sort(
+          (left, right) =>
+            SEVERITY_RANK[left.severity] - SEVERITY_RANK[right.severity] ||
+            right.createdAt.getTime() - left.createdAt.getTime() ||
+            (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+        );
+        const byPatient: Record<string, number> = {};
+        for (const finding of matching) {
+          byPatient[finding.patientId] = (byPatient[finding.patientId] ?? 0) + 1;
+        }
+        return {
+          items: query.limit === undefined ? matching : matching.slice(0, query.limit),
+          total: matching.length,
+          byPatient,
+        };
+      }),
     async reviewFinding(clinicId, id, input) {
       const reason = input.reason?.trim();
       if (input.verdict === 'not_relevant' && (reason === undefined || reason === '')) {

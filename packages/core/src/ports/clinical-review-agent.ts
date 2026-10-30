@@ -1,5 +1,10 @@
 import type { z } from 'zod';
-import type { ReviewLocale, ReviewStep } from '../domain/clinical-finding.ts';
+import type {
+  DiscardReason,
+  FindingTexts,
+  ReviewLocale,
+  ReviewStep,
+} from '../domain/clinical-finding.ts';
 import type { ClinicId } from '../domain/ids.ts';
 
 /**
@@ -90,6 +95,8 @@ export interface SignalView {
   readonly suggestion: string;
   readonly evidence: readonly { readonly docId: string; readonly quote: string }[];
   readonly topic?: SignalTopic;
+  /** The same summary, rationale and suggestion in every review locale (`en`, `es`). */
+  readonly texts?: FindingTexts;
 }
 
 /** A tool the agent may call. Arguments are validated with `parameters` before it runs. */
@@ -127,6 +134,8 @@ export interface ProposedFinding {
   readonly citations: readonly { readonly docId: string; readonly quote: string }[];
   /** Detector signals this finding confirms or merges (`S1`); empty for a finding of its own. */
   readonly signalIds: readonly string[];
+  /** Summary, rationale and suggestion in each review locale (`en`, `es`), when given. */
+  readonly texts?: FindingTexts;
 }
 
 /** How far one review may go. */
@@ -176,6 +185,8 @@ export interface ReviewAgentResult {
   /** `<provider>:<model>` of the calls. */
   readonly modelId: string;
   readonly promptVersion: string;
+  /** Findings the agent itself dropped before submitting them (`missing_translation`). */
+  readonly discarded?: Readonly<Partial<Record<DiscardReason, number>>>;
 }
 
 /**

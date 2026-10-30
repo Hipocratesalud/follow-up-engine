@@ -7,7 +7,7 @@ import {
   type ReviewAgentResult,
   type ReviewStep,
   type ReviewStopReason,
-  SubmitFindingsArgs,
+  SubmitFindingsDraftArgs,
 } from '@follow-up-engine/core';
 import type { z } from 'zod';
 import { prepareNote } from '../extraction/prepare.ts';
@@ -114,6 +114,9 @@ export function createReviewAgent(options: ReviewAgentOptions): ClinicalReviewAg
     let modelId = '';
     let stopReason: ReviewStopReason = 'step_limit';
     let proposals: ProposedFinding[] = [];
+    /** A submission without both languages is refused once, with a precise request. */
+    let askedForTranslations = false;
+    let missingTranslations = 0;
 
     const finish = (): ReviewAgentResult => ({
       proposals,
@@ -126,6 +129,9 @@ export function createReviewAgent(options: ReviewAgentOptions): ClinicalReviewAg
       costUsd,
       modelId,
       promptVersion: CLINICAL_REVIEW_PROMPT_VERSION,
+      ...(missingTranslations === 0
+        ? {}
+        : { discarded: { missing_translation: missingTranslations } }),
     });
 
     for (let step = 1; step <= limits.maxSteps; step += 1) {
@@ -177,33 +183,61 @@ export function createReviewAgent(options: ReviewAgentOptions): ClinicalReviewAg
         reject('invalid_arguments', 'arguments is not a JSON object string');
         continue;
       }
+      if (definition.terminal) {
+        // Read leniently, so missing translations get a precise answer, not a schema error.
+        const draft = parseToolArguments(SubmitFindingsDraftArgs, parsedArgs);
+        if (!draft.success) {
+          reject('invalid_arguments', issueSummary(draft.error));
+          continue;
+        }
+        const untranslated = draft.data.findings.flatMap((finding, index) =>
+          finding.texts?.en !== undefined && finding.texts.es !== undefined ? [] : [index],
+        );
+        if (untranslated.length > 0 && !askedForTranslations) {
+          askedForTranslations = true;
+          reject(
+            'missing_translation',
+            `findings ${untranslated.join(', ')} lack texts.en and texts.es: call submit_findings again with every finding in English and in Spanish`,
+          );
+          continue;
+        }
+        // Asked once already: what is still untranslated is dropped, never stored half-read.
+        missingTranslations = untranslated.length;
+        proposals = draft.data.findings.flatMap(({ texts, ...finding }) =>
+          texts?.en === undefined || texts.es === undefined
+            ? []
+            : [
+                {
+                  ...finding,
+                  texts: { en: texts.en, es: texts.es },
+                  citations: finding.citations.map((citation) => ({
+                    docId: citation.docId,
+                    quote: quoteFromOriginal(
+                      request.documents.get(citation.docId),
+                      citation.quote,
+                      redactTerms,
+                    ),
+                  })),
+                },
+              ],
+        );
+        trace.push({
+          index: step,
+          tool: definition.name,
+          arguments: auditArguments(definition.name, draft.data),
+          outcome: missingTranslations === 0 ? 'ok' : 'missing_translation',
+          summary:
+            missingTranslations === 0
+              ? `${String(proposals.length)} findings`
+              : `${String(proposals.length)} findings, ${String(missingTranslations)} dropped without translation`,
+        });
+        stopReason = 'submitted';
+        return finish();
+      }
       const checked = parseToolArguments(definition.parameters, parsedArgs);
       if (!checked.success) {
         reject('invalid_arguments', issueSummary(checked.error));
         continue;
-      }
-      if (definition.terminal) {
-        const submission = SubmitFindingsArgs.parse(checked.data);
-        proposals = submission.findings.map((finding) => ({
-          ...finding,
-          citations: finding.citations.map((citation) => ({
-            docId: citation.docId,
-            quote: quoteFromOriginal(
-              request.documents.get(citation.docId),
-              citation.quote,
-              redactTerms,
-            ),
-          })),
-        }));
-        trace.push({
-          index: step,
-          tool: definition.name,
-          arguments: auditArguments(definition.name, checked.data),
-          outcome: 'ok',
-          summary: `${String(proposals.length)} findings`,
-        });
-        stopReason = 'submitted';
-        return finish();
       }
       if (toolCalls >= limits.maxToolCalls) {
         reject('tool_budget_exhausted', 'no tool calls left: call submit_findings now');
