@@ -2545,9 +2545,9 @@ const agent = {
         'Sin respuesta tras tres semanas: las órdenes siguen abiertas, el agente reintenta en un mes.',
       urgent_unanswered: 'Orden urgente sin respuesta: contáctala hoy.',
       patient_question: 'Preguntó algo que solo el equipo puede responder: devuélvele la llamada.',
+      opted_out: 'Pidió no recibir mensajes: haz el seguimiento por teléfono si hace falta.',
       review_photo:
         'Envió una foto de un informe de laboratorio; esta clínica lee las fotos a mano: léela y registra el resultado.',
-      opted_out: 'Pidió no recibir mensajes: haz el seguimiento por teléfono si hace falta.',
     },
   },
   events: {
