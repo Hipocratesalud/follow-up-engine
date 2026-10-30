@@ -201,13 +201,21 @@ function TaskItem({
     order === 'visit' ? t.agent.orders.visit : t.agent.orders.test(order),
   );
   return (
-    <li className="rounded-lg border border-border px-3 py-2">
+    <li
+      className={cx(
+        'rounded-lg border border-border px-3 py-2',
+        task.status === 'done' && 'opacity-60',
+      )}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <ClipboardList className="size-4 text-muted" aria-hidden="true" />
         <span className="text-sm font-medium text-fg">
           {t.agent.tasks.kinds[task.kind] ?? task.kind}
         </span>
-        {task.priority === 'high' ? <Badge tone="danger">{t.agent.tasks.high}</Badge> : null}
+        {task.priority === 'high' && task.status === 'open' ? (
+          <Badge tone="danger">{t.agent.tasks.high}</Badge>
+        ) : null}
+        {task.status === 'done' ? <Badge tone="success">{t.agent.tasks.done}</Badge> : null}
         <span className="ml-auto text-[11px] text-subtle">
           {t.agent.tasks.due(clinicDate(task.dueAt, timeZone, locale))}
         </span>
@@ -367,7 +375,12 @@ export function DoctorPanel({
   const t = useT();
   const main = findings.filter((finding) => !finding.routine);
   const routine = findings.filter((finding) => finding.routine);
-  const confirmations = orders.filter((order) => order.needsConfirmation === true);
+  // Waiting for the doctor, or confirmed by one (an engine order the engine already closed is not asked).
+  const confirmations = orders.filter(
+    (order) =>
+      order.needsConfirmation === true &&
+      (order.stage === 'awaiting_doctor' || order.doctorConfirmation !== undefined),
+  );
   return (
     <Card className="flex flex-col gap-3 p-4">
       <SectionTitle count={findings.length + confirmations.length}>

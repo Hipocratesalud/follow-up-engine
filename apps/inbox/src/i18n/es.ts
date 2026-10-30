@@ -2218,6 +2218,7 @@ const agent = {
       doctor_notice: 'Aviso para el médico',
     } as Record<string, string>,
     high: 'Prioridad alta',
+    done: 'Hecha',
     due: (date: string): string => `Vence el ${date}`,
     ordersLine: (orders: string): string => `Órdenes abiertas: ${orders}.`,
     noOrders: 'No quedan órdenes abiertas.',

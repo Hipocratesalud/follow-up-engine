@@ -2231,6 +2231,7 @@ const agent = {
       doctor_notice: 'Notice for the doctor',
     } as Record<string, string>,
     high: 'High priority',
+    done: 'Done',
     due: (date: string): string => `Due ${date}`,
     ordersLine: (orders: string): string => `Open orders: ${orders}.`,
     noOrders: 'No open orders left.',
