@@ -35,6 +35,8 @@ import type {
   LabDocumentResponse,
   LabDocumentUploadRequest,
   LabExpectationView,
+  HeldLabReportDecision,
+  HeldLabReportView,
   LabHistoryImportRequest,
   LabHistoryImportResponse,
   LabHistorySampleSet,
@@ -102,6 +104,7 @@ export const queryKeys = {
   labPatientExpectations: (patientId: string) => ['lab-patient-expectations', patientId] as const,
   labCases: ['lab-cases'] as const,
   labRecovery: ['lab-recovery'] as const,
+  labHeldReports: (patientId: string) => ['lab-held-reports', patientId] as const,
   evaluators: ['evaluators'] as const,
   evaluatorEvents: (evaluatorEmail: string | undefined) =>
     ['evaluator-events', evaluatorEmail] as const,
@@ -630,6 +633,38 @@ export function useLabRecovery(): UseQueryResult<{ items: CaseView[]; total: num
   });
 }
 
+/** Lab reports held for review (pending), the whole lab's or one patient's. */
+export function useLabHeldReports(
+  patientId?: string,
+): UseQueryResult<{ items: HeldLabReportView[] }> {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.labHeldReports(patientId ?? ''),
+    queryFn: () => api.listLabHeldReports(patientId),
+  });
+}
+
+/** "It's this patient" (recorded, the engine may close an order) or "Not this patient". */
+export function useDecideLabHeldReport(): UseMutationResult<
+  HeldLabReportDecision,
+  Error,
+  { readonly id: string; readonly decision: 'confirm' | 'discard' }
+> {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, decision }) => api.decideLabHeldReport(id, decision),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ['lab-held-reports'] });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.labPatientExpectations(result.report.patientId),
+      });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.labCases });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.labRecovery });
+    },
+  });
+}
+
 /** "Import history": several dated documents of one patient, replayed by the backfill. */
 export function useImportLabHistory(): UseMutationResult<
   LabHistoryImportResponse,
@@ -644,6 +679,7 @@ export function useImportLabHistory(): UseMutationResult<
       void queryClient.invalidateQueries({ queryKey: queryKeys.labPatients });
       void queryClient.invalidateQueries({ queryKey: queryKeys.labCases });
       void queryClient.invalidateQueries({ queryKey: queryKeys.labRecovery });
+      void queryClient.invalidateQueries({ queryKey: ['lab-held-reports'] });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.labPatientExpectations(response.patientId),
       });

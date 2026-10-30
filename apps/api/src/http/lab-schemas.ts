@@ -197,7 +197,15 @@ export const LabHistoryDocumentOutcomeSchema = z.object({
   documentType: z.enum(CONSULTATION_DOCUMENT_TYPES),
   readAs: z.enum(['note', 'lab_report']),
   source: z.enum(['photo', 'text']),
-  status: z.enum(['staged', 'already_imported', 'no_results', 'needs_review', 'unreadable']),
+  status: z.enum([
+    'staged',
+    'already_imported',
+    'no_results',
+    'needs_review',
+    'discarded',
+    'unreadable',
+  ]),
+  heldReportId: z.string().optional().meta({ description: 'The held report the team decides on' }),
   error: z.string().optional(),
   reviewReason: z
     .enum(['name_mismatch'])
@@ -290,6 +298,57 @@ export const LabHistorySampleSetSchema = z
     ),
   })
   .meta({ id: 'LabHistorySampleSet' });
+
+/** A lab report held for the team (`GET /api/demo/lab/held-reports`). */
+export const HeldLabReportViewSchema = z
+  .object({
+    id: z.string(),
+    patientId: z.string(),
+    filename: z.string(),
+    /** `YYYY-MM-DD` entered with the document, and printed on it when read. */
+    documentDate: calendarDay,
+    printedDate: calendarDay.optional(),
+    printedName: z.string().optional().meta({ description: 'The name printed on the report' }),
+    recordName: z.string().optional().meta({ description: "The name in the patient's record" }),
+    reason: z.enum(['name_mismatch']),
+    source: z.enum(['photo', 'text']),
+    model: z.string().optional(),
+    results: z.array(
+      z.object({
+        name: z.string(),
+        test: z.string(),
+        loinc: z.string(),
+        value: z.number(),
+        unit: z.string().optional(),
+        interpretation: z.enum(['H', 'L', 'N']).optional(),
+      }),
+    ),
+    status: z.enum(['pending', 'confirmed', 'discarded']),
+    createdAt: isoInstant,
+    decidedBy: z.string().optional(),
+    decidedAt: isoInstant.optional(),
+  })
+  .meta({ id: 'HeldLabReportView' });
+
+export const HeldLabReportListSchema = z
+  .object({ items: z.array(HeldLabReportViewSchema) })
+  .meta({ id: 'HeldLabReportList' });
+
+export const HeldLabReportDecisionSchema = z
+  .object({
+    report: HeldLabReportViewSchema,
+    /** "It's this patient": the FHIR Observations recorded. */
+    resources: z.array(z.string()).optional(),
+    expectationsFulfilled: z.number().int().optional(),
+  })
+  .meta({ id: 'HeldLabReportDecision' });
+
+export const HeldLabReportQuerySchema = z.object({
+  patientId: z.string().trim().min(1).max(64).optional(),
+  status: z.enum(['pending', 'confirmed', 'discarded']).optional(),
+});
+
+export type HeldLabReportView = z.infer<typeof HeldLabReportViewSchema>;
 
 export type LabHistoryImport = z.infer<typeof LabHistoryImportSchema>;
 export type LabHistoryImportResponse = z.infer<typeof LabHistoryImportResponseSchema>;

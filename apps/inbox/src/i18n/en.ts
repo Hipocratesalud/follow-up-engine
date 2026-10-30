@@ -1860,6 +1860,8 @@ const EVALUATOR_ACTION_LABELS = {
   lab_document_uploaded: 'Uploaded a lab document',
   lab_record_added: 'Added a lab record',
   lab_history_imported: 'Imported a patient’s history',
+  held_report_confirmed: 'Confirmed a held lab report',
+  held_report_discarded: 'Discarded a held lab report',
   lab_date_viewed: 'Moved the lab clock',
   case_viewed: 'Viewed a case',
   patient_documents_viewed: 'Viewed a patient’s documents',
@@ -2032,6 +2034,7 @@ const lab = {
       already_imported: 'Already imported',
       no_results: 'No known test results',
       needs_review: 'Needs review',
+      discarded: 'Discarded: not this patient',
       unreadable: 'Could not be read',
     } as Record<string, string>,
     readAs: { note: 'Clinical note', lab_report: 'Lab report' } as Record<string, string>,
@@ -2039,6 +2042,23 @@ const lab = {
     readBy: (model: string): string => `read by ${model}`,
     nameMismatch:
       'The name on the report doesn’t match this patient: held for the team, nothing recorded, no order closed.',
+    held: {
+      listTitle: 'Needs review',
+      listIntro:
+        'Imported lab reports whose printed name doesn’t match the patient. Nothing from them is in the record until someone decides.',
+      empty: 'No report is waiting for review.',
+      count: (n: number): string => count(n, 'report', 'reports'),
+      cardTitle: 'A report for this patient needs review',
+      cardIntro:
+        'It was held because the printed name doesn’t match. Decide whether it belongs here.',
+      names: (printed: string, record: string): string =>
+        `Name on the report: ${printed} · In the record: ${record}`,
+      noName: 'none printed',
+      dates: (printed: string, entered: string): string =>
+        `Collected ${printed} (entered as ${entered})`,
+      confirm: 'It’s this patient',
+      discard: 'Not this patient',
+    },
     datePrinted: (printed: string, entered: string): string =>
       `Dated by the report: collected ${printed} (you entered ${entered}). Check the date.`,
     datePrintedLater: (printed: string, entered: string): string =>

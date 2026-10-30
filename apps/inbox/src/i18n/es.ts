@@ -1837,6 +1837,8 @@ const EVALUATOR_ACTION_LABELS: Record<string, string> = {
   lab_document_uploaded: 'Subió un documento de laboratorio',
   lab_record_added: 'Agregó un registro de laboratorio',
   lab_history_imported: 'Importó el historial de un paciente',
+  held_report_confirmed: 'Confirmó un informe de laboratorio retenido',
+  held_report_discarded: 'Descartó un informe de laboratorio retenido',
   lab_date_viewed: 'Movió el reloj del laboratorio',
   case_viewed: 'Vio un caso',
   patient_documents_viewed: 'Vio los documentos de un paciente',
@@ -2010,6 +2012,7 @@ const lab: Messages['lab'] = {
       already_imported: 'Ya importado',
       no_results: 'Sin resultados de exámenes conocidos',
       needs_review: 'Requiere revisión',
+      discarded: 'Descartado: no es este paciente',
       unreadable: 'No se pudo leer',
     },
     readAs: { note: 'Nota clínica', lab_report: 'Informe de laboratorio' },
@@ -2017,6 +2020,23 @@ const lab: Messages['lab'] = {
     readBy: (model: string): string => `leído por ${model}`,
     nameMismatch:
       'El nombre del informe no coincide con este paciente: queda retenido para el equipo, no se registró nada ni se cerró ninguna orden.',
+    held: {
+      listTitle: 'Requiere revisión',
+      listIntro:
+        'Informes de laboratorio importados cuyo nombre impreso no coincide con el paciente. Nada de ellos entra al registro hasta que alguien decida.',
+      empty: 'Ningún informe espera revisión.',
+      count: (n: number): string => count(n, 'informe', 'informes'),
+      cardTitle: 'Un informe de este paciente requiere revisión',
+      cardIntro:
+        'Quedó retenido porque el nombre impreso no coincide. Decide si corresponde a este paciente.',
+      names: (printed: string, record: string): string =>
+        `Nombre en el informe: ${printed} · En el registro: ${record}`,
+      noName: 'ninguno impreso',
+      dates: (printed: string, entered: string): string =>
+        `Tomado el ${printed} (indicado como ${entered})`,
+      confirm: 'Es este paciente',
+      discard: 'No es este paciente',
+    },
     datePrinted: (printed: string, entered: string): string =>
       `Fechado según el informe: tomado el ${printed} (indicaste ${entered}). Revisa la fecha.`,
     datePrintedLater: (printed: string, entered: string): string =>

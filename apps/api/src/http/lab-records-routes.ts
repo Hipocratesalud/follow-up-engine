@@ -14,6 +14,8 @@ import {
 import {
   ensureLabClinicAndClock,
   type EngineRuntime,
+  confirmHeldReport,
+  discardHeldReport,
   HISTORY_SAMPLE_SETS,
   importPatientHistory,
   InvalidLabDateError,
@@ -28,7 +30,7 @@ import { humanName } from '../inbox/fhir-display.ts';
 import { closedReasonLabel } from '../inbox/labels.ts';
 import { trackEvaluatorEvent } from './evaluator-tracking.ts';
 import { extractionView } from './demo-routes.ts';
-import { HttpError, readJson } from './errors.ts';
+import { HttpError, readJson, readQuery } from './errors.ts';
 import { InboxPresenter } from '../inbox/presenter.ts';
 import { actorId } from './security.ts';
 import { parseErrors } from './validation.ts';
@@ -36,6 +38,8 @@ import {
   LAB_PATIENT_SEXES,
   type LabDocumentUpload,
   LabDocumentUploadSchema,
+  type HeldLabReportView,
+  HeldLabReportQuerySchema,
   type LabHistoryImport,
   type LabHistoryImportResponse,
   LabHistoryImportSchema,
@@ -626,6 +630,7 @@ export function registerLabRecordRoutes(
         status: document.status,
         ...(document.error === undefined ? {} : { error: document.error }),
         ...(document.reviewReason === undefined ? {} : { reviewReason: document.reviewReason }),
+        ...(document.heldReportId === undefined ? {} : { heldReportId: document.heldReportId }),
         ...(document.nameOnReport === undefined ? {} : { nameOnReport: document.nameOnReport }),
         ...(document.dates === undefined
           ? {}
@@ -673,6 +678,97 @@ export function registerLabRecordRoutes(
     };
     return c.json(response, 201);
   });
+
+  /**
+   * Lab reports held for review ("the name on the report doesn't match"):
+   * pending ones by default, one patient's when asked. Stored per clinic, so
+   * they are still here after a reload.
+   */
+  app.get('/api/demo/lab/held-reports', async (c) => {
+    const evaluatorEmail = requireEvaluator(c);
+    const query = readQuery(c, HeldLabReportQuerySchema);
+    const { clinic } = await ensureLabClinicAndClock(runtime, labClocks, evaluatorEmail);
+    const items = await runtime.storage.heldLabReports.list(clinic.id, {
+      status: query.status ?? 'pending',
+      ...(query.patientId === undefined ? {} : { patientId: toPatientId(query.patientId) }),
+    });
+    return c.json({ items: items.map(heldReportView) });
+  });
+
+  /** "It's this patient": who and when are kept; the report is recorded like an accepted one. */
+  app.post('/api/demo/lab/held-reports/:id/confirm', async (c) => {
+    const evaluatorEmail = requireEvaluator(c);
+    const { clinic, clock } = await ensureLabClinicAndClock(runtime, labClocks, evaluatorEmail);
+    const id = c.req.param('id');
+    await requirePendingHeldReport(c, clinic.id, id);
+    const decision = await confirmHeldReport(runtime, {
+      clinicId: clinic.id,
+      clock,
+      id,
+      by: actorId(c),
+    });
+    if (decision === undefined) {
+      throw new HttpError(409, 'held_report_decided', c.var.t.errors.heldReportDecided);
+    }
+    await trackEvaluatorEvent(runtime, {
+      clinicId: clinic.id,
+      evaluatorEmail,
+      action: 'held_report_confirmed',
+      entityType: 'patient',
+      entityId: decision.report.patientId,
+      patientId: decision.report.patientId,
+      payload: { heldReportId: id, observations: decision.resources?.length ?? 0 },
+    });
+    // Ids only: names on a report are never logged.
+    c.var.log.info({ actor: actorId(c), heldReportId: id }, 'held lab report confirmed');
+    return c.json({
+      report: heldReportView(decision.report),
+      resources: [...(decision.resources ?? [])],
+      expectationsFulfilled: decision.replay?.expectationsFulfilled ?? 0,
+    });
+  });
+
+  /** "Not this patient": discarded with who and when; never recorded, never read again. */
+  app.post('/api/demo/lab/held-reports/:id/discard', async (c) => {
+    const evaluatorEmail = requireEvaluator(c);
+    const { clinic, clock } = await ensureLabClinicAndClock(runtime, labClocks, evaluatorEmail);
+    const id = c.req.param('id');
+    await requirePendingHeldReport(c, clinic.id, id);
+    const decision = await discardHeldReport(runtime, {
+      clinicId: clinic.id,
+      clock,
+      id,
+      by: actorId(c),
+    });
+    if (decision === undefined) {
+      throw new HttpError(409, 'held_report_decided', c.var.t.errors.heldReportDecided);
+    }
+    await trackEvaluatorEvent(runtime, {
+      clinicId: clinic.id,
+      evaluatorEmail,
+      action: 'held_report_discarded',
+      entityType: 'patient',
+      entityId: decision.report.patientId,
+      patientId: decision.report.patientId,
+      payload: { heldReportId: id },
+    });
+    c.var.log.info({ actor: actorId(c), heldReportId: id }, 'held lab report discarded');
+    return c.json({ report: heldReportView(decision.report) });
+  });
+
+  async function requirePendingHeldReport(
+    c: Context<AppEnv>,
+    clinicId: Parameters<EngineRuntime['storage']['heldLabReports']['get']>[0],
+    id: string,
+  ): Promise<void> {
+    const report = await runtime.storage.heldLabReports.get(clinicId, id);
+    if (report === undefined) {
+      throw new HttpError(404, 'held_report_not_found', c.var.t.errors.heldReportNotFound);
+    }
+    if (report.status !== 'pending') {
+      throw new HttpError(409, 'held_report_decided', c.var.t.errors.heldReportDecided);
+    }
+  }
 
   /** The committed synthetic sample histories (scripts/generate-history-samples.py), to try "Import history". */
   app.get('/api/demo/lab/history/samples', (c) => {
@@ -778,4 +874,35 @@ async function patientBackfillCases(
       : { releaseAt: item.releaseAt.toISOString() }),
     released: item.releaseAt !== undefined && item.releaseAt.getTime() <= now.getTime(),
   }));
+}
+
+function heldReportView(
+  report: Awaited<ReturnType<EngineRuntime['storage']['heldLabReports']['hold']>>,
+): HeldLabReportView {
+  return {
+    id: report.id,
+    patientId: report.patientId,
+    filename: report.filename,
+    documentDate: report.documentDate.toISOString().slice(0, 10),
+    ...(report.printedDate === undefined
+      ? {}
+      : { printedDate: report.printedDate.toISOString().slice(0, 10) }),
+    ...(report.printedName === undefined ? {} : { printedName: report.printedName }),
+    ...(report.recordName === undefined ? {} : { recordName: report.recordName }),
+    reason: report.reason,
+    source: report.source,
+    ...(report.model === undefined ? {} : { model: report.model }),
+    results: report.results.map((result) => ({
+      name: result.name,
+      test: result.test,
+      loinc: result.code.code,
+      value: result.value,
+      ...(result.unit === undefined ? {} : { unit: result.unit }),
+      ...(result.interpretation === undefined ? {} : { interpretation: result.interpretation }),
+    })),
+    status: report.status,
+    createdAt: report.createdAt.toISOString(),
+    ...(report.decidedBy === undefined ? {} : { decidedBy: report.decidedBy }),
+    ...(report.decidedAt === undefined ? {} : { decidedAt: report.decidedAt.toISOString() }),
+  };
 }

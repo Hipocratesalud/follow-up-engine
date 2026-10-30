@@ -113,6 +113,7 @@ describe('Import history (the Lab page)', () => {
         ),
         http.get('*/api/demo/lab/cases', () => HttpResponse.json({ items: [] })),
         http.get('*/api/demo/lab/recovery', () => HttpResponse.json({ items: [], total: 0 })),
+        http.get('*/api/demo/lab/held-reports', () => HttpResponse.json({ items: [] })),
         // The lab's finding cards (LabFindingsPanel): none live in these tests.
         http.get('*/api/demo/lab/live-findings', () =>
           HttpResponse.json({ items: [], total: 0, byPatient: {}, queued: 0, dailyCap: 0 }),
@@ -167,7 +168,9 @@ describe('Import history (the Lab page)', () => {
       ),
     ).toBeInTheDocument();
     // Another patient's report: held, shown as such.
-    expect(screen.getByText('Needs review')).toBeInTheDocument();
+    const result = screen.getByText('What the import did').closest('div');
+    expect(result).not.toBeNull();
+    expect(within(result as HTMLElement).getByText('Needs review')).toBeInTheDocument();
     expect(
       screen.getByText(
         'The name on the report doesn’t match this patient: held for the team, nothing recorded, no order closed.',

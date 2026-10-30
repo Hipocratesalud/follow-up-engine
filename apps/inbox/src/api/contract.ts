@@ -690,7 +690,10 @@ export interface LabHistoryDocumentOutcome {
   documentType: LabDocumentType;
   readAs: 'note' | 'lab_report';
   source: 'photo' | 'text';
-  status: 'staged' | 'already_imported' | 'no_results' | 'needs_review' | 'unreadable';
+  status:
+    'staged' | 'already_imported' | 'no_results' | 'needs_review' | 'discarded' | 'unreadable';
+  /** The stored held report the team decides on (`needs_review`, `discarded`). */
+  heldReportId?: string;
   error?: string;
   /** Why a report is held for the team: nothing was staged, no order closed. */
   reviewReason?: 'name_mismatch';
@@ -728,6 +731,39 @@ export interface LabHistoryImportResponse {
   };
   cases: { id: string; status: string; releaseAt?: string; released: boolean }[];
   llm: { calls: number; costUsd: number };
+}
+
+/** A lab report held for review: the name printed on it is not the patient's. */
+export interface HeldLabReportView {
+  id: string;
+  patientId: string;
+  filename: string;
+  /** `YYYY-MM-DD`. */
+  documentDate: string;
+  printedDate?: string;
+  printedName?: string;
+  recordName?: string;
+  reason: 'name_mismatch';
+  source: 'photo' | 'text';
+  model?: string;
+  results: {
+    name: string;
+    test: string;
+    loinc: string;
+    value: number;
+    unit?: string;
+    interpretation?: 'H' | 'L' | 'N';
+  }[];
+  status: 'pending' | 'confirmed' | 'discarded';
+  createdAt: string;
+  decidedBy?: string;
+  decidedAt?: string;
+}
+
+export interface HeldLabReportDecision {
+  report: HeldLabReportView;
+  resources?: string[];
+  expectationsFulfilled?: number;
 }
 
 /** The committed synthetic sample histories (`GET /api/demo/lab/history/samples`). */

@@ -57,6 +57,19 @@ function headers(email: string, json = true): Record<string, string> {
   };
 }
 
+/** A lab report printed for another patient (a sample code the scripted reader knows). */
+function otherPatientReport() {
+  return {
+    filename: 'otro-paciente.txt',
+    contentType: 'text/plain',
+    dataBase64: Buffer.from(
+      `Código de muestra: ${HISTORY_OTHER_PATIENT_MARKER}\nHbA1c 6.1 %`,
+    ).toString('base64'),
+    documentDate: '2024-05-06',
+    documentType: 'lab_result',
+  };
+}
+
 async function samples(app: App, email: string): Promise<LabHistorySampleSet> {
   const response = await app.request('/api/demo/lab/history/samples', { headers: headers(email) });
   expect(response.status).toBe(200);
@@ -265,6 +278,129 @@ describe('POST /api/demo/lab/history', () => {
     expect(expectations.items.some((item) => item.closedReason === 'fulfilled_by_result')).toBe(
       false,
     );
+  });
+
+  describe('a held report, through the API', () => {
+    async function importHeld(app: App, email: string): Promise<LabHistoryImportResponse> {
+      const note = (await samples(app, email)).sets
+        .find((item) => item.id === 'rafael')
+        ?.documents.find((document) => document.documentType === 'consultation_note');
+      const response = await app.request('/api/demo/lab/history', {
+        method: 'POST',
+        headers: headers(email),
+        body: JSON.stringify({
+          newPatient: { name: 'Rafael Antonio Méndez' },
+          documents: [note, otherPatientReport()],
+        }),
+      });
+      return (await response.json()) as LabHistoryImportResponse;
+    }
+
+    async function heldList(app: App, email: string, query = '') {
+      return (
+        (await (
+          await app.request(`/api/demo/lab/held-reports${query}`, { headers: headers(email) })
+        ).json()) as { items: { id: string; status: string; printedName?: string }[] }
+      ).items;
+    }
+
+    it('is persisted: listed after a reload, then confirmed ("It’s this patient") and the engine closes the order', async () => {
+      const { app, runtime: rt } = await harness();
+      const email = 'doctor@example.com';
+      const body = await importHeld(app, email);
+      const heldId = body.documents[1]?.heldReportId ?? '';
+      // A fresh request, as after a page reload: the held report is still there.
+      const listed = await heldList(app, email, `?patientId=${body.patientId}`);
+      expect(listed).toEqual([
+        expect.objectContaining({
+          id: heldId,
+          status: 'pending',
+          printedName: 'Laura Beatriz Ortega',
+          recordName: 'Rafael Antonio Méndez',
+        }),
+      ]);
+
+      const confirmed = await app.request(`/api/demo/lab/held-reports/${heldId}/confirm`, {
+        method: 'POST',
+        headers: headers(email),
+      });
+      expect(confirmed.status).toBe(200);
+      const decision = (await confirmed.json()) as {
+        report: { status: string; decidedBy: string; decidedAt: string };
+        resources: string[];
+      };
+      expect(decision.report).toMatchObject({ status: 'confirmed', decidedBy: email });
+      expect(decision.resources).toHaveLength(1);
+      const expectations = (await (
+        await app.request(`/api/demo/lab/patients/${body.patientId}/expectations`, {
+          headers: headers(email),
+        })
+      ).json()) as { items: { status: string; closedReason?: string }[] };
+      expect(
+        expectations.items.some(
+          (item) => item.status === 'fulfilled' && item.closedReason === 'fulfilled_by_result',
+        ),
+      ).toBe(true);
+      expect(await heldList(app, email)).toEqual([]);
+      // Audited: who confirmed which report.
+      const events = await rt.storage.evaluatorEvents.list({ evaluatorEmail: email, limit: 50 });
+      expect(events.items.map((event) => event.action)).toContain('held_report_confirmed');
+      // Decided once.
+      const again = await app.request(`/api/demo/lab/held-reports/${heldId}/discard`, {
+        method: 'POST',
+        headers: headers(email),
+      });
+      expect(again.status).toBe(409);
+    });
+
+    it('discarded ("Not this patient"): audited, nothing recorded, and a re-import does not read it again', async () => {
+      const { app, runtime: rt } = await harness();
+      const email = 'doctor@example.com';
+      const body = await importHeld(app, email);
+      const heldId = body.documents[1]?.heldReportId ?? '';
+      const discarded = await app.request(`/api/demo/lab/held-reports/${heldId}/discard`, {
+        method: 'POST',
+        headers: headers(email),
+      });
+      expect(discarded.status).toBe(200);
+      const events = await rt.storage.evaluatorEvents.list({ evaluatorEmail: email, limit: 50 });
+      expect(events.items.map((event) => event.action)).toContain('held_report_discarded');
+      const expectations = (await (
+        await app.request(`/api/demo/lab/patients/${body.patientId}/expectations`, {
+          headers: headers(email),
+        })
+      ).json()) as { items: { closedReason?: string }[] };
+      expect(expectations.items.some((item) => item.closedReason === 'fulfilled_by_result')).toBe(
+        false,
+      );
+      expect(await heldList(app, email, '?status=discarded')).toHaveLength(1);
+
+      const reimport = await app.request('/api/demo/lab/history', {
+        method: 'POST',
+        headers: headers(email),
+        body: JSON.stringify({ patientId: body.patientId, documents: [otherPatientReport()] }),
+      });
+      const reimported = (await reimport.json()) as LabHistoryImportResponse;
+      expect(reimported.documents[0]).toMatchObject({ status: 'discarded', heldReportId: heldId });
+      expect(reimported.llm.calls).toBe(0);
+    });
+
+    it('refuses an unknown held report (404) and another evaluator’s (404)', async () => {
+      const { app } = await harness();
+      const body = await importHeld(app, 'a@example.com');
+      const heldId = body.documents[1]?.heldReportId ?? '';
+      for (const [email, id] of [
+        ['a@example.com', 'held-unknown'],
+        ['b@example.com', heldId],
+      ] as const) {
+        const response = await app.request(`/api/demo/lab/held-reports/${id}/confirm`, {
+          method: 'POST',
+          headers: headers(email),
+        });
+        expect(response.status).toBe(404);
+      }
+      expect(await heldList(app, 'b@example.com')).toEqual([]);
+    });
   });
 
   it('refuses a document dated after the lab’s date, and every request without an evaluator', async () => {

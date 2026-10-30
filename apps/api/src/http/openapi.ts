@@ -844,6 +844,38 @@ const OPERATIONS: readonly Operation[] = [
   },
   {
     method: 'get',
+    path: '/api/demo/lab/held-reports',
+    tag: 'Demo',
+    summary:
+      "Lab reports held for review in the evaluator's lab (the name on the report doesn't match the patient)",
+    params: [
+      { name: 'patientId', in: 'query' },
+      { name: 'status', in: 'query', enum: ['pending', 'confirmed', 'discarded'] },
+    ],
+    response: 'HeldLabReportList',
+    errors: [403, 422],
+  },
+  {
+    method: 'post',
+    path: '/api/demo/lab/held-reports/{id}/confirm',
+    tag: 'Demo',
+    summary:
+      "It's this patient: records who decided and when, then records the report like an accepted one (the engine may close an order)",
+    params: [id('Held report id')],
+    response: 'HeldLabReportDecision',
+    errors: [403, 404, 409],
+  },
+  {
+    method: 'post',
+    path: '/api/demo/lab/held-reports/{id}/discard',
+    tag: 'Demo',
+    summary: 'Not this patient: discards the held report (who and when are kept)',
+    params: [id('Held report id')],
+    response: 'HeldLabReportDecision',
+    errors: [403, 404, 409],
+  },
+  {
+    method: 'get',
     path: '/api/demo/lab/recovery',
     tag: 'Demo',
     summary: "The lab's patients to recover: backfill cases still held, as of the lab's own date",

@@ -16,6 +16,7 @@ import { useSessionState } from '../../lib/session-state.ts';
 import { AddWithoutDocument } from './add-without-document.tsx';
 import { ExpectationChips } from './expectation-chips.tsx';
 import { ExpectationsTable } from './expectations-table.tsx';
+import { HeldReportsPanel, PatientHeldReportsCard } from './held-reports.tsx';
 import { HistoryImportCard } from './history-import-card.tsx';
 import { LabFindingsPanel } from './lab-findings-panel.tsx';
 import { ImpactPanel } from './impact-panel.tsx';
@@ -152,6 +153,7 @@ export function LabPage(): ReactNode {
 
       {patientId ? (
         <>
+          <PatientHeldReportsCard patientId={patientId} />
           <AddWithoutDocument patientId={patientId} onRecordSaved={handleRecordSaved} />
           <TimelinePanel entries={entries} />
           <Card className="flex flex-col gap-3 p-5">
@@ -181,6 +183,8 @@ export function LabPage(): ReactNode {
       )}
 
       <LabFindingsPanel patientId={patientId} />
+
+      <HeldReportsPanel />
 
       <LabRecoveryPanel />
 

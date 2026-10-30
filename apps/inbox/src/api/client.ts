@@ -33,6 +33,8 @@ import type {
   LabDocumentResponse,
   LabDocumentUploadRequest,
   LabExpectationView,
+  HeldLabReportDecision,
+  HeldLabReportView,
   LabHistoryImportRequest,
   LabHistoryImportResponse,
   LabHistorySampleSet,
@@ -263,6 +265,10 @@ export interface ApiClient {
   getLabHistorySamples(): Promise<LabHistorySampleSet>;
   /** The lab's "To recover": backfill cases still held, as of the lab's own date. */
   getLabRecovery(): Promise<{ items: CaseView[]; total: number }>;
+  /** Lab reports held for review (pending), one patient's when given. */
+  listLabHeldReports(patientId?: string): Promise<{ items: HeldLabReportView[] }>;
+  /** "It's this patient" / "Not this patient". */
+  decideLabHeldReport(id: string, decision: 'confirm' | 'discard'): Promise<HeldLabReportDecision>;
   listEvaluators(): Promise<EvaluatorsView>;
   listEvaluatorEvents(query: {
     evaluatorEmail?: string;
@@ -527,6 +533,12 @@ export function createApiClient(config: ApiConfig): ApiClient {
     importLabHistory,
     getLabHistorySamples: () => request('GET', '/demo/lab/history/samples'),
     getLabRecovery: () => request('GET', '/demo/lab/recovery'),
+    listLabHeldReports: (patientId) =>
+      request('GET', '/demo/lab/held-reports', {
+        query: patientId === undefined ? {} : { patientId },
+      }),
+    decideLabHeldReport: (id, decision) =>
+      request('POST', `/demo/lab/held-reports/${encodeURIComponent(id)}/${decision}`),
     listEvaluators: () => request('GET', '/demo/evaluators'),
     listEvaluatorEvents: (query) =>
       request('GET', '/demo/evaluator-events', { query: { ...query } }),
