@@ -124,6 +124,14 @@ On Muse Spark (`muse-spark-1.3`, 2026-10-27, [eval report](evals/reviewer/2026-1
 - **Verdicts.** Staff mark each finding _Relevant_, _Already knew_ or _Not relevant_; "Not relevant" requires a reason. The flags page shows each category's shadow precision (relevant / reviewed), which is the evidence for going live.
 - **Live.** A category goes live only with `validatedBy`, the clinician who signs it off. Without it the API answers 422, the domain throws `ValidationError` and the database rejects the row (CHECK). A live flag that somehow lacks a sign-off is still treated as shadow. Live findings emit `clinical_finding.created`, a signed webhook with ids and severity only, and appear in `/fhir/DetectedIssue`. Live `pre_visit_question` findings appear on the patient page as "To ask at the next visit".
 
+## Findings in the reader's language
+
+A finding is stored with its words in every review locale (`texts`, migration `0019_finding_texts.sql`): `{ en: { summary, rationale, suggestion }, es: { … } }`. `summary`, `rationale` and `suggestion` stay the clinic's locale.
+
+- **Detectors** render every locale from the same templates (`copy.ts`): the pipeline runs them once per locale over the same record and pairs each signal with its twin (same index, same rule). Dates inside sentences are written the reader's way ("Jun 10, 2024" / "10 jun 2024"), never ISO.
+- **The model** (prompt `clinical-review@2`) returns `texts` with English and Spanish next to its clinic-locale fields; signals carry both so it can reuse them. The scripted reviewer returns the signals' own `texts`. A translation that addresses the patient discards the finding like the main text would.
+- **Reading.** The API answers in the request's language (`Accept-Language`, `findingTextIn`): batch review, inbox cards, "Before the visit", the agent page. A finding stored before `texts` existed, from a detector, is rendered again from the templates over the patient's record and matched by its dedup key; otherwise (a model's own finding) the stored text. A result's canonical line ("Creatinine: 1.75 mg/dL") follows the reader's language; quotes from notes, prescriptions and diagnoses are the record's own words and are never translated.
+
 ## Inbox cards per validated category
 
 A live category's findings reach the doctor's work queue, the main inbox, as finding cards: severity, category, the one-line finding, the patient, the suggestion, the verbatim evidence (quote, source document, date) and the three ratings of the batch review (_Relevant_, _Already knew_, _Not relevant_ with a required reason, checked when the button is clicked). They reuse `POST /api/inbox/findings/:id/review`. A rated card leaves the queue.

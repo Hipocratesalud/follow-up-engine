@@ -3,6 +3,7 @@ import {
   type AgentMessage,
   type AgentStep,
   type ClinicalFinding,
+  findingTextIn,
   ladderTimeline,
   patientId as toPatientId,
 } from '@follow-up-engine/core';
@@ -332,8 +333,9 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
         id: finding.id,
         category: finding.category,
         severity: finding.severity,
-        summary: finding.summary,
-        suggestion: finding.suggestion,
+        // In the reader's language (the detectors and the model write both).
+        summary: findingTextIn(finding, c.var.t.locale).summary,
+        suggestion: findingTextIn(finding, c.var.t.locale).suggestion,
         mode: finding.mode,
         modelId: finding.modelId,
         createdAt: finding.createdAt.toISOString(),

@@ -125,6 +125,26 @@ describe.each(LOCALES)('live findings in the inbox (%s)', (locale: Locale) => {
     expect(screen.queryByText(COPY.patientBadge(1))).toBeNull();
   });
 
+  it('reads every card in the viewer language: no English in Spanish, no Spanish in English', async () => {
+    renderApp('/inbox', { locale, handlers: live('lab_trend', 'unaddressed_symptom') });
+    const cards = await screen.findAllByTestId('inbox-finding-card');
+    expect(cards).toHaveLength(2);
+    // Prose of the cards, quotes aside (they are the record's own words, never translated).
+    const prose = cards
+      .map((card) => {
+        const copy = card.cloneNode(true) as HTMLElement;
+        for (const quote of copy.querySelectorAll('[data-testid=inbox-evidence-quote]')) {
+          quote.remove();
+        }
+        return copy.textContent;
+      })
+      .join(' ');
+    const english = /\b(the|with|and|over|Consider|rising|notes|Suggestion|Evidence|Relevant)\b/;
+    const spanish = /\b(los|con|en ascenso|Considera|Sugerencia|Evidencia|Relevante)\b/;
+    expect(prose).toMatch(locale === 'es' ? spanish : english);
+    expect(prose).not.toMatch(locale === 'es' ? english : spanish);
+  });
+
   it('"not relevant" asks for a reason on click and sends nothing without it', async () => {
     const rendered = renderApp('/inbox', { locale, handlers: live('lab_trend') });
     const { user, store } = rendered;
