@@ -229,6 +229,23 @@ export const ProtocolItemSchema = z
     visitSpecialties: z.array(z.string().min(1)).min(1).optional(),
     priority: z.number().int().nonnegative(),
     suggestedAction: SuggestedActionSchema,
+    /**
+     * A pinpoint citation for this item specifically, when one is known for
+     * certain: which of the protocol's `sources` it is, the section that
+     * addresses it, and a plain-language paraphrase (never a verbatim
+     * quote) of what that section says. Optional, and deliberately so: a
+     * sign-off page falls back to the protocol's `sources` for an item
+     * without one, rather than guess a section. `guideline` must name one
+     * of the protocol's own `sources`.
+     */
+    source: z
+      .strictObject({
+        guideline: z.string().min(1),
+        section: z.string().min(1),
+        /** A paraphrase: every reader of it is told so, never presented as a quote. */
+        statement: z.string().min(1),
+      })
+      .optional(),
   })
   .refine((item) => (item.everyDays === undefined) !== (item.schedule === undefined), {
     message: 'expected exactly one of everyDays, schedule',
@@ -371,6 +388,15 @@ export const ProtocolSchema = z
       protocol.closing !== undefined ||
       protocol.items.every((item) => item.schedule?.type !== 'after_outcome'),
     { message: 'after_outcome items need closing outcomes' },
+  )
+  .refine(
+    (protocol) =>
+      protocol.items.every(
+        (item) =>
+          item.source === undefined ||
+          protocol.sources.some((source) => source.title === item.source?.guideline),
+      ),
+    { message: "an item's source.guideline must name one of the protocol's own sources" },
   );
 
 export type Protocol = z.infer<typeof ProtocolSchema>;

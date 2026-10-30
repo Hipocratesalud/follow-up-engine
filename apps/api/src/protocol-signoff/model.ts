@@ -156,15 +156,75 @@ const DUE_RULE: Readonly<Record<ApiLocale, (days: number) => string>> = {
     'de la siguiente: esa siempre se cuenta desde algo que ya ocurrió.',
 };
 
-function guidelineText(locale: ApiLocale, protocol: Protocol): string {
+/**
+ * The protocol's own `sources`, one bullet each: the fallback for an item
+ * with no pinpoint `source` of its own. Title and organization are literal
+ * config data (not translated, like a drug name): the same in both
+ * languages.
+ */
+function sourceCitations(locale: ApiLocale, protocol: Protocol): readonly string[] {
   if (protocol.sources.length === 0) {
-    return locale === 'en'
-      ? 'No guideline cited — physician to confirm.'
-      : 'Sin guía citada — el médico debe confirmarla.';
+    return [
+      locale === 'en'
+        ? 'No guideline cited — physician to confirm.'
+        : 'Sin guía citada — el médico debe confirmarla.',
+    ];
   }
-  return protocol.sources
-    .map((source) => `${source.title} (${source.organization}, ${String(source.year)})`)
-    .join('; ');
+  return protocol.sources.map(
+    (source) =>
+      `${source.title} — ${source.organization} (${String(source.year)}). <${source.url}>`,
+  );
+}
+
+/** An item's own pinpoint citation (`ProtocolItem.source`), ready to show. */
+export interface ItemCitation {
+  readonly guideline: string;
+  readonly section: string;
+  /** A paraphrase, not a verbatim quote: `render.ts` always labels it as one. */
+  readonly statement: string;
+}
+
+/**
+ * Spanish paraphrase of each item's `source.statement` (English, in
+ * config): the generator authors this translation itself, like `DUE_RULE`
+ * and `EXCEPTION_BODY`, because it is prose the generator writes for the
+ * page, not literal data the engine reads. Keyed by the item's reason code
+ * so a missing translation fails loudly instead of leaking English into
+ * the Spanish page.
+ */
+const ITEM_CITATION_STATEMENT_ES: Readonly<Record<string, string>> = {
+  protocol_diabetes_hba1c:
+    'Recomienda medir la HbA1c con regularidad para seguir el control glicémico, con mayor ' +
+    'frecuencia (por ejemplo cada 3 meses) cuando el paciente no está en meta o tras un cambio ' +
+    'de tratamiento, y al menos dos veces al año en el resto de los casos.',
+  protocol_diabetes_lipids:
+    'Recomienda un perfil lipídico anual en adultos con diabetes como parte de la evaluación ' +
+    'del riesgo cardiovascular, con mayor frecuencia si el riesgo o el tratamiento lo ' +
+    'justifican.',
+  protocol_diabetes_fundus:
+    'Recomienda un examen de fondo de ojo con dilatación al diagnóstico y luego cada año, con ' +
+    'intervalos más largos posibles tras uno o más exámenes normales, a criterio del médico ' +
+    'tratante.',
+};
+
+/**
+ * `item.source`, ready to show, in `locale`. `undefined` when the item has
+ * none: the page falls back to the protocol's own sources instead
+ * (`sourceCitations`) rather than guess which section covers it.
+ */
+function itemCitation(locale: ApiLocale, item: ProtocolItem): ItemCitation | undefined {
+  if (item.source === undefined) {
+    return undefined;
+  }
+  const statement =
+    locale === 'en' ? item.source.statement : ITEM_CITATION_STATEMENT_ES[item.reason.code];
+  if (statement === undefined) {
+    throw new Error(
+      'protocol-signoff: no Spanish translation of the citation statement for ' +
+        `"${item.reason.code}" in model.ts (ITEM_CITATION_STATEMENT_ES).`,
+    );
+  }
+  return { guideline: item.source.guideline, section: item.source.section, statement };
 }
 
 function minimumStatusText(locale: ApiLocale, minimumStatus: 'confirmed' | 'probable'): string {
@@ -239,7 +299,8 @@ export interface ItemSection {
   readonly why: string;
   readonly howOften: string;
   readonly dueRule: string;
-  readonly guideline: string;
+  /** This item's own citation, when one is known for certain; else the page points to "Guidelines cited". */
+  readonly citation?: ItemCitation;
   readonly priority: number;
   readonly evidenceCodes: readonly string[];
   readonly planTerms: readonly string[];
@@ -276,6 +337,7 @@ export function itemSection(
       }),
     ),
   ] as string[];
+  const citation = itemCitation(locale, item);
   return {
     key: item.key,
     ruleId: item.reason.code,
@@ -284,7 +346,7 @@ export function itemSection(
     why: ruleReason(locale, item.reason.code, item.reason.label),
     howOften: daysText(locale, schedule.everyDays),
     dueRule: DUE_RULE[locale](schedule.everyDays),
-    guideline: guidelineText(locale, protocol),
+    ...(citation === undefined ? {} : { citation }),
     priority: item.priority,
     evidenceCodes,
     planTerms: item.planTerms ?? [],
@@ -306,6 +368,8 @@ export interface NotApplicableFact {
 export interface SignoffPageData {
   readonly protocol: Protocol;
   readonly name: string;
+  /** The protocol's own `sources`, one bullet each (the "Guidelines cited" section). */
+  readonly sources: readonly string[];
   readonly enrollment: readonly string[];
   readonly items: readonly ItemSection[];
   readonly exceptions: readonly ExceptionSection[];
@@ -424,6 +488,7 @@ export function buildSignoffPageData(
   return {
     protocol,
     name: protocolName(locale, protocol),
+    sources: sourceCitations(locale, protocol),
     enrollment: enrollmentBullets(locale, protocol),
     items,
     exceptions,

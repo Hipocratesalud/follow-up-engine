@@ -14,6 +14,9 @@ const T: Readonly<
       readonly protocolId: string;
       readonly version: string;
       readonly intro: (file: string) => string;
+      readonly sourcesHeading: string;
+      readonly notItemized: string;
+      readonly citationNote: string;
       readonly whoHeading: string;
       readonly whatHeading: string;
       readonly tableHeaders: readonly [string, string, string, string, string, string];
@@ -57,6 +60,10 @@ const T: Readonly<
       'either; `pnpm test` fails if a committed page no longer matches a fresh generation. ' +
       'Nothing on this page is free text: every number, code and citation below is read ' +
       'back from config, so it cannot say something the engine does not do.',
+    sourcesHeading: 'Guidelines cited',
+    notItemized:
+      'Not itemized for this point — see Guidelines cited above; physician to confirm it applies.',
+    citationNote: '(paraphrase, not a quote — to be confirmed by the physician)',
     whoHeading: 'Who this protocol applies to',
     whatHeading: 'What is expected, and how often',
     tableHeaders: ['#', 'Item', 'Expected', 'How often', 'Due date rule', 'Guideline'],
@@ -106,6 +113,10 @@ const T: Readonly<
       'coincidir con una generación nueva. Nada en esta página es texto libre: cada número, ' +
       'código y cita de abajo se lee de la configuración, así que no puede decir algo que el ' +
       'motor no hace.',
+    sourcesHeading: 'Guías citadas',
+    notItemized:
+      'Sin punto específico citado — ver Guías citadas arriba; el médico debe confirmar que aplica.',
+    citationNote: '(paráfrasis, no es una cita textual — el médico debe confirmarla)',
     whoHeading: 'A quién aplica este protocolo',
     whatHeading: 'Qué se espera, y con qué frecuencia',
     tableHeaders: [
@@ -153,6 +164,17 @@ function testCitation(test: SignoffTestRef): string {
   return `\`${test.file}\` › ${escapeCell(test.describe)} › ${escapeCell(test.it)}`;
 }
 
+function citationCell(locale: ApiLocale, item: ItemSection): string {
+  const t = T[locale];
+  if (item.citation === undefined) {
+    return t.notItemized;
+  }
+  return (
+    `**${item.citation.guideline}, ${item.citation.section}** — ` +
+    `“${item.citation.statement}” ${t.citationNote}`
+  );
+}
+
 function itemRow(locale: ApiLocale, index: number, item: ItemSection): string {
   const t = T[locale];
   const detail: string[] = [`**${item.expected}**`, item.why];
@@ -169,7 +191,7 @@ function itemRow(locale: ApiLocale, index: number, item: ItemSection): string {
       ),
     );
   }
-  return `| ${String(index)} | \`${item.key}\` | ${escapeCell(detail.join('<br>'))} | ${escapeCell(item.howOften)} | ${escapeCell(item.dueRule)} | ${escapeCell(item.guideline)} |`;
+  return `| ${String(index)} | \`${item.key}\` | ${escapeCell(detail.join('<br>'))} | ${escapeCell(item.howOften)} | ${escapeCell(item.dueRule)} | ${escapeCell(citationCell(locale, item))} |`;
 }
 
 /** Renders one protocol's sign-off page, in `locale`. Deterministic: no clocks, no randomness. */
@@ -184,6 +206,11 @@ export function renderSignoffPage(locale: ApiLocale, data: SignoffPageData): str
     '',
   );
   lines.push(t.intro(`config/protocols/${data.protocol.id.replace(/_/g, '-')}.json`), '');
+  lines.push(`## ${t.sourcesHeading}`, '');
+  for (const source of data.sources) {
+    lines.push(`- ${source}`);
+  }
+  lines.push('');
   lines.push(`## ${t.whoHeading}`, '');
   for (const bullet of data.enrollment) {
     lines.push(`- ${bullet}`);

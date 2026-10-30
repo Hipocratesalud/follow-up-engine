@@ -23,9 +23,6 @@ import { seedSyntheticClinic } from '../test/seed.ts';
 
 const KEY = 'protocol-reasons-key';
 
-/** Neither is signed off by the clinical team yet (docs/protocols/signoff). */
-const UNVALIDATED_STATUSES = ['draft', 'ready_for_signoff'];
-
 /** Words that would let the front desk infer a mental-health condition. */
 const MENTAL_HEALTH = /depres|ansie|anxi|antidep|psiq|mental|ánimo|animo/i;
 
@@ -49,6 +46,21 @@ const PROTOCOL_NAMES: Readonly<Record<'en' | 'es', Readonly<Record<string, strin
     dyslipidemia: 'Control de dislipidemia',
     chronic_kidney_disease: 'Control de enfermedad renal crónica',
   },
+};
+
+/**
+ * Exact status per protocol (docs/protocols/signoff): diabetes and
+ * hypertension have a sign-off package, every other protocol is still a
+ * plain draft with none.
+ */
+const PROTOCOL_STATUS: Readonly<Record<string, 'draft' | 'ready_for_signoff'>> = {
+  diabetes: 'ready_for_signoff',
+  hypertension: 'ready_for_signoff',
+  pregnancy: 'draft',
+  treatment_followup: 'draft',
+  hypothyroidism: 'draft',
+  dyslipidemia: 'draft',
+  chronic_kidney_disease: 'draft',
 };
 
 describe('protocol reasons in the inbox API', () => {
@@ -99,7 +111,7 @@ describe('protocol reasons in the inbox API', () => {
       const { protocol } = reason;
       expect(protocol, reason.ruleId).toBeDefined();
       expect(reason.ruleId.startsWith(`protocol_${protocol?.id ?? ''}_`)).toBe(true);
-      expect(UNVALIDATED_STATUSES).toContain(protocol?.status);
+      expect(protocol?.status).toBe(PROTOCOL_STATUS[protocol?.id ?? '']);
       expect(protocol?.name).toBe(PROTOCOL_NAMES.en[protocol?.id ?? '']);
       expect(protocol?.version).toMatch(/^\d+\.\d+\.\d+$/);
     }
@@ -132,7 +144,7 @@ describe('protocol reasons in the inbox API', () => {
     expect(ids.size).toBeGreaterThanOrEqual(3);
     expect(ids).toContain('pregnancy');
     for (const expectation of fromProtocols) {
-      expect(UNVALIDATED_STATUSES).toContain(expectation.protocol?.status);
+      expect(expectation.protocol?.status).toBe(PROTOCOL_STATUS[expectation.protocol?.id ?? '']);
       expect(expectation.protocol?.name).toBe(PROTOCOL_NAMES.en[expectation.protocol?.id ?? '']);
       // Labels come from the catalog: copy, never a rule id.
       expect(expectation.label).not.toMatch(/_|protocol/);
