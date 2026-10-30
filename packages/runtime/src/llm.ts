@@ -385,6 +385,9 @@ export function createConfiguredExtractor(
     monthlyBudgetUsd: async (clinicId) =>
       (await deps.clinics.get(clinicId))?.settings.llmMonthlyBudgetUsd ??
       deps.fallbackBudgetUsd?.(clinicId),
+    // The one place every image passes: a photo leaves only for a clinic that allows it.
+    allowsUnmaskedImages: async (clinicId) =>
+      (await deps.clinics.get(clinicId))?.settings.allowUnmaskedImagesToProvider === true,
     clock: deps.clock,
   });
   return {

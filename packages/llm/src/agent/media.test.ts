@@ -1,4 +1,4 @@
-import { clinicId } from '@follow-up-engine/core';
+import { clinicId, UnmaskedImageRefusedError } from '@follow-up-engine/core';
 import { describe, expect, it } from 'vitest';
 import { createLlmGateway } from '../gateway/gateway.ts';
 import type { FetchLike } from '../providers/chat-completions.ts';
@@ -11,6 +11,7 @@ import {
   FAKE_VISION_MODEL,
   LAB_DOCUMENT_SCRIPTED_TASK,
   LAB_DOCUMENT_TASK,
+  LAB_PHOTO_TASK,
   type ModelLabPhotoReading,
   UnreadableDocumentError,
 } from './media.ts';
@@ -179,5 +180,45 @@ describe('the lab-result reading of a document (PDF text)', () => {
     expect((await reader.readLabDocument(CLINIC, input)).reading.patientName).toBe(
       'Laura Beatriz Ortega',
     );
+  });
+
+  it('the gateway refuses every image for a clinic that does not allow unmasked images, before any provider call', async () => {
+    let calls = 0;
+    const gateway = createLlmGateway({
+      providers: {
+        fake: createFakeProvider({
+          respond: () => {
+            calls += 1;
+            return READING;
+          },
+        }),
+      },
+      tasks: {
+        [LAB_PHOTO_TASK]: { route: [{ provider: 'fake', model: FAKE_VISION_MODEL }] },
+        [LAB_DOCUMENT_TASK]: { route: [{ provider: 'fake', model: FAKE_VISION_MODEL }] },
+      },
+      usageLog: new InMemoryLlmUsageLog(),
+      allowsUnmaskedImages: (clinicId) => clinicId !== CLINIC,
+    });
+    const reader = createPatientMediaReader({ gateway, documentText });
+    const photo = {
+      mode: 'live' as const,
+      image: new Uint8Array([1, 2, 3]),
+      contentType: 'image/jpeg',
+    };
+    await expect(reader.readLabPhoto(CLINIC, photo)).rejects.toBeInstanceOf(
+      UnmaskedImageRefusedError,
+    );
+    expect(calls).toBe(0);
+    // Text (a PDF report, masked) is not an image: it still goes through.
+    await reader.readLabDocument(CLINIC, {
+      mode: 'live',
+      document: utf8('HbA1c 8.4 %'),
+      contentType: 'application/pdf',
+    });
+    expect(calls).toBe(1);
+    // A clinic that allows it reads the photo.
+    await reader.readLabPhoto(clinicId('clinic-sandbox'), photo);
+    expect(calls).toBe(2);
   });
 });

@@ -1,5 +1,6 @@
 import {
   LlmBudgetExceededError,
+  UnmaskedImageRefusedError,
   type ClinicId,
   type Clock,
   type LlmCompletion,
@@ -73,6 +74,13 @@ export interface LlmGatewayConfig {
   readonly monthlyBudgetUsd?: (
     clinicId: ClinicId,
   ) => Promise<number | undefined> | number | undefined;
+  /**
+   * Whether the clinic lets an unmasked image (a photo) leave for a model
+   * provider (`ClinicSettings.allowUnmaskedImagesToProvider`, off by
+   * default). Every request carrying an image goes through this check before
+   * any provider is called; without it, images are allowed (gateway tests).
+   */
+  readonly allowsUnmaskedImages?: (clinicId: ClinicId) => Promise<boolean> | boolean;
   readonly retry?: Partial<RetryPolicy>;
   /** Defaults to 90 s: Muse Spark always reasons before answering. */
   readonly defaultTimeoutMs?: number;
@@ -287,6 +295,14 @@ export function createLlmGateway(config: LlmGatewayConfig): FollowUpLlmGateway {
   ): Promise<GatewayResult<TOutput>> {
     const task = config.tasks[request.task];
     if (!task) throw new LlmConfigError(`Unknown LLM task ${request.task}`);
+    // An image cannot be masked: refused here, before any provider, unless the clinic allows it.
+    if (
+      config.allowsUnmaskedImages !== undefined &&
+      request.messages.some((message) => (message.images?.length ?? 0) > 0) &&
+      !(await config.allowsUnmaskedImages(clinicId))
+    ) {
+      throw new UnmaskedImageRefusedError(clinicId);
+    }
     await enforceBudget(clinicId);
 
     let attempts = 0;

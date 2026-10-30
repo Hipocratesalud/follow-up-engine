@@ -527,6 +527,8 @@ export async function registerDemoClinic(
     apiKey,
     settings: {
       allowPatientContact: true,
+      // Synthetic data only: the demo's sample photos may be read by Muse Spark.
+      allowUnmaskedImagesToProvider: true,
       timezone: 'America/Caracas',
       // English UI and labels for an international audience; the synthetic
       // notes stay in Spanish and are read as Spanish (docs/adr/0007).
@@ -661,7 +663,14 @@ export async function ensureLabClinic(
   const id = labClinicId(evaluatorEmail);
   const existing = await runtime.storage.clinics.get(id);
   if (existing !== undefined) {
-    return existing;
+    if (existing.settings.allowUnmaskedImagesToProvider) return existing;
+    // A lab created before the setting existed: a sandbox of synthetic data reads photos.
+    return runtime.storage.registerClinic({
+      id,
+      name: existing.name,
+      active: existing.active,
+      settings: { ...existing.settings, allowUnmaskedImagesToProvider: true },
+    });
   }
   return runtime.registerClinic({
     id,
@@ -671,6 +680,8 @@ export async function ensureLabClinic(
     apiKey: generateApiKey(),
     settings: {
       allowPatientContact: false,
+      // A sandbox of synthetic patients: its photos may be read by the configured model.
+      allowUnmaskedImagesToProvider: true,
       locale: 'en-US',
       enabledProtocols: [...availableProtocolIds()],
       escalationPolicyId: DEMO_ESCALATION_POLICY,
