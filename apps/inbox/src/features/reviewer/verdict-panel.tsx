@@ -4,6 +4,8 @@ import {
   FINDING_VERDICTS,
   type FindingReviewView,
   type FindingVerdict,
+  type FindingView,
+  type ReviewerScope,
 } from '../../api/reviewer-contract.ts';
 import { useFindingReview } from '../../api/queries.ts';
 import { fieldError, InlineError } from '../../components/states.tsx';
@@ -66,18 +68,25 @@ function VerdictSummary({
 /**
  * The clinician's verdict on a finding: the ground truth of the shadow
  * review. "Not relevant" needs a reason (what to fix in the reviewer).
+ * The same three actions rate a live finding card of the doctor's inbox.
  */
 export function VerdictPanel({
   findingId,
   review,
+  scope = 'clinic',
+  onReviewed,
 }: {
   readonly findingId: string;
   readonly review: FindingReviewView | undefined;
+  /** The clinic of the API key, or the evaluator's lab. */
+  readonly scope?: ReviewerScope;
+  /** After the verdict is saved (an inbox card announces that it left the queue). */
+  readonly onReviewed?: (view: FindingView) => void;
 }): ReactNode {
   const t = useT();
   const COPY = t.review.verdict;
   const ids = useId();
-  const mutation = useFindingReview(findingId);
+  const mutation = useFindingReview(findingId, scope);
   const [editing, setEditing] = useState(false);
   const [choice, setChoice] = useState<FindingVerdict>();
   const [reason, setReason] = useState('');
@@ -111,10 +120,11 @@ export function VerdictPanel({
     mutation.mutate(
       { verdict: choice, ...(trimmed === '' ? {} : { reason: trimmed }) },
       {
-        onSuccess: () => {
+        onSuccess: (view) => {
           setEditing(false);
           setChoice(undefined);
           setReason('');
+          onReviewed?.(view);
         },
       },
     );

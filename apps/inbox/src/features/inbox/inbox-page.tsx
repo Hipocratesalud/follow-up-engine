@@ -7,6 +7,7 @@ import { StatsBar } from '../../components/stats-bar.tsx';
 import { useT } from '../../i18n/index.ts';
 import { cx } from '../../lib/cx.ts';
 import { PatientQueueList } from '../patient-queue/patient-queue-list.tsx';
+import { InboxFindings } from '../reviewer/inbox-findings.tsx';
 
 /** "To try your own documents, go to Lab" — only for an identified evaluator (docs/deploy.md#hosted-demo). */
 function LabHint(): ReactNode {
@@ -25,7 +26,10 @@ function LabHint(): ReactNode {
 
 /**
  * The follow-up inbox: one card per patient (HIP-141) on the left, the
- * patient's cases on the right (or on their own screen on a phone).
+ * patient's cases on the right (or on their own screen on a phone). Above
+ * them, the clinical reviewer's findings of validated (live) categories, one
+ * card per finding: they are rated, not followed up, so they do not join a
+ * patient's follow-up card; that card shows how many the patient has.
  */
 export function InboxPage(): ReactNode {
   const t = useT();
@@ -41,6 +45,9 @@ export function InboxPage(): ReactNode {
       </header>
       <div className={cx(hasSelection && 'hidden lg:block')}>
         <StatsBar />
+      </div>
+      <div className={cx(hasSelection && 'hidden lg:block')}>
+        <InboxFindings />
       </div>
       <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
         <div className={cx('min-w-0', hasSelection && 'hidden lg:block')}>

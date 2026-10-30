@@ -15,6 +15,7 @@ import { useSessionState } from '../../lib/session-state.ts';
 import { AddWithoutDocument } from './add-without-document.tsx';
 import { ExpectationChips } from './expectation-chips.tsx';
 import { ExpectationsTable } from './expectations-table.tsx';
+import { LabFindingsPanel } from './lab-findings-panel.tsx';
 import { ImpactPanel } from './impact-panel.tsx';
 import { DocumentReadback } from './readback.tsx';
 import { type TimelineEntry, TimelinePanel } from './timeline-panel.tsx';
@@ -160,6 +161,8 @@ export function LabPage(): ReactNode {
           {t.lab.noPatientSelected}
         </p>
       )}
+
+      <LabFindingsPanel patientId={patientId} />
 
       <ImpactPanel />
     </div>

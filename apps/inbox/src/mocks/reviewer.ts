@@ -12,6 +12,7 @@ import {
   type FindingReviewRequest,
   type FindingStatus,
   type FindingView,
+  type InboxFindingList,
   type ReviewMetrics,
   type ReviewRunView,
 } from '../api/reviewer-contract.ts';
@@ -395,6 +396,12 @@ export interface ReviewerMock {
   updateFlag(update: FindingFlagUpdate): FindingFlagView;
   /** "Before the visit" (HIP-112 V3): the next appointment and what to raise then. */
   beforeVisit(patientId: string): BeforeVisitView;
+  /**
+   * The doctor's inbox cards, like the API's read model: open findings of the
+   * categories live with a sign-off now (never a shadow one, never a
+   * pre-visit question), most severe first.
+   */
+  listInboxFindings(): InboxFindingList;
 }
 
 function view(finding: FindingDetail): FindingView {
@@ -571,6 +578,28 @@ export function createReviewerMock(now: () => Date, locale: () => Locale): Revie
       };
       flags.set(update.category, next);
       return { ...flagView(next), review: flagReview(update.category) };
+    },
+    listInboxFindings() {
+      const items = current()
+        .filter((item) => {
+          const flag = flags.get(item.category);
+          return (
+            item.status === 'open' &&
+            item.category !== 'pre_visit_question' &&
+            flag?.enabled === true &&
+            flag.mode === 'live' &&
+            flag.validatedBy !== undefined
+          );
+        })
+        .map(view)
+        .sort(
+          (left, right) =>
+            BEFORE_VISIT_SEVERITY_ORDER[left.severity] -
+            BEFORE_VISIT_SEVERITY_ORDER[right.severity],
+        );
+      const byPatient: Record<string, number> = {};
+      for (const item of items) byPatient[item.patient.id] = (byPatient[item.patient.id] ?? 0) + 1;
+      return { items, total: items.length, byPatient };
     },
     beforeVisit(patientId) {
       const items = current()

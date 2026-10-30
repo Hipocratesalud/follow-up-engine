@@ -503,6 +503,38 @@ const inbox: Messages['inbox'] = {
     'Verás todos los casos del paciente, la evidencia citada de la nota y el siguiente paso sugerido.',
 };
 
+const liveFindings: Messages['liveFindings'] = {
+  title: 'Hallazgos clínicos',
+  intro:
+    'Sugerencias del revisor clínico en categorías que tu equipo clínico validó, cada una con la evidencia que cita. Califica cada una: una vez calificada, sale de tu bandeja.',
+  loading: 'Cargando hallazgos clínicos',
+  error: 'No pudimos cargar los hallazgos clínicos',
+  validatedBadge: 'Categoría validada',
+  suggestionTitle: 'Sugerencia',
+  evidenceTitle: 'Evidencia',
+  coveredBy: (labels) => `Ya en seguimiento: ${labels}`,
+  openPatient: 'Abrir paciente',
+  rated: (verdict) => `Calificado como ${verdict}. El hallazgo salió de tu bandeja.`,
+  patientBadge: (n) => count(n, 'hallazgo clínico', 'hallazgos clínicos'),
+  lab: {
+    title: 'Revisor clínico en tu laboratorio',
+    intro:
+      'Tu laboratorio empieza como un piloto en sombra: todas las categorías activas, en sombra, así que nada llega al médico. Pasa una a en vivo, firmada con tu correo, y sus hallazgos aparecen aquí como tarjetas de la bandeja del médico. La demo compartida nunca cambia.',
+    categoriesLink: 'Categorías de tu laboratorio',
+    reviewNow: 'Revisar este paciente ahora',
+    reviewed: (n) => `Revisión lista: ${count(n, 'hallazgo nuevo', 'hallazgos nuevos')}.`,
+    empty:
+      'Aún no hay tarjetas de hallazgos: todas las categorías de tu laboratorio están en sombra, o no hay hallazgos en vivo abiertos.',
+    back: 'Volver al laboratorio',
+    categoriesTitle: 'Categorías del revisor en tu laboratorio',
+    categoriesIntro:
+      'Aquí solo cambia tu laboratorio. Pasar a en vivo se firma con tu correo de evaluador, como lo firmaría el equipo clínico en una clínica real.',
+    signedOffAs: (email) => `Firmado como ${email}`,
+    signOffHint:
+      'En vivo, los hallazgos abiertos de esta categoría se vuelven tarjetas de la bandeja de tu laboratorio.',
+  },
+};
+
 const patientCard: Messages['patientCard'] = {
   cases: (n) => count(n, 'caso', 'casos'),
   activeCases: (n) => count(n, 'caso activo', 'casos activos'),
@@ -2486,6 +2518,7 @@ export const es: Messages = {
   caseDetail,
   feedback,
   inbox,
+  liveFindings,
   patientCard,
   planReview,
   adjudication,
