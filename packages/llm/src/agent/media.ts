@@ -1,5 +1,6 @@
 import type { LabPhotoReading, LlmMessage, PatientMediaReader } from '@follow-up-engine/core';
 import { z } from 'zod';
+import { prepareNote, REDACTION_PLACEHOLDER } from '../extraction/prepare.ts';
 import type { FollowUpLlmGateway } from '../gateway/gateway.ts';
 import type { FakeResponder } from '../providers/fake.ts';
 import { sha256Hex } from '../providers/transcription.ts';
@@ -160,19 +161,52 @@ export function createPatientMediaReader(options: {
       if (text === undefined || text.trim() === '') {
         throw new UnreadableDocumentError('The document has no readable text');
       }
+      // Masked like a note (the extractor's own masking): names never reach the model.
+      const masked = maskLabDocument(text.trim(), input.redactTerms ?? []);
       const result = await options.gateway.complete(clinicId, {
         task: input.mode === 'live' ? LAB_DOCUMENT_TASK : LAB_DOCUMENT_SCRIPTED_TASK,
         promptVersion: LAB_DOCUMENT_PROMPT_VERSION,
-        messages: labDocumentMessages(text.trim()),
+        messages: labDocumentMessages(masked.text),
         output: { name: LAB_DOCUMENT_OUTPUT_NAME, schema: LabPhotoReadingSchema },
         maxOutputTokens: 4_000,
       });
       return {
-        reading: toLabPhotoReading(result.output),
+        reading: masked.restore(toLabPhotoReading(result.output)),
         model: `${result.provider}:${result.model}`,
         costUsd: result.totalCostUsd,
         latencyMs: result.latencyMs,
       };
+    },
+  };
+}
+
+/**
+ * A report's text with the patient's names and identifiers masked (the note
+ * extractor's `prepareNote`), and how to restore the printed name in the
+ * reading: a masked mention the model reads back (or a name it omits once
+ * the patient's name was masked) is, by construction, the patient's name,
+ * so the name check still compares a real name. A name the model reads that
+ * was not masked is another person's and stays as read.
+ */
+export function maskLabDocument(
+  text: string,
+  redactTerms: readonly string[],
+): { readonly text: string; restore: (reading: LabPhotoReading) => LabPhotoReading } {
+  const prepared = prepareNote(text, { redactTerms, maxChars: MAX_LAB_DOCUMENT_CHARS });
+  const at = prepared.text.indexOf(REDACTION_PLACEHOLDER);
+  const span = at < 0 ? undefined : prepared.toOriginal(at, at + REDACTION_PLACEHOLDER.length);
+  const mention = span === undefined ? undefined : text.slice(span.start, span.end);
+  return {
+    text: prepared.text,
+    restore(reading) {
+      if (mention === undefined) return reading;
+      const printed = reading.patientName;
+      if (printed === undefined || printed.trim() === '') {
+        return { ...reading, patientName: mention };
+      }
+      return printed.includes(REDACTION_PLACEHOLDER)
+        ? { ...reading, patientName: printed.split(REDACTION_PLACEHOLDER).join(mention) }
+        : reading;
     },
   };
 }

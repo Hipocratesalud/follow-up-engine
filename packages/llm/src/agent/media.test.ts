@@ -130,4 +130,54 @@ describe('the lab-result reading of a document (PDF text)', () => {
     ).rejects.toBeInstanceOf(UnreadableDocumentError);
     expect(calls).toBe(0);
   });
+
+  it('masks the patient’s name in the report text, restores the masked mention for the name check, and leaves another person’s name as read', async () => {
+    const bodies: string[] = [];
+    let printed: string | null = '[REDACTADO]';
+    const fetch: FetchLike = async (_url, init) => {
+      bodies.push(init.body as string);
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: { content: JSON.stringify({ ...READING, patientName: printed }) },
+                finish_reason: 'stop',
+              },
+            ],
+            usage: { prompt_tokens: 600, completion_tokens: 300 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      );
+    };
+    const gateway = createLlmGateway({
+      providers: { meta: createMetaProvider({ apiKey: 'test', fetch }) },
+      tasks: { [LAB_DOCUMENT_TASK]: { route: [{ provider: 'meta', model: 'muse-spark-1.3' }] } },
+      usageLog: new InMemoryLlmUsageLog(),
+    });
+    const reader = createPatientMediaReader({ gateway, documentText });
+    const input = {
+      mode: 'live' as const,
+      document: utf8('Paciente: Rafael Antonio Méndez\nHbA1c 8.4 % (4.0 - 5.6)'),
+      contentType: 'application/pdf',
+      redactTerms: ['Rafael Antonio Méndez'],
+    };
+    const masked = await reader.readLabDocument(CLINIC, input);
+    expect(bodies[0]).not.toContain('Rafael');
+    expect(bodies[0]).not.toContain('Méndez');
+    expect(bodies[0]).toContain('[REDACTADO]');
+    expect(masked.reading.patientName).toBe('Rafael Antonio Méndez');
+
+    // A model that omits the masked name: the mention is restored all the same.
+    printed = null;
+    expect((await reader.readLabDocument(CLINIC, input)).reading.patientName).toBe(
+      'Rafael Antonio Méndez',
+    );
+    // A name that was never masked is another person's: kept as read (the check then refuses it).
+    printed = 'Laura Beatriz Ortega';
+    expect((await reader.readLabDocument(CLINIC, input)).reading.patientName).toBe(
+      'Laura Beatriz Ortega',
+    );
+  });
 });
