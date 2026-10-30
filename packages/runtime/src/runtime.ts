@@ -489,6 +489,13 @@ export async function registerDemoClinic(
     },
   });
   if (inboxApiKey !== undefined) {
+    // One inbox key at a time: a rotated DEMO_INBOX_API_KEY retires the previous
+    // one (issuing the same key again makes it live again).
+    await runtime.storage.apiKeys.revoke(
+      toClinicId(DEMO_CLINIC.id),
+      DEMO_INBOX_KEY_LABEL,
+      runtime.clock.now(),
+    );
     await runtime.issueApiKey({
       clinicId: DEMO_CLINIC.id,
       label: DEMO_INBOX_KEY_LABEL,
