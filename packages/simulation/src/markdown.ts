@@ -4,7 +4,7 @@ import type { Interval, SimulationReport } from './report.ts';
 /** The report as markdown (docs/evals/simulation/<date>.md). English, numbers rounded for reading. */
 
 function pct(value: number): string {
-  return `${(value * 100).toFixed(1)} %`;
+  return `${(value * 100).toFixed(1)}%`;
 }
 
 function pctInterval(interval: Interval): string {
@@ -39,7 +39,7 @@ export function headline(report: SimulationReport): string {
   return (
     `Orders fulfilled within ${String(report.cohort.horizonDays)} days: ` +
     `${pct(control.fulfilledShare.mean)} with fixed reminders → ${pct(agent.fulfilledShare.mean)} with the order agent ` +
-    `(${points(report.difference.fulfilledShare)}, 95 % interval over ${String(report.seeds.length)} seeded runs).`
+    `(${points(report.difference.fulfilledShare)}, 95% interval over ${String(report.seeds.length)} seeded runs).`
   );
 }
 
@@ -57,7 +57,7 @@ export function renderMarkdown(report: SimulationReport): string {
       `${String(report.cohort.patientsPerArm)} synthetic patients per arm, orders placed over the first ` +
       `${String(report.cohort.enrolmentDays)} days, observed until day ${String(report.cohort.horizonDays)}; ` +
       `seeds ${String(report.seeds[0] ?? 0)}–${String(report.seeds.at(-1) ?? 0)}. ` +
-      'Every value is the mean over seeds with the 95 % interval across seeds in parentheses. ' +
+      'Every value is the mean over seeds with the 95% interval across seeds in parentheses. ' +
       '"Fulfilled" is the engine\'s own status of the order at the end: the simulation never marks an order done. ' +
       'Method and assumptions: docs/simulation.md. Reproduce with `pnpm simulate`.',
     '',
