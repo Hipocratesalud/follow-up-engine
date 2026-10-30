@@ -120,7 +120,10 @@ export {
   MAX_LAB_DOCUMENT_BYTES,
 } from './documents.ts';
 export {
+  confirmHeldReport,
   DATE_TOLERANCE_DAYS,
+  discardHeldReport,
+  type HeldReportDecision,
   HISTORY_DOCUMENT_STATUSES,
   historyDocumentKey,
   importPatientHistory,

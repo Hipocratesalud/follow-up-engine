@@ -9,7 +9,12 @@ import {
 import { buildConsultationBundle } from '@follow-up-engine/fhir';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadRuntimeConfig } from './config.ts';
-import { type HistoryDocument, importPatientHistory } from './history-import.ts';
+import {
+  confirmHeldReport,
+  discardHeldReport,
+  type HistoryDocument,
+  importPatientHistory,
+} from './history-import.ts';
 import { ensureLabClinicAndClock, setLabClinicDate } from './lab.ts';
 import {
   HISTORY_EARLY_LAB_MARKER,
@@ -547,5 +552,148 @@ describe('importing a patient’s history (V1-A, historical mode)', () => {
     expect(resumed.resumed).toBe(true);
     expect(resumed.progress.runId).toBe('backfill-clinic-wide');
     expect(resumed.progress.status).toBe('completed');
+  });
+
+  describe('a report held for review (name on the report does not match)', () => {
+    async function held(email = 'held@example.com') {
+      const env = await lab(email);
+      const patientId = toPatientId('pat-held');
+      const report = await importPatientHistory(env.runtime, {
+        clinicId: env.clinicId,
+        clock: env.clock,
+        patient: { id: patientId, name: RAFAEL },
+        documents: [
+          ...sampleDocuments('rafael', {}, [NOTE]),
+          textReport(HISTORY_OTHER_PATIENT_MARKER, '2024-05-06'),
+        ],
+      });
+      const heldReportId = report.documents[1]?.heldReportId ?? '';
+      return { ...env, patientId, report, heldReportId };
+    }
+
+    it('is stored per clinic with the printed and record names, the values and the reason', async () => {
+      const { runtime: rt, clinicId, patientId, heldReportId } = await held();
+      expect(heldReportId).toMatch(/^held-[0-9a-f]{16}$/);
+      const pending = await rt.storage.heldLabReports.list(clinicId, { status: 'pending' });
+      expect(pending).toHaveLength(1);
+      expect(pending[0]).toMatchObject({
+        id: heldReportId,
+        patientId,
+        filename: `${HISTORY_OTHER_PATIENT_MARKER}.txt`,
+        documentDate: day('2024-05-06'),
+        printedName: 'Laura Beatriz Ortega',
+        recordName: RAFAEL,
+        reason: 'name_mismatch',
+        status: 'pending',
+        results: [expect.objectContaining({ test: 'HbA1c', value: 6.1 })],
+      });
+      expect(pending[0]?.results[0]?.code.code).toBe('4548-4');
+      // Another clinic sees nothing of it.
+      const other = await lab('someone-else@example.com');
+      expect(await rt.storage.heldLabReports.list(other.clinicId)).toHaveLength(0);
+    });
+
+    it('"It\u2019s this patient": records who and when, then the engine closes the order from it', async () => {
+      const { runtime: rt, clinicId, clock, patientId, heldReportId } = await held();
+      expect(hba1cOrder(await expectationsOf(rt, clinicId, patientId))?.status).not.toBe(
+        'fulfilled',
+      );
+      const decision = await confirmHeldReport(rt, {
+        clinicId,
+        clock,
+        id: heldReportId,
+        by: 'doctor@example.com',
+      });
+      expect(decision?.report).toMatchObject({
+        status: 'confirmed',
+        decidedBy: 'doctor@example.com',
+        decidedAt: clock.now(),
+      });
+      expect(decision?.resources).toEqual([
+        expect.stringMatching(/^Observation\/hist-obs-[0-9a-f]{16}-hba1c$/),
+      ]);
+      const order = hba1cOrder(await expectationsOf(rt, clinicId, patientId));
+      expect(order?.status).toBe('fulfilled');
+      expect(order?.closedReason).toBe('fulfilled_by_result');
+      expect(order?.closedBy?.id).toBe(decision?.resources?.[0]?.replace('Observation/', ''));
+      // Decided once: a second confirmation does nothing.
+      expect(
+        await confirmHeldReport(rt, {
+          clinicId,
+          clock,
+          id: heldReportId,
+          by: 'someone@example.com',
+        }),
+      ).toBeUndefined();
+    });
+
+    it('"Not this patient": discards it with who and when, and nothing is recorded or closed', async () => {
+      const { runtime: rt, clinicId, clock, patientId, heldReportId } = await held();
+      const decision = await discardHeldReport(rt, {
+        clinicId,
+        clock,
+        id: heldReportId,
+        by: 'doctor@example.com',
+      });
+      expect(decision?.report).toMatchObject({
+        status: 'discarded',
+        decidedBy: 'doctor@example.com',
+      });
+      expect(hba1cOrder(await expectationsOf(rt, clinicId, patientId))?.status).not.toBe(
+        'fulfilled',
+      );
+      const results = await rt.storage.unitOfWork.withTransaction(clinicId, (stores) =>
+        stores.clinicalRecords.listEventsForPatient(clinicId, patientId, {
+          types: ['result.received'],
+        }),
+      );
+      expect(results).toHaveLength(0);
+      expect(await rt.storage.heldLabReports.list(clinicId, { status: 'pending' })).toHaveLength(0);
+    });
+
+    it('is never read again on a re-import: pending stays held, discarded stays discarded, confirmed is already imported', async () => {
+      const { runtime: rt, clinicId, clock, patientId, heldReportId } = await held();
+      const documents = [
+        ...sampleDocuments('rafael', {}, [NOTE]),
+        textReport(HISTORY_OTHER_PATIENT_MARKER, '2024-05-06'),
+      ];
+      const calls = async () => (await rt.storage.llmUsage.summary(clinicId, new Date(0))).calls;
+      const before = await calls();
+      const again = await importPatientHistory(rt, {
+        clinicId,
+        clock,
+        patient: { id: patientId },
+        documents,
+      });
+      expect(again.documents[1]).toMatchObject({ status: 'needs_review', heldReportId });
+      expect(await calls()).toBe(before);
+      expect(await rt.storage.heldLabReports.list(clinicId)).toHaveLength(1);
+
+      await discardHeldReport(rt, { clinicId, clock, id: heldReportId, by: 'doctor@example.com' });
+      const afterDiscard = await importPatientHistory(rt, {
+        clinicId,
+        clock,
+        patient: { id: patientId },
+        documents,
+      });
+      expect(afterDiscard.documents[1]).toMatchObject({ status: 'discarded', heldReportId });
+      expect(await calls()).toBe(before);
+
+      const second = await held('held-confirm@example.com');
+      await confirmHeldReport(second.runtime, {
+        clinicId: second.clinicId,
+        clock: second.clock,
+        id: second.heldReportId,
+        by: 'doctor@example.com',
+      });
+      const afterConfirm = await importPatientHistory(second.runtime, {
+        clinicId: second.clinicId,
+        clock: second.clock,
+        patient: { id: second.patientId },
+        documents,
+      });
+      expect(afterConfirm.documents[1]?.status).toBe('already_imported');
+      expect(afterConfirm.eventsStaged).toBe(0);
+    });
   });
 });

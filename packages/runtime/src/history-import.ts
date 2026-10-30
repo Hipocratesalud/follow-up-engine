@@ -4,7 +4,10 @@ import {
   type ClinicId,
   type Clock,
   codeLabReading,
+  type CodedLabResult,
   type FhirResourceJson,
+  type HeldLabReport,
+  type HeldLabResult,
   type LabPhotoReading,
   type MediaReadingCost,
   nameOnReport,
@@ -70,6 +73,8 @@ export const HISTORY_DOCUMENT_STATUSES = [
    * closes an order.
    */
   'needs_review',
+  /** Held earlier and discarded by the team ("Not this patient"): not read again. */
+  'discarded',
   /** No text could be extracted, or the reading failed. */
   'unreadable',
 ] as const;
@@ -89,6 +94,8 @@ export interface HistoryDocumentOutcome {
   readonly error?: DocumentExtractionError | 'reading_failed';
   /** Why a report is held (`needs_review`). */
   readonly reviewReason?: 'name_mismatch';
+  /** The stored held report (`needs_review`, `discarded`): the team decides on it later. */
+  readonly heldReportId?: string;
   /** A lab report's name check: the printed name against the patient's, by code. */
   readonly nameOnReport?: 'matches' | 'mismatch' | 'absent';
   /**
@@ -191,6 +198,176 @@ function observationId(key: string, groupId: string): string {
   return `hist-obs-${key}-${groupId}`;
 }
 
+function heldResultOf(result: CodedLabResult): HeldLabResult {
+  return {
+    name: result.reading.name,
+    groupId: result.groupId,
+    test: result.test,
+    code: result.code,
+    value: result.reading.value,
+    ...(result.reading.unit === undefined ? {} : { unit: result.reading.unit }),
+    ...(result.reading.referenceLow === undefined
+      ? {}
+      : { referenceLow: result.reading.referenceLow }),
+    ...(result.reading.referenceHigh === undefined
+      ? {}
+      : { referenceHigh: result.reading.referenceHigh }),
+    ...(result.interpretation === undefined ? {} : { interpretation: result.interpretation }),
+  };
+}
+
+/** A held report as an import outcome shows it (never read again). */
+function heldView(held: HeldLabReport): Pick<HistoryDocumentOutcome, 'results' | 'dates'> {
+  return {
+    results: held.results.map((result) => ({
+      name: result.name,
+      test: result.test,
+      loinc: result.code.code,
+      value: result.value,
+      ...(result.unit === undefined ? {} : { unit: result.unit }),
+      ...(result.interpretation === undefined ? {} : { interpretation: result.interpretation }),
+    })),
+    dates: {
+      ...(held.printedDate === undefined ? {} : { printed: held.printedDate }),
+      entered: held.documentDate,
+      used: held.printedDate?.getTime() === held.effectiveAt.getTime() ? 'printed' : 'entered',
+      mismatch:
+        held.printedDate !== undefined &&
+        Math.abs(held.printedDate.getTime() - held.documentDate.getTime()) >
+          DATE_TOLERANCE_DAYS * DAY_MS,
+    },
+  };
+}
+
+/**
+ * Stages a report's coded results as FHIR Observations (ids from the
+ * document key: a repeat stages nothing): an accepted report, or a held one
+ * the team confirmed. The engine decides what they fulfill on the replay.
+ */
+async function stageLabResults(
+  ingestion: IngestionService,
+  input: {
+    readonly clinicId: ClinicId;
+    readonly patientId: PatientId;
+    readonly key: string;
+    readonly results: readonly HeldLabResult[];
+    readonly effectiveAt: Date;
+    readonly source: 'photo' | 'text';
+    readonly confirmedBy?: string;
+  },
+): Promise<{ readonly eventsStaged: number; readonly resources: string[] }> {
+  let eventsStaged = 0;
+  const resources: string[] = [];
+  for (const result of input.results) {
+    const id = observationId(input.key, result.groupId);
+    const bundle = buildAgentResultBundle({
+      observationId: id,
+      patientId: input.patientId,
+      code: result.code,
+      value: result.value,
+      ...(result.unit === undefined ? {} : { unit: result.unit }),
+      ...(result.referenceLow === undefined ? {} : { referenceLow: result.referenceLow }),
+      ...(result.referenceHigh === undefined ? {} : { referenceHigh: result.referenceHigh }),
+      ...(result.interpretation === undefined ? {} : { interpretation: result.interpretation }),
+      effectiveAt: input.effectiveAt,
+      receivedAt: input.effectiveAt,
+      note:
+        `Imported from the clinic's history (${input.source === 'photo' ? 'a photo of the lab report' : 'a lab report document'}); read by the lab-result reading.` +
+        (input.confirmedBy === undefined
+          ? ''
+          : ' The name printed on it did not match; the clinic team confirmed it is this patient.'),
+    });
+    const staging = await ingestion.stageHistory(input.clinicId, bundle, input.effectiveAt);
+    eventsStaged += staging.staged;
+    resources.push(`Observation/${id}`);
+  }
+  return { eventsStaged, resources };
+}
+
+/** What a decision on a held report did. */
+export interface HeldReportDecision {
+  readonly report: HeldLabReport;
+  /** Confirmed: the Observations recorded and the patient's replay (as for an accepted report). */
+  readonly resources?: readonly string[];
+  readonly replay?: HistoryImportReport['backfill'];
+}
+
+/**
+ * "It's this patient": records who decided and when, then records the held
+ * report exactly like an accepted one (FHIR Observations staged, the
+ * patient replayed as its own run), so the engine may close an order.
+ * `undefined` when the report is unknown or was already decided.
+ */
+export async function confirmHeldReport(
+  runtime: EngineRuntime,
+  input: {
+    readonly clinicId: ClinicId;
+    readonly clock: Clock;
+    readonly id: string;
+    readonly by: string;
+  },
+): Promise<HeldReportDecision | undefined> {
+  const report = await runtime.storage.heldLabReports.decide(input.clinicId, input.id, {
+    status: 'confirmed',
+    by: input.by,
+    at: input.clock.now(),
+  });
+  if (report === undefined) return undefined;
+  const ingestion = new IngestionService({
+    storage: runtime.storage,
+    engine: runtime.engine,
+    clock: input.clock,
+  });
+  const staged = await stageLabResults(ingestion, {
+    clinicId: input.clinicId,
+    patientId: report.patientId,
+    key: report.documentKey,
+    results: report.results,
+    effectiveAt: report.effectiveAt,
+    source: report.source,
+    confirmedBy: input.by,
+  });
+  const replay = await runtime.engine.backfill.replayPatients(input.clinicId, [report.patientId], {
+    clock: input.clock,
+    runId: `held-${report.id}-${input.clock.now().toISOString()}`,
+  });
+  return {
+    report,
+    resources: staged.resources,
+    replay: {
+      runId: replay.runId,
+      status: replay.status,
+      expectationsCreated: replay.counts.expectationsCreated,
+      expectationsFulfilled: replay.counts.expectationsFulfilled,
+      casesOpened: replay.counts.casesOpened,
+      notesRead: replay.counts.documentsProcessed,
+      notesLlmCostUsd: replay.counts.llmCostUsd,
+      ...(replay.release === undefined ? {} : { release: replay.release }),
+    },
+  };
+}
+
+/**
+ * "Not this patient": discards a held report (who and when are kept); it is
+ * never recorded and never read again. `undefined` when unknown or decided.
+ */
+export async function discardHeldReport(
+  runtime: EngineRuntime,
+  input: {
+    readonly clinicId: ClinicId;
+    readonly clock: Clock;
+    readonly id: string;
+    readonly by: string;
+  },
+): Promise<HeldReportDecision | undefined> {
+  const report = await runtime.storage.heldLabReports.decide(input.clinicId, input.id, {
+    status: 'discarded',
+    by: input.by,
+    at: input.clock.now(),
+  });
+  return report === undefined ? undefined : { report };
+}
+
 /**
  * Imports a patient's history in one go (the lab's "Import history"): every
  * document (PDF, DOCX, TXT, a photo of a result) with its own date. Notes
@@ -291,6 +468,22 @@ export async function importPatientHistory(
         });
         continue;
       }
+      // Held before (pending or discarded): never read again.
+      const held = await runtime.storage.heldLabReports.findByDocumentKey(clinicId, key);
+      if (held !== undefined && held.status !== 'confirmed') {
+        outcomes.push({
+          ...base,
+          readAs,
+          source,
+          status: held.status === 'pending' ? 'needs_review' : 'discarded',
+          reviewReason: held.reason,
+          heldReportId: held.id,
+          nameOnReport: 'mismatch',
+          resources: [],
+          ...heldView(held),
+        });
+        continue;
+      }
       const read = await readLabReport(
         runtime,
         clinicId,
@@ -341,42 +534,50 @@ export async function importPatientHistory(
         reading: { model: read.model, costUsd: read.costUsd, latencyMs: read.latencyMs },
       };
       if (nameCheck === 'mismatch') {
-        // Another person's report never reaches the record, so it closes nothing.
+        // Another person's report never reaches the record, so it closes nothing:
+        // it is held for the team, who decide whether it is this patient's.
+        const stored = await runtime.storage.heldLabReports.hold({
+          id: `held-${key}`,
+          clinicId,
+          patientId: patient.id,
+          documentKey: key,
+          filename: document.filename,
+          documentDate: document.documentDate,
+          effectiveAt,
+          ...(printed === undefined ? {} : { printedDate: printed }),
+          ...(read.reading.patientName === undefined
+            ? {}
+            : { printedName: read.reading.patientName }),
+          ...(patientName === undefined ? {} : { recordName: patientName }),
+          reason: 'name_mismatch',
+          source,
+          model: read.model,
+          results: coded.results.map(heldResultOf),
+          status: 'pending',
+          createdAt: now,
+        });
         outcomes.push({
           ...base,
           readAs,
           source,
           status: 'needs_review',
           reviewReason: 'name_mismatch',
+          heldReportId: stored.id,
           resources: [],
           ...readView,
         });
         continue;
       }
-      const resources: string[] = [];
-      for (const result of coded.results) {
-        const id = observationId(key, result.groupId);
-        const bundle = buildAgentResultBundle({
-          observationId: id,
-          patientId: patient.id,
-          code: result.code,
-          value: result.reading.value,
-          ...(result.reading.unit === undefined ? {} : { unit: result.reading.unit }),
-          ...(result.reading.referenceLow === undefined
-            ? {}
-            : { referenceLow: result.reading.referenceLow }),
-          ...(result.reading.referenceHigh === undefined
-            ? {}
-            : { referenceHigh: result.reading.referenceHigh }),
-          ...(result.interpretation === undefined ? {} : { interpretation: result.interpretation }),
-          effectiveAt,
-          receivedAt: effectiveAt,
-          note: `Imported from the clinic's history (${photo ? 'a photo of the lab report' : 'a lab report document'}); read by the lab-result reading.`,
-        });
-        const staging = await ingestion.stageHistory(clinicId, bundle, effectiveAt);
-        eventsStaged += staging.staged;
-        resources.push(`Observation/${id}`);
-      }
+      const staged = await stageLabResults(ingestion, {
+        clinicId,
+        patientId: patient.id,
+        key,
+        results: coded.results.map(heldResultOf),
+        effectiveAt,
+        source,
+      });
+      eventsStaged += staged.eventsStaged;
+      const resources = staged.resources;
       outcomes.push({
         ...base,
         readAs,
