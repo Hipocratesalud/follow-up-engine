@@ -13,6 +13,8 @@ import type { MemoryDatabase } from './memory-database.ts';
 /** Settings of a new clinic unless overridden (PRD defaults). */
 export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   allowPatientContact: false,
+  // A photo cannot be masked: it never leaves for a model provider unless enabled.
+  allowUnmaskedImagesToProvider: false,
   dailyCaseCapPerOwner: 20,
   backfillNotifyMaxAgeDays: 730,
   llmMonthlyBudgetUsd: 50,

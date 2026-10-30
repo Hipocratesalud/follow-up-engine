@@ -10,7 +10,29 @@ import { CaseWriter } from '../case-manager/case-writer.ts';
 import type { Catalog } from '../catalog.ts';
 import { caseExpectations, policyOf } from '../escalation/schedule.ts';
 import type { EngineSettings } from '../settings.ts';
+import { addLocalDays, zonedInstant } from '../order-agent/zoned-time.ts';
+import { clinicDay } from '../reviewer/service.ts';
 import { addDays, daysBetween } from '../support/time.ts';
+
+const MS_PER_DAY = 86_400_000;
+
+/** The clinic's IANA time zone when valid, else UTC (a misconfigured zone never breaks a release). */
+function validZone(timeZone: string | undefined): string {
+  if (timeZone === undefined) return 'UTC';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone });
+    return timeZone;
+  } catch {
+    return 'UTC';
+  }
+}
+
+/** Local calendar days from `fromDay` to `toDay` (both `YYYY-MM-DD`). */
+function calendarDaysBetween(fromDay: string, toDay: string): number {
+  return Math.round(
+    (Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / MS_PER_DAY,
+  );
+}
 
 /** Settings the release plan falls back to when the clinic has none (PRD defaults). */
 export const BACKFILL_RELEASE_DEFAULTS = {
@@ -156,7 +178,8 @@ function byRisk(left: Candidate, right: Candidate): number {
  *   weight), then the longest overdue;
  * - at most `dailyCaseCapPerOwner` releases per owner per day (day 0 is now),
  *   counting what earlier plans already scheduled, and what they released
- *   in the last 24 hours (day 0);
+ *   today; days are calendar days in the clinic's time zone (day 0 is today
+ *   until local midnight; a later day's batch is released at its local midnight);
  * - cases whose most recent reason is overdue by more than
  *   `backfillNotifyMaxAgeDays` are never released: they stay listed among the
  *   patients to recover and never notify anyone.
@@ -175,6 +198,14 @@ export async function planBackfillRelease(
   );
   const maxAgeDays =
     clinic?.settings.backfillNotifyMaxAgeDays ?? BACKFILL_RELEASE_DEFAULTS.backfillNotifyMaxAgeDays;
+  // The cap is per calendar day in the clinic's time zone (like the findings
+  // cap, `clinicDay`): day 0 is today until local midnight, never a rolling 24 h.
+  const timeZone = validZone(clinic?.settings.timezone);
+  const today = clinicDay(now, timeZone);
+  const dayOf = (at: Date): number => calendarDaysBetween(today, clinicDay(at, timeZone));
+  /** Day 0 releases now; a later day releases at its local midnight. */
+  const releaseOn = (day: number): Date =>
+    day === 0 ? now : zonedInstant(addLocalDays(now, day, timeZone), 0, 0, timeZone);
   return deps.unitOfWork.withTransaction(clinicId, async (stores) => {
     const waiting = await listCases(stores, clinicId, {
       origin: 'backfill',
@@ -184,15 +215,15 @@ export async function planBackfillRelease(
     const load = new Map<string, number[]>();
     const ownerOf = (followUpCase: FollowUpCase) =>
       followUpCase.assignee ?? deps.settings.frontDeskOwner;
-    // What an earlier plan already released today counts against today's cap
-    // too: several runs in one day (a patient's history imported after the
-    // clinic's backfill) never release more than the cap per owner and day.
-    const dayAgo = addDays(now, -1).getTime();
+    // What an earlier plan already released today (the same local calendar
+    // day) counts against today's cap too: several runs in one day (a
+    // patient's history imported after the clinic's backfill) never release
+    // more than the cap per owner and day; yesterday's releases never count.
     for (const followUpCase of await listCases(stores, clinicId, {
       origin: 'backfill',
       releasedAsOf: now,
     })) {
-      if (followUpCase.releaseAt !== undefined && followUpCase.releaseAt.getTime() > dayAgo) {
+      if (followUpCase.releaseAt !== undefined && dayOf(followUpCase.releaseAt) === 0) {
         const days = load.get(ownerOf(followUpCase)) ?? [];
         days[0] = (days[0] ?? 0) + 1;
         load.set(ownerOf(followUpCase), days);
@@ -200,7 +231,7 @@ export async function planBackfillRelease(
     }
     for (const followUpCase of waiting) {
       if (followUpCase.releaseAt !== undefined && !isUnscheduledRelease(followUpCase.releaseAt)) {
-        const day = Math.max(0, daysBetween(now, followUpCase.releaseAt));
+        const day = Math.max(0, dayOf(followUpCase.releaseAt));
         const days = load.get(ownerOf(followUpCase)) ?? [];
         days[day] = (days[day] ?? 0) + 1;
         load.set(ownerOf(followUpCase), days);
@@ -231,7 +262,7 @@ export async function planBackfillRelease(
       perDay[day] = (perDay[day] ?? 0) + 1;
       await stores.cases.update(clinicId, {
         ...followUpCase,
-        releaseAt: addDays(now, day),
+        releaseAt: releaseOn(day),
         updatedAt: now,
       });
     }

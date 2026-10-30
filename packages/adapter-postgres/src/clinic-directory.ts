@@ -12,6 +12,8 @@ import { jsonParam, type RepositoryContext } from './sql.ts';
 export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   // Nothing reaches patients until the clinic opts in.
   allowPatientContact: false,
+  // A photo cannot be masked: it never leaves for a model provider unless enabled.
+  allowUnmaskedImagesToProvider: false,
   dailyCaseCapPerOwner: 20,
   backfillNotifyMaxAgeDays: 730,
   llmMonthlyBudgetUsd: 50,

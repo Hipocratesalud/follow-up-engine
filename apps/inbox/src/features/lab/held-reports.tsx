@@ -26,6 +26,8 @@ function HeldReportItem({ report }: { readonly report: HeldLabReportView }): Rea
     decide.mutate({ id: report.id, decision: 'discard' });
   }
 
+  // A photo the clinic does not send to a model was never read: the team enters it by hand.
+  const unread = report.reason === 'photo_not_allowed';
   return (
     <li className="flex flex-col gap-2 px-3 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -36,7 +38,9 @@ function HeldReportItem({ report }: { readonly report: HeldLabReportView }): Rea
         <Badge tone="danger">{t.lab.history.statuses['needs_review']}</Badge>
       </div>
       <p className="text-xs font-medium text-danger">
-        {COPY.names(report.printedName ?? COPY.noName, report.recordName ?? report.patientId)}
+        {unread
+          ? COPY.photoNotAllowed
+          : COPY.names(report.printedName ?? COPY.noName, report.recordName ?? report.patientId)}
       </p>
       <p className="text-xs text-muted">
         {COPY.dates(
@@ -61,16 +65,18 @@ function HeldReportItem({ report }: { readonly report: HeldLabReportView }): Rea
         </ul>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="primary"
-          icon={<Check className="size-3.5" aria-hidden="true" />}
-          loading={decide.isPending && decide.variables.decision === 'confirm'}
-          disabled={decide.isPending}
-          onClick={handleConfirm}
-        >
-          {COPY.confirm}
-        </Button>
+        {unread ? null : (
+          <Button
+            size="sm"
+            variant="primary"
+            icon={<Check className="size-3.5" aria-hidden="true" />}
+            loading={decide.isPending && decide.variables.decision === 'confirm'}
+            disabled={decide.isPending}
+            onClick={handleConfirm}
+          >
+            {COPY.confirm}
+          </Button>
+        )}
         <Button
           size="sm"
           icon={<X className="size-3.5" aria-hidden="true" />}
@@ -78,7 +84,7 @@ function HeldReportItem({ report }: { readonly report: HeldLabReportView }): Rea
           disabled={decide.isPending}
           onClick={handleDiscard}
         >
-          {COPY.discard}
+          {unread ? COPY.markReviewed : COPY.discard}
         </Button>
       </div>
       <InlineError error={decide.error} />

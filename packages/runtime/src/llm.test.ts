@@ -1,4 +1,9 @@
-import { type ClinicDirectory, clinicId, SystemClock } from '@follow-up-engine/core';
+import {
+  type ClinicDirectory,
+  clinicId,
+  SystemClock,
+  UnmaskedImageRefusedError,
+} from '@follow-up-engine/core';
 import {
   emptySnapshot,
   type FetchLike,
@@ -240,7 +245,13 @@ describe('a recorded Muse Spark snapshot', () => {
         }),
       );
     };
-    const configured = createConfiguredExtractor(config, deps(fetch));
+    // A clinic that allows unmasked images (the demo, a lab sandbox): photos may leave.
+    const configured = createConfiguredExtractor(config, {
+      ...deps(fetch),
+      clinics: {
+        get: () => Promise.resolve({ settings: { allowUnmaskedImagesToProvider: true } }),
+      } as unknown as ClinicDirectory,
+    });
     const voice = await configured.mediaReader.transcribe(clinicId('c1'), {
       mode: 'live',
       audio: new Uint8Array([82, 73, 70, 70]),
@@ -258,6 +269,17 @@ describe('a recorded Muse Spark snapshot', () => {
     expect(voice.transcript).toBe('Ya me hice el examen.');
     expect(voice.model).toBe('meta:muse-voice-transcribe-1.0');
     expect(photo.reading.tests.map((test) => test.name)).toEqual(['HbA1c']);
+
+    // Any other clinic (here, an unknown one): the photo never reaches the relay.
+    const strict = createConfiguredExtractor(config, deps(fetch));
+    await expect(
+      strict.mediaReader.readLabPhoto(clinicId('c2'), {
+        mode: 'live',
+        image: new Uint8Array([255, 216, 255]),
+        contentType: 'image/jpeg',
+      }),
+    ).rejects.toThrow(UnmaskedImageRefusedError);
+    expect(calls).toHaveLength(2);
   });
 
   it('is ignored with the fake provider', () => {

@@ -208,7 +208,7 @@ export const LabHistoryDocumentOutcomeSchema = z.object({
   heldReportId: z.string().optional().meta({ description: 'The held report the team decides on' }),
   error: z.string().optional(),
   reviewReason: z
-    .enum(['name_mismatch'])
+    .enum(['name_mismatch', 'photo_not_allowed'])
     .optional()
     .meta({ description: 'Why a report is held for the team (nothing staged, no order closed)' }),
   nameOnReport: z
@@ -310,7 +310,7 @@ export const HeldLabReportViewSchema = z
     printedDate: calendarDay.optional(),
     printedName: z.string().optional().meta({ description: 'The name printed on the report' }),
     recordName: z.string().optional().meta({ description: "The name in the patient's record" }),
-    reason: z.enum(['name_mismatch']),
+    reason: z.enum(['name_mismatch', 'photo_not_allowed']),
     source: z.enum(['photo', 'text']),
     model: z.string().optional(),
     results: z.array(

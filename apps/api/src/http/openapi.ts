@@ -863,7 +863,7 @@ const OPERATIONS: readonly Operation[] = [
       "It's this patient: records who decided and when, then records the report like an accepted one (the engine may close an order)",
     params: [id('Held report id')],
     response: 'HeldLabReportDecision',
-    errors: [403, 404, 409],
+    errors: [403, 404, 409, 422],
   },
   {
     method: 'post',

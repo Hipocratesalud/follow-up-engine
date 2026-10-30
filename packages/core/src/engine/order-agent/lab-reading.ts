@@ -64,21 +64,44 @@ export function codeLabReading(reading: LabPhotoReading): {
 /** Whether the name printed on a report is the patient's: compared by code, never by a model. */
 export type NameOnReport = 'matches' | 'mismatch' | 'absent';
 
+/** A name's words, accents and case folded, punctuation dropped (`María F. Rojas` → maria, f, rojas). */
+function nameTokens(name: string): string[] {
+  return fold(name)
+    .trim()
+    .split(/\s+/)
+    .filter((token) => token !== '' && !/^\d+$/.test(token));
+}
+
 /**
- * Compares the name printed on a lab report with the patient's full name
- * (accents and case folded): it matches when any distinctive part (longer
- * than two letters) of the patient's name is printed. A printed name with
- * none of them is another patient's report; no printed name is `absent`.
+ * Compares the name printed on a lab report with the name in the patient's
+ * record, by code. **By design it errs toward holding**: a false hold only
+ * sends a report to the team ("Needs review"), a false match would record
+ * another person's result in this patient's chart and could close an order.
+ *
+ * It matches only when the printed name shares **two full words** with the
+ * record (a given name and a surname, in any order: one or two surnames,
+ * swapped surnames, an extra middle name or initial, extra whitespace,
+ * accents and case do not matter), or every word of a one-word record name.
+ * A printed initial must be the first letter of one of the record's words.
+ * One shared word is not enough (same first name with another surname, a
+ * common surname with another first name, `María Rojas` vs `Mariana Rojas`:
+ * all held). No printed name is `absent` (nothing to compare; accepted, as
+ * on the agent path).
  */
 export function nameOnReport(
   printed: string | undefined,
   patientFullName: string | undefined,
 ): NameOnReport {
   if (printed === undefined || printed.trim() === '') return 'absent';
-  const known = fold(patientFullName ?? '')
-    .trim()
-    .split(' ')
-    .filter((part) => part.length > 2);
-  const seen = fold(printed).trim().split(' ');
-  return known.length > 0 && known.some((part) => seen.includes(part)) ? 'matches' : 'mismatch';
+  const record = nameTokens(patientFullName ?? '');
+  const seen = nameTokens(printed);
+  const words = (tokens: readonly string[]) => tokens.filter((token) => token.length > 1);
+  const recordWords = new Set(words(record));
+  if (recordWords.size === 0) return 'mismatch';
+  const shared = new Set(words(seen).filter((token) => recordWords.has(token)));
+  // An initial that is no word of the record (`María X. Rojas` vs `María Fernanda Rojas`).
+  const initialsFit = seen
+    .filter((token) => token.length === 1)
+    .every((initial) => record.some((token) => token.startsWith(initial)));
+  return initialsFit && shared.size >= Math.min(2, recordWords.size) ? 'matches' : 'mismatch';
 }

@@ -24,7 +24,7 @@ import type {
 import type { FhirResourceJson } from '../../domain/resource.ts';
 import { ValidationError } from '../../domain/errors.ts';
 import type { ClinicDirectory } from '../../ports/clinic-directory.ts';
-import { LlmBudgetExceededError } from '../../ports/llm.ts';
+import { isUnmaskedImageRefused, LlmBudgetExceededError } from '../../ports/llm.ts';
 import type {
   EngineOutcome,
   OrderAgentEffects,
@@ -1162,6 +1162,21 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
           if (message?.patientId !== patientId || !isLabReportMessage(message)) {
             return refuse(name, args, reason, 'not_a_photo_message', ['messages']);
           }
+          if (message.reading?.notRead === 'photo_not_allowed') {
+            await trace(name, args, reason, 'ok', 'photo_not_allowed', {}, [
+              `message:${message.id}`,
+              'clinic_settings',
+            ]);
+            return {
+              ok: true,
+              result: {
+                isLabReport: false,
+                matches: [],
+                notRead: 'clinic_reads_photos_by_hand',
+                note: 'This clinic reads photos by hand: the team already has a task. Thank the patient and say the clinic team will review it. Never ask for another photo.',
+              },
+            };
+          }
           if (message.reading?.isLabReport !== true) {
             await trace(name, args, reason, 'ok', 'photo_not_a_report', {}, [
               `message:${message.id}`,
@@ -1527,6 +1542,31 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
     try {
       return await attempt(conversation.mode);
     } catch (error) {
+      if (message.kind === 'image' && isUnmaskedImageRefused(error)) {
+        // The clinic does not send photos to a model: refused by the gateway
+        // before any call. Never dropped: marked not read, and the team gets a task.
+        const next: AgentMessage = {
+          ...message,
+          reading: { isLabReport: false, tests: [], notRead: 'photo_not_allowed' },
+        };
+        await deps.store.saveMessage(next);
+        await step(clinicId, patientId, now, {
+          runId,
+          kind: 'policy',
+          outcome: 'info',
+          event: 'photo_not_allowed',
+          params: { messageId: message.id },
+        });
+        await addTask(conversation, {
+          kind: 'call_patient',
+          priority: 'normal',
+          ask: 'review_photo',
+          now,
+          dueInDays: 1,
+          runId,
+        });
+        return next;
+      }
       if (conversation.mode === 'live' && error instanceof LlmBudgetExceededError) {
         await step(clinicId, patientId, now, {
           runId,

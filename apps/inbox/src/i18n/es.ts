@@ -2018,6 +2018,8 @@ const lab: Messages['lab'] = {
     readAs: { note: 'Nota clínica', lab_report: 'Informe de laboratorio' },
     source: { photo: 'foto', text: 'texto del documento' },
     readBy: (model: string): string => `leído por ${model}`,
+    photoNotAllowed:
+      'Las fotos no se pueden leer automáticamente en esta clínica: queda retenida para el equipo, no se envió a ningún modelo ni se registró nada.',
     nameMismatch:
       'El nombre del informe no coincide con este paciente: queda retenido para el equipo, no se registró nada ni se cerró ninguna orden.',
     held: {
@@ -2032,6 +2034,9 @@ const lab: Messages['lab'] = {
       names: (printed: string, record: string): string =>
         `Nombre en el informe: ${printed} · En el registro: ${record}`,
       noName: 'ninguno impreso',
+      photoNotAllowed:
+        'Las fotos no se pueden leer automáticamente en esta clínica. Léela, agrega el resultado con “Agregar algo sin un documento” y luego márcala como revisada.',
+      markReviewed: 'Marcar como revisada',
       dates: (printed: string, entered: string): string =>
         `Tomado el ${printed} (indicado como ${entered})`,
       confirm: 'Es este paciente',
@@ -2541,6 +2546,8 @@ const agent = {
       urgent_unanswered: 'Orden urgente sin respuesta: contáctala hoy.',
       patient_question: 'Preguntó algo que solo el equipo puede responder: devuélvele la llamada.',
       opted_out: 'Pidió no recibir mensajes: haz el seguimiento por teléfono si hace falta.',
+      review_photo:
+        'Envió una foto de un informe de laboratorio; esta clínica lee las fotos a mano: léela y registra el resultado.',
     },
   },
   events: {
@@ -2572,6 +2579,8 @@ const agent = {
     appointment_already_booked: (): string =>
       'Ya estaba agendada con esta confirmación (idempotente).',
     photo_not_a_report: (): string => 'La foto no es un informe de laboratorio.',
+    photo_not_allowed: (): string =>
+      'Las fotos no se pueden leer automáticamente en esta clínica: no se envió a ningún modelo, pasó al equipo.',
     result_matched: (p: Params): string =>
       `Foto asociada a ${list(p['matches']).map(code).join(', ') || 'ninguna orden'}${list(p['unmatched']).length === 0 ? '' : ` (sin orden: ${list(p['unmatched']).map(code).join(', ')})`}; nombre en el informe: ${code(p['nameCheck'])}.`,
     result_submitted: (p: Params): string => `Observation FHIR enviada: ${str(p['resource'])}.`,

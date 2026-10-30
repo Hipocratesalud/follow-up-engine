@@ -82,4 +82,37 @@ describe('Needs review (the Lab page)', () => {
     expect(await within(panel).findByText('No report is waiting for review.')).toBeInTheDocument();
     expect(decisions).toEqual(['held-1:confirm']);
   });
+
+  it('shows an unread photo (the clinic does not send photos to a model) with only "Mark reviewed"', async () => {
+    const unread: HeldLabReportView = {
+      ...HELD,
+      id: 'held-2',
+      filename: 'foto-resultado.jpg',
+      reason: 'photo_not_allowed',
+      source: 'photo',
+      results: [],
+    };
+    renderApp('/lab', {
+      handlers: () => [
+        http.get('*/api/evaluator/me', () => HttpResponse.json({ email: 'doctor@example.com' })),
+        http.get('*/api/demo/lab/clock', () => HttpResponse.json({ now: NOW, fake: true })),
+        http.get('*/api/demo/lab/patients', () => HttpResponse.json({ items: [] })),
+        http.get('*/api/demo/lab/cases', () => HttpResponse.json({ items: [] })),
+        http.get('*/api/demo/lab/recovery', () => HttpResponse.json({ items: [], total: 0 })),
+        http.get('*/api/demo/lab/history/samples', () => HttpResponse.json({ sets: [] })),
+        http.get('*/api/demo/lab/live-findings', () =>
+          HttpResponse.json({ items: [], total: 0, byPatient: {}, queued: 0, dailyCap: 0 }),
+        ),
+        http.get('*/api/demo/lab/held-reports', () => HttpResponse.json({ items: [unread] })),
+      ],
+    });
+    const panel = await screen.findByRole('region', { name: /Needs review/ });
+    expect(
+      await within(panel).findByText(
+        'Photos can’t be read automatically for this clinic. Read it, add the result with “Add something without a document”, then mark it reviewed.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Mark reviewed' })).toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: 'It’s this patient' })).toBeNull();
+  });
 });

@@ -114,6 +114,30 @@ export class LlmOutputError extends Error {
 }
 
 /** The clinic has spent its LLM budget for the current period. */
+/**
+ * A request carries an image (a photo of a lab report) for a clinic whose
+ * setting `allowUnmaskedImagesToProvider` is off: an image cannot be masked,
+ * so the patient's name and details would leave as pixels. Thrown by the
+ * `llm_gateway` before any provider is called.
+ */
+export class UnmaskedImageRefusedError extends Error {
+  override readonly name = 'UnmaskedImageRefusedError';
+  readonly clinicId: ClinicId;
+
+  constructor(clinicId: ClinicId) {
+    super('This clinic does not send unmasked images to a model provider');
+    this.clinicId = clinicId;
+  }
+}
+
+/** Whether an error is {@link UnmaskedImageRefusedError} (also across module copies). */
+export function isUnmaskedImageRefused(error: unknown): boolean {
+  return (
+    error instanceof UnmaskedImageRefusedError ||
+    (error instanceof Error && error.name === 'UnmaskedImageRefusedError')
+  );
+}
+
 export class LlmBudgetExceededError extends Error {
   override readonly name = 'LlmBudgetExceededError';
   readonly clinicId: ClinicId;
