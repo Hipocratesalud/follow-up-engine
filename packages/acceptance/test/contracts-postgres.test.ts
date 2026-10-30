@@ -1,4 +1,4 @@
-import type { PostgresAdapters } from '@follow-up-engine/adapter-postgres';
+import { type PostgresAdapters, PostgresOrderAgentStore } from '@follow-up-engine/adapter-postgres';
 import {
   describeAuditLogContract,
   describeBackfillProgressStoreContract,
@@ -20,6 +20,7 @@ import {
   describeQualityFindingRepositoryContract,
   describeReconciliationStoreContract,
   describeRuleOverrideStoreContract,
+  describeOrderAgentStoreContract,
   describeSuppressionRepositoryContract,
   describeUnitOfWorkContract,
 } from '@follow-up-engine/testkit';
@@ -48,6 +49,12 @@ describe.skipIf(!POSTGRES_ENABLED)(postgresTitle('contract suites'), () => {
   describeContactRepositoryContract(
     NAME,
     store((s) => s.contacts),
+  );
+  describeOrderAgentStoreContract(NAME, () =>
+    Promise.resolve({
+      subject: new PostgresOrderAgentStore(() => database().pool, database().schema),
+      cleanup: noop,
+    }),
   );
   describeSuppressionRepositoryContract(
     NAME,

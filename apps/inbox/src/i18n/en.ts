@@ -1978,6 +1978,11 @@ const agent = {
   storyTitle: 'Maria’s story',
   storyBody:
     'Maria (synthetic) has type 2 diabetes. At her last visit, months ago, her doctor ordered an HbA1c test and a control in three months, and she never came back. Start the story: the agent takes over her open orders in your own sandbox clinic, on its own clock.',
+  storyLabel: 'Story',
+  stories: {
+    maria: 'Routine: she stopped coming',
+    maria_urgent: 'Urgent: her abnormal HbA1c reached the clinic',
+  } as Record<string, string>,
   modeLabel: 'Agent model',
   modes: { live: 'Muse Spark (live)', scripted: 'Scripted (offline)' } as Record<string, string>,
   modeHints: {

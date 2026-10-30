@@ -1,6 +1,11 @@
 import { Bot, Play, RotateCcw } from 'lucide-react';
 import { type ChangeEvent, type ReactNode, useState } from 'react';
-import type { AgentLanguage, AgentMode, AgentPageView } from '../../api/agent-contract.ts';
+import type {
+  AgentLanguage,
+  AgentMode,
+  AgentPageView,
+  AgentStoryRequest,
+} from '../../api/agent-contract.ts';
 import { useAgentPage, useStartAgentStory } from '../../api/agent-queries.ts';
 import { ErrorState, InlineError } from '../../components/states.tsx';
 import { Badge, Button, Card, Skeleton } from '../../components/ui.tsx';
@@ -23,6 +28,7 @@ function StoryCard({
   const locale = useLocale();
   const [mode, setMode] = useState<AgentMode>(page.liveAvailable ? 'live' : 'scripted');
   const [language, setLanguage] = useState<AgentLanguage>(locale);
+  const [story, setStory] = useState<AgentStoryRequest['story']>('maria');
   const start = useStartAgentStory();
 
   function handleMode(event: ChangeEvent<HTMLSelectElement>): void {
@@ -31,8 +37,11 @@ function StoryCard({
   function handleLanguage(event: ChangeEvent<HTMLSelectElement>): void {
     setLanguage(event.target.value === 'es' ? 'es' : 'en');
   }
+  function handleStory(event: ChangeEvent<HTMLSelectElement>): void {
+    setStory(event.target.value === 'maria_urgent' ? 'maria_urgent' : 'maria');
+  }
   function handleStart(): void {
-    start.mutate({ story: 'maria', mode, language });
+    start.mutate({ story, mode, language });
   }
 
   return (
@@ -45,6 +54,13 @@ function StoryCard({
         <Badge tone="primary">{t.agent.modelBadge(page.model)}</Badge>
       </div>
       <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted">
+          {t.agent.storyLabel}
+          <select value={story} onChange={handleStory} className={SELECT_CLASS}>
+            <option value="maria">{t.agent.stories['maria']}</option>
+            <option value="maria_urgent">{t.agent.stories['maria_urgent']}</option>
+          </select>
+        </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted">
           {t.agent.modeLabel}
           <select value={mode} onChange={handleMode} className={SELECT_CLASS}>

@@ -1959,6 +1959,11 @@ const agent = {
   storyTitle: 'La historia de María',
   storyBody:
     'María (sintética) tiene diabetes tipo 2. En su última consulta, hace meses, su médico le pidió una HbA1c y un control en tres meses, y no volvió. Inicia la historia: el agente toma sus órdenes abiertas en tu propia clínica de prueba, con su propio reloj.',
+  storyLabel: 'Historia',
+  stories: {
+    maria: 'Rutina: dejó de venir',
+    maria_urgent: 'Urgente: su HbA1c anormal llegó a la clínica',
+  } as Record<string, string>,
   modeLabel: 'Modelo del agente',
   modes: { live: 'Muse Spark (en vivo)', scripted: 'Guionado (sin conexión)' } as Record<
     string,

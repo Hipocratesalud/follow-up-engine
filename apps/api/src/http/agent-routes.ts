@@ -9,6 +9,7 @@ import {
   type EngineRuntime,
   ensureLabClinicAndClock,
   InvalidLabDateError,
+  ORDER_AGENT_STORIES,
   readSample,
   SAMPLE_FILES,
   setLabClinicDate,
@@ -28,7 +29,7 @@ const AUDIO_TYPES = new Set(['audio/wav', 'audio/x-wav', 'audio/wave']);
 
 export const AgentStoryStartSchema = z
   .object({
-    story: z.enum(['maria']).default('maria'),
+    story: z.enum(ORDER_AGENT_STORIES).default('maria'),
     mode: z.enum(['scripted', 'live']),
     language: z.enum(['en', 'es']),
   })
@@ -273,6 +274,7 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
     const { patientId } = await startOrderAgentStory(runtime, clinic.id, clock, {
       mode: body.mode,
       language: body.language,
+      story: body.story,
     });
     await trackEvaluatorEvent(runtime, {
       clinicId: clinic.id,

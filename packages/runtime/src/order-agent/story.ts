@@ -35,7 +35,13 @@ export const MARIA = {
     'Plan: continuar metformina, reforzar dieta. Control en 3 meses con HbA1c.',
 } as const;
 
-export const ORDER_AGENT_STORIES = ['maria'] as const;
+/**
+ * `maria`: the routine story. `maria_urgent`: the same María, but her lab
+ * sent the 8.4 % HbA1c straight to the clinic three days ago, flagged
+ * abnormal: the engine asks for a visit soon (an urgent order) and the
+ * agent follows the urgent ladder (hours, not days).
+ */
+export const ORDER_AGENT_STORIES = ['maria', 'maria_urgent'] as const;
 export type OrderAgentStory = (typeof ORDER_AGENT_STORIES)[number];
 
 function day(value: string): Date {
@@ -53,7 +59,11 @@ export async function startOrderAgentStory(
   runtime: EngineRuntime,
   clinicId: ClinicId,
   clock: Clock,
-  options: { readonly mode: OrderAgentMode; readonly language: OrderAgentLanguage },
+  options: {
+    readonly mode: OrderAgentMode;
+    readonly language: OrderAgentLanguage;
+    readonly story?: OrderAgentStory;
+  },
 ): Promise<{ readonly patientId: PatientId }> {
   const patientId = toPatientId(`pat-agent-maria-${randomUUID().slice(0, 6)}`);
   const ingestion = new IngestionService({
@@ -105,7 +115,27 @@ export async function startOrderAgentStory(
     }),
   );
   const now = clock.now();
+  if (options.story === 'maria_urgent') {
+    await accept(
+      buildRecordBundle({
+        recordId: `${patientId}-hba1c-lab`,
+        patient: { id: patientId },
+        occurredAt: new Date(now.getTime() - 3 * 86_400_000),
+        entry: {
+          kind: 'result',
+          loinc: '4548-4',
+          display: 'HbA1c',
+          value: 8.4,
+          unit: '%',
+          interpretation: 'abnormal',
+        },
+      }),
+    );
+  }
   await runtime.engine.runWatcher(clinicId, now);
-  await runtime.orderAgent.takeOwnership(clinicId, patientId, options);
+  await runtime.orderAgent.takeOwnership(clinicId, patientId, {
+    mode: options.mode,
+    language: options.language,
+  });
   return { patientId };
 }

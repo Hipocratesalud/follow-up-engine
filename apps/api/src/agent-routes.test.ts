@@ -1,4 +1,5 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
+import { createPool } from '@follow-up-engine/adapter-postgres';
 import {
   createRuntime,
   type EngineRuntime,
@@ -10,6 +11,7 @@ import { loadApiConfig } from './config.ts';
 import type { App } from './http/context.ts';
 import { accessToken, deriveSessionSecret } from './http/site.ts';
 import { createApiServer } from './server.ts';
+import { STORAGES, TEST_DATABASE_URL } from './test/harness.ts';
 
 const KEY = 'agent-routes-test-key';
 const CODE = 'agent-routes-test-code';
@@ -21,10 +23,20 @@ function evaluatorCookie(email: string, secret: string): string {
 }
 
 let runtime: EngineRuntime | undefined;
+let schema: string | undefined;
 
 afterEach(async () => {
   await runtime?.close();
   runtime = undefined;
+  if (schema !== undefined) {
+    const pool = createPool({ connectionString: TEST_DATABASE_URL ?? '', max: 1 });
+    try {
+      await pool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    } finally {
+      await pool.end();
+    }
+    schema = undefined;
+  }
 });
 
 interface Page {
@@ -55,7 +67,7 @@ interface Page {
   readonly tasks: readonly { readonly kind: string; readonly summary: { readonly ask: string } }[];
 }
 
-async function harness(): Promise<{
+async function harness(storage: 'memory' | 'postgres' = 'memory'): Promise<{
   readonly call: (
     path: string,
     init?: { method?: string; body?: unknown },
@@ -64,13 +76,18 @@ async function harness(): Promise<{
   readonly worker: Worker;
   readonly runtime: EngineRuntime;
 }> {
+  schema = storage === 'postgres' ? `follow_up_agent_${randomBytes(5).toString('hex')}` : undefined;
   runtime = await createRuntime(
     loadRuntimeConfig({
       CLOCK: 'fake',
       LOG_LEVEL: 'silent',
       DEMO_API_KEY: KEY,
       LLM_PROVIDER: 'fake',
+      ...(schema === undefined
+        ? { DATABASE_URL: '' }
+        : { DATABASE_URL: TEST_DATABASE_URL ?? '', DATABASE_SCHEMA: schema }),
     }),
+    { poolSize: 3 },
   );
   const { app }: { app: App } = createApiServer(runtime, loadApiConfig({ DEMO_ACCESS_CODE: CODE }));
   const secret = deriveSessionSecret(CODE);
@@ -104,68 +121,76 @@ async function harness(): Promise<{
 }
 
 describe('the order-to-completion agent (scripted mode)', () => {
-  it('plays María’s story: contact, a refusal, a booking, a photo the engine closes', async () => {
-    const { call, page: read, worker } = await harness();
-    const started = await call('/api/demo/agent/story', {
-      body: { story: 'maria', mode: 'scripted', language: 'es' },
-    });
-    expect(started.status).toBe(201);
-    const patientId = (started.body as { patientId: string }).patientId;
-    await worker.runJobs();
+  it.each(STORAGES)(
+    'plays María’s story on %s: contact, a refusal, a booking, a photo the engine closes',
+    async (storage) => {
+      const { call, page: read, worker } = await harness(storage);
+      const started = await call('/api/demo/agent/story', {
+        body: { story: 'maria', mode: 'scripted', language: 'es' },
+      });
+      expect(started.status).toBe(201);
+      const patientId = (started.body as { patientId: string }).patientId;
+      await worker.runJobs();
 
-    let page = await read();
-    expect(page.conversation?.patientId).toBe(patientId);
-    // Only the doctor's orders: the HbA1c and the control visit, not the protocol items.
-    expect(page.orders.map((order) => order.test ?? order.kind).sort()).toEqual(['HbA1c', 'visit']);
-    const first = page.messages.at(-1);
-    expect(first?.direction).toBe('outbound');
-    expect(first?.text).toContain('María');
-    expect(first?.text).not.toContain('{first_name}');
-    expect(first?.offeredSlots).toHaveLength(1);
+      let page = await read();
+      expect(page.conversation?.patientId).toBe(patientId);
+      // Only the doctor's orders: the HbA1c and the control visit, not the protocol items.
+      expect(page.orders.map((order) => order.test ?? order.kind).sort()).toEqual([
+        'HbA1c',
+        'visit',
+      ]);
+      const first = page.messages.at(-1);
+      expect(first?.direction).toBe('outbound');
+      expect(first?.text).toContain('María');
+      expect(first?.text).not.toContain('{first_name}');
+      expect(first?.offeredSlots).toHaveLength(1);
 
-    await call(`/api/demo/agent/patients/${patientId}/messages`, {
-      body: { text: 'Hola, sí. Ya me hice el examen la semana pasada, pero el martes no puedo.' },
-    });
-    await worker.runJobs();
-    page = await read();
-    const options = page.messages.at(-1);
-    expect(options?.offeredSlots).toHaveLength(2);
+      await call(`/api/demo/agent/patients/${patientId}/messages`, {
+        body: { text: 'Hola, sí. Ya me hice el examen la semana pasada, pero el martes no puedo.' },
+      });
+      await worker.runJobs();
+      page = await read();
+      const options = page.messages.at(-1);
+      expect(options?.offeredSlots).toHaveLength(2);
 
-    // "La 2": an explicit choice of an offered slot → booked, and the engine closes the visit.
-    await call(`/api/demo/agent/patients/${patientId}/messages`, {
-      body: { text: 'La 2 me sirve' },
-    });
-    await worker.runJobs();
-    page = await read();
-    expect(page.appointments).toHaveLength(1);
-    expect(page.appointments[0]?.fhirAppointmentId).toMatch(/^Appointment\//);
-    expect(page.appointments[0]?.originCaseId).toBeDefined();
-    expect(
-      page.steps.some(
-        (step) => step.event === 'expectation_fulfilled' && step.params?.['order'] === 'visit',
-      ),
-    ).toBe(true);
+      // "La 2": an explicit choice of an offered slot → booked, and the engine closes the visit.
+      await call(`/api/demo/agent/patients/${patientId}/messages`, {
+        body: { text: 'La 2 me sirve' },
+      });
+      await worker.runJobs();
+      page = await read();
+      expect(page.appointments).toHaveLength(1);
+      expect(page.appointments[0]?.fhirAppointmentId).toMatch(/^Appointment\//);
+      expect(page.appointments[0]?.originCaseId).toBeDefined();
+      expect(
+        page.steps.some(
+          (step) => step.event === 'expectation_fulfilled' && step.params?.['order'] === 'visit',
+        ),
+      ).toBe(true);
 
-    await call(`/api/demo/agent/patients/${patientId}/samples`, { body: { sample: 'lab_report' } });
-    await worker.runJobs();
-    page = await read();
-    expect(page.steps.some((step) => step.kind === 'vision' && step.event === 'photo_read')).toBe(
-      true,
-    );
-    // Only the engine marks the HbA1c order fulfilled, from the FHIR Observation the agent submitted.
-    const closed = page.steps.find(
-      (step) => step.event === 'expectation_fulfilled' && step.params?.['order'] === 'HbA1c',
-    );
-    expect(String(closed?.params?.['by'])).toMatch(/^Observation\//);
-    expect(page.orders.find((order) => order.test === 'HbA1c')?.stage).toBe('fulfilled');
-    // Abnormal result → the clinical reviewer ran; a pre-visit question reached the doctor.
-    expect(page.findings.map((finding) => finding.category)).toContain('pre_visit_question');
-    // Never a value to the patient.
-    const last = page.messages.at(-1);
-    expect(last?.direction).toBe('outbound');
-    expect(last?.text).not.toMatch(/8[.,]4/);
-    expect(page.conversation?.status).toBe('done');
-  });
+      await call(`/api/demo/agent/patients/${patientId}/samples`, {
+        body: { sample: 'lab_report' },
+      });
+      await worker.runJobs();
+      page = await read();
+      expect(page.steps.some((step) => step.kind === 'vision' && step.event === 'photo_read')).toBe(
+        true,
+      );
+      // Only the engine marks the HbA1c order fulfilled, from the FHIR Observation the agent submitted.
+      const closed = page.steps.find(
+        (step) => step.event === 'expectation_fulfilled' && step.params?.['order'] === 'HbA1c',
+      );
+      expect(String(closed?.params?.['by'])).toMatch(/^Observation\//);
+      expect(page.orders.find((order) => order.test === 'HbA1c')?.stage).toBe('fulfilled');
+      // Abnormal result → the clinical reviewer ran; a pre-visit question reached the doctor.
+      expect(page.findings.map((finding) => finding.category)).toContain('pre_visit_question');
+      // Never a value to the patient.
+      const last = page.messages.at(-1);
+      expect(last?.direction).toBe('outbound');
+      expect(last?.text).not.toMatch(/8[.,]4/);
+      expect(page.conversation?.status).toBe('done');
+    },
+  );
 
   it('transcribes the sample voice note and answers it', async () => {
     const { call, page: read, worker } = await harness();
@@ -243,6 +268,29 @@ describe('the order-to-completion agent (scripted mode)', () => {
     const page = await read();
     expect(page.conversation?.status).toBe('opted_out');
     expect(page.messages.filter((message) => message.direction === 'outbound')).toHaveLength(1);
+  });
+
+  it('follows the urgent ladder when an abnormal result asks for a visit', async () => {
+    const { call, page: read, worker } = await harness();
+    await call('/api/demo/agent/story', {
+      body: { story: 'maria_urgent', mode: 'scripted', language: 'en' },
+    });
+    await worker.runJobs();
+    let page = await read();
+    expect(page.orders.some((order) => order.kind === 'visit')).toBe(true);
+    expect(page.messages.at(-1)?.text).toContain('this week');
+    for (let day = 0; day < 3; day += 1) {
+      await call('/api/demo/agent/clock', { body: { days: 1 } });
+      await worker.runJobs();
+    }
+    page = await read();
+    // Hour 0 and day 1: two messages; day 2 a high-priority call; day 3 the doctor directly.
+    expect(page.messages.filter((message) => message.direction === 'outbound')).toHaveLength(2);
+    expect(page.tasks.map((task) => task.kind).sort()).toEqual(['call_patient', 'doctor_notice']);
+    await call('/api/demo/agent/clock', { body: { days: 4 } });
+    await worker.runJobs();
+    page = await read();
+    expect(page.conversation?.status).toBe('unreachable');
   });
 
   it('refuses the live mode without a real model, and every route without an evaluator', async () => {

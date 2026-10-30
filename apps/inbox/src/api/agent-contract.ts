@@ -162,7 +162,7 @@ export interface AgentPageView {
 }
 
 export interface AgentStoryRequest {
-  readonly story: 'maria';
+  readonly story: 'maria' | 'maria_urgent';
   readonly mode: AgentMode;
   readonly language: AgentLanguage;
 }
