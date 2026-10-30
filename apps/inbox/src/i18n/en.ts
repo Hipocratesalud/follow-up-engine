@@ -1811,6 +1811,10 @@ const EVALUATOR_ACTION_LABELS = {
   case_viewed: 'Viewed a case',
   patient_documents_viewed: 'Viewed a patient’s documents',
   engine_test_step: 'Loaded an engine-test step',
+  lab_rule_drafted: 'Drafted a rule with the agent',
+  lab_rule_enabled: 'Enabled a clinic rule',
+  lab_rule_discarded: 'Discarded or switched off a clinic rule',
+  lab_rule_samples_added: 'Added the rule sample patients',
 } as Record<string, string>;
 
 const lab = {

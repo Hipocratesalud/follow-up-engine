@@ -1792,6 +1792,10 @@ const EVALUATOR_ACTION_LABELS: Record<string, string> = {
   case_viewed: 'Vio un caso',
   patient_documents_viewed: 'Vio los documentos de un paciente',
   engine_test_step: 'Cargó un paso de una prueba del motor',
+  lab_rule_drafted: 'Redactó una regla con el agente',
+  lab_rule_enabled: 'Activó una regla del consultorio',
+  lab_rule_discarded: 'Descartó o desactivó una regla del consultorio',
+  lab_rule_samples_added: 'Agregó los pacientes de ejemplo de reglas',
 };
 
 const lab: Messages['lab'] = {
