@@ -13,6 +13,7 @@ import {
 import { LLM_SNAPSHOTS, readLlmSnapshot } from '@follow-up-engine/testkit';
 import { loadApiConfig } from '../config.ts';
 import { createApiServer } from '../server.ts';
+import { seedAdjudicatorPilot } from './seed-adjudicator.ts';
 import { seedReviewerPilot } from './seed-reviewer.ts';
 import { seedSyntheticClinic } from './seed.ts';
 
@@ -76,6 +77,10 @@ if (process.env['SEED'] !== 'false') {
   if (process.env['SEED_REVIEWER'] !== 'false') {
     // The clinical reviewer's shadow pilot: the planted cohort, then one review per patient.
     runtime.logger.info(await seedReviewerPilot(runtime), 'clinical reviewer shadow pilot seeded');
+  }
+  if (process.env['SEED_ADJUDICATOR'] !== 'false') {
+    // The adjudicator's shadow pilot: decisions on the inbox's ambiguous plan items.
+    runtime.logger.info(await seedAdjudicatorPilot(runtime), 'adjudicator shadow pilot seeded');
   }
   if (runtime.llmReplay !== undefined) {
     const { hits, misses } = runtime.llmReplay.stats();

@@ -3,6 +3,7 @@ import {
   DEFAULT_DEMO_INBOX_API_KEY,
   loadRuntimeConfig,
 } from '@follow-up-engine/runtime';
+import { seedAdjudicatorPilot } from './seed-adjudicator.ts';
 import { seedReviewerPilot } from './seed-reviewer.ts';
 import { seedSyntheticClinic } from './seed.ts';
 
@@ -43,6 +44,10 @@ try {
   runtime.logger.info(report, 'synthetic clinic seeded');
   if (process.env['SEED_REVIEWER'] !== 'false') {
     runtime.logger.info(await seedReviewerPilot(runtime), 'clinical reviewer shadow pilot seeded');
+  }
+  if (process.env['SEED_ADJUDICATOR'] !== 'false') {
+    // The adjudicator's shadow pilot: decisions on the inbox's ambiguous plan items.
+    runtime.logger.info(await seedAdjudicatorPilot(runtime), 'adjudicator shadow pilot seeded');
   }
   if (config.demo.inboxApiKey !== undefined) {
     process.stdout.write(
