@@ -501,6 +501,7 @@ describe(PACKAGE_NAME, () => {
     it('loads and validates the repository config', () => {
       const config = loadConfigDirectory(DEFAULT_CONFIG_DIR);
       expect(config.rules.map((rule) => rule.id).sort()).toEqual([
+        'abnormal_imaging_followup_study',
         'abnormal_result_followup',
         'cadence_break',
         'doctor_plan_followup',
