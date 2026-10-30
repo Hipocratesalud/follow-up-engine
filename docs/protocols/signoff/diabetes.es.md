@@ -14,7 +14,7 @@ Esta página se genera a partir de `config/protocols/diabetes.json` (y, cuando c
 
 - Un diagnóstico CIE-10 E10, E11, E13, E14 (o uno más específico dentro de alguno de ellos, por ejemplo E10.9), con un diagnóstico confirmado, o uno que la historia solo hace probable.
 - Una receta que coincide con: metformin, insulin, glibenclamid, glimepirid, gliclazid, sitagliptin, vildagliptin, linagliptin, empagliflozin, dapagliflozin, liraglutid, semaglutid, dulaglutid, pioglitazon — se lee como E14 cuando la historia no tiene un diagnóstico codificado.
-- Un resultado LOINC 4548-4 de 6.5 o más — se lee como E14 cuando la historia no tiene un diagnóstico codificado.
+- Un resultado LOINC 4548-4 de 6,5 o más — se lee como E14 cuando la historia no tiene un diagnóstico codificado.
 
 ## Qué se espera, y con qué frecuencia
 

@@ -266,10 +266,10 @@ export function enrollmentBullets(locale: ApiLocale, protocol: Protocol): readon
       result.gte !== undefined
         ? locale === 'en'
           ? `of ${String(result.gte)} or more`
-          : `de ${String(result.gte)} o más`
+          : `de ${formatNumberEs(result.gte)} o más`
         : locale === 'en'
           ? `under ${String(result.lt)}`
-          : `menor a ${String(result.lt)}`;
+          : `menor a ${formatNumberEs(result.lt)}`;
     const confirm =
       result.confirm === undefined
         ? ''
@@ -495,4 +495,11 @@ export function buildSignoffPageData(
     notApplicable: notApplicableFacts(locale, protocol),
     appendix,
   };
+}
+
+/** A threshold as a Spanish reader writes it ("6,5"); English keeps String(). */
+function formatNumberEs(value: number | undefined): string {
+  return value === undefined
+    ? ''
+    : new Intl.NumberFormat('es', { useGrouping: false }).format(value);
 }
