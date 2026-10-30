@@ -1,4 +1,5 @@
 import {
+  type BeforeVisitView,
   FINDING_CATEGORIES,
   FINDING_VERDICTS,
   type FindingCategory,
@@ -336,9 +337,54 @@ function seedFindings(now: Date, locale: Locale): { findings: FindingDetail[] } 
         ],
         specialty: 'diabetology',
       },
+      {
+        ...base,
+        id: 'cf-006',
+        patient: maria,
+        category: 'abnormal_result_no_followup',
+        categoryLabel: CATEGORY_LABELS.abnormal_result_no_followup,
+        severity: 'medium',
+        summary: tr(
+          'HbA1c at 9.1%, no visit or note since the result',
+          'HbA1c en 9.1 %, sin consulta ni nota desde el resultado',
+        ),
+        rationale: tr(
+          'The last HbA1c is well above target and no later visit or note mentions it.',
+          'La última HbA1c está muy por encima de la meta y ninguna consulta o nota posterior la menciona.',
+        ),
+        suggestion: tr(
+          'Consider reviewing it with the patient before adjusting treatment.',
+          'Considera revisarla con el paciente antes de ajustar el tratamiento.',
+        ),
+        citations: [
+          {
+            docId: 'Observation/mock-hba1c-1',
+            kind: 'result',
+            quote: 'HbA1c: 9.1%',
+            date: at(35),
+            title: tr('HbA1c', 'HbA1c'),
+          },
+        ],
+        specialty: 'diabetology',
+      },
     ],
   };
 }
+
+/** Only María has an appointment booked (the "Before the visit" panel demo). */
+const NEXT_APPOINTMENT_PATIENT = 'pat-001';
+const NEXT_APPOINTMENT_IN_DAYS = 12;
+
+/** `pre_visit_question` and `abnormal_result_no_followup`: the "Before the visit" panel. */
+const BEFORE_VISIT_CATEGORIES: ReadonlySet<FindingCategory> = new Set([
+  'pre_visit_question',
+  'abnormal_result_no_followup',
+]);
+const BEFORE_VISIT_SEVERITY_ORDER: Record<FindingView['severity'], number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
 
 export interface ReviewerMock {
   listFindings(query: FindingListQuery): FindingPage;
@@ -347,6 +393,8 @@ export interface ReviewerMock {
   metrics(): ReviewMetrics;
   listFlags(): { items: FindingFlagView[] };
   updateFlag(update: FindingFlagUpdate): FindingFlagView;
+  /** "Before the visit" (HIP-112 V3): the next appointment and what to raise then. */
+  beforeVisit(patientId: string): BeforeVisitView;
 }
 
 function view(finding: FindingDetail): FindingView {
@@ -523,6 +571,26 @@ export function createReviewerMock(now: () => Date, locale: () => Locale): Revie
       };
       flags.set(update.category, next);
       return { ...flagView(next), review: flagReview(update.category) };
+    },
+    beforeVisit(patientId) {
+      const items = current()
+        .filter(
+          (item) =>
+            item.patient.id === patientId &&
+            item.status === 'open' &&
+            BEFORE_VISIT_CATEGORIES.has(item.category),
+        )
+        .map(view)
+        .sort(
+          (left, right) =>
+            BEFORE_VISIT_SEVERITY_ORDER[left.severity] -
+            BEFORE_VISIT_SEVERITY_ORDER[right.severity],
+        );
+      const nextAppointmentAt =
+        patientId === NEXT_APPOINTMENT_PATIENT
+          ? new Date(now().getTime() + NEXT_APPOINTMENT_IN_DAYS * DAY_MS).toISOString()
+          : undefined;
+      return { ...(nextAppointmentAt === undefined ? {} : { nextAppointmentAt }), items };
     },
   };
 }

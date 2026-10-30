@@ -27,9 +27,12 @@ import {
 import { LayerChip, ReasonProtocol } from '../../components/case-badges.tsx';
 import { InlineQuote } from '../../components/evidence.tsx';
 import { PlanItemReview } from '../plan-items/plan-item-review.tsx';
+import type { AdjudicationView } from '../../api/adjudication-contract.ts';
+import { useAdjudications } from '../../api/adjudication-queries.ts';
+import { AdjudicationPanel } from '../adjudication/adjudication-panel.tsx';
 import { ErrorState, InlineError, NotFoundState } from '../../components/states.tsx';
 import { Badge, Button, Card, SectionTitle, Skeleton, type Tone } from '../../components/ui.tsx';
-import { PreVisitQuestions } from '../reviewer/pre-visit-questions.tsx';
+import { BeforeVisitPanel } from '../reviewer/before-visit-panel.tsx';
 import { cx } from '../../lib/cx.ts';
 import { useT } from '../../i18n/index.ts';
 import { ContactFlagNotice } from '../case/contact-panel.tsx';
@@ -172,8 +175,11 @@ const EXPECTATION_TONES: Record<PatientExpectationView['status'], Tone> = {
 
 function ExpectationItem({
   expectation,
+  adjudication,
 }: {
   readonly expectation: PatientExpectationView;
+  /** The adjudicator's decision, when the item was ambiguous (PRD V2). */
+  readonly adjudication?: AdjudicationView | undefined;
 }): ReactNode {
   const t = useT();
   return (
@@ -203,6 +209,7 @@ function ExpectationItem({
           dueAt={expectation.dueAt}
         />
       ) : null}
+      {adjudication ? <AdjudicationPanel adjudication={adjudication} /> : null}
       <WhyThis why={expectation.why} label={expectation.label} headingLevel={3} />
     </li>
   );
@@ -332,6 +339,13 @@ function SuppressionsSection({
 }
 
 function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode {
+  const adjudications = useAdjudications(
+    { patientId: detail.patient.id },
+    detail.expectations.some((expectation) => expectation.planItem !== undefined),
+  );
+  const decisionOf = new Map(
+    (adjudications.data?.items ?? []).map((item) => [item.expectationId, item]),
+  );
   const t = useT();
   const now = useNow();
   const { patient } = detail;
@@ -417,7 +431,7 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
 
         {contact?.contactFlag ? <ContactFlagNotice flag={contact.contactFlag} now={now} /> : null}
 
-        <PreVisitQuestions patientId={detail.patient.id} />
+        <BeforeVisitPanel patientId={detail.patient.id} />
 
         <section aria-labelledby="conditions-title" className="flex flex-col gap-3">
           <SectionTitle id="conditions-title" count={current.length}>
@@ -461,7 +475,11 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
             ) : (
               <ul className="mt-1">
                 {open.map((expectation) => (
-                  <ExpectationItem key={expectation.id} expectation={expectation} />
+                  <ExpectationItem
+                    key={expectation.id}
+                    expectation={expectation}
+                    adjudication={decisionOf.get(expectation.id)}
+                  />
                 ))}
               </ul>
             )}
@@ -475,7 +493,11 @@ function PatientView({ detail }: { readonly detail: PatientDetail }): ReactNode 
             ) : (
               <ul className="mt-1">
                 {closed.map((expectation) => (
-                  <ExpectationItem key={expectation.id} expectation={expectation} />
+                  <ExpectationItem
+                    key={expectation.id}
+                    expectation={expectation}
+                    adjudication={decisionOf.get(expectation.id)}
+                  />
                 ))}
               </ul>
             )}

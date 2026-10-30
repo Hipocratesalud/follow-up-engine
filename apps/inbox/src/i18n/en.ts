@@ -194,6 +194,7 @@ const labels = {
     'backfill.paused': 'History review paused',
   } as Record<string, string>,
   actors: {
+    adjudicator: 'Adjudicator (AI)',
     rule: 'Automatic rule',
     system: 'Follow-up engine',
     patient: 'Patient',
@@ -572,6 +573,49 @@ const planReview = {
   rejectConfirm: 'Reject item',
 };
 
+/** The adjudicator's decision on an ambiguous plan item (PRD V2). */
+const adjudication = {
+  title: 'Adjudicator',
+  hint: 'The AI read this item with low confidence, so a second model checked the note.',
+  decisions: {
+    open: 'The note asks for it',
+    discard: 'The note does not ask for it',
+    needs_human: 'Needs your review',
+  },
+  reasons: {
+    explicit_instruction: 'Explicit instruction',
+    timing_explicit: 'Timing written next to it',
+    timing_vague: 'Vague timing',
+    conditional_plan: 'Only if something happens',
+    hypothetical_mention: 'Mentioned as a possibility',
+    already_done: 'Already done',
+    negated: 'Not needed',
+    patient_declined: 'The patient declined',
+    deferred_to_other_provider: 'Another provider takes care of it',
+    contradictory_signals: 'Contradictory',
+    insufficient_context: 'Not enough context',
+    no_verifiable_quote: 'No quote found in the note',
+    low_probability: 'Too uncertain',
+  },
+  probability: (percent: string): string => `${percent} likely a real follow-up`,
+  shadow: 'Shadow mode',
+  shadowHint: 'Recorded only: nothing was changed.',
+  applied: 'Suppressed by the adjudicator',
+  quotesLabel: 'From the note',
+  rationaleLabel: 'Why',
+  keep: 'Keep it',
+  discard: 'Discard',
+  overriddenKeep: (date: string): string => `You kept it (${date})`,
+  overriddenDiscard: (date: string): string => `You discarded it (${date})`,
+  keptDone: 'Kept and confirmed.',
+  discardedDone: 'Discarded.',
+  discardTitle: 'Discard this plan item',
+  discardBody:
+    'The engine stops expecting it. If it was the only pending reason of its case, the case is resolved.',
+  discardConfirm: 'Discard item',
+  model: (model: string): string => `Model: ${model}`,
+};
+
 const caseRow = {
   age: (years: number): string => `${String(years)} y`,
   moreReasons: (n: number): string => `+${count(n, 'reason', 'reasons')}`,
@@ -917,7 +961,7 @@ const review = {
     evidenceNote:
       'Each quote was checked word for word against the document before the finding was saved.',
     citationCaption: (kind: string, date: string): string => `${kind} · ${date}`,
-    traceTitle: 'How it got here',
+    traceTitle: 'How the reviewer got here',
     traceToggle: 'See the steps',
     traceFacts: {
       steps: 'Steps',
@@ -927,6 +971,7 @@ const review = {
       stop: 'Ending',
       signals: 'Rule signals',
     },
+    traceValidatedBy: 'Confirmed by this quote',
     discardedPrefix: 'Discarded by the engine: ',
     discardedItem: (n: number, reason: string): string => `${String(n)} ${reason}`,
     verdictTitle: 'Is this finding relevant?',
@@ -991,9 +1036,20 @@ const review = {
     reservedBody:
       'Reserved: it does not exist yet. It needs data from several clinics and its own clinical validation, because a correlation is not a recommendation.',
   },
-  preVisit: {
-    title: 'To ask at the next visit',
-    suggestedOn: (date: string): string => `Suggested by the clinical reviewer on ${date}`,
+  beforeVisit: {
+    title: 'Before the visit',
+    appointmentOn: (date: string): string => `Next appointment: ${date}`,
+    emptyWithAppointment: 'Nothing to flag before this visit.',
+    loading: 'Loading what to check before the visit',
+    error: 'We could not load what to check before the visit',
+    shadowBadge: 'Suggestion, not validated yet',
+    citationCaption: (title: string, date: string): string => `${title} · ${date}`,
+    askedAction: 'Asked',
+    notRelevantAction: 'Not relevant',
+    reasonLabel: 'Why is it not relevant?',
+    reasonRequired: 'Tell us why it is not relevant.',
+    cancel: 'Cancel',
+    submit: 'Save',
   },
 };
 
@@ -2231,6 +2287,7 @@ export const en = {
   inbox,
   patientCard,
   planReview,
+  adjudication,
   caseRow,
   patient,
   recovery,

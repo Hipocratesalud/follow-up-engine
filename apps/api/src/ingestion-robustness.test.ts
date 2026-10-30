@@ -98,7 +98,8 @@ describe.each(STORAGES)('ingestion robustness (%s)', (storage) => {
     expect(response.status).toBe(200);
     const again = consultation('pat-nul3', { noteText: 'Plan:\u0000 control en 2 semanas.' });
     expect((await h.call('/fhir', { body: again, fhir: true })).status).toBe(202);
-    expect(await new Worker(h.runtime).runJobs(1)).toEqual({ completed: 1, failed: 0 });
+    // The bundle, then the adjudication of its ambiguous plan item (shadow, demo clinic).
+    expect(await new Worker(h.runtime).runJobs(1)).toEqual({ completed: 2, failed: 0 });
     const tasks = await h.call<Bundle>('/fhir/Task?patient=pat-nul');
     const codes = (tasks.body.entry ?? []).map(
       (entry) => (entry.resource as Task).code?.coding?.[0]?.code,

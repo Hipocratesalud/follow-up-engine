@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  ADJUDICATION_JOB,
   type ClaimedJob,
   CLINICAL_REVIEW_JOB,
   type ClinicId,
@@ -20,6 +21,7 @@ export const WORKER_JOB_TYPES = [
   NOTE_EXTRACTION_JOB,
   CLINICAL_REVIEW_JOB,
   RECONCILIATION_JOB,
+  ADJUDICATION_JOB,
   ORDER_AGENT_TURN_JOB,
   ORDER_AGENT_LADDER_JOB,
 ] as const;
@@ -356,6 +358,25 @@ export class Worker {
               costUsd: run.costUsd,
             },
             'clinical review',
+          );
+          break;
+        }
+        case ADJUDICATION_JOB: {
+          const outcome = await this.#runtime.adjudicator.runJob(job.clinicId, job.payload);
+          // Ids, decision and cost only: the rationale and quotes stay in the engine.
+          logger.info(
+            {
+              ...context,
+              ...(outcome.status === 'decided'
+                ? {
+                    adjudicationId: outcome.adjudication.id,
+                    decision: outcome.adjudication.decision,
+                    mode: outcome.adjudication.mode,
+                    costUsd: outcome.adjudication.costUsd,
+                  }
+                : { skipped: outcome.reason }),
+            },
+            'adjudication',
           );
           break;
         }

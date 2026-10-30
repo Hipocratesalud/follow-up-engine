@@ -100,11 +100,18 @@ export type CaseEventType =
   | 'appointment_booked'
   /** A booking recorded on the case was kept: the visit took place. */
   | 'appointment_attended'
+  /** The adjudicator decided on one of the case's ambiguous reasons (actor `adjudicator`). */
+  | 'adjudicated'
+  /** A doctor overrode the adjudicator's decision on one of the case's reasons. */
+  | 'adjudication_overridden'
   | PlanItemReviewType;
 
-/** Who caused a case event. `id` is a rule id, host user id or patient id. */
+/**
+ * Who caused a case event. `id` is a rule id, host user id or patient id;
+ * for the `adjudicator`, the `<provider>:<model>` that decided.
+ */
 export interface CaseEventActor {
-  readonly type: 'rule' | 'user' | 'patient' | 'system';
+  readonly type: 'rule' | 'user' | 'patient' | 'system' | 'adjudicator';
   readonly id?: string;
 }
 

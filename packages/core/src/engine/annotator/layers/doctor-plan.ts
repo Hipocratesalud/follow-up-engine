@@ -49,6 +49,7 @@ export function doctorPlanDrafts(
             planItemDiscriminator(item),
           ),
           evidence: { quote: item.evidenceQuote, sourceDocumentId: plan.sourceDocumentId },
+          confidence: item.confidence,
         });
       }
     }

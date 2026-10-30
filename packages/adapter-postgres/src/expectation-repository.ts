@@ -45,6 +45,7 @@ export interface ExpectationRow {
   readonly confirmed_by: string | null;
   readonly confirmed_at: Date | null;
   readonly correction_of: string | null;
+  readonly confidence: number | null;
   readonly created_at: Date;
   readonly updated_at: Date;
 }
@@ -52,7 +53,7 @@ export interface ExpectationRow {
 export const EXPECTATION_COLUMNS = `clinic_id, id, patient_id, idempotency_key, rule_id, rule_version, layer, source_type,
   source_id, match_key, due_at, status, case_id, closed_reason, closed_at, closed_by_type,
   closed_by_id, origin, protocol_id, protocol_version, reason_code, reason_label, evidence,
-  recheck_at, severity, created_at, updated_at, confirmed_by, confirmed_at, correction_of`;
+  recheck_at, severity, created_at, updated_at, confirmed_by, confirmed_at, correction_of, confidence`;
 
 export function toExpectation(row: ExpectationRow): Expectation {
   return {
@@ -83,6 +84,7 @@ export function toExpectation(row: ExpectationRow): Expectation {
     ...optional('confirmedBy', row.confirmed_by),
     ...optional('confirmedAt', row.confirmed_at),
     ...optional('correctionOf', row.correction_of as ExpectationId | null),
+    ...optional('confidence', row.confidence),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -121,10 +123,11 @@ function toParams(expectation: Expectation): unknown[] {
     expectation.confirmedBy ?? null,
     expectation.confirmedAt ?? null,
     expectation.correctionOf ?? null,
+    expectation.confidence ?? null,
   ];
 }
 
-const PLACEHOLDERS = Array.from({ length: 30 }, (_, index) => `$${String(index + 1)}`).join(', ');
+const PLACEHOLDERS = Array.from({ length: 31 }, (_, index) => `$${String(index + 1)}`).join(', ');
 
 export class PostgresExpectationRepository implements ExpectationRepository {
   readonly #ctx: RepositoryContext;

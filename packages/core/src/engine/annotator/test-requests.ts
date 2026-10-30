@@ -1,7 +1,9 @@
+import type { ClinicalEvent } from '../../domain/clinical-event.ts';
 import type { Expectation } from '../../domain/expectation.ts';
 import type { Coding } from '../../domain/resource.ts';
 import { closeExpectation } from '../case-manager/reconcile.ts';
 import type { Catalog } from '../catalog.ts';
+import { differentTrimesters } from '../matching/correlation.ts';
 import { kindOfMatchKey, parseCodeMatchKey } from '../matching/match-key.ts';
 import type { LiveExpectations } from '../patient-state.ts';
 import { sameConcept } from '../terminology/loinc.ts';
@@ -26,6 +28,8 @@ interface TestRequest {
   /** When it was asked for: the order, or the note. */
   readonly at: number;
   readonly encounterId: string | undefined;
+  /** The order or note event that asked for it, when still in the record. */
+  readonly anchor: ClinicalEvent | undefined;
 }
 
 function requestOf(
@@ -52,7 +56,23 @@ function requestOf(
     isOrder,
     at: (anchor === undefined ? expectation.createdAt : eventInstant(anchor)).getTime(),
     encounterId: anchor === undefined ? undefined : encounterOf(anchor),
+    anchor,
   };
+}
+
+/**
+ * Whether `left` and `right` are the same prenatal test window: orders of
+ * different pregnancy trimesters (the 20-week anatomy scan, the 32-week
+ * growth scan) are different tests, the same rule `supersedes` already
+ * applies to a newer order against a pending one. A later-window order
+ * never consolidates an earlier-window one that never came back.
+ */
+function sameWindow(left: TestRequest, right: TestRequest, timeline: PatientTimeline): boolean {
+  const [earlier, later] = left.at <= right.at ? [left, right] : [right, left];
+  if (earlier.anchor === undefined || later.anchor === undefined) {
+    return true;
+  }
+  return !differentTrimesters(later.anchor, earlier.anchor, timeline);
 }
 
 /** Asked for at the same consultation (same encounter; else within a day, when one is unlinked). */
@@ -101,7 +121,10 @@ export async function oneRequestPerTest(
       continue;
     }
     const sameTest = requests.filter(
-      (other) => !done.has(other.expectation.id) && sameConcept(other.code, request.code),
+      (other) =>
+        !done.has(other.expectation.id) &&
+        sameConcept(other.code, request.code) &&
+        sameWindow(request, other, timeline),
     );
     for (const other of sameTest) {
       done.add(other.expectation.id);

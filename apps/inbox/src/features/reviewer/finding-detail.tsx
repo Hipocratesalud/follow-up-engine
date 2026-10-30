@@ -13,6 +13,12 @@ import { type ReactNode, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
 import type { FindingCitation, FindingDetail, ReviewRunView } from '../../api/reviewer-contract.ts';
 import { useFinding } from '../../api/queries.ts';
+import {
+  type AgentTraceFact,
+  type AgentTraceStep,
+  AgentTraceTimeline,
+} from '../../components/agent-trace/agent-trace-timeline.tsx';
+import { InlineQuote } from '../../components/evidence.tsx';
 import { ErrorState } from '../../components/states.tsx';
 import { Badge, Card, SectionTitle, Skeleton } from '../../components/ui.tsx';
 import { useT } from '../../i18n/index.ts';
@@ -136,30 +142,53 @@ function Evidence({ finding }: { readonly finding: FindingDetail }): ReactNode {
   );
 }
 
-function RunFacts({ run }: { readonly run: ReviewRunView }): ReactNode {
+/** The run's overall facts (steps, calls, cost, model...), for the trace's summary row. */
+function runFacts(t: ReturnType<typeof useT>, run: ReviewRunView): AgentTraceFact[] {
+  const COPY = t.review.detail;
+  return [
+    { label: COPY.traceFacts.steps, value: String(run.steps) },
+    { label: COPY.traceFacts.toolCalls, value: String(run.toolCalls) },
+    { label: COPY.traceFacts.cost, value: formatUsd(run.costUsd) },
+    { label: COPY.traceFacts.model, value: run.modelId },
+    { label: COPY.traceFacts.stop, value: stopReasonLabel(t, run.stopReason) },
+    { label: COPY.traceFacts.signals, value: String(run.signalsCount) },
+  ];
+}
+
+/** Each tool call the reviewer agent made, as the generic timeline's steps (sanitized: no note text). */
+function runSteps(t: ReturnType<typeof useT>, run: ReviewRunView): AgentTraceStep[] {
+  return run.trace.map((step) => ({
+    id: String(step.index),
+    kind: step.tool === 'submit_findings' ? 'submission' : 'tool_call',
+    title: describeStep(t, step),
+    detail: [
+      step.tool,
+      outcomeLabel(t, step.outcome),
+      step.outcome === 'ok' && step.summary ? summaryLabel(t, step.summary) : undefined,
+    ]
+      .filter((part): part is string => part !== undefined && part !== '')
+      .join(t.common.separator),
+  }));
+}
+
+/** The quote that validated the finding: its first (primary) citation, verbatim. */
+function ValidatedByQuote({ finding }: { readonly finding: FindingDetail }): ReactNode {
   const t = useT();
   const COPY = t.review.detail;
-  const facts: [string, string][] = [
-    [COPY.traceFacts.steps, String(run.steps)],
-    [COPY.traceFacts.toolCalls, String(run.toolCalls)],
-    [COPY.traceFacts.cost, formatUsd(run.costUsd)],
-    [COPY.traceFacts.model, run.modelId],
-    [COPY.traceFacts.stop, stopReasonLabel(t, run.stopReason)],
-    [COPY.traceFacts.signals, String(run.signalsCount)],
-  ];
+  const citation = finding.citations[0];
+  if (!citation) return null;
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
-      {facts.map(([label, value]) => (
-        <div key={label} className="min-w-0">
-          <dt className="text-muted">{label}</dt>
-          <dd className="truncate font-medium text-fg">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className="flex flex-col gap-1 border-t border-border pt-3">
+      <p className="text-xs font-medium text-muted">{COPY.traceValidatedBy}</p>
+      <InlineQuote quote={citation.quote} />
+      <p className="text-xs text-muted">
+        {COPY.citationCaption(citation.title, formatDate(citation.date))}
+      </p>
+    </div>
   );
 }
 
-/** How the agent got there: each tool call it made, in order, and what the engine discarded. */
+/** How the agent got there: each tool call it made, in order, what the engine discarded, and the quote that confirmed the finding. */
 function AgentTrace({
   run,
   finding,
@@ -170,48 +199,27 @@ function AgentTrace({
   const t = useT();
   const COPY = t.review.detail;
   return (
-    <details className="group rounded-xl border border-border bg-surface shadow-card">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-fg">
-        <span className="inline-flex items-center gap-2">
-          <Bot className="size-4 text-layer-plan" aria-hidden="true" />
-          {COPY.traceTitle}
-        </span>
-        <span className="text-xs font-normal text-muted group-open:hidden">{COPY.traceToggle}</span>
-      </summary>
-      <div className="flex flex-col gap-4 border-t border-border px-5 py-4">
-        <p className="text-xs text-muted">{t.review.origins[finding.origin]}.</p>
-        <RunFacts run={run} />
-        <ol className="flex flex-col gap-2">
-          {run.trace.map((step) => (
-            <li key={step.index} className="flex gap-2.5 text-sm">
-              <span className="grid size-5 shrink-0 place-items-center rounded-full bg-layer-plan-soft text-[11px] font-semibold text-layer-plan tabular-nums">
-                {step.index}
-              </span>
-              <span className="min-w-0">
-                <span className="text-fg">{describeStep(t, step)}</span>
-                <span className="block text-xs text-muted">
-                  <code className="font-mono">{step.tool}</code>
-                  {t.common.separator}
-                  {outcomeLabel(t, step.outcome)}
-                  {step.outcome === 'ok' && step.summary
-                    ? `${t.common.separator}${summaryLabel(t, step.summary)}`
-                    : ''}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ol>
-        {run.discarded.length > 0 ? (
-          <p className="text-xs text-muted">
-            {COPY.discardedPrefix}
-            {run.discarded
-              .map((item) => COPY.discardedItem(item.count, discardLabel(t, item.reason)))
-              .join(', ')}
-            .
-          </p>
-        ) : null}
-      </div>
-    </details>
+    <AgentTraceTimeline
+      title={COPY.traceTitle}
+      toggleLabel={COPY.traceToggle}
+      facts={runFacts(t, run)}
+      steps={runSteps(t, run)}
+      footer={
+        <>
+          <p className="text-xs text-muted">{t.review.origins[finding.origin]}.</p>
+          <ValidatedByQuote finding={finding} />
+          {run.discarded.length > 0 ? (
+            <p className="text-xs text-muted">
+              {COPY.discardedPrefix}
+              {run.discarded
+                .map((item) => COPY.discardedItem(item.count, discardLabel(t, item.reason)))
+                .join(', ')}
+              .
+            </p>
+          ) : null}
+        </>
+      }
+    />
   );
 }
 

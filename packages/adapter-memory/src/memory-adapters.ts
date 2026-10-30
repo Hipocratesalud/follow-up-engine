@@ -24,6 +24,7 @@ import { FakeNoteExtractor } from './fake-note-extractor.ts';
 import { SequentialIdGenerator } from './id-generator.ts';
 import { MemoryJobQueue, MemoryOutbox } from './job-queue.ts';
 import { MemoryDatabase } from './memory-database.ts';
+import { MemoryAdjudicationRepository } from './repositories/adjudication-repository.ts';
 import { MemoryMetricsReadModel } from './repositories/metrics-read-model.ts';
 import { MemoryBackfillProgressStore } from './repositories/backfill-progress-store.ts';
 import { MemoryCaseRepository } from './repositories/case-repository.ts';
@@ -65,6 +66,7 @@ export interface MemoryStores extends TransactionalStores {
   readonly planItemReviews: MemoryPlanItemReviewLog;
   readonly ruleOverrides: MemoryRuleOverrideStore;
   readonly reconciliation: MemoryReconciliationStore;
+  readonly adjudications: MemoryAdjudicationRepository;
 }
 
 /** Builds every memory store over one database. */
@@ -89,6 +91,7 @@ export function createMemoryStores(db: MemoryDatabase, clock: Clock): MemoryStor
     planItemReviews: new MemoryPlanItemReviewLog(db),
     ruleOverrides: new MemoryRuleOverrideStore(db),
     reconciliation: new MemoryReconciliationStore(db),
+    adjudications: new MemoryAdjudicationRepository(db),
   };
 }
 

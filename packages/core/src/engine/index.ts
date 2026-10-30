@@ -170,6 +170,7 @@ export {
 export { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from './settings.ts';
 
 export * from './reviewer/index.ts';
+export * from './adjudicator/index.ts';
 export {
   ANCHOR_ROLES,
   createExplainer,

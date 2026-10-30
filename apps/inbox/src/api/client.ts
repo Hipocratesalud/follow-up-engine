@@ -1,3 +1,9 @@
+import type {
+  AdjudicationList,
+  AdjudicationListQuery,
+  AdjudicationOverrideRequest,
+  AdjudicationOverrideResponse,
+} from './adjudication-contract.ts';
 import type { ClinicMetricsView, MetricsQuery } from '../features/metrics/contract.ts';
 import type { ApiConfig } from '../config.ts';
 import { getLocale, messages } from '../i18n/index.ts';
@@ -38,6 +44,7 @@ import type {
   WebhookDelivery,
 } from './contract.ts';
 import type {
+  BeforeVisitView,
   FindingDetail,
   FindingFlagUpdate,
   FindingFlagView,
@@ -156,6 +163,8 @@ export interface ApiClient {
   getPatient(id: string): Promise<PatientDetail>;
   /** Every document of the patient, oldest first: the "View documents" drawer (HIP-142). */
   getPatientDocuments(id: string): Promise<{ items: PatientDocumentView[] }>;
+  /** "Before the visit": the next appointment and what to raise then (HIP-112 V3). */
+  getBeforeVisit(id: string): Promise<BeforeVisitView>;
   confirmCondition(id: string): Promise<ConditionView>;
   rejectCondition(id: string): Promise<ConditionView>;
   listRecovery(query: { cursor?: string; limit?: number }): Promise<RecoveryPage>;
@@ -181,6 +190,12 @@ export interface ApiClient {
     command: PlanItemCommand,
     body?: PlanItemCorrectionRequest,
   ): Promise<PlanItemReviewResponse>;
+  /** The adjudicator's decisions on ambiguous plan items (PRD V2). */
+  listAdjudications(query: AdjudicationListQuery): Promise<AdjudicationList>;
+  overrideAdjudication(
+    id: string,
+    body: AdjudicationOverrideRequest,
+  ): Promise<AdjudicationOverrideResponse>;
   /** `undefined` when the API runs on a real clock (the demo endpoints answer 404). */
   getEngineTests(): Promise<EngineTestCatalog | undefined>;
   /** Starts (or restarts) a scenario on a fresh fictitious patient, with every step's pre-filled suggestion. */
@@ -345,6 +360,8 @@ export function createApiClient(config: ApiConfig): ApiClient {
     getPatient: (id) => request('GET', `/inbox/patients/${encodeURIComponent(id)}`),
     getPatientDocuments: (id) =>
       request('GET', `/inbox/patients/${encodeURIComponent(id)}/documents`),
+    getBeforeVisit: (id) =>
+      request('GET', `/inbox/patients/${encodeURIComponent(id)}/before-visit`),
     confirmCondition: (id) =>
       request('POST', `/inbox/conditions/${encodeURIComponent(id)}/confirm`),
     rejectCondition: (id) => request('POST', `/inbox/conditions/${encodeURIComponent(id)}/reject`),
@@ -381,6 +398,9 @@ export function createApiClient(config: ApiConfig): ApiClient {
         `/inbox/plan-items/${encodeURIComponent(expectationId)}/${command}`,
         body === undefined ? {} : { body },
       ),
+    listAdjudications: (query) => request('GET', '/inbox/adjudications', { query: { ...query } }),
+    overrideAdjudication: (id, body) =>
+      request('POST', `/inbox/adjudications/${encodeURIComponent(id)}/override`, { body }),
     getEngineTests: async () => {
       try {
         return await request<EngineTestCatalog>('GET', '/demo/engine-tests');

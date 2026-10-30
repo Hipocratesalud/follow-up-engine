@@ -7,6 +7,7 @@ import {
   clinicId as toClinicId,
   type ClinicId,
   type DomainEvent,
+  type ClinicSettings,
   type EngineSettings,
   type EscalationReport,
   type Expectation,
@@ -39,6 +40,8 @@ export interface ScenarioOptions {
   readonly allowPatientContact?: boolean;
   readonly settings?: Partial<EngineSettings>;
   readonly extractor?: FakeNoteExtractor;
+  /** More clinic settings (the adjudicator's, for example). */
+  readonly clinicSettings?: Partial<ClinicSettings>;
 }
 
 /** Matches an active case. `reasons` are rule ids, order-insensitive. */
@@ -388,7 +391,12 @@ function createWorld(options: ScenarioOptions): ScenarioWorld {
   const clinicId = toClinicId(options.clinicId ?? 'clinic-demo');
   const harness = createMemoryEngine({
     clock,
-    clinics: [demoClinic(clinicId, { allowPatientContact: options.allowPatientContact ?? false })],
+    clinics: [
+      demoClinic(clinicId, {
+        allowPatientContact: options.allowPatientContact ?? false,
+        ...options.clinicSettings,
+      }),
+    ],
     extractor: options.extractor ?? new FakeNoteExtractor(),
     ...(options.settings === undefined ? {} : { settings: options.settings }),
   });

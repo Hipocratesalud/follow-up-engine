@@ -66,7 +66,15 @@ export class FindingPresenter {
     const [patient, events, expectations] = await Promise.all([
       stores.clinicalRecords.getResource(clinicId, { resourceType: 'Patient', id: patientId }),
       stores.clinicalRecords.listEventsForPatient(clinicId, patientId, {
-        types: ['note.received', 'result.received', 'medication.prescribed', 'condition.recorded'],
+        types: [
+          'note.received',
+          'result.received',
+          'medication.prescribed',
+          'condition.recorded',
+          // "Before the visit": the next booked appointment (nextAppointmentAt).
+          'appointment.booked',
+          'appointment.cancelled',
+        ],
       }),
       stores.expectations.listByPatient(clinicId, patientId),
     ]);
@@ -179,6 +187,12 @@ export class FindingPresenter {
             },
           }),
     };
+  }
+
+  /** The patient's next booked appointment, when one is on record ("Before the visit"). */
+  async nextAppointmentAt(patientId: PatientId): Promise<string | undefined> {
+    const context = await this.#context(patientId);
+    return context.dossier.upcomingAppointmentAt?.toISOString();
   }
 
   /** The whole series of the measurement the finding cites, cited points marked. */

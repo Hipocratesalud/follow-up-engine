@@ -13,6 +13,7 @@ export { MemoryExpectationRepository } from './repositories/expectation-reposito
 export { MemoryCaseRepository } from './repositories/case-repository.ts';
 export { MemoryOrderAgentStore } from './repositories/order-agent-store.ts';
 export { MemoryPlanItemReviewLog } from './repositories/plan-item-review-log.ts';
+export { MemoryAdjudicationRepository } from './repositories/adjudication-repository.ts';
 export {
   MemoryClinicalFindingRepository,
   MemoryClinicalReviewRunRepository,

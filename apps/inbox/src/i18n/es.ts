@@ -186,6 +186,7 @@ const labels: Messages['labels'] = {
     'backfill.paused': 'Revisión del historial en pausa',
   },
   actors: {
+    adjudicator: 'Adjudicador (IA)',
     rule: 'Regla automática',
     system: 'Motor de seguimiento',
     patient: 'Paciente',
@@ -558,6 +559,49 @@ const planReview: Messages['planReview'] = {
   rejectConfirm: 'Rechazar punto',
 };
 
+/** La decisión del adjudicador sobre un punto del plan ambiguo (PRD V2). */
+const adjudication: Messages['adjudication'] = {
+  title: 'Adjudicador',
+  hint: 'La IA leyó este punto con poca confianza, así que un segundo modelo revisó la nota.',
+  decisions: {
+    open: 'La nota lo pide',
+    discard: 'La nota no lo pide',
+    needs_human: 'Requiere tu revisión',
+  },
+  reasons: {
+    explicit_instruction: 'Indicación explícita',
+    timing_explicit: 'Plazo escrito junto a la indicación',
+    timing_vague: 'Plazo impreciso',
+    conditional_plan: 'Solo si ocurre algo',
+    hypothetical_mention: 'Mencionado como posibilidad',
+    already_done: 'Ya se hizo',
+    negated: 'No hace falta',
+    patient_declined: 'El paciente no lo aceptó',
+    deferred_to_other_provider: 'Lo lleva otro profesional',
+    contradictory_signals: 'Contradictorio',
+    insufficient_context: 'Falta contexto',
+    no_verifiable_quote: 'No se encontró la cita en la nota',
+    low_probability: 'Demasiado incierto',
+  },
+  probability: (percent) => `${percent} de probabilidad de ser un seguimiento real`,
+  shadow: 'Modo sombra',
+  shadowHint: 'Solo se registró: no se cambió nada.',
+  applied: 'Suprimido por el adjudicador',
+  quotesLabel: 'De la nota',
+  rationaleLabel: 'Por qué',
+  keep: 'Mantenerlo',
+  discard: 'Descartar',
+  overriddenKeep: (date) => `Lo mantuviste (${date})`,
+  overriddenDiscard: (date) => `Lo descartaste (${date})`,
+  keptDone: 'Mantenido y confirmado.',
+  discardedDone: 'Descartado.',
+  discardTitle: 'Descartar este punto del plan',
+  discardBody:
+    'El motor deja de esperarlo. Si era el único motivo pendiente de su caso, el caso se resuelve.',
+  discardConfirm: 'Descartar punto',
+  model: (model) => `Modelo: ${model}`,
+};
+
 const caseRow: Messages['caseRow'] = {
   age: (years) => `${String(years)} años`,
   moreReasons: (n) => `+${count(n, 'motivo', 'motivos')}`,
@@ -907,7 +951,7 @@ const review: Messages['review'] = {
     evidenceNote:
       'Cada cita se comprobó palabra por palabra contra el documento antes de guardar el hallazgo.',
     citationCaption: (kind, date) => `${kind} · ${date}`,
-    traceTitle: 'Cómo llegó a esto',
+    traceTitle: 'Cómo llegó el revisor a esto',
     traceToggle: 'Ver los pasos',
     traceFacts: {
       steps: 'Pasos',
@@ -917,6 +961,7 @@ const review: Messages['review'] = {
       stop: 'Cierre',
       signals: 'Señales de las reglas',
     },
+    traceValidatedBy: 'Confirmado por esta cita',
     discardedPrefix: 'Descartado por el motor: ',
     discardedItem: (n, reason) => `${String(n)} ${reason}`,
     verdictTitle: '¿Es relevante este hallazgo?',
@@ -976,9 +1021,20 @@ const review: Messages['review'] = {
     reservedBody:
       'Reservada: todavía no existe. Necesita datos de varias clínicas y una validación clínica propia, porque una correlación no es una recomendación.',
   },
-  preVisit: {
-    title: 'Para preguntar en la próxima consulta',
-    suggestedOn: (date) => `Sugerido por el revisor clínico el ${date}`,
+  beforeVisit: {
+    title: 'Antes de la consulta',
+    appointmentOn: (date) => `Próxima cita: ${date}`,
+    emptyWithAppointment: 'No hay nada que señalar antes de esta consulta.',
+    loading: 'Cargando lo que revisar antes de la consulta',
+    error: 'No pudimos cargar lo que revisar antes de la consulta',
+    shadowBadge: 'Sugerencia, aún no validada',
+    citationCaption: (title, date) => `${title} · ${date}`,
+    askedAction: 'Preguntado',
+    notRelevantAction: 'No relevante',
+    reasonLabel: '¿Por qué no es relevante?',
+    reasonRequired: 'Cuéntanos por qué no es relevante.',
+    cancel: 'Cancelar',
+    submit: 'Guardar',
   },
 };
 
@@ -2227,6 +2283,7 @@ export const es: Messages = {
   inbox,
   patientCard,
   planReview,
+  adjudication,
   caseRow,
   patient,
   recovery,

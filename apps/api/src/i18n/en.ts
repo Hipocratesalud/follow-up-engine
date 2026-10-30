@@ -243,6 +243,7 @@ export const EN = {
     rescheduled_by_protocol: 'Rescheduled: the protocol asks for the same check-up sooner',
     corrected_by_clinician: 'Corrected by a clinician',
     rejected_by_clinician: 'Rejected by a clinician: the note did not ask for it',
+    discarded_by_adjudicator: 'Discarded by the adjudicator: the note does not ask for it',
     // A treatment protocol whose patient has no active prescription left (HIP-139).
     // Neutral: never names the drug or the condition.
     treatment_ended: 'The treatment it followed ended',
@@ -339,6 +340,34 @@ export const EN = {
       plan_item_corrected: (kind) => `Plan item corrected: ${kind}`,
       plan_item_rejected: (kind) => `Plan item rejected: ${kind}`,
     },
+    adjudicated: (decision, shadow) =>
+      `Adjudicator: ${decision}${shadow ? ' (shadow mode: nothing changed)' : ''}`,
+    adjudicationOverridden: (decision) => `A doctor overrode the adjudicator: ${decision}`,
+  },
+
+  adjudication: {
+    decisions: {
+      open: 'the note asks for it',
+      discard: 'the note does not ask for it',
+      needs_human: "needs a doctor's review",
+    },
+    reasons: {
+      explicit_instruction: 'The note gives the instruction plainly',
+      timing_explicit: 'The timing is written next to it',
+      timing_vague: 'The timing is vague',
+      conditional_plan: 'Only if something happens',
+      hypothetical_mention: 'Mentioned as a possibility, not ordered',
+      already_done: 'Already done',
+      negated: 'The note says it is not needed',
+      patient_declined: 'The patient declined it',
+      deferred_to_other_provider: 'Another provider takes care of it',
+      contradictory_signals: 'The note is contradictory',
+      insufficient_context: 'The note does not say enough',
+      no_verifiable_quote: 'No quote found in the note',
+      low_probability: 'Too uncertain to decide',
+    },
+    notFound: 'We could not find that decision.',
+    alreadyOverridden: 'A doctor already overrode this decision.',
   },
 
   patientQueue: {

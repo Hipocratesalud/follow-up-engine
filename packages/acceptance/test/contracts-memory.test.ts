@@ -26,6 +26,7 @@ import {
   describeMetricsReadModelContract,
   describeOutboxContract,
   describePlanItemReviewLogContract,
+  describeAdjudicationRepositoryContract,
   describeQualityFindingRepositoryContract,
   describeReconciliationStoreContract,
   describeRuleOverrideStoreContract,
@@ -112,6 +113,10 @@ describeFindingFlagRepositoryContract(
 describePlanItemReviewLogContract(
   NAME,
   store((s) => s.planItemReviews),
+);
+describeAdjudicationRepositoryContract(
+  NAME,
+  store((s) => s.adjudications),
 );
 
 describeOutboxContract(NAME, () => {

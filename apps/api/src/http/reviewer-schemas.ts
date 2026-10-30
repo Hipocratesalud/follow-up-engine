@@ -267,6 +267,22 @@ export const DemoReviewResponseSchema = z
   })
   .meta({ id: 'DemoReviewResponse' });
 
+export const BeforeVisitResponseSchema = z
+  .object({
+    nextAppointmentAt: isoDate.optional(),
+    items: z.array(FindingViewSchema).meta({
+      description: 'Open pre_visit_question and abnormal_result_no_followup findings only',
+    }),
+  })
+  .meta({
+    id: 'BeforeVisitResponse',
+    description:
+      "What to check before the patient's next visit: the appointment and the open " +
+      'questions or abnormal results worth raising. In a demo or lab clinic, shadow ' +
+      'findings are included too (the UI marks them as not yet validated); elsewhere only ' +
+      'live ones',
+  });
+
 export type FindingView = z.infer<typeof FindingViewSchema>;
 export type FindingDetail = z.infer<typeof FindingDetailSchema>;
 export type CitationView = z.infer<typeof CitationViewSchema>;
@@ -274,3 +290,4 @@ export type TrendView = z.infer<typeof TrendViewSchema>;
 export type ReviewRunView = z.infer<typeof ReviewRunViewSchema>;
 export type FindingFlagView = z.infer<typeof FindingFlagViewSchema>;
 export type ReviewMetrics = z.infer<typeof ReviewMetricsSchema>;
+export type BeforeVisitResponse = z.infer<typeof BeforeVisitResponseSchema>;

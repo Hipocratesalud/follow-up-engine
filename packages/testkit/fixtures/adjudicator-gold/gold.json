@@ -1,0 +1,225 @@
+{
+  "description": "Synthetic ambiguous plan items (extraction confidence inside the adjudicator's band) with the decision a clinician would make. Fictional notes, no real patients. Labels: open = the note asks for the follow-up; discard = it does not (negated, done, declined, handled elsewhere); needs_human = the note cannot tell (conditional, a possibility, vague).",
+  "items": [
+    {
+      "id": "adj-001",
+      "specialty": "diabetology",
+      "kind": "lab",
+      "description": "repeat HbA1c",
+      "confidence": 0.7,
+      "dueInDays": 90,
+      "note": "Paciente con DM2 en tratamiento con metformina 850 mg BID. Refiere buena adherencia. Glicemia capilar en ayunas 135 mg/dL.\nPlan: continuar metformina. Solicito HbA1c en 3 meses y control con resultados.",
+      "evidenceQuote": "Solicito HbA1c en 3 meses",
+      "expected": "open"
+    },
+    {
+      "id": "adj-002",
+      "specialty": "internal_medicine",
+      "kind": "follow_up_visit",
+      "description": "control visit",
+      "confidence": 0.65,
+      "dueInDays": 30,
+      "note": "HTA en tratamiento con losartán 50 mg. TA 142/90 en consulta, 138/88 en MAPA domiciliario.\nPlan: se ajusta losartán a 100 mg. Control en 4 semanas con registro de presión arterial.",
+      "evidenceQuote": "Control en 4 semanas",
+      "expected": "open"
+    },
+    {
+      "id": "adj-003",
+      "specialty": "diabetology",
+      "kind": "lab",
+      "description": "urine albumin/creatinine ratio",
+      "confidence": 0.6,
+      "dueInDays": 180,
+      "note": "DM2 de 8 años de evolución. Microalbuminuria del año pasado 18 mg/g.\nPlan: se indica relación albúmina/creatinina en orina en 6 meses. Continuar dieta y ejercicio.",
+      "evidenceQuote": "relación albúmina/creatinina en orina en 6 meses",
+      "expected": "open"
+    },
+    {
+      "id": "adj-004",
+      "specialty": "gynecology",
+      "kind": "imaging",
+      "description": "pelvic ultrasound",
+      "confidence": 0.7,
+      "dueInDays": 60,
+      "note": "Paciente de 34 años con quiste ovárico simple de 3 cm en eco previa. Asintomática.\nPlan: repetir ecografía pélvica en 2 meses para control del quiste.",
+      "evidenceQuote": "repetir ecografía pélvica en 2 meses",
+      "expected": "open"
+    },
+    {
+      "id": "adj-005",
+      "specialty": "psychology",
+      "kind": "session",
+      "description": "next therapy session",
+      "confidence": 0.55,
+      "dueInDays": 14,
+      "note": "Sesión 6. La paciente refiere menos episodios de ansiedad, practica las técnicas de respiración.\nPlan: próxima sesión en 2 semanas, continuar registro de pensamientos.",
+      "evidenceQuote": "próxima sesión en 2 semanas",
+      "expected": "open"
+    },
+    {
+      "id": "adj-006",
+      "specialty": "internal_medicine",
+      "kind": "lab",
+      "description": "lipid panel",
+      "confidence": 0.6,
+      "dueInDays": 56,
+      "note": "Dislipidemia, inicia atorvastatina 20 mg hace 1 mes. Tolera bien.\nPlan: control de perfil lipídico dentro de 8 semanas.",
+      "evidenceQuote": "perfil lipídico dentro de 8 semanas",
+      "expected": "open"
+    },
+    {
+      "id": "adj-007",
+      "specialty": "internal_medicine",
+      "kind": "follow_up_visit",
+      "description": "control visit",
+      "confidence": 0.5,
+      "dueInDays": 30,
+      "note": "Faringitis aguda resuelta, afebril, orofaringe sin exudado.\nPlan: alta de este episodio. No requiere control, volver si presenta fiebre.",
+      "evidenceQuote": "No requiere control",
+      "expected": "discard"
+    },
+    {
+      "id": "adj-008",
+      "specialty": "diabetology",
+      "kind": "lab",
+      "description": "HbA1c",
+      "confidence": 0.55,
+      "dueInDays": 0,
+      "note": "Control de DM2. Trae resultados de laboratorio: HbA1c 6,8 % del 02/12, creatinina 0,9 mg/dL.\nPlan: la HbA1c ya se realizó y está en meta; continuar igual tratamiento. Próximo control en 6 meses.",
+      "evidenceQuote": "la HbA1c ya se realizó",
+      "expected": "discard"
+    },
+    {
+      "id": "adj-009",
+      "specialty": "gynecology",
+      "kind": "lab",
+      "description": "HPV test",
+      "confidence": 0.6,
+      "dueInDays": 30,
+      "note": "Control ginecológico anual. Citología del año pasado negativa.\nPlan: se ofrece prueba de VPH; la paciente no desea realizarla por ahora. Control anual.",
+      "evidenceQuote": "la paciente no desea realizarla por ahora",
+      "expected": "discard"
+    },
+    {
+      "id": "adj-010",
+      "specialty": "internal_medicine",
+      "kind": "other",
+      "description": "cardiology echocardiogram",
+      "confidence": 0.5,
+      "dueInDays": 60,
+      "note": "HTA y soplo sistólico II/VI ya estudiado. Ecocardiograma en seguimiento por cardiología externa.\nPlan: el ecocardiograma lo controlará su cardiólogo tratante en otro centro.",
+      "evidenceQuote": "el ecocardiograma lo controlará su cardiólogo tratante en otro centro",
+      "expected": "discard"
+    },
+    {
+      "id": "adj-011",
+      "specialty": "diabetology",
+      "kind": "lab",
+      "description": "repeat glucose",
+      "confidence": 0.45,
+      "dueInDays": 7,
+      "note": "Paciente con prediabetes. Glicemia en ayunas 104 mg/dL hace 2 semanas.\nPlan: no es necesario repetir glicemia por ahora; dieta y actividad física. Control en 6 meses.",
+      "evidenceQuote": "no es necesario repetir glicemia",
+      "expected": "discard"
+    },
+    {
+      "id": "adj-012",
+      "specialty": "internal_medicine",
+      "kind": "imaging",
+      "description": "chest x-ray",
+      "confidence": 0.55,
+      "dueInDays": 14,
+      "note": "Tos de 10 días, sin fiebre, auscultación normal.\nPlan: la radiografía de tórax ya se tomó la semana pasada y fue normal. Sintomáticos.",
+      "evidenceQuote": "la radiografía de tórax ya se tomó la semana pasada",
+      "expected": "discard"
+    },
+    {
+      "id": "adj-013",
+      "specialty": "psychology",
+      "kind": "session",
+      "description": "family session",
+      "confidence": 0.5,
+      "dueInDays": 30,
+      "note": "Sesión 10. Mejoría sostenida del ánimo.\nPlan: se suspende la sesión familiar planificada; la paciente prefiere continuar solo con sesiones individuales.",
+      "evidenceQuote": "se suspende la sesión familiar planificada",
+      "expected": "discard"
+    },
+    {
+      "id": "adj-014",
+      "specialty": "internal_medicine",
+      "kind": "imaging",
+      "description": "abdominal ultrasound",
+      "confidence": 0.5,
+      "dueInDays": 30,
+      "note": "Dolor abdominal leve en hipocondrio derecho, tolera vía oral, sin ictericia.\nPlan: dieta blanda. Si persiste el dolor, solicitar ecografía abdominal.",
+      "evidenceQuote": "Si persiste el dolor, solicitar ecografía abdominal",
+      "expected": "needs_human"
+    },
+    {
+      "id": "adj-015",
+      "specialty": "diabetology",
+      "kind": "other",
+      "description": "insulin therapy evaluation",
+      "confidence": 0.45,
+      "dueInDays": 90,
+      "note": "DM2 con HbA1c 9,1 % pese a doble terapia oral.\nPlan: reforzar dieta, valorar inicio de insulina basal en próxima consulta según evolución.",
+      "evidenceQuote": "valorar inicio de insulina basal en próxima consulta",
+      "expected": "needs_human"
+    },
+    {
+      "id": "adj-016",
+      "specialty": "gynecology",
+      "kind": "imaging",
+      "description": "mammography",
+      "confidence": 0.55,
+      "dueInDays": 365,
+      "note": "Paciente de 38 años, sin antecedentes familiares de cáncer de mama, examen mamario normal.\nPlan: considerar mamografía a futuro, a discutir en el control anual.",
+      "evidenceQuote": "considerar mamografía a futuro",
+      "expected": "needs_human"
+    },
+    {
+      "id": "adj-017",
+      "specialty": "internal_medicine",
+      "kind": "lab",
+      "description": "thyroid function",
+      "confidence": 0.5,
+      "dueInDays": 60,
+      "note": "Astenia de 2 meses, sin otros síntomas. Hemograma normal.\nPlan: de ser necesario, ampliar estudio con perfil tiroideo.",
+      "evidenceQuote": "de ser necesario, ampliar estudio con perfil tiroideo",
+      "expected": "needs_human"
+    },
+    {
+      "id": "adj-018",
+      "specialty": "psychology",
+      "kind": "other",
+      "description": "psychiatry referral",
+      "confidence": 0.5,
+      "dueInDays": 30,
+      "note": "Sesión 3. Persisten alteraciones del sueño y ánimo bajo.\nPlan: eventualmente derivar a psiquiatría para evaluación farmacológica si no mejora con la terapia.",
+      "evidenceQuote": "eventualmente derivar a psiquiatría",
+      "expected": "needs_human"
+    },
+    {
+      "id": "adj-019",
+      "specialty": "internal_medicine",
+      "kind": "follow_up_visit",
+      "description": "control visit",
+      "confidence": 0.5,
+      "dueInDays": 30,
+      "note": "Lumbalgia mecánica, mejor con AINES.\nPlan: control más adelante para ver evolución.",
+      "evidenceQuote": "control más adelante",
+      "expected": "needs_human"
+    },
+    {
+      "id": "adj-020",
+      "specialty": "diabetology",
+      "kind": "lab",
+      "description": "lipid panel",
+      "confidence": 0.55,
+      "dueInDays": 90,
+      "note": "DM2 y dislipidemia. Perfil lipídico pendiente.\nPlan: perfil lipídico según resultados del control previo, por definir con el paciente.",
+      "evidenceQuote": "perfil lipídico según resultados del control previo",
+      "expected": "needs_human"
+    }
+  ]
+}

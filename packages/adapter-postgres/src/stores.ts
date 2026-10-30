@@ -1,4 +1,5 @@
 import type { Clock, TransactionalStores } from '@follow-up-engine/core';
+import { PostgresAdjudicationRepository } from './adjudication-repository.ts';
 import { PostgresBackfillProgressStore } from './backfill-progress-store.ts';
 import { PostgresAuditLog, PostgresFeedbackRepository } from './case-records.ts';
 import { PostgresCaseRepository } from './case-repository.ts';
@@ -47,6 +48,7 @@ export interface PostgresStores extends TransactionalStores {
   readonly planItemReviews: PostgresPlanItemReviewLog;
   readonly ruleOverrides: PostgresRuleOverrideStore;
   readonly reconciliation: PostgresReconciliationStore;
+  readonly adjudications: PostgresAdjudicationRepository;
 }
 
 export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): PostgresStores {
@@ -73,5 +75,6 @@ export function bindStores(db: () => Queryable, tables: Tables, clock: Clock): P
     planItemReviews: new PostgresPlanItemReviewLog(ctx),
     ruleOverrides: new PostgresRuleOverrideStore(ctx),
     reconciliation: new PostgresReconciliationStore(ctx),
+    adjudications: new PostgresAdjudicationRepository(ctx),
   };
 }

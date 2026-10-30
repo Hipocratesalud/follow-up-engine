@@ -1,7 +1,7 @@
 import { BarChart3 } from 'lucide-react';
 import type { MouseEvent, ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
-import { useNow } from '../../api/queries.ts';
+import { useDemoClock, useNow } from '../../api/queries.ts';
 import { EmptyState, ErrorState } from '../../components/states.tsx';
 import { Card, Skeleton } from '../../components/ui.tsx';
 import { cx } from '../../lib/cx.ts';
@@ -441,12 +441,17 @@ export function MetricsPage(): ReactNode {
   const copy = useT().metrics;
   const format = metricsFormat(useLocale());
   const now = useNow();
+  // Before the demo clock resolves, `now` falls back to the device's real
+  // time (see `useNow`): asking with that provisional boundary would show a
+  // period that does not match the demo's own "today" (HIP-141). Wait for
+  // it to settle, whether to a simulated clock or to there being none.
+  const clock = useDemoClock();
   const [searchParams, setSearchParams] = useSearchParams();
   const preset = presetOf(searchParams.get('days'));
   // Whole minutes: on a real clock the query key moves once a minute, not every render.
   const anchor = Math.floor(now.getTime() / 60_000) * 60_000;
   const from = new Date(anchor - preset * DAY_MS).toISOString();
-  const metrics = useMetrics({ from });
+  const metrics = useMetrics({ from }, { enabled: !clock.isPending });
 
   function handlePreset(event: MouseEvent<HTMLButtonElement>): void {
     const days = event.currentTarget.dataset['days'];

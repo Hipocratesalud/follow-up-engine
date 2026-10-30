@@ -246,6 +246,7 @@ export const ES = {
     rescheduled_by_protocol: 'Reprogramado: el protocolo pide el mismo control antes',
     corrected_by_clinician: 'Corregido por el equipo clínico',
     rejected_by_clinician: 'Rechazado por el equipo clínico: la nota no lo pedía',
+    discarded_by_adjudicator: 'Descartado por el adjudicador: la nota no lo pide',
     // A treatment protocol whose patient has no active prescription left (HIP-139).
     // Neutral: never names the drug or the condition.
     treatment_ended: 'Terminó el tratamiento que lo motivaba',
@@ -342,6 +343,34 @@ export const ES = {
       plan_item_corrected: (kind) => `Punto del plan corregido: ${kind}`,
       plan_item_rejected: (kind) => `Punto del plan rechazado: ${kind}`,
     },
+    adjudicated: (decision, shadow) =>
+      `Adjudicador: ${decision}${shadow ? ' (modo sombra: no cambió nada)' : ''}`,
+    adjudicationOverridden: (decision) => `Un médico corrigió al adjudicador: ${decision}`,
+  },
+
+  adjudication: {
+    decisions: {
+      open: 'la nota lo pide',
+      discard: 'la nota no lo pide',
+      needs_human: 'requiere revisión médica',
+    },
+    reasons: {
+      explicit_instruction: 'La nota da la indicación de forma explícita',
+      timing_explicit: 'El plazo está escrito junto a la indicación',
+      timing_vague: 'El plazo es impreciso',
+      conditional_plan: 'Solo si ocurre algo',
+      hypothetical_mention: 'Se menciona como posibilidad, no se indica',
+      already_done: 'Ya se hizo',
+      negated: 'La nota dice que no hace falta',
+      patient_declined: 'El paciente no lo aceptó',
+      deferred_to_other_provider: 'Lo lleva otro profesional',
+      contradictory_signals: 'La nota es contradictoria',
+      insufficient_context: 'La nota no dice lo suficiente',
+      no_verifiable_quote: 'No se encontró la cita en la nota',
+      low_probability: 'Demasiado incierto para decidir',
+    },
+    notFound: 'No encontramos esa decisión.',
+    alreadyOverridden: 'Un médico ya corrigió esta decisión.',
   },
 
   patientQueue: {

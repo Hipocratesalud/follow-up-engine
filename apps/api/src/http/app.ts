@@ -17,6 +17,7 @@ import { registerMetricsRoutes } from '../metrics/metrics-routes.ts';
 import { registerJobRoutes } from './job-routes.ts';
 import { registerPatientQueueRoutes } from './patient-queue-routes.ts';
 import { registerReviewerDemoRoutes, registerReviewerRoutes } from './reviewer-routes.ts';
+import { registerAdjudicationRoutes } from './adjudication-routes.ts';
 import { registerEngineTestsRoutes } from './engine-tests-routes.ts';
 import { docsPage, openApiDocument } from './openapi.ts';
 import {
@@ -394,6 +395,7 @@ export function createApp(runtime: EngineRuntime, options: AppOptions): App {
   registerInboxRoutes(app, runtime);
   registerPatientQueueRoutes(app, runtime);
   registerReviewerRoutes(app, runtime);
+  registerAdjudicationRoutes(app, runtime);
   registerMetricsRoutes(app, runtime);
   registerAdminRoutes(app, runtime);
   if (runtime.fakeClock !== undefined) {

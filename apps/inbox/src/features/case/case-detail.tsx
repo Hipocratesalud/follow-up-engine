@@ -25,6 +25,8 @@ import type {
 } from '../../api/contract.ts';
 import { ACTIVE_CASE_STATUSES } from '../../api/contract.ts';
 import { useCase, useNow } from '../../api/queries.ts';
+import type { AdjudicationView } from '../../api/adjudication-contract.ts';
+import { useAdjudications } from '../../api/adjudication-queries.ts';
 import {
   EscalationMeter,
   LayerChip,
@@ -51,6 +53,8 @@ import {
 import { FeedbackPanel } from './feedback-panel.tsx';
 import { ReasonRuleVersion } from '../metrics/rule-version.tsx';
 import { PlanItemReview } from '../plan-items/plan-item-review.tsx';
+import { AdjudicationPanel } from '../adjudication/adjudication-panel.tsx';
+import { BeforeVisitPanel } from '../reviewer/before-visit-panel.tsx';
 import { PatientDocumentsProvider, ViewDocumentsButton } from '../why/documents-drawer.tsx';
 import { WhyThis } from '../why/why-this.tsx';
 
@@ -63,9 +67,12 @@ function sourceLabel(t: Messages, source: CaseReasonView['source']): string {
 function ReasonCard({
   reason,
   now,
+  adjudication,
 }: {
   readonly reason: CaseReasonView;
   readonly now: Date;
+  /** The adjudicator's decision, when the item was ambiguous (PRD V2). */
+  readonly adjudication?: AdjudicationView | undefined;
 }): ReactNode {
   const t = useT();
   return (
@@ -98,12 +105,14 @@ function ReasonCard({
           dueAt={reason.dueAt}
         />
       ) : null}
+      {adjudication ? <AdjudicationPanel adjudication={adjudication} /> : null}
       <WhyThis why={reason.why} label={reason.label} />
     </li>
   );
 }
 
 const ACTOR_ICONS = {
+  adjudicator: Bot,
   rule: ScrollText,
   user: UserRound,
   patient: CircleUser,
@@ -279,6 +288,13 @@ export function CaseDetailView({
   const now = useNow();
   const active = (ACTIVE_CASE_STATUSES as readonly string[]).includes(detail.status);
   const planReasons = detail.reasons.filter((reason) => reason.evidence).length;
+  const adjudications = useAdjudications(
+    { caseId: detail.id },
+    detail.reasons.some((reason) => reason.planItem !== undefined),
+  );
+  const decisionOf = new Map(
+    (adjudications.data?.items ?? []).map((item) => [item.expectationId, item]),
+  );
   const heading = useRef<HTMLHeadingElement>(null);
   const closedNotice = useRef<HTMLDivElement>(null);
   const wasActive = useRef(active);
@@ -363,6 +379,8 @@ export function CaseDetailView({
           </Card>
         )}
 
+        <BeforeVisitPanel patientId={detail.patient.id} />
+
         {/* One primary action per view: a pending call comes first. */}
         {active && detail.callTask ? (
           <CallTask caseId={detail.id} task={detail.callTask} patientName={detail.patient.name} />
@@ -423,7 +441,12 @@ export function CaseDetailView({
           ) : null}
           <ul className="flex flex-col gap-3">
             {detail.reasons.map((reason) => (
-              <ReasonCard key={reason.expectationId} reason={reason} now={now} />
+              <ReasonCard
+                key={reason.expectationId}
+                reason={reason}
+                now={now}
+                adjudication={decisionOf.get(reason.expectationId)}
+              />
             ))}
           </ul>
         </section>

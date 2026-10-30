@@ -55,6 +55,7 @@ const SAME_IN_BOTH = new Set([
   'review.trend.description',
   'review.detail.citationCaption',
   'review.detail.discardedItem',
+  'review.beforeVisit.citationCaption',
   'review.summaries.expectations',
   'review.testNames.hba1c',
   'contact.attemptTitle',
