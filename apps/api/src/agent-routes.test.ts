@@ -67,7 +67,15 @@ interface Page {
     readonly fhirAppointmentId?: string;
     readonly originCaseId?: string;
   }[];
-  readonly findings: readonly { readonly category: string; readonly summary: string }[];
+  readonly findings: readonly {
+    readonly category: string;
+    readonly summary: string;
+    readonly citations: readonly {
+      readonly kind: string;
+      readonly quote: string;
+      readonly date: string;
+    }[];
+  }[];
   readonly tasks: readonly {
     readonly kind: string;
     readonly status: string;
@@ -233,6 +241,17 @@ describe('the order-to-completion agent (scripted mode)', () => {
       // Shown first: the HbA1c rise, then the question about it.
       expect(page.findings[0]?.category).toBe('lab_trend');
       expect(page.findings[0]?.summary).toContain('HbA1c');
+      // Ordered by the clinically real (effective) date of each result, not
+      // by the order they were ingested in: 6.6 % → 7.1 % → 8.4 %.
+      expect(page.findings[0]?.summary).toContain('6.6 → 7.1 → 8.4');
+      // The citation shows the date printed on the report (29 Dec 2025, when the
+      // sample was drawn), not when the photo reached the clinic (5 Jan 2026).
+      expect(
+        page.findings[0]?.citations.some((citation) => citation.date.startsWith('2025-12-29')),
+      ).toBe(true);
+      expect(
+        page.findings[0]?.citations.some((citation) => citation.date.startsWith('2026-01')),
+      ).toBe(false);
       // In the reader's language (both are stored): English by default, Spanish on request.
       expect(page.findings[1]?.summary).toContain('medication');
       const spanish = (await call('/api/demo/agent', { headers: { 'accept-language': 'es' } }))
