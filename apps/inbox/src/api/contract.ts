@@ -669,6 +669,8 @@ export interface LabHistoryDocumentOutcome {
   status: 'staged' | 'already_imported' | 'no_results' | 'unreadable';
   error?: string;
   results?: {
+    /** As printed on the report (clinical content, shown as written). */
+    name: string;
     test: string;
     loinc: string;
     value: number;

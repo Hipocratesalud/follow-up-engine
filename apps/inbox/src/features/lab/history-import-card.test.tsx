@@ -57,7 +57,16 @@ const RESPONSE: LabHistoryImportResponse = {
       readAs: 'lab_report',
       source: 'photo',
       status: 'staged',
-      results: [{ test: 'HbA1c', loinc: '4548-4', value: 8.4, unit: '%', interpretation: 'H' }],
+      results: [
+        {
+          name: 'Hemoglobina glicosilada (HbA1c)',
+          test: 'HbA1c',
+          loinc: '4548-4',
+          value: 8.4,
+          unit: '%',
+          interpretation: 'H',
+        },
+      ],
       resources: ['Observation/hist-obs-1-hba1c'],
       reading: { model: 'meta:muse-spark-1.3', costUsd: 0.004, latencyMs: 900 },
     },
@@ -131,6 +140,7 @@ describe('Import history (the Lab page)', () => {
     expect(
       screen.getByText('Daily cap: 0 cases released today, 1 waiting in “To recover”.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('HbA1c: 8.4 % (high)')).toBeInTheDocument();
+    // The test as printed on the report (clinical content stays as written).
+    expect(screen.getByText('Hemoglobina glicosilada (HbA1c): 8.4 % (high)')).toBeInTheDocument();
   });
 });

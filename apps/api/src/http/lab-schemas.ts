@@ -202,7 +202,8 @@ export const LabHistoryDocumentOutcomeSchema = z.object({
   results: z
     .array(
       z.object({
-        test: z.string(),
+        name: z.string().meta({ description: 'As printed on the report' }),
+        test: z.string().meta({ description: "The engine's test group it was coded to" }),
         loinc: z.string(),
         value: z.number(),
         unit: z.string().optional(),

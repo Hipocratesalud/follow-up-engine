@@ -194,7 +194,7 @@ function OutcomeRow({ outcome }: { readonly outcome: LabHistoryDocumentOutcome }
           {outcome.results.map((result) => (
             <li key={result.loinc}>
               <Badge tone={result.interpretation === 'N' ? 'neutral' : 'warning'}>
-                {`${result.test}: ${formatNumber(result.value)}${result.unit ? ` ${result.unit}` : ''}${
+                {`${result.name}: ${formatNumber(result.value)}${result.unit ? ` ${result.unit}` : ''}${
                   result.interpretation
                     ? ` (${t.lab.history.interpretations[result.interpretation] ?? ''})`
                     : ''

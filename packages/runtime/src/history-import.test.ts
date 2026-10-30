@@ -117,8 +117,22 @@ describe('importing a patient’s history (V1-A, historical mode)', () => {
     ]);
     // The photo's tests, coded like the agent codes them; the range is computed by code.
     expect(report.documents[3]?.results).toEqual([
-      { test: 'creatinine', loinc: '2160-0', value: 0.9, unit: 'mg/dL', interpretation: 'N' },
-      { test: 'lipid panel', loinc: '57698-3', value: 128, unit: 'mg/dL', interpretation: 'H' },
+      {
+        name: 'Creatinina',
+        test: 'creatinine',
+        loinc: '2160-0',
+        value: 0.9,
+        unit: 'mg/dL',
+        interpretation: 'N',
+      },
+      {
+        name: 'Colesterol LDL',
+        test: 'lipid panel',
+        loinc: '57698-3',
+        value: 128,
+        unit: 'mg/dL',
+        interpretation: 'H',
+      },
     ]);
     expect(report.backfill.status).toBe('completed');
     expect(report.backfill.notesRead).toBe(2);

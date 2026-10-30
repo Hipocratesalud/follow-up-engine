@@ -81,6 +81,9 @@ export interface HistoryDocumentOutcome {
   readonly error?: DocumentExtractionError | 'reading_failed';
   /** A lab report's recognized tests, as printed (the clinic's own view, never the patient's). */
   readonly results?: readonly {
+    /** The test's name as printed on the report (clinical content, in its own language). */
+    readonly name: string;
+    /** The engine's test group it was coded to. */
     readonly test: string;
     readonly loinc: string;
     readonly value: number;
@@ -261,6 +264,7 @@ export async function importPatientHistory(
         source,
         status: resources.length === 0 ? 'no_results' : 'staged',
         results: coded.results.map((result) => ({
+          name: result.reading.name,
           test: result.test,
           loinc: result.code.code,
           value: result.reading.value,
