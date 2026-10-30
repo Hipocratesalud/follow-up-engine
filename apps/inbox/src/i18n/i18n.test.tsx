@@ -81,6 +81,11 @@ const SAME_IN_BOTH = new Set([
   'engineTests.checks.detailConditionRecorded',
   // Cognates: the same word in both languages.
   'common.no',
+  // The agent console: "OK", "Error", "Info", and a code shown as is.
+  'agent.console.outcomes.ok',
+  'agent.console.outcomes.error',
+  'agent.console.outcomes.info',
+  'agent.unknownEvent',
   'engineTests.verification.provisional',
 ]);
 

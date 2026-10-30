@@ -21,6 +21,7 @@ export * from './domain/clinical-finding.ts';
 export * from './domain/domain-event.ts';
 export * from './domain/rule-override.ts';
 export * from './domain/reconciliation.ts';
+export * from './domain/order-agent.ts';
 export * from './domain/errors.ts';
 
 // Versioned configuration (rules, protocols)

@@ -636,6 +636,10 @@ export const EN = {
     invalidConsultation: 'We could not build the consultation from that data.',
     labFutureDate: "That date is after the lab clinic's own current date.",
     labPastDate: "The lab clinic's date can only move forward.",
+    agentNotStarted: 'The agent does not own orders for this patient yet: start the story first.',
+    agentMediaType: 'A voice note must be a WAV file and a photo a JPEG, PNG or WebP image.',
+    agentLiveUnavailable:
+      'The live mode needs a Meta API key on the server: use the scripted mode.',
     noteNotRead: (model, error) =>
       `The model (${model}) could not read the note: ${error ?? 'no response'}. The consultation ` +
       'was saved and reading its plan will be retried automatically.',

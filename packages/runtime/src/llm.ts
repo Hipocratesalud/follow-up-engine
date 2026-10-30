@@ -1,10 +1,13 @@
 import type {
   ClinicalReviewAgent,
   ClinicDirectory,
+  ClinicId,
   Clock,
   ExpectationAdjudicator,
   LlmUsageLog,
   NoteExtractor,
+  OrderAgentModel,
+  PatientMediaReader,
 } from '@follow-up-engine/core';
 import {
   ADJUDICATION_TASK,
@@ -19,13 +22,30 @@ import {
   createNoteExtractor,
   createNoteFixtureResponder,
   createOpenAiCompatibleProvider,
+  createFakeTranscriber,
+  createMetaTranscriber,
+  createOrderAgentModel,
+  createPatientMediaReader,
   createReviewAgent,
+  createScriptedLabPhotoResponder,
   createSnapshotProvider,
   DEFAULT_PRICING,
   type FetchLike,
   FAKE_ADJUDICATOR_MODEL,
   FAKE_DEFAULT_MODEL,
+  FAKE_ORDER_AGENT_MODEL,
   FAKE_REVIEWER_MODEL,
+  FAKE_TRANSCRIBER_MODEL,
+  FAKE_VISION_MODEL,
+  LAB_PHOTO_SCRIPTED_TASK,
+  LAB_PHOTO_TASK,
+  META_TRANSCRIBE_MODEL,
+  ORDER_AGENT_SCRIPTED_TASK,
+  ORDER_AGENT_TASK,
+  scriptedOrderAgentResponder,
+  type TranscriptionProvider,
+  VOICE_TRANSCRIPTION_SCRIPTED_TASK,
+  VOICE_TRANSCRIPTION_TASK,
   heuristicResponder,
   type LlmSnapshot,
   type LlmSnapshotEntry,
@@ -40,6 +60,10 @@ import {
   type StructuredLlmProvider,
 } from '@follow-up-engine/llm';
 import type { LlmConfig } from './config.ts';
+import { scriptedPhotoReadings, scriptedTranscripts } from './order-agent/samples.ts';
+
+/** Gateway task of the clinical reviewer on the scripted fake (the agent's scripted mode). */
+export const SCRIPTED_CLINICAL_REVIEW_TASK = 'clinical_review_scripted';
 
 /** Which provider and model read the notes, as shown in the inbox stats. */
 export interface ExtractorInfo {
@@ -60,6 +84,14 @@ export interface ConfiguredExtractor {
   readonly adjudicatorModel: string;
   /** The recorded replies being replayed, when a snapshot of this provider was given. */
   readonly replay?: Pick<SnapshotProvider, 'stats' | 'snapshot'>;
+  /** The order-to-completion agent's model loop (live and scripted modes). */
+  readonly orderAgentModel: OrderAgentModel;
+  /** Voice notes and lab report photos of the agent's patients. */
+  readonly mediaReader: PatientMediaReader;
+  /** The clinical reviewer on the scripted fake (the agent's scripted mode never spends). */
+  readonly scriptedReviewAgent: ClinicalReviewAgent;
+  /** Whether the agent's live mode runs a real model (anything but the fake provider). */
+  readonly liveAgent: boolean;
 }
 
 /**
@@ -97,6 +129,8 @@ export interface ExtractorDeps {
   readonly snapshot?: LlmSnapshotOption;
   /** HTTP client of the real providers (tests). */
   readonly llmFetch?: FetchLike;
+  /** The monthly budget of a clinic without one of its own (lab clinics: `DEMO_LLM_MONTHLY_BUDGET_USD`). */
+  readonly fallbackBudgetUsd?: (clinicId: ClinicId) => number | undefined;
 }
 
 interface ProviderChoice {
@@ -160,6 +194,8 @@ function chooseProvider(config: LlmConfig, deps: ExtractorDeps): ProviderChoice 
       return {
         provider: createFakeProvider({
           respond: chainResponders(
+            scriptedOrderAgentResponder,
+            createScriptedLabPhotoResponder(scriptedPhotoReadings()),
             scriptedReviewerResponder,
             scriptedAdjudicatorResponder,
             createNoteFixtureResponder(deps.noteFixtures ?? []),
@@ -209,10 +245,36 @@ export function createConfiguredExtractor(
     replay !== undefined && deps.snapshot?.allowLive !== undefined
       ? chooseProvider({ provider: 'fake' }, deps)
       : undefined;
+  // The agent's scripted mode always has the fake provider, whatever the live one is.
+  const scripted =
+    choice.info.provider === 'fake' ? choice : chooseProvider({ provider: 'fake' }, deps);
+  const live = choice.info.provider;
+  const isFake = live === 'fake';
+  const transcribers: Record<string, TranscriptionProvider> = {
+    fake: createFakeTranscriber(scriptedTranscripts()),
+    ...(live === 'meta'
+      ? {
+          meta: createMetaTranscriber({
+            apiKey: config.metaApiKey ?? '',
+            ...(config.metaBaseUrl === undefined ? {} : { baseUrl: config.metaBaseUrl }),
+            ...(deps.llmFetch === undefined ? {} : { fetch: deps.llmFetch }),
+          }),
+        }
+      : {}),
+  };
   const gateway = createLlmGateway({
     providers: {
       [choice.info.provider]: replay ?? choice.provider,
       ...(fallback === undefined ? {} : { [fallback.info.provider]: fallback.provider }),
+      fake: fallback?.provider ?? scripted.provider,
+    },
+    transcribers,
+    transcriptionTasks: {
+      [VOICE_TRANSCRIPTION_TASK]:
+        live === 'meta'
+          ? { provider: 'meta', model: META_TRANSCRIBE_MODEL, timeoutMs: 60_000 }
+          : { provider: 'fake', model: FAKE_TRANSCRIBER_MODEL },
+      [VOICE_TRANSCRIPTION_SCRIPTED_TASK]: { provider: 'fake', model: FAKE_TRANSCRIBER_MODEL },
     },
     tasks: {
       [NOTE_EXTRACTION_TASK]: {
@@ -241,11 +303,25 @@ export function createConfiguredExtractor(
         // Muse Spark bills its reasoning as output: room to think before a short answer.
         maxOutputTokens: 3_000,
       },
+      [SCRIPTED_CLINICAL_REVIEW_TASK]: {
+        route: [{ provider: 'fake', model: FAKE_REVIEWER_MODEL }],
+      },
+      [ORDER_AGENT_TASK]: {
+        route: [{ provider: live, model: isFake ? FAKE_ORDER_AGENT_MODEL : choice.info.model }],
+        maxOutputTokens: 3_000,
+      },
+      [ORDER_AGENT_SCRIPTED_TASK]: { route: [{ provider: 'fake', model: FAKE_ORDER_AGENT_MODEL }] },
+      [LAB_PHOTO_TASK]: {
+        route: [{ provider: live, model: isFake ? FAKE_VISION_MODEL : choice.info.model }],
+        maxOutputTokens: 4_000,
+      },
+      [LAB_PHOTO_SCRIPTED_TASK]: { route: [{ provider: 'fake', model: FAKE_VISION_MODEL }] },
     },
     usageLog: deps.usageLog,
     pricing: choice.pricing,
     monthlyBudgetUsd: async (clinicId) =>
-      (await deps.clinics.get(clinicId))?.settings.llmMonthlyBudgetUsd,
+      (await deps.clinics.get(clinicId))?.settings.llmMonthlyBudgetUsd ??
+      deps.fallbackBudgetUsd?.(clinicId),
     clock: deps.clock,
   });
   return {
@@ -256,5 +332,9 @@ export function createConfiguredExtractor(
     adjudicator: createAdjudicator({ gateway }),
     adjudicatorModel: choice.adjudicatorModel ?? choice.info.model,
     ...(replay === undefined ? {} : { replay }),
+    orderAgentModel: createOrderAgentModel({ gateway }),
+    mediaReader: createPatientMediaReader({ gateway }),
+    scriptedReviewAgent: createReviewAgent({ gateway, task: SCRIPTED_CLINICAL_REVIEW_TASK }),
+    liveAgent: !isFake,
   };
 }

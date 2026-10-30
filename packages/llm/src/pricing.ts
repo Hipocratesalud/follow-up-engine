@@ -6,6 +6,8 @@ export interface ModelPrice {
   readonly outputPerMTok: number;
   /** Price of prompt tokens served from cache; defaults to the input price. */
   readonly cachedInputPerMTok?: number;
+  /** Speech-to-text models: USD per minute of audio. */
+  readonly audioPerMinute?: number;
   /** Where the price comes from, so a reviewer can re-check it. */
   readonly source: string;
   /** When the price was last checked against the source (ISO date). */
@@ -72,6 +74,30 @@ export const DEFAULT_PRICING: PricingTable = {
     inputPerMTok: 0,
     outputPerMTok: 0,
     source: 'Deterministic in-process fake; free.',
+  },
+  'meta:muse-voice-transcribe-1.0': {
+    inputPerMTok: 0,
+    outputPerMTok: 0,
+    audioPerMinute: 0.006,
+    source:
+      'No per-minute price listed on dev.meta.ai on 2026-10-30: a conservative budgeting estimate (USD 0.006/min); re-check before quoting.',
+    verifiedAt: '2026-10-30',
+  },
+  'fake:fake-order-agent': {
+    inputPerMTok: 0,
+    outputPerMTok: 0,
+    source: 'Deterministic scripted order-to-completion agent (in-process); free.',
+  },
+  'fake:fake-vision': {
+    inputPerMTok: 0,
+    outputPerMTok: 0,
+    source: 'Deterministic scripted lab photo reader (in-process); free.',
+  },
+  'fake:fake-transcriber': {
+    inputPerMTok: 0,
+    outputPerMTok: 0,
+    audioPerMinute: 0,
+    source: 'Deterministic scripted transcriber (in-process); free.',
   },
   'fake:fake-reviewer': {
     inputPerMTok: 0,

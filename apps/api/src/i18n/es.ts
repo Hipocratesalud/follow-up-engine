@@ -644,6 +644,12 @@ export const ES = {
     invalidConsultation: 'No pudimos armar la consulta con esos datos.',
     labFutureDate: 'Esa fecha es posterior a la fecha actual de tu laboratorio.',
     labPastDate: 'La fecha de tu laboratorio solo puede avanzar hacia adelante.',
+    agentNotStarted:
+      'El agente todavía no tiene órdenes de este paciente: primero inicia la historia.',
+    agentMediaType:
+      'Una nota de voz debe ser un archivo WAV y una foto una imagen JPEG, PNG o WebP.',
+    agentLiveUnavailable:
+      'El modo en vivo necesita una clave de Meta en el servidor: usa el modo guionado.',
     noteNotRead: (model, error) =>
       `El modelo (${model}) no pudo leer la nota: ${error ?? 'sin respuesta'}. La consulta quedó ` +
       'guardada y la lectura del plan se reintentará automáticamente.',

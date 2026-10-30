@@ -31,6 +31,7 @@ export {
 } from './migrate.ts';
 export { applySupabaseRowLevelSecurity } from './supabase.ts';
 export { DEFAULT_SCHEMA, InvalidSchemaNameError, type Queryable } from './sql.ts';
+export { PostgresOrderAgentStore } from './order-agent-store.ts';
 export { CorruptRowError } from './codec.ts';
 export type { PostgresStores } from './stores.ts';
 export {

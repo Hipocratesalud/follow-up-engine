@@ -25,3 +25,4 @@ export type * from './rule-override-store.ts';
 export type * from './suppression-repository.ts';
 export type * from './unit-of-work.ts';
 export * from './llm.ts';
+export type * from './order-agent.ts';

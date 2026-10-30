@@ -238,3 +238,50 @@ export {
   scriptedAdjudication,
   scriptedAdjudicatorResponder,
 } from './adjudicator/scripted.ts';
+
+// Speech to text (Muse Voice Transcribe), a gateway capability
+export {
+  createFakeTranscriber,
+  createMetaTranscriber,
+  META_TRANSCRIBE_MODEL,
+  sha256Hex,
+  type MetaTranscriberOptions,
+  type TranscriptionProvider,
+  type TranscriptionRequest,
+  type TranscriptionResult,
+} from './providers/transcription.ts';
+export type {
+  TranscriptionGatewayRequest,
+  TranscriptionGatewayResult,
+  TranscriptionTaskConfig,
+} from './gateway/gateway.ts';
+
+// Order-to-completion agent (docs/agent/order-to-completion.md)
+export { createOrderAgentModel, type OrderAgentModelOptions } from './agent/order-agent.ts';
+export {
+  ORDER_AGENT_ACTION_NAME,
+  ORDER_AGENT_PROMPT_VERSION,
+  ORDER_AGENT_SCRIPTED_TASK,
+  ORDER_AGENT_TASK,
+  OrderAgentActionSchema,
+  orderAgentSystemPrompt,
+  type OrderAgentAction,
+} from './agent/prompt.ts';
+export { FAKE_ORDER_AGENT_MODEL, scriptedOrderAgentResponder } from './agent/scripted.ts';
+export {
+  createPatientMediaReader,
+  createScriptedLabPhotoResponder,
+  FAKE_TRANSCRIBER_MODEL,
+  FAKE_VISION_MODEL,
+  LAB_PHOTO_OUTPUT_NAME,
+  LAB_PHOTO_PROMPT_VERSION,
+  LAB_PHOTO_SCRIPTED_TASK,
+  LAB_PHOTO_TASK,
+  LabPhotoReadingSchema,
+  labPhotoMessages,
+  toLabPhotoReading,
+  VOICE_TRANSCRIPTION_SCRIPTED_TASK,
+  VOICE_TRANSCRIPTION_TASK,
+  type ModelLabPhotoReading,
+} from './agent/media.ts';
+export { outboundSafetyTerms } from './agent/outbound-terms.ts';

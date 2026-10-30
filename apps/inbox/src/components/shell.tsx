@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Beaker,
+  Bot,
   CalendarClock,
   ClipboardCheck,
   FlaskConical,
@@ -153,7 +154,10 @@ export function Shell(): ReactNode {
     { to: '/inbox', label: t.nav.inbox, icon: Inbox, count: stats.data?.activePatients },
   ];
   // Lab is the evaluator's primary action: right after Inbox.
-  if (clock.data) items.push({ to: '/lab', label: t.nav.lab, icon: Beaker });
+  if (clock.data) {
+    items.push({ to: '/lab', label: t.nav.lab, icon: Beaker });
+    items.push({ to: '/agent', label: t.nav.agent, icon: Bot });
+  }
   items.push(
     {
       to: '/recovery',
