@@ -895,14 +895,17 @@ const PRE_VISIT_HORIZON_DAYS = 60;
 
 function preVisitQuestions(dossier: ReviewDossier): SignalDraft[] {
   const next = dossier.upcomingAppointmentAt;
-  if (
-    next === undefined ||
-    next.getTime() - dossier.snapshot.now.getTime() > PRE_VISIT_HORIZON_DAYS * MS_PER_DAY
-  ) {
-    return [];
-  }
+  const visitSoon =
+    next !== undefined &&
+    next.getTime() - dossier.snapshot.now.getTime() <= PRE_VISIT_HORIZON_DAYS * MS_PER_DAY;
+  // The engine already asks for a visit about a result (abnormal_result_followup):
+  // the question about that result is prepared before the visit is booked.
+  const visitAskedForResult = dossier.snapshot.liveExpectations.some(
+    (expectation) => expectation.ruleId === 'abnormal_result_followup',
+  );
   const signals: SignalDraft[] = [];
   for (const rule of PRE_VISIT_QUESTIONS) {
+    if (!visitSoon && !(rule.worseningTest !== undefined && visitAskedForResult)) continue;
     let evidence: { handle: string; quote: string } | undefined;
     if (rule.worseningTest !== undefined) {
       const trend = dossier.trends.find((item) => item.test === rule.worseningTest);

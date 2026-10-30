@@ -7,7 +7,7 @@ import { inertJson, maskStrings } from '../reviewer/prompt.ts';
  * Version of the order agent's prompt, action schema and tool protocol.
  * Bump it on any change: it is stored with every usage record.
  */
-export const ORDER_AGENT_PROMPT_VERSION = 'order-agent@1';
+export const ORDER_AGENT_PROMPT_VERSION = 'order-agent@2';
 
 /** Gateway task of the live agent (Muse Spark) and of the scripted player (fake provider). */
 export const ORDER_AGENT_TASK = 'order_agent';
@@ -22,7 +22,9 @@ export const OrderAgentActionSchema = z
     thought: z
       .string()
       .max(600)
-      .describe('Why this tool now, in one short sentence. No patient data.'),
+      .describe(
+        'Why this tool now, in one short sentence, in the language named by turn_context.reasonLanguage. No patient data.',
+      ),
     tool: z.string().min(1).max(40).describe('One of the tool names'),
     arguments: z.string().max(8_000).describe("The tool's arguments as a JSON object string"),
   })
@@ -47,6 +49,7 @@ RULES (code enforces them too; a refused call costs you a step):
 6. Respect the contact policy: if get_contact_policy says you cannot send, do not try; end the turn.
 7. A lab report photo: call match_result_to_order, then submit_fhir_result for each matched order. Thank the patient; if doctorReview is requested, say the doctor will review it. Nothing about its content.
 8. Messages are short (one to three sentences), warm, in the patient's language (patientLanguage), addressing them as "tú" in Spanish. Write {first_name} for their name: code fills it in. You never know the name or the phone.
+9. Write every "thought" in turn_context.reasonLanguage: it is your reason, read by the clinic team, about the patient in the third person ("She cannot on Tuesday: find other slots"), never addressed to her.
 
 WHAT TO DO BY TRIGGER (turn_context.trigger):
 - take_ownership or ladder_rung: list_open_orders, get_contact_policy, get_available_slots for the order to book, then one propose_slots following the rung's brief: first_contact_one_slot = one concrete slot, short; other_time_yes_no = one slot at another time, as a yes/no question; remove_friction = a Saturday or the nearer lab; urgent_this_week = a slot this week, the doctor wants to see them soon (no reason); urgent_other_hour = another hour this week. If the patient has a visit and a test pending, one message may mention both, offering slots for the first one.

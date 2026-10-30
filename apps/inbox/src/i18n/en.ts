@@ -2020,6 +2020,11 @@ const AGENT_CODES: Readonly<Record<string, string>> = {
   doctor_plan_followup: 'doctor’s plan',
   protocol_diabetes_hba1c: 'diabetes protocol: HbA1c',
   protocol_diabetes_visit: 'diabetes protocol: visit',
+  protocol_diabetes_lipids: 'diabetes protocol: lipids',
+  protocol_diabetes_fundus: 'diabetes protocol: fundus exam',
+  'fasting glucose': 'fasting glucose',
+  vital_trend: 'vital-sign trend',
+  record_quality: 'record quality',
 };
 
 function code(value: unknown): string {
@@ -2027,13 +2032,41 @@ function code(value: unknown): string {
   return AGENT_CODES[raw] ?? raw.replace(/_/g, ' ');
 }
 
+const RUNG_TRACKS: Readonly<Record<string, string>> = {
+  routine: 'Routine',
+  urgent: 'Urgent',
+  undelivered: 'Undelivered',
+};
+const RUNG_ACTIONS: Readonly<Record<string, string>> = {
+  message: 'message',
+  call_task: 'call task for reception',
+  doctor_notice: 'notice to the doctor',
+  update_phone_task: 'task to update the phone',
+  other_contact_task: 'call via other contact data',
+  unreachable: 'unreachable',
+};
+
+/** "routine:14d" → "Routine rung, day 14: call task for reception". */
+function rung(id: unknown, action: unknown): string {
+  const match = /^([a-z]+):(\d+)([dh])$/.exec(str(id));
+  if (match === null) return str(id);
+  const [, track = '', count = '0', unit] = match;
+  const when = unit === 'h' ? `hour ${count}` : `day ${count}`;
+  const what = RUNG_ACTIONS[str(action) || 'message'] ?? code(action);
+  return `${RUNG_TRACKS[track] ?? track} rung, ${when}: ${what}`;
+}
+
 const agent = {
   title: 'Order-to-completion agent',
   subtitle:
     'The agent owns every order the doctor wrote until the engine says it is done. The agent acts, the engine verifies, the doctor decides.',
   storyTitle: 'Maria’s story',
-  storyBody:
-    'Maria (synthetic) has type 2 diabetes. At her last visit, months ago, her doctor ordered an HbA1c test and a control in three months, and she never came back. Start the story: the agent takes over her open orders in your own sandbox clinic, on its own clock.',
+  storyBodies: {
+    maria:
+      'Maria (synthetic) has type 2 diabetes. At her last visit, months ago, her doctor ordered an HbA1c test and a control in three months, and she never came back. Start the story: the agent takes over her open orders in your own sandbox clinic, on its own clock.',
+    maria_urgent:
+      'Maria (synthetic) has type 2 diabetes and missed her control. Three days ago her lab sent the clinic an HbA1c of 8.4\u00a0%, flagged abnormal: the engine asks for a visit soon and the doctor already sees what the result means. The agent has a few days, not weeks: it follows the urgent ladder in your own sandbox clinic, on its own clock.',
+  } as Record<string, string>,
   storyLabel: 'Story',
   stories: {
     maria: 'Routine: she stopped coming',
@@ -2208,7 +2241,7 @@ const agent = {
     ownership_taken: (p: Params): string =>
       `Took ownership of ${num(p['orders'])} doctor’s orders (${num(p['ignoredEngineItems'])} engine suggestions ignored), ${code(p['track'])}.`,
     turn_started: (p: Params): string =>
-      `Turn started: ${code(p['trigger'])}${p['rung'] === undefined ? '' : ` (rung ${str(p['rung'])})`}.`,
+      `Turn started: ${code(p['trigger'])}${p['rung'] === undefined ? '' : ` (${rung(p['rung'], 'message')})`}.`,
     model_called: (p: Params): string => `The model chose ${str(p['tool']) || 'its next tool'}.`,
     orders_listed: (p: Params): string => `${num(p['open'])} open orders read.`,
     patient_summary_read: (): string => 'Pseudonymous summary read (no name, no phone).',
@@ -2230,7 +2263,7 @@ const agent = {
     appointment_already_booked: (): string => 'Already booked for this confirmation (idempotent).',
     photo_not_a_report: (): string => 'The photo is not a lab report.',
     result_matched: (p: Params): string =>
-      `Photo matched to ${list(p['matches']).join(', ') || 'no order'}; name on report: ${code(p['nameCheck'])}.`,
+      `Photo matched to ${list(p['matches']).map(code).join(', ') || 'no order'}${list(p['unmatched']).length === 0 ? '' : ` (not ordered: ${list(p['unmatched']).map(code).join(', ')})`}; name on report: ${code(p['nameCheck'])}.`,
     result_submitted: (p: Params): string => `FHIR Observation submitted: ${str(p['resource'])}.`,
     expectation_fulfilled: (p: Params): string =>
       `Engine: ${p['order'] === 'visit' ? 'follow-up visit' : str(p['order'])} expectation fulfilled by ${str(p['by'])}${p['owned'] === false ? ' (an engine item)' : ''}.`,
@@ -2238,7 +2271,7 @@ const agent = {
     expectation_still_open: (): string =>
       'Engine: the order stays open (the result does not fulfill it).',
     clinical_review_completed: (p: Params): string =>
-      `Clinical reviewer ran: ${num(p['findings'])} findings for the doctor (${list(p['categories']).map(code).join(', ')}).`,
+      `Clinical reviewer ran ${p['on'] === 'booking' ? 'for the booked visit' : p['on'] === 'arrival' ? 'on the result the lab sent' : 'on the result'}: ${num(p['findings'])} new findings for the doctor${list(p['categories']).length === 0 ? '' : ` (${list(p['categories']).map(code).join(', ')})`}.`,
     clinical_review_failed: (): string =>
       'The clinical reviewer failed; the result is stored anyway.',
     handed_to_staff: (): string => 'Handed over to the clinic team.',
@@ -2255,7 +2288,7 @@ const agent = {
       `Maria sent a ${str(p['kind']) === 'text' ? 'message' : str(p['kind']) === 'voice' ? 'voice note' : 'photo'}.`,
     ladder_reanchored: (): string => 'Ladder restarted from this reply.',
     all_orders_covered: (): string => 'Every order is booked or fulfilled: the ladder stops.',
-    rung_due: (p: Params): string => `Ladder rung due: ${str(p['rung'])}.`,
+    rung_due: (p: Params): string => `Due now: ${rung(p['rung'], p['action'])}.`,
     rung_skipped: (p: Params): string => `Rung skipped by the contact policy: ${code(p['block'])}.`,
     staff_task_created: (p: Params): string =>
       `Staff task created (${code(p['kind'])}, ${code(p['priority'])} priority).`,

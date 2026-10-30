@@ -141,7 +141,12 @@ export interface OrderAgentService {
   takeOwnership(
     clinicId: ClinicId,
     patientId: PatientId,
-    options: { readonly mode: OrderAgentMode; readonly language: OrderAgentLanguage },
+    options: {
+      readonly mode: OrderAgentMode;
+      readonly language: OrderAgentLanguage;
+      /** A result just arrived at the clinic: the reviewer runs on it before the agent starts. */
+      readonly reviewFirst?: boolean;
+    },
   ): Promise<AgentConversation>;
   /** A message from the patient on the simulated channel; queues a turn (or records an opt-out). */
   receiveMessage(
@@ -463,6 +468,50 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
     return task;
   }
 
+  /** Runs the clinical reviewer (findings and questions for the doctor) and traces it; never throws. */
+  async function runClinicalReview(
+    clinicId: ClinicId,
+    patientId: PatientId,
+    at: Date,
+    input: {
+      readonly runId?: string;
+      readonly mode: OrderAgentMode;
+      readonly language: OrderAgentLanguage;
+      readonly on: 'result' | 'booking' | 'arrival';
+    },
+  ): Promise<void> {
+    const runId = input.runId === undefined ? {} : { runId: input.runId };
+    try {
+      const review = await deps.effects.requestClinicalReview(
+        clinicId,
+        patientId,
+        input.mode,
+        input.language,
+      );
+      await step(clinicId, patientId, at, {
+        ...runId,
+        kind: 'engine',
+        outcome: 'ok',
+        event: 'clinical_review_completed',
+        params: {
+          on: input.on,
+          reviewRunId: review.runId,
+          status: review.status,
+          findings: review.findings.length,
+          categories: [...new Set(review.findings.map((item) => item.category))],
+        },
+      });
+    } catch (error) {
+      await step(clinicId, patientId, at, {
+        ...runId,
+        kind: 'engine',
+        outcome: 'error',
+        event: 'clinical_review_failed',
+        params: { error: errorText(error) },
+      });
+    }
+  }
+
   // --- The turn -------------------------------------------------------------------------
 
   function localLabel(date: Date, timeZone: string): string {
@@ -484,6 +533,7 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
       trigger: state.trigger,
       now: `${weekday} ${localLabel(state.now, state.timeZone)} (clinic time)`,
       patientLanguage: conversation.language,
+      reasonLanguage: conversation.language === 'es' ? 'Spanish' : 'English',
       rung:
         state.rung === undefined
           ? null
@@ -1067,6 +1117,13 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
             const { expectations } = await readPatient(clinicId, patientId);
             await engineSteps(outcome, expectations);
             closedOrders = outcome.closed.map((item) => item.expectationId);
+            // A visit is booked: the reviewer prepares the doctor's questions for it.
+            await runClinicalReview(clinicId, patientId, state.now, {
+              runId: state.runId,
+              mode: state.mode,
+              language: state.language,
+              on: 'booking',
+            });
           }
           const current = await requireConversation(clinicId, patientId);
           await setProgress(
@@ -1223,34 +1280,12 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
           let doctorReview: 'requested' | 'not_needed' = 'not_needed';
           if (interpretation === 'H' || interpretation === 'L') {
             doctorReview = 'requested';
-            try {
-              const review = await deps.effects.requestClinicalReview(
-                clinicId,
-                patientId,
-                state.mode,
-                state.language,
-              );
-              await step(clinicId, patientId, state.now, {
-                runId: state.runId,
-                kind: 'engine',
-                outcome: 'ok',
-                event: 'clinical_review_completed',
-                params: {
-                  reviewRunId: review.runId,
-                  status: review.status,
-                  findings: review.findings.length,
-                  categories: [...new Set(review.findings.map((item) => item.category))],
-                },
-              });
-            } catch (error) {
-              await step(clinicId, patientId, state.now, {
-                runId: state.runId,
-                kind: 'engine',
-                outcome: 'error',
-                event: 'clinical_review_failed',
-                params: { error: errorText(error) },
-              });
-            }
+            await runClinicalReview(clinicId, patientId, state.now, {
+              runId: state.runId,
+              mode: state.mode,
+              language: state.language,
+              on: 'result',
+            });
           }
           const newOrders = outcome.created
             .map((item) =>
@@ -1929,6 +1964,13 @@ export function createOrderAgentService(deps: OrderAgentServiceDeps): OrderAgent
           mode: options.mode,
         },
       });
+      if (options.reviewFirst === true) {
+        await runClinicalReview(clinicId, patientId, now, {
+          mode: options.mode,
+          language: options.language,
+          on: 'arrival',
+        });
+      }
       await enqueueTurn(clinicId, {
         patientId,
         trigger: 'take_ownership',

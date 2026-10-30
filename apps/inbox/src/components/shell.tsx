@@ -17,6 +17,7 @@ import {
   useClinic,
   useDemoClock,
   useEvaluator,
+  useLabClock,
   useOpenShadowFindings,
   useRecovery,
   useStats,
@@ -148,6 +149,11 @@ export function Shell(): ReactNode {
   const recovery = useRecovery();
   const clock = useDemoClock();
   const evaluator = useEvaluator();
+  const { pathname } = useLocation();
+  // The agent runs in the evaluator's sandbox clinic, on its own clock: show that date there.
+  const onAgent = pathname.startsWith('/agent');
+  const labClock = useLabClock({ enabled: onAgent && Boolean(clock.data) });
+  const shownNow = onAgent ? labClock.data?.now : clock.data?.now;
   const findings = useOpenShadowFindings();
 
   const items: NavItem[] = [
@@ -226,7 +232,7 @@ export function Shell(): ReactNode {
             </div>
             <div className="ml-auto flex items-center gap-2">
               <EvaluatorBanner />
-              {clock.data ? <SimulatedDate now={clock.data.now} /> : null}
+              {clock.data && shownNow !== undefined ? <SimulatedDate now={shownNow} /> : null}
               <LanguageSwitch compact />
               <div className="lg:hidden">
                 <ThemeToggle />

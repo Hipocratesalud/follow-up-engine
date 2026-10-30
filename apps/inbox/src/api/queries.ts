@@ -472,11 +472,14 @@ export function useLogoutEvaluator(): UseMutationResult<void, Error, void> {
 }
 
 /** The lab clinic's own "today": the records form's date pickers default here, never the shared clock's. */
-export function useLabClock(): UseQueryResult<DemoClock> {
+export function useLabClock(
+  options: { readonly enabled?: boolean } = {},
+): UseQueryResult<DemoClock> {
   const api = useApi();
   return useQuery({
     queryKey: ['lab-clock'],
     queryFn: () => api.getLabClock(),
+    enabled: options.enabled ?? true,
   });
 }
 

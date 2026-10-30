@@ -136,6 +136,8 @@ export async function startOrderAgentStory(
   await runtime.orderAgent.takeOwnership(clinicId, patientId, {
     mode: options.mode,
     language: options.language,
+    // The lab's abnormal result: the doctor sees what it means before the agent writes.
+    reviewFirst: options.story === 'maria_urgent',
   });
   return { patientId };
 }

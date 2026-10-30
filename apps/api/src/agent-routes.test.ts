@@ -290,6 +290,9 @@ describe('the order-to-completion agent (scripted mode)', () => {
     let page = await read();
     expect(page.orders.some((order) => order.kind === 'visit')).toBe(true);
     expect(page.messages.at(-1)?.text).toContain('this week');
+    // The lab's result reached the doctor before the agent wrote: the rise and the question.
+    expect(page.findings[0]?.category).toBe('lab_trend');
+    expect(page.findings[1]?.category).toBe('pre_visit_question');
     for (let day = 0; day < 3; day += 1) {
       await call('/api/demo/agent/clock', { body: { days: 1 } });
       await worker.runJobs();
