@@ -33,6 +33,10 @@ function strings(catalog: unknown, path = ''): [string, string][] {
 
 /** Words that are the same in both languages: brands, codes, units, names. */
 const SAME_IN_BOTH = new Set([
+  // Code system names and a word spelled the same in both languages.
+  'rules.codes.systems.loinc',
+  'rules.codes.systems.atc',
+  'rules.describe.normal',
   'common.noValue',
   'common.separator',
   'common.languageNames.en',

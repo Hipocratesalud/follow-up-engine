@@ -8,6 +8,7 @@ import {
 } from '@follow-up-engine/core';
 import { ensureLabClinicAndClock, type EngineRuntime } from '@follow-up-engine/runtime';
 import type { Context } from 'hono';
+import { InboxPresenter } from '../inbox/presenter.ts';
 import type { App, AppEnv } from './context.ts';
 import { trackEvaluatorEvent } from './evaluator-tracking.ts';
 import { HttpError, readJson } from './errors.ts';
@@ -20,6 +21,7 @@ import { actorId, followUpUser } from './security.ts';
 export function authoredRuleView(
   rule: AuthoredRuleView,
   baseline: unknown,
+  ruleLabels: Readonly<Record<string, string>> = {},
 ): Record<string, unknown> {
   const { authored } = rule;
   const status = rule.live ? 'enabled' : authored.status === 'enabled' ? 'disabled' : 'draft';
@@ -37,6 +39,7 @@ export function authoredRuleView(
       authored.definition.kind === 'rule' ? authored.definition.rule : authored.definition.protocol,
     ...(baseline === undefined ? {} : { baseline }),
     provenance: authored.provenance,
+    ruleLabels,
     ...(authored.validatedBy === undefined ? {} : { validatedBy: authored.validatedBy }),
     ...(authored.validatedAt === undefined ? {} : { validatedAt: authored.validatedAt }),
   };
@@ -76,21 +79,30 @@ export function registerRuleAuthoringRoutes(
 ): void {
   const authored = runtime.engine.authoredRules;
 
-  async function baselineOf(clinicId: ClinicId, rule: AuthoredRuleView): Promise<unknown> {
-    const basedOn = rule.authored.provenance.basedOn;
-    if (basedOn === undefined) return undefined;
+  /** What the page shows next to the record: the rule it adapts, and the names of the rules it overlaps. */
+  async function present(
+    c: Context<AppEnv>,
+    clinicId: ClinicId,
+    rule: AuthoredRuleView,
+  ): Promise<Record<string, unknown>> {
+    const presenter = await InboxPresenter.create(runtime, clinicId, c.var.t);
     const catalog = await runtime.engine.catalog(clinicId);
-    return (
-      catalog.rules.find((item) => item.id === basedOn) ??
-      catalog.protocols.find((item) => item.id === basedOn)
+    const basedOn = rule.authored.provenance.basedOn;
+    const baseline =
+      basedOn === undefined
+        ? undefined
+        : (catalog.rules.find((item) => item.id === basedOn) ??
+          catalog.protocols.find((item) => item.id === basedOn));
+    const ids = new Set(rule.authored.provenance.dryRun.overlaps.byRule.map((item) => item.ruleId));
+    const ruleLabels = Object.fromEntries(
+      [...ids].map((ruleId) => [ruleId, presenter.reasonLabel(ruleId)]),
     );
+    return authoredRuleView(rule, baseline, ruleLabels);
   }
 
-  async function views(clinicId: ClinicId): Promise<Record<string, unknown>[]> {
+  async function views(c: Context<AppEnv>, clinicId: ClinicId): Promise<Record<string, unknown>[]> {
     const rules = await authored.list(clinicId);
-    return Promise.all(
-      rules.map(async (rule) => authoredRuleView(rule, await baselineOf(clinicId, rule))),
-    );
+    return Promise.all(rules.map((rule) => present(c, clinicId, rule)));
   }
 
   async function draft(
@@ -134,7 +146,7 @@ export function registerRuleAuthoringRoutes(
       return c.json(
         {
           status: 'drafted',
-          rule: authoredRuleView(outcome.rule, await baselineOf(clinicId, outcome.rule)),
+          rule: await present(c, clinicId, outcome.rule),
           run: runView(outcome),
         },
         201,
@@ -171,7 +183,7 @@ export function registerRuleAuthoringRoutes(
         version: result.change.version,
         ...(result.rule === undefined
           ? { removed: true }
-          : { rule: authoredRuleView(result.rule, await baselineOf(clinicId, result.rule)) }),
+          : { rule: await present(c, clinicId, result.rule) }),
       });
     } catch (error) {
       if (error instanceof ConflictError) {
@@ -193,7 +205,7 @@ export function registerRuleAuthoringRoutes(
     return user;
   }
   app.get('/api/admin/rules/authored', async (c) =>
-    c.json({ items: await views(c.var.clinicId), liveAvailable: runtime.liveAgent }),
+    c.json({ items: await views(c, c.var.clinicId), liveAvailable: runtime.liveAgent }),
   );
   app.post('/api/admin/rules/authored', (c) => draft(c, c.var.clinicId, clinician(c), undefined));
   app.post('/api/admin/rules/authored/:ruleId/enable', (c) =>
@@ -222,7 +234,7 @@ export function registerRuleAuthoringRoutes(
       stores.clinicalRecords.listPatientIds(clinicId, { limit: 500 }),
     );
     return c.json({
-      items: await views(clinicId),
+      items: await views(c, clinicId),
       liveAvailable: runtime.liveAgent,
       patients: patients.patientIds.length,
     });

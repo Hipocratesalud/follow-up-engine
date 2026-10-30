@@ -27,6 +27,7 @@ const AuthoredRuleSchema = z
     definition: z.record(z.string(), z.unknown()),
     baseline: z.record(z.string(), z.unknown()).optional(),
     provenance: z.record(z.string(), z.unknown()),
+    ruleLabels: z.record(z.string(), z.string()),
     validatedBy: z.string().optional(),
     validatedAt: z.string().optional(),
   })
