@@ -59,6 +59,7 @@ const nav: Messages['nav'] = {
   engineTests: 'Pruebas del motor',
   lab: 'Laboratorio',
   agent: 'Agente',
+  rules: 'Reglas',
   evaluators: 'Evaluadores',
   simulatedDate: 'Fecha simulada:',
   simulatedDateTitle: 'La API usa un reloj simulado para la demostración',
@@ -1794,6 +1795,10 @@ const EVALUATOR_ACTION_LABELS: Record<string, string> = {
   engine_test_step: 'Cargó un paso de una prueba del motor',
   engine_test_verdict: 'Dio un veredicto sobre una prueba del motor',
   agent_message_sent: 'Le escribió al agente como paciente',
+  lab_rule_drafted: 'Redactó una regla con el agente',
+  lab_rule_enabled: 'Activó una regla del consultorio',
+  lab_rule_discarded: 'Descartó o desactivó una regla del consultorio',
+  lab_rule_samples_added: 'Agregó los pacientes de ejemplo de reglas',
 };
 
 const lab: Messages['lab'] = {
@@ -2039,6 +2044,171 @@ function rung(id: unknown, action: unknown): string {
   const what = RUNG_ACTIONS[str(action) || 'message'] ?? code(action);
   return `${RUNG_TRACKS[track] ?? track}, ${when}: ${what}`;
 }
+
+const rules: Messages['rules'] = {
+  title: 'Reglas',
+  subtitle:
+    'Escribe una regla de seguimiento con tus palabras. El agente la redacta en el formato propio del motor, verifica cada código contra los catálogos y la prueba en seco sobre los registros de tu entorno de pruebas. Nada se aplica hasta que un profesional la active.',
+  requestLabel: 'Describe la regla',
+  requestPlaceholder: 'Por ejemplo: tras un FIT positivo, colonoscopia en 60 días',
+  requestRequired: 'Primero describe la regla.',
+  examplesLabel: 'Prueba un ejemplo',
+  examples: [
+    'Para mis pacientes con hipotiroidismo en levotiroxina, TSH cada 6 meses',
+    'Tras un FIT positivo, colonoscopia en 60 días',
+    'Si la HbA1c sale por encima de 9 %, control en 30 días',
+  ],
+  modeLabel: 'Agente',
+  modes: { scripted: 'Guionado (sin conexión)', live: 'Muse Spark (en vivo)' },
+  modeHints: {
+    scripted: 'Un reemplazo determinista: redacta los tres ejemplos y nunca llama a un modelo.',
+    live: 'Muse Spark la redacta con las mismas herramientas, validador y prueba en seco; cada corrida cuesta centavos.',
+  },
+  liveUnavailable:
+    'El modo en vivo necesita un modelo en el servidor; el agente guionado redacta los tres ejemplos.',
+  draft: 'Redactar la regla',
+  drafting:
+    'El agente está trabajando: revisa tus reglas, busca los códigos, valida y prueba en seco el borrador…',
+  sandboxPatients: (n: number): string =>
+    n === 0
+      ? 'Tu entorno de pruebas aún no tiene pacientes: la prueba en seco no contaría nada.'
+      : `La prueba en seco cuenta ${count(n, 'paciente', 'pacientes')} de tu entorno de pruebas.`,
+  addSamples: 'Agregar 9 pacientes de ejemplo',
+  samplesAdded:
+    'Pacientes de ejemplo agregados (ficticios, con fechas desde el hoy de tu laboratorio).',
+  listTitle: 'Las reglas de tu entorno de pruebas',
+  empty: 'Aún no hay reglas del consultorio: describe una arriba o prueba un ejemplo.',
+  show: 'Ver',
+  status: {
+    draft: 'Borrador · pendiente de validación clínica',
+    enabled: 'Activa en este consultorio',
+    disabled: 'Desactivada',
+  },
+  kinds: { rule: 'Regla', protocol: 'Protocolo' },
+  yourRequest: 'Tu pedido',
+  whatItDoes: 'Qué hace',
+  agentNote: 'Nota del agente',
+  basedOn: (label: string): string => `Adapta: ${label}`,
+  enable: 'Activar en este consultorio',
+  enableHint:
+    'Se aplica a los registros nuevos desde ahora (los registros existentes no se vuelven a leer). Quedas registrado como el profesional que la validó.',
+  discard: 'Descartar',
+  switchOff: 'Desactivar',
+  enabledBy: (who: string, when: string): string => `Activada por ${who} el ${when}`,
+  draftedFor: (who: string, when: string): string => `Redactada para ${who} el ${when}`,
+  dryRun: {
+    title: 'Prueba en seco sobre tus registros',
+    subtitle: (n: number): string =>
+      `El motor real volvió a procesar ${count(n, 'paciente', 'pacientes')} con el borrador agregado; no se guardó nada.`,
+    truncated: 'Solo se procesaron los primeros pacientes.',
+    patients: 'Pacientes',
+    overdue: 'Vencidas hoy',
+    open: 'A tiempo',
+    closed: 'Ya cumplidas',
+    overlaps: 'Superposición con reglas existentes',
+    overlapLine: (label: string, n: number): string =>
+      `${label}: ${count(n, 'expectativa', 'expectativas')}`,
+    examples: 'Ejemplos (seudónimos)',
+    overdueBy: (days: number): string => `vencida hace ${count(days, 'día', 'días')}`,
+    dueIn: (days: number): string =>
+      days === 0 ? 'vence hoy' : `vence en ${count(days, 'día', 'días')}`,
+    closedExample: 'cumplida o reemplazada',
+    alsoAsked: (labels: string): string => `también la pide: ${labels}`,
+    none: 'Ningún paciente de tu entorno de pruebas coincide todavía.',
+  },
+  codes: {
+    title: 'Códigos y fuentes',
+    systems: { icd10: 'CIE-10', loinc: 'LOINC', atc: 'ATC', procedure: 'Procedimiento' },
+    catalogs: {
+      'condition-terms': 'términos de diagnósticos',
+      'test-names': 'léxico de exámenes',
+      'atc-names': 'nombres de medicamentos',
+    },
+    sources: 'Fuentes citadas',
+  },
+  json: {
+    title: 'Configuración (JSON)',
+    newDefinition: 'Una definición nueva del consultorio: todas las líneas se agregan.',
+    against: (id: string): string => `Cambios respecto de ${id}.`,
+    added: 'agregada',
+    removed: 'quitada',
+  },
+  trace: {
+    title: 'Cómo llegó el agente aquí',
+    toggle: 'Ver los pasos',
+    empty: 'No hay pasos registrados.',
+    tools: {
+      list_existing_rules: 'Revisó las reglas del consultorio',
+      lookup_terminology: 'Buscó un código',
+      validate_rule: 'Validó el borrador',
+      dry_run_rule: 'Lo probó en seco sobre los registros',
+      submit_draft: 'Envió el borrador',
+      abstain: 'Declinó el pedido',
+    },
+    otherTool: (tool: string): string => `Llamó a ${tool}`,
+    rejected: (outcome: string): string => `Rechazado (${outcome})`,
+    model: 'Modelo',
+    steps: 'Pasos',
+    cost: 'Costo',
+    firstValidation: 'Primera validación',
+    passed: 'Aprobada',
+    neededFixes: 'Necesitó correcciones',
+    prompt: 'Instrucciones',
+  },
+  failed: {
+    title: 'Sin borrador',
+    reasons: {
+      abstained: 'El agente declinó este pedido.',
+      no_submission: 'Al agente se le acabaron los pasos antes de enviar un borrador.',
+      invalid_submission: 'El motor rechazó el borrador enviado.',
+    },
+    agentSaid: 'En palabras del agente',
+    issues: 'Lo que encontró el motor',
+  },
+  describe: {
+    events: {
+      'result.received': 'un resultado',
+      'service_request.created': 'una orden',
+      'medication.prescribed': 'una prescripción',
+      'encounter.finished': 'una consulta',
+      'appointment.booked': 'una cita agendada',
+      'condition.recorded': 'un diagnóstico',
+    },
+    of: (what: string, codes: string): string => `${what} de ${codes}`,
+    abnormal: 'anormal',
+    normal: 'normal',
+    above: (n: number): string => `mayor que ${numbers.format(n)}`,
+    atLeast: (n: number): string => `mayor o igual que ${numbers.format(n)}`,
+    below: (n: number): string => `menor que ${numbers.format(n)}`,
+    atMost: (n: number): string => `menor o igual que ${numbers.format(n)}`,
+    when: 'Cuando',
+    expects: 'Espera',
+    fulfilledBy: 'Se cierra con',
+    replacedBy: 'Se reemplaza con',
+    coveredByPlan: 'No se agrega cuando el plan del médico ya lo pide para entonces.',
+    escalation: (policy: string): string => `Política de escalamiento ${policy}.`,
+    kinds: {
+      lab: 'un examen de laboratorio',
+      imaging: 'un estudio',
+      follow_up_visit: 'una consulta',
+      session: 'una sesión',
+      other: 'un seguimiento',
+    },
+    within: (what: string, days: string): string => `${what} en un plazo de ${days}`,
+    every: (what: string, days: string): string => `${what} cada ${days}`,
+    days: (n: number): string => count(n, 'día', 'días'),
+    aboutMonths: (days: string, months: number): string =>
+      `${days} (unos ${count(months, 'mes', 'meses')})`,
+    patients: 'Pacientes',
+    withConditions: (codes: string): string => `con ${codes}`,
+    onTreatment: (codes: string): string => `en tratamiento con ${codes}`,
+    alsoProbableFrom: (codes: string): string =>
+      `(también probable por una prescripción de ${codes})`,
+    items: 'Espera',
+    visit: 'una consulta',
+    or: ' o ',
+  },
+};
 
 const agent = {
   title: 'Agente de órdenes hasta completarlas',
@@ -2502,4 +2672,5 @@ export const es: Messages = {
   lab,
   evaluators,
   agent,
+  rules,
 };

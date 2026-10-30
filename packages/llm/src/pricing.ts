@@ -109,6 +109,11 @@ export const DEFAULT_PRICING: PricingTable = {
     outputPerMTok: 0,
     source: 'Deterministic scripted adjudicator (in-process); free.',
   },
+  'fake:fake-rule-author': {
+    inputPerMTok: 0,
+    outputPerMTok: 0,
+    source: 'Deterministic scripted rule-authoring agent (in-process); free.',
+  },
 };
 
 export function priceFor(

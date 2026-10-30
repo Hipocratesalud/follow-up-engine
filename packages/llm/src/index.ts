@@ -217,6 +217,23 @@ export {
 } from './reviewer/prompt.ts';
 export { FAKE_REVIEWER_MODEL, scriptedReviewerResponder } from './reviewer/scripted.ts';
 
+// Rule-authoring agent (V1-C, docs/agent/rule-authoring.md)
+export {
+  createRuleAuthoringAgent,
+  type RuleAuthoringAgentOptions,
+} from './rule-authoring/agent.ts';
+export {
+  RULE_AUTHORING_ACTION_NAME,
+  RULE_AUTHORING_PROMPT_VERSION,
+  RULE_AUTHORING_TASK,
+  ruleAuthoringSystemPrompt,
+} from './rule-authoring/prompt.ts';
+export { FAKE_RULE_AUTHOR_MODEL, scriptedRuleAuthorResponder } from './rule-authoring/scripted.ts';
+export {
+  createRepositoryTerminology,
+  type RepositoryTerminologyOptions,
+} from './rule-authoring/terminology.ts';
+
 // Adjudicator of ambiguous plan items (PRD V2, workstream E)
 export {
   calibrateProbability,

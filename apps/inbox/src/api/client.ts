@@ -64,6 +64,12 @@ import type {
 import type { PlanItemCommand, PlanItemCorrectionRequest } from './plan-item-contract.ts';
 import type { AgentMessageView, AgentPageView, AgentStoryRequest } from './agent-contract.ts';
 import type {
+  RuleDecisionResponse,
+  RuleDraftRequest,
+  RuleDraftResponse,
+  RulesPageView,
+} from './rules-contract.ts';
+import type {
   EngineTestCatalog,
   EngineTestFreeformRequest,
   EngineTestStartResponse,
@@ -243,6 +249,17 @@ export interface ApiClient {
    * the component saves with its own filename.
    */
   downloadEvaluatorEventsCsv(): Promise<Blob>;
+
+  // The rule-authoring agent (docs/agent/rule-authoring.md), in the lab ----
+
+  /** The lab clinic's own rules (drafts, enabled, switched off) and its patient count. */
+  getLabRules(): Promise<RulesPageView>;
+  /** The agent drafts a rule from the clinician's words (never live until enabled). */
+  draftLabRule(body: RuleDraftRequest): Promise<RuleDraftResponse>;
+  /** "Enable for this clinic" or "Discard" (a draft) / "Switch off" (an enabled rule). */
+  decideLabRule(ruleId: string, decision: 'enable' | 'discard'): Promise<RuleDecisionResponse>;
+  /** Adds the nine synthetic sample patients the example rules' dry runs count. */
+  addLabRuleSamples(): Promise<{ added: number }>;
 
   // The order-to-completion agent (docs/agent/order-to-completion.md) -------
 
@@ -449,6 +466,12 @@ export function createApiClient(config: ApiConfig): ApiClient {
       request('GET', '/demo/evaluator-events', { query: { ...query } }),
     downloadEvaluatorEventsCsv: async () =>
       (await rawFetch('GET', '/demo/evaluator-events', { query: { format: 'csv' } })).blob(),
+
+    getLabRules: () => request('GET', '/demo/lab/rules'),
+    draftLabRule: (body) => request('POST', '/demo/lab/rules/drafts', { body }),
+    decideLabRule: (ruleId, decision) =>
+      request('POST', `/demo/lab/rules/${encodeURIComponent(ruleId)}/${decision}`, { body: {} }),
+    addLabRuleSamples: () => request('POST', '/demo/lab/rules/samples', { body: {} }),
 
     getAgent: (patientId) =>
       request('GET', '/demo/agent', { query: patientId === undefined ? {} : { patientId } }),
