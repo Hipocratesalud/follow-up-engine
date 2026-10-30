@@ -107,36 +107,40 @@ function chosenOption(text: string, options: number): number | undefined {
   return options === 1 && isAffirmative(text) ? 1 : undefined;
 }
 
-const COPY = {
+/**
+ * Every message the scripted player can send (the outbound safety property
+ * test runs each variant through the code-side check).
+ */
+export const SCRIPTED_COPY = {
   firstContact: {
-    es: (both: boolean): string =>
-      both
-        ? 'Hola {first_name}, te escribo de la clínica. Tu médico te pidió un control y un examen de HbA1c, y quiero ayudarte a agendarlos. ¿Te sirve este horario para el control?'
-        : 'Hola {first_name}, te escribo de la clínica. Tu médico te pidió un control y quiero ayudarte a agendarlo. ¿Te sirve este horario?',
-    en: (both: boolean): string =>
-      both
-        ? 'Hi {first_name}, this is the clinic. Your doctor asked for a follow-up visit and an HbA1c test, and I would like to help you schedule them. Does this time work for the visit?'
-        : 'Hi {first_name}, this is the clinic. Your doctor asked for a follow-up visit and I would like to help you schedule it. Does this time work for you?',
+    es: (tests: number): string =>
+      tests > 0
+        ? `Hola {first_name}, te escribo de la clínica. Tu médico te pidió un control y ${tests > 1 ? 'unos exámenes' : 'un examen'} de laboratorio, y quiero ayudarte a agendarlos. ¿Te sirve alguno de estos horarios para el control?`
+        : 'Hola {first_name}, te escribo de la clínica. Tu médico te pidió un control y quiero ayudarte a agendarlo. ¿Te sirve alguno de estos horarios?',
+    en: (tests: number): string =>
+      tests > 0
+        ? `Hi {first_name}, this is the clinic. Your doctor asked for a follow-up visit and ${tests > 1 ? 'some lab tests' : 'a lab test'}, and I would like to help you schedule them. Does one of these times work for the visit?`
+        : 'Hi {first_name}, this is the clinic. Your doctor asked for a follow-up visit and I would like to help you schedule it. Does one of these times work for you?',
   },
   firstContactTest: {
-    es: 'Hola {first_name}, te escribo de la clínica. Tu médico te pidió un examen de laboratorio y quiero ayudarte a agendarlo. ¿Te sirve este horario?',
-    en: 'Hi {first_name}, this is the clinic. Your doctor asked for a lab test and I would like to help you schedule it. Does this time work for you?',
+    es: 'Hola {first_name}, te escribo de la clínica. Tu médico te pidió un examen de laboratorio y quiero ayudarte a agendarlo. ¿Te sirve alguno de estos horarios?',
+    en: 'Hi {first_name}, this is the clinic. Your doctor asked for a lab test and I would like to help you schedule it. Does one of these times work for you?',
   },
   otherTime: {
-    es: 'Hola {first_name}, ¿te queda mejor este otro horario? Con un sí lo dejo reservado.',
-    en: 'Hi {first_name}, would this other time suit you better? A yes is enough to book it.',
+    es: 'Hola {first_name}, ¿te quedan mejor estos otros horarios? Respóndeme con el número y lo dejo reservado.',
+    en: 'Hi {first_name}, would one of these other times suit you better? Reply with its number and I will book it.',
   },
   removeFriction: {
     es: 'Hola {first_name}, sé que a veces cuesta encontrar tiempo. También hay horarios los sábados y en la sede más cerca de casa:',
     en: 'Hi {first_name}, I know finding time can be hard. There are Saturday times too, and a branch closer to home:',
   },
   urgentThisWeek: {
-    es: 'Hola {first_name}, te escribo de la clínica: tu médico quiere verte esta semana. ¿Te sirve este horario?',
-    en: 'Hi {first_name}, this is the clinic: your doctor would like to see you this week. Does this time work for you?',
+    es: 'Hola {first_name}, te escribo de la clínica: tu médico quiere verte esta semana. ¿Te sirve alguno de estos horarios?',
+    en: 'Hi {first_name}, this is the clinic: your doctor would like to see you this week. Does one of these times work for you?',
   },
   urgentOtherHour: {
-    es: 'Hola {first_name}, te propongo otra hora esta misma semana para que tu médico te vea:',
-    en: 'Hi {first_name}, here is another time this week for your doctor to see you:',
+    es: 'Hola {first_name}, te propongo otras horas esta misma semana para que tu médico te vea:',
+    en: 'Hi {first_name}, here are other times this week for your doctor to see you:',
   },
   newOptions: {
     es: (photoHint: boolean): string =>
@@ -262,9 +266,10 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
   }
   const orders = (Array.isArray(ordersBody['orders']) ? ordersBody['orders'] : []) as OrderView[];
   const chasing = orders.filter((order) => order.stage === 'open' || order.stage === 'contacted');
-  const testPending = orders.some(
+  const testsPending = orders.filter(
     (order) => order.kind === 'test' && (order.stage === 'open' || order.stage === 'contacted'),
-  );
+  ).length;
+  const testPending = testsPending > 0;
   const sent = called('send_message') + called('propose_slots');
   const sentOk = observations.filter(
     (item) =>
@@ -291,23 +296,22 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
     }
     const ids = ((slots['slots'] ?? []) as { slotId: string }[]).map((slot) => slot.slotId);
     if (ids.length === 0) return end('scripted:no_free_slot');
-    const brief = context.rung?.brief ?? 'first_contact_one_slot';
-    const both = target.kind === 'visit' && testPending;
+    const brief = context.rung?.brief ?? 'first_contact';
     const text =
-      brief === 'other_time_yes_no'
-        ? COPY.otherTime[language]
+      brief === 'other_times'
+        ? SCRIPTED_COPY.otherTime[language]
         : brief === 'remove_friction'
-          ? COPY.removeFriction[language]
+          ? SCRIPTED_COPY.removeFriction[language]
           : brief === 'urgent_this_week'
-            ? COPY.urgentThisWeek[language]
+            ? SCRIPTED_COPY.urgentThisWeek[language]
             : brief === 'urgent_other_hour'
-              ? COPY.urgentOtherHour[language]
+              ? SCRIPTED_COPY.urgentOtherHour[language]
               : target.kind === 'test'
-                ? COPY.firstContactTest[language]
-                : COPY.firstContact[language](both);
+                ? SCRIPTED_COPY.firstContactTest[language]
+                : SCRIPTED_COPY.firstContact[language](testsPending);
     return act('scripted:offer_rung', 'propose_slots', {
       orderId: target.orderId,
-      slotIds: brief === 'remove_friction' ? ids.slice(0, 2) : ids.slice(0, 1),
+      slotIds: ids.slice(0, 2),
       text,
     });
   }
@@ -326,7 +330,9 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
     }
     if (typeof match['notRead'] === 'string') {
       // The clinic reads photos by hand (not sent to a model): the team has a task already.
-      return act('scripted:photo_for_team', 'send_message', { text: COPY.photoForTeam[language] });
+      return act('scripted:photo_for_team', 'send_message', {
+        text: SCRIPTED_COPY.photoForTeam[language],
+      });
     }
     const matches = (Array.isArray(match['matches']) ? match['matches'] : []) as {
       orderId: string;
@@ -337,9 +343,9 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
       match['nameOnReport'] === 'mismatch'
     ) {
       return act('scripted:photo_unusable', 'send_message', {
-        text: (inbound.hasLabDocument === true ? COPY.documentUnreadable : COPY.photoUnreadable)[
-          language
-        ],
+        text: (inbound.hasLabDocument === true
+          ? SCRIPTED_COPY.documentUnreadable
+          : SCRIPTED_COPY.photoUnreadable)[language],
       });
     }
     const submitted = observations
@@ -360,9 +366,9 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
       upcoming.some((item) => item.kind === 'visit') ||
       orders.some((order) => order.kind === 'visit' && order.stage === 'booked');
     return act('scripted:thank_photo', 'send_message', {
-      text: (inbound.hasLabDocument === true ? COPY.documentReceived : COPY.photoReceived)[
-        language
-      ](review, visitBooked),
+      text: (inbound.hasLabDocument === true
+        ? SCRIPTED_COPY.documentReceived
+        : SCRIPTED_COPY.photoReceived)[language](review, visitBooked),
     });
   }
 
@@ -374,7 +380,7 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
       });
     }
     return act('scripted:tell_handover', 'send_message', {
-      text: COPY.handOver[language],
+      text: SCRIPTED_COPY.handOver[language],
     });
   }
 
@@ -387,14 +393,14 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
   if (booking !== undefined) {
     if (booking['booked'] === true) {
       return act('scripted:confirm_booking', 'send_message', {
-        text: COPY.booked[language](
+        text: SCRIPTED_COPY.booked[language](
           typeof booking['where'] === 'string' ? booking['where'] : '',
           testPending,
         ),
       });
     }
     return act('scripted:booking_refused', 'send_message', {
-      text: COPY.whichOne[language],
+      text: SCRIPTED_COPY.whichOne[language],
     });
   }
 
@@ -413,7 +419,7 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
     return act('scripted:offer_options', 'propose_slots', {
       orderId: offered[0].orderId,
       slotIds: ids.slice(0, 2),
-      text: COPY.newOptions[language](alreadyDidTest(text) && testPending),
+      text: SCRIPTED_COPY.newOptions[language](alreadyDidTest(text) && testPending),
     });
   }
 
@@ -428,8 +434,8 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
   }
   if (offered.length > 1 && isAffirmative(text)) {
     return act('scripted:ask_which', 'send_message', {
-      text: COPY.whichOne[language],
+      text: SCRIPTED_COPY.whichOne[language],
     });
   }
-  return act('scripted:acknowledge', 'send_message', { text: COPY.thanks[language] });
+  return act('scripted:acknowledge', 'send_message', { text: SCRIPTED_COPY.thanks[language] });
 };

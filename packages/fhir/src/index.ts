@@ -91,8 +91,10 @@ export {
 } from './builders/consultation-bundle.ts';
 export {
   buildAgentAppointmentBundle,
+  buildAgentOptOutBundle,
   buildAgentResultBundle,
   type AgentAppointmentInput,
+  type AgentOptOutInput,
   type AgentResultInput,
 } from './builders/order-agent.ts';
 export {

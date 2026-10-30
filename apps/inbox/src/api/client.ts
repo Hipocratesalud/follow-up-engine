@@ -313,6 +313,8 @@ export interface ApiClient {
     status: 'delivered' | 'read' | 'undelivered',
   ): Promise<AgentMessageView>;
   fixAgentPhone(patientId: string): Promise<void>;
+  /** The doctor confirms an order the engine created from a result. */
+  confirmAgentOrder(patientId: string, orderId: string): Promise<void>;
   /** Jumps the lab clinic's own clock (the agent's ladder runs day by day). */
   advanceAgentClock(days: number): Promise<{ from: string; to: string }>;
   /** A voice note or photo, fetched with the API key (an <img> cannot send it). */
@@ -578,6 +580,11 @@ export function createApiClient(config: ApiConfig): ApiClient {
       }),
     fixAgentPhone: (patientId) =>
       request('POST', `/demo/agent/patients/${encodeURIComponent(patientId)}/phone-fixed`),
+    confirmAgentOrder: (patientId, orderId) =>
+      request(
+        'POST',
+        `/demo/agent/patients/${encodeURIComponent(patientId)}/orders/${encodeURIComponent(orderId)}/confirm`,
+      ),
     advanceAgentClock: (days) => request('POST', '/demo/agent/clock', { body: { days } }),
     getAgentMedia: async (mediaId) =>
       (await rawFetch('GET', `/demo/agent/media/${encodeURIComponent(mediaId)}`)).blob(),

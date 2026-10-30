@@ -29,6 +29,7 @@ import {
   FakeClock,
   type FollowUpEngine,
   type IdGenerator,
+  type OrderAgentModel,
   type OrderAgentService,
   type PatientMediaReader,
   primaryLanguage,
@@ -207,6 +208,11 @@ export interface CreateRuntimeOptions {
   readonly ids?: IdGenerator;
   /** Size of the Postgres pool. */
   readonly poolSize?: number;
+  /**
+   * Replaces the order agent's model loop (tests: a model that tries what a
+   * real one might, so the code-side guardrails are exercised end to end).
+   */
+  readonly orderAgentModel?: OrderAgentModel;
   /** Test and QA evaluator accounts; config/demo/test-evaluators.json by default. */
   readonly testEvaluators?: TestEvaluatorPolicy;
   /** The HTTP client of the real LLM providers (tests stub the provider's API with it). */
@@ -337,7 +343,7 @@ export async function createRuntime(
     store: storage.orderAgent,
     unitOfWork: storage.unitOfWork,
     clinics: storage.clinics,
-    model: orderAgentModel,
+    model: options.orderAgentModel ?? orderAgentModel,
     media: mediaReader,
     effects: createOrderAgentEffects({
       storage,

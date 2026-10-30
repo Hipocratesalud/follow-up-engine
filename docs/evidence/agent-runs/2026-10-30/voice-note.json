@@ -1,0 +1,1007 @@
+{
+  "path": "voice-note",
+  "title": "Path 5: a voice note transcribed by Muse Voice",
+  "purpose": "María (synthetic, English) answers the first contact with a voice note (16 kHz WAV). The gateway sends it to muse-voice-transcribe-1.0 (POST /v1/asr/transcribe), the transcript becomes her message, and the agent answers it like a text.",
+  "driver": {
+    "email": "agent-evidence-voice@example.com",
+    "actions": [
+      {
+        "at": "2026-10-30T15:37:14.564Z",
+        "action": "start story maria (live, en)"
+      },
+      {
+        "at": "2026-10-30T15:37:34.122Z",
+        "action": "patient sends the sample voice note"
+      }
+    ]
+  },
+  "run": {
+    "exportedAt": "2026-01-05T12:00:00.000Z",
+    "clinicId": "lab-9348cc65ad0539adf03ccf06",
+    "patientId": "pat-agent-maria-c2f4e9",
+    "timeZone": "America/Caracas",
+    "conversation": {
+      "mode": "live",
+      "language": "en",
+      "status": "active",
+      "phoneStatus": "ok",
+      "ladder": {
+        "track": "routine",
+        "anchorAt": "2026-01-05T12:00:00.000Z",
+        "done": ["routine:0d"]
+      },
+      "createdAt": "2026-01-05T12:00:00.000Z"
+    },
+    "orders": [
+      {
+        "orderId": "5d191a6d-260f-4d26-973c-993a1bbdc558",
+        "kind": "visit",
+        "source": "doctor_note",
+        "stage": "contacted",
+        "urgent": false,
+        "needsConfirmation": false
+      },
+      {
+        "orderId": "ab56e0bf-570a-40b8-8dda-dc57f7fb4e88",
+        "kind": "test",
+        "test": "HbA1c",
+        "source": "doctor_note",
+        "stage": "contacted",
+        "urgent": false,
+        "needsConfirmation": false
+      }
+    ],
+    "messages": [
+      {
+        "id": "agent-message-aaf90e8093cc",
+        "direction": "outbound",
+        "kind": "text",
+        "text": "Hi María, you still have a follow-up visit and a lab test pending — can you come at one of these times?\n\n1. Tuesday, January 6 at 8:00 AM · Dr. Elena Ruiz · Office 2, main clinic\n2. Wednesday, January 7 at 8:30 AM · Dr. Elena Ruiz · Office 2, main clinic\n\nReply with the number that works for you.",
+        "at": "2026-01-05T12:00:00.000Z",
+        "deliveryStatus": "delivered",
+        "offeredSlots": [
+          {
+            "id": "professional@20260106T1200Z",
+            "start": "2026-01-06T12:00:00.000Z"
+          },
+          {
+            "id": "professional@20260107T1230Z",
+            "start": "2026-01-07T12:30:00.000Z"
+          }
+        ],
+        "rung": "routine:0d",
+        "proactive": true
+      },
+      {
+        "id": "agent-message-3352982b9dcf",
+        "direction": "inbound",
+        "kind": "voice",
+        "text": "Hi, yes, I already had the test last week but I can't make it on Tuesday Tuesday. Is there another day?",
+        "at": "2026-01-05T12:00:01.000Z",
+        "media": {
+          "id": "agent-media-ee9a5aaf59d2",
+          "contentType": "audio/wav"
+        },
+        "transcript": "Hi, yes, I already had the test last week but I can't make it on Tuesday Tuesday. Is there another day?"
+      },
+      {
+        "id": "agent-message-89f95e38d711",
+        "direction": "outbound",
+        "kind": "text",
+        "text": "Got it, María! No problem about Tuesday. For a follow-up visit you could come at one of these times, and you still have a lab test pending too. Which works best for you?\n\n1. Wednesday, January 7 at 9:00 AM · Dr. Elena Ruiz · Office 2, main clinic\n2. Thursday, January 8 at 8:00 AM · Dr. Elena Ruiz · Office 2, main clinic\n3. Friday, January 9 at 8:00 AM · Dr. Elena Ruiz · Office 2, main clinic\n\nReply with the number that works for you.",
+        "at": "2026-01-05T12:00:02.000Z",
+        "deliveryStatus": "delivered",
+        "offeredSlots": [
+          {
+            "id": "professional@20260107T1300Z",
+            "start": "2026-01-07T13:00:00.000Z"
+          },
+          {
+            "id": "professional@20260108T1200Z",
+            "start": "2026-01-08T12:00:00.000Z"
+          },
+          {
+            "id": "professional@20260109T1200Z",
+            "start": "2026-01-09T12:00:00.000Z"
+          }
+        ],
+        "proactive": false
+      }
+    ],
+    "steps": [
+      {
+        "seq": 60,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "ok",
+        "event": "ownership_taken",
+        "params": {
+          "orders": 2,
+          "ignoredEngineItems": 2,
+          "track": "routine",
+          "mode": "live"
+        }
+      },
+      {
+        "seq": 61,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "turn_started",
+        "runId": "agent-run-f7f1fe55e18b",
+        "params": {
+          "trigger": "take_ownership",
+          "rung": "routine:0d",
+          "mode": "live"
+        }
+      },
+      {
+        "seq": 62,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-f7f1fe55e18b",
+        "tool": "list_open_orders",
+        "reason": "Starting your follow-up — I'll gather what's outstanding and line up times.",
+        "params": {
+          "index": 1,
+          "repaired": false,
+          "tool": "list_open_orders",
+          "callId": "da88cbc4-9dc5-451d-be53-53ab5f2b5791"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001042,
+        "latencyMs": 1154,
+        "inputTokens": 3938,
+        "outputTokens": 77
+      },
+      {
+        "seq": 63,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "orders_listed",
+        "runId": "agent-run-f7f1fe55e18b",
+        "tool": "list_open_orders",
+        "arguments": {},
+        "read": ["expectations", "appointments"],
+        "reason": "Starting your follow-up — I'll gather what's outstanding and line up times.",
+        "params": {
+          "open": 2,
+          "ignoredEngineItems": 2,
+          "awaitingDoctor": 0
+        }
+      },
+      {
+        "seq": 64,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-f7f1fe55e18b",
+        "tool": "get_contact_policy",
+        "reason": "I'll check your doctor's pending orders and find available times to get you booked.",
+        "params": {
+          "index": 2,
+          "repaired": false,
+          "tool": "get_contact_policy",
+          "callId": "3e14022e-0cb6-4132-b17a-49a11ed66d64"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001555,
+        "latencyMs": 1577,
+        "inputTokens": 4175,
+        "outputTokens": 128
+      },
+      {
+        "seq": 65,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "policy_read",
+        "runId": "agent-run-f7f1fe55e18b",
+        "tool": "get_contact_policy",
+        "arguments": {},
+        "read": ["messages", "conversation"],
+        "reason": "I'll check your doctor's pending orders and find available times to get you booked.",
+        "params": {
+          "canSend": true,
+          "sendKind": "proactive",
+          "proactiveRemaining": 2
+        }
+      },
+      {
+        "seq": 66,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-f7f1fe55e18b",
+        "tool": "get_available_slots",
+        "reason": "I'll pull available times for your follow-up visit and lab test.",
+        "params": {
+          "index": 3,
+          "repaired": false,
+          "tool": "get_available_slots",
+          "callId": "65ff3b4f-3e57-4b63-b93a-9ec904ab3fe6"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001587,
+        "latencyMs": 1537,
+        "inputTokens": 4293,
+        "outputTokens": 167
+      },
+      {
+        "seq": 67,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "slots_found",
+        "runId": "agent-run-f7f1fe55e18b",
+        "tool": "get_available_slots",
+        "arguments": {
+          "orderId": "5d191a6d-260f-4d26-973c-993a1bbdc558",
+          "preference": null,
+          "excludeWeekdays": null
+        },
+        "read": ["schedule", "appointments", "messages"],
+        "reason": "I'll pull available times for your follow-up visit and lab test.",
+        "params": {
+          "count": 3,
+          "preference": "earliest",
+          "slotIds": [
+            "professional@20260106T1200Z",
+            "professional@20260107T1230Z",
+            "professional@20260108T1200Z"
+          ]
+        }
+      },
+      {
+        "seq": 68,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-f7f1fe55e18b",
+        "tool": "propose_slots",
+        "reason": "I'll reach out to schedule your follow-up visit and lab test.",
+        "params": {
+          "index": 4,
+          "repaired": false,
+          "tool": "propose_slots",
+          "callId": "781a4a27-d70f-4183-9945-5b887d49683b"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.002066,
+        "latencyMs": 1711,
+        "inputTokens": 4517,
+        "outputTokens": 247
+      },
+      {
+        "seq": 69,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "slots_offered",
+        "runId": "agent-run-f7f1fe55e18b",
+        "tool": "propose_slots",
+        "arguments": {
+          "orderId": "5d191a6d-260f-4d26-973c-993a1bbdc558",
+          "slotIds": ["professional@20260106T1200Z", "professional@20260107T1230Z"],
+          "text": "Hi {first_name}, you still have a follow-up visit and a lab test pending — can you come at one of these times?"
+        },
+        "read": ["contact_policy", "outbound_safety"],
+        "reason": "I'll reach out to schedule your follow-up visit and lab test.",
+        "params": {
+          "messageId": "agent-message-aaf90e8093cc",
+          "sendKind": "proactive",
+          "slots": ["professional@20260106T1200Z", "professional@20260107T1230Z"]
+        }
+      },
+      {
+        "seq": 70,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "rejected",
+        "event": "call_rejected",
+        "runId": "agent-run-f7f1fe55e18b",
+        "tool": "prose",
+        "reason": "",
+        "params": {
+          "error": "prose_reminded",
+          "detail": "replied in prose, not a tool call"
+        }
+      },
+      {
+        "seq": 71,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "turn_ended",
+        "runId": "agent-run-f7f1fe55e18b",
+        "tool": "end_turn",
+        "arguments": {
+          "summary": "loop:prose_end"
+        },
+        "read": [],
+        "reason": "",
+        "params": {
+          "summary": "loop:prose_end"
+        }
+      },
+      {
+        "seq": 72,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "patient_message_received",
+        "params": {
+          "messageId": "agent-message-3352982b9dcf",
+          "kind": "voice"
+        }
+      },
+      {
+        "seq": 73,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "turn_started",
+        "runId": "agent-run-06cb09d84d74",
+        "params": {
+          "trigger": "inbound_message",
+          "mode": "live"
+        }
+      },
+      {
+        "seq": 74,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "transcription",
+        "outcome": "ok",
+        "event": "voice_transcribed",
+        "runId": "agent-run-06cb09d84d74",
+        "params": {
+          "messageId": "agent-message-3352982b9dcf",
+          "transcript": "Hi, yes, I already had the test last week but I can't make it on Tuesday Tuesday. Is there another day?",
+          "durationMs": 6480
+        },
+        "model": "meta:muse-voice-transcribe-1.0",
+        "costUsd": 0.000648,
+        "latencyMs": 2887
+      },
+      {
+        "seq": 75,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-06cb09d84d74",
+        "tool": "list_open_orders",
+        "reason": "I'll check your test and visit status and find another available day.",
+        "params": {
+          "index": 1,
+          "repaired": false,
+          "tool": "list_open_orders",
+          "callId": "0df9badf-5016-410c-9d25-e6243040e8fb"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.001605,
+        "latencyMs": 2145,
+        "inputTokens": 4286,
+        "outputTokens": 107
+      },
+      {
+        "seq": 76,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "orders_listed",
+        "runId": "agent-run-06cb09d84d74",
+        "tool": "list_open_orders",
+        "arguments": {},
+        "read": ["expectations", "appointments"],
+        "reason": "I'll check your test and visit status and find another available day.",
+        "params": {
+          "open": 2,
+          "ignoredEngineItems": 2,
+          "awaitingDoctor": 0
+        }
+      },
+      {
+        "seq": 77,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-06cb09d84d74",
+        "tool": "get_available_slots",
+        "reason": "She can't do Tuesday — I'll find her another day for that follow-up.",
+        "params": {
+          "index": 2,
+          "repaired": false,
+          "tool": "get_available_slots",
+          "callId": "3ad3206c-792a-4e72-9638-6dfc6309cd2d"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.002476,
+        "latencyMs": 2609,
+        "inputTokens": 4525,
+        "outputTokens": 341
+      },
+      {
+        "seq": 78,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "slots_found",
+        "runId": "agent-run-06cb09d84d74",
+        "tool": "get_available_slots",
+        "arguments": {
+          "orderId": "5d191a6d-260f-4d26-973c-993a1bbdc558",
+          "preference": null,
+          "excludeWeekdays": ["tuesday"]
+        },
+        "read": ["schedule", "appointments", "messages"],
+        "reason": "She can't do Tuesday — I'll find her another day for that follow-up.",
+        "params": {
+          "count": 3,
+          "preference": "earliest",
+          "slotIds": [
+            "professional@20260107T1300Z",
+            "professional@20260108T1200Z",
+            "professional@20260109T1200Z"
+          ]
+        }
+      },
+      {
+        "seq": 79,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-06cb09d84d74",
+        "tool": "propose_slots",
+        "reason": "I'll find you a new day that isn't Tuesday.",
+        "params": {
+          "index": 3,
+          "repaired": false,
+          "tool": "propose_slots",
+          "callId": "1b3f684c-eb38-4765-a64f-6f6163b01d5c"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.002272,
+        "latencyMs": 2132,
+        "inputTokens": 4754,
+        "outputTokens": 292
+      },
+      {
+        "seq": 80,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "slots_offered",
+        "runId": "agent-run-06cb09d84d74",
+        "tool": "propose_slots",
+        "arguments": {
+          "orderId": "5d191a6d-260f-4d26-973c-993a1bbdc558",
+          "slotIds": [
+            "professional@20260107T1300Z",
+            "professional@20260108T1200Z",
+            "professional@20260109T1200Z"
+          ],
+          "text": "Got it, {first_name}! No problem about Tuesday. For a follow-up visit you could come at one of these times, and you still have a lab test pending too. Which works best for you?"
+        },
+        "read": ["contact_policy", "outbound_safety"],
+        "reason": "I'll find you a new day that isn't Tuesday.",
+        "params": {
+          "messageId": "agent-message-89f95e38d711",
+          "sendKind": "reply",
+          "slots": [
+            "professional@20260107T1300Z",
+            "professional@20260108T1200Z",
+            "professional@20260109T1200Z"
+          ]
+        }
+      },
+      {
+        "seq": 81,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "model",
+        "outcome": "ok",
+        "event": "model_called",
+        "runId": "agent-run-06cb09d84d74",
+        "tool": "end_turn",
+        "reason": "Validation needs exact format — finishing the turn.",
+        "params": {
+          "index": 4,
+          "repaired": true,
+          "tool": "end_turn",
+          "callId": "5eb7ef5e-2438-40cf-b63e-a7f2360414c3"
+        },
+        "model": "meta:muse-spark-1.3",
+        "costUsd": 0.0025859999999999998,
+        "latencyMs": 1460,
+        "inputTokens": 9943,
+        "outputTokens": 161
+      },
+      {
+        "seq": 82,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "tool",
+        "outcome": "ok",
+        "event": "turn_ended",
+        "runId": "agent-run-06cb09d84d74",
+        "tool": "end_turn",
+        "arguments": {
+          "summary": "Proposed new visit slots excluding Tuesday; noted lab test still pending"
+        },
+        "read": [],
+        "reason": "Validation needs exact format — finishing the turn.",
+        "params": {
+          "summary": "Proposed new visit slots excluding Tuesday; noted lab test still pending"
+        }
+      },
+      {
+        "seq": 83,
+        "at": "2026-01-05T12:00:00.000Z",
+        "kind": "ladder",
+        "outcome": "info",
+        "event": "ladder_reanchored",
+        "runId": "agent-run-06cb09d84d74",
+        "params": {
+          "track": "routine"
+        }
+      }
+    ],
+    "runs": [
+      {
+        "id": "agent-run-f7f1fe55e18b",
+        "trigger": "take_ownership",
+        "status": "completed",
+        "mode": "live",
+        "model": "meta:muse-spark-1.3",
+        "rung": "routine:0d",
+        "startedAt": "2026-01-05T12:00:00.000Z",
+        "modelCalls": 4,
+        "toolCalls": 5,
+        "inputTokens": 16923,
+        "outputTokens": 619,
+        "costUsd": 0.00625,
+        "stopReason": "end_turn"
+      },
+      {
+        "id": "agent-run-06cb09d84d74",
+        "trigger": "inbound_message",
+        "status": "completed",
+        "mode": "live",
+        "model": "meta:muse-spark-1.3",
+        "inboundMessageId": "agent-message-3352982b9dcf",
+        "startedAt": "2026-01-05T12:00:00.000Z",
+        "modelCalls": 4,
+        "toolCalls": 4,
+        "inputTokens": 23508,
+        "outputTokens": 901,
+        "costUsd": 0.008938999999999999,
+        "stopReason": "end_turn"
+      }
+    ],
+    "tasks": [],
+    "appointments": [],
+    "findings": [],
+    "llmUsage": [
+      {
+        "callId": "078dff04-40c5-4c01-a4fb-71df1cb1e96b",
+        "task": "note_extraction",
+        "promptVersion": "note-extraction@5",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "costUsd": 0,
+        "latencyMs": 0,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "da88cbc4-9dc5-451d-be53-53ab5f2b5791",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 3938,
+        "outputTokens": 77,
+        "costUsd": 0.001042,
+        "latencyMs": 1154,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "3e14022e-0cb6-4132-b17a-49a11ed66d64",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4175,
+        "outputTokens": 128,
+        "costUsd": 0.001555,
+        "latencyMs": 1577,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "65ff3b4f-3e57-4b63-b93a-9ec904ab3fe6",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4293,
+        "outputTokens": 167,
+        "costUsd": 0.001587,
+        "latencyMs": 1537,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "781a4a27-d70f-4183-9945-5b887d49683b",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4517,
+        "outputTokens": 247,
+        "costUsd": 0.002066,
+        "latencyMs": 1711,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "e6008732-7817-4be9-abda-002e4f017642",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4664,
+        "outputTokens": 40,
+        "costUsd": 0.001089,
+        "latencyMs": 1921,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "a124ec52-72bb-4acc-ac44-9398a638a84c",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4755,
+        "outputTokens": 90,
+        "costUsd": 0.001274,
+        "latencyMs": 1639,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "52bdffcc-d849-4d36-9f5d-6ae799be1e00",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4722,
+        "outputTokens": 54,
+        "costUsd": 0.00108,
+        "latencyMs": 1163,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "a9ee4161-9ab8-4f0a-a1a2-aca2ffc7cc69",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4827,
+        "outputTokens": 101,
+        "costUsd": 0.00127,
+        "latencyMs": 1217,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "8aea97ff-1ca0-45fd-a84b-906857a316e4",
+        "task": "voice_transcription",
+        "promptVersion": "asr",
+        "provider": "meta",
+        "model": "muse-voice-transcribe-1.0",
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "costUsd": 0.000648,
+        "latencyMs": 2887,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "0df9badf-5016-410c-9d25-e6243040e8fb",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4286,
+        "outputTokens": 107,
+        "costUsd": 0.001605,
+        "latencyMs": 2145,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "3ad3206c-792a-4e72-9638-6dfc6309cd2d",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4525,
+        "outputTokens": 341,
+        "costUsd": 0.002476,
+        "latencyMs": 2609,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "1b3f684c-eb38-4765-a64f-6f6163b01d5c",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4754,
+        "outputTokens": 292,
+        "costUsd": 0.002272,
+        "latencyMs": 2132,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      },
+      {
+        "callId": "87ee8658-9828-4794-904a-80fdb1fc092d",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 4926,
+        "outputTokens": 40,
+        "costUsd": 0.001134,
+        "latencyMs": 1183,
+        "ok": false,
+        "error": "LlmOutputError: Model output does not match the schema: no tool call",
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": false
+      },
+      {
+        "callId": "5eb7ef5e-2438-40cf-b63e-a7f2360414c3",
+        "task": "order_agent",
+        "promptVersion": "order-agent@4",
+        "provider": "meta",
+        "model": "muse-spark-1.3",
+        "inputTokens": 5017,
+        "outputTokens": 121,
+        "costUsd": 0.001452,
+        "latencyMs": 1460,
+        "ok": true,
+        "at": "2026-01-05T12:00:00.000Z",
+        "agentTurnOfPatient": true
+      }
+    ],
+    "engine": {
+      "expectations": [
+        {
+          "id": "29c59b29-1d34-43fb-adf8-ed01298da668",
+          "ruleId": "protocol_diabetes_hba1c",
+          "layer": "protocol",
+          "status": "fulfilled",
+          "matchKey": "loinc:4548-4",
+          "dueAt": "2025-02-18T13:00:00.000Z",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedBy": "Observation/pat-agent-maria-c2f4e9-hba1c-0-obs",
+          "closedReason": "fulfilled_by_result",
+          "agentOwned": false
+        },
+        {
+          "id": "89cb1ff1-b1f6-4559-9e21-728395672be0",
+          "ruleId": "protocol_diabetes_hba1c",
+          "layer": "protocol",
+          "status": "fulfilled",
+          "matchKey": "loinc:4548-4",
+          "dueAt": "2025-03-10T13:00:00.000Z",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedBy": "Observation/pat-agent-maria-c2f4e9-hba1c-1-obs",
+          "closedReason": "fulfilled_by_result",
+          "agentOwned": false
+        },
+        {
+          "id": "1f1c3c4d-4f39-4f50-b5d6-787a747ac1ff",
+          "ruleId": "protocol_diabetes_visit",
+          "layer": "protocol",
+          "status": "fulfilled",
+          "matchKey": "visit",
+          "dueAt": "2025-05-19T13:00:00.000Z",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedBy": "Encounter/pat-agent-maria-c2f4e9-visit-enc",
+          "closedReason": "fulfilled_by_encounter",
+          "agentOwned": false
+        },
+        {
+          "id": "dd7cb62f-be9e-47bf-a2c5-6e2faa043829",
+          "ruleId": "protocol_diabetes_hba1c",
+          "layer": "protocol",
+          "status": "cancelled",
+          "matchKey": "loinc:4548-4",
+          "dueAt": "2025-11-03T13:00:00.000Z",
+          "closedAt": "2026-01-05T12:00:00.000Z",
+          "closedReason": "covered_by_later_request",
+          "agentOwned": false
+        },
+        {
+          "id": "5d191a6d-260f-4d26-973c-993a1bbdc558",
+          "ruleId": "doctor_plan_followup",
+          "layer": "doctor_plan",
+          "status": "expired",
+          "matchKey": "visit",
+          "dueAt": "2025-11-12T13:00:00.000Z",
+          "caseId": "bb750c01-c488-4c03-a4d5-5c218e9f6bf3",
+          "agentOwned": true
+        },
+        {
+          "id": "ab56e0bf-570a-40b8-8dda-dc57f7fb4e88",
+          "ruleId": "doctor_plan_followup",
+          "layer": "doctor_plan",
+          "status": "expired",
+          "matchKey": "loinc:4548-4",
+          "dueAt": "2025-11-12T13:00:00.000Z",
+          "caseId": "bb750c01-c488-4c03-a4d5-5c218e9f6bf3",
+          "agentOwned": true
+        },
+        {
+          "id": "8ed9e3c3-085b-4ee7-b32c-fe588acbeb69",
+          "ruleId": "protocol_diabetes_lipids",
+          "layer": "protocol",
+          "status": "expired",
+          "matchKey": "loinc:24331-1",
+          "dueAt": "2025-11-20T13:00:00.000Z",
+          "caseId": "bb750c01-c488-4c03-a4d5-5c218e9f6bf3",
+          "agentOwned": false
+        },
+        {
+          "id": "f4e0d10b-2fb6-421a-98ff-fddb0a5745c0",
+          "ruleId": "protocol_diabetes_fundus",
+          "layer": "protocol",
+          "status": "expired",
+          "matchKey": "code:https://hipocratesalud.com/fhir/CodeSystem/procedure|fundus-exam",
+          "dueAt": "2025-11-20T13:00:00.000Z",
+          "caseId": "bb750c01-c488-4c03-a4d5-5c218e9f6bf3",
+          "agentOwned": false
+        }
+      ],
+      "clinicalEvents": [
+        {
+          "type": "encounter.finished",
+          "source": "Encounter/pat-agent-maria-c2f4e9-dx-enc",
+          "occurredAt": "2024-11-20T13:00:00.000Z"
+        },
+        {
+          "type": "condition.recorded",
+          "source": "Condition/pat-agent-maria-c2f4e9-dx-dx",
+          "occurredAt": "2024-11-20T13:00:00.000Z"
+        },
+        {
+          "type": "result.received",
+          "source": "Observation/pat-agent-maria-c2f4e9-hba1c-0-obs",
+          "occurredAt": "2024-12-10T13:00:00.000Z"
+        },
+        {
+          "type": "result.received",
+          "source": "Observation/pat-agent-maria-c2f4e9-hba1c-1-obs",
+          "occurredAt": "2025-08-05T13:00:00.000Z"
+        },
+        {
+          "type": "encounter.finished",
+          "source": "Encounter/pat-agent-maria-c2f4e9-visit-enc",
+          "occurredAt": "2025-08-12T13:00:00.000Z"
+        },
+        {
+          "type": "note.received",
+          "source": "DocumentReference/pat-agent-maria-c2f4e9-visit-note",
+          "occurredAt": "2025-08-12T13:00:00.000Z"
+        },
+        {
+          "type": "medication.prescribed",
+          "source": "MedicationRequest/pat-agent-maria-c2f4e9-visit-mr-1",
+          "occurredAt": "2025-08-12T13:00:00.000Z"
+        },
+        {
+          "type": "plan.extracted",
+          "source": "DocumentReference/pat-agent-maria-c2f4e9-visit-note",
+          "occurredAt": "2025-08-12T13:00:00.000Z"
+        },
+        {
+          "type": "condition.recorded",
+          "source": "DocumentReference/pat-agent-maria-c2f4e9-visit-note",
+          "occurredAt": "2025-08-12T13:00:00.000Z"
+        }
+      ],
+      "cases": [
+        {
+          "id": "bb750c01-c488-4c03-a4d5-5c218e9f6bf3",
+          "status": "open",
+          "audit": [
+            {
+              "type": "opened",
+              "actor": {
+                "type": "rule",
+                "id": "doctor_plan_followup"
+              },
+              "payload": {
+                "expectationId": "5d191a6d-260f-4d26-973c-993a1bbdc558",
+                "ruleId": "doctor_plan_followup",
+                "layer": "doctor_plan"
+              },
+              "at": "2026-01-05T12:00:00.000Z"
+            },
+            {
+              "type": "reason_added",
+              "actor": {
+                "type": "rule",
+                "id": "doctor_plan_followup"
+              },
+              "payload": {
+                "expectationId": "ab56e0bf-570a-40b8-8dda-dc57f7fb4e88",
+                "ruleId": "doctor_plan_followup",
+                "layer": "doctor_plan"
+              },
+              "at": "2026-01-05T12:00:00.000Z"
+            },
+            {
+              "type": "reason_added",
+              "actor": {
+                "type": "rule",
+                "id": "protocol_diabetes_lipids"
+              },
+              "payload": {
+                "expectationId": "8ed9e3c3-085b-4ee7-b32c-fe588acbeb69",
+                "ruleId": "protocol_diabetes_lipids",
+                "layer": "protocol"
+              },
+              "at": "2026-01-05T12:00:00.000Z"
+            },
+            {
+              "type": "reason_added",
+              "actor": {
+                "type": "rule",
+                "id": "protocol_diabetes_fundus"
+              },
+              "payload": {
+                "expectationId": "f4e0d10b-2fb6-421a-98ff-fddb0a5745c0",
+                "ruleId": "protocol_diabetes_fundus",
+                "layer": "protocol"
+              },
+              "at": "2026-01-05T12:00:00.000Z"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

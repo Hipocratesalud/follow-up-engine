@@ -36,6 +36,18 @@ export function isPending(expectation: Expectation): boolean {
   return expectation.status === 'open' || expectation.status === 'expired';
 }
 
+/**
+ * Orders the engine itself created from a result (an abnormal value asks for
+ * a visit), not something the doctor wrote or ordered: the doctor confirms
+ * each one before the agent contacts the patient about it
+ * (docs/agent/order-to-completion.md#what-the-agent-owns).
+ */
+const DOCTOR_CONFIRMED_RULES: ReadonlySet<string> = new Set(['abnormal_result_followup']);
+
+export function needsDoctorConfirmation(expectation: Expectation): boolean {
+  return DOCTOR_CONFIRMED_RULES.has(expectation.ruleId);
+}
+
 export function isUrgentOrder(expectation: Expectation): boolean {
   return URGENT_RULES.has(expectation.ruleId) || expectation.severity === 'critical';
 }
@@ -44,8 +56,10 @@ export function isUrgentOrder(expectation: Expectation): boolean {
 export interface OrderDescriptor {
   /** `visit` for a control visit or session; `test` for a lab or imaging test. */
   readonly kind: 'visit' | 'test';
-  /** The test's short name (`HbA1c`), language-neutral; absent for visits. */
+  /** The test's short name (`HbA1c`), language-neutral; absent for visits. For staff and the model, never for the patient. */
   readonly test?: string;
+  /** An imaging study rather than a lab test. */
+  readonly imaging?: boolean;
   /** LOINC (or the test's own code) the result must carry, when known. */
   readonly code?: { readonly system: string; readonly code: string };
   /** Who books it: the treating professional or a lab. */
@@ -68,6 +82,7 @@ export function describeOrder(expectation: Expectation): OrderDescriptor {
     return {
       kind: 'test',
       ...(group === undefined ? {} : { test: group.label }),
+      ...(kind === 'imaging' ? { imaging: true } : {}),
       ...(code === undefined ? {} : { code: { system: code.system, code: code.code } }),
       resourceKind: 'lab',
       source,

@@ -45,4 +45,6 @@ export interface LlmUsageLog {
     since: Date,
     options?: { readonly task?: string },
   ): Promise<LlmUsageSummary>;
+  /** Every call at or after `since`, oldest first (a run's export: model, tokens, cost per call). */
+  calls(clinicId: ClinicId, since: Date): Promise<readonly LlmCallRecord[]>;
 }

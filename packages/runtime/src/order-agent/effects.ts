@@ -13,6 +13,7 @@ import {
 } from '@follow-up-engine/core';
 import {
   buildAgentAppointmentBundle,
+  buildAgentOptOutBundle,
   buildAgentResultBundle,
   type Bundle,
 } from '@follow-up-engine/fhir';
@@ -107,6 +108,17 @@ export function createOrderAgentEffects(deps: OrderAgentEffectsDeps): OrderAgent
       const observation = bundle.entry?.[0]?.resource;
       const reports = await ingest(clinicId, bundle);
       return outcomeOf(`Observation/${observation?.id ?? input.observationId}`, reports);
+    },
+
+    async recordOptOut(clinicId, input) {
+      const consentId = `agent-opt-out-${input.messageId.replace(/^agent-message-/, '')}`;
+      const bundle = buildAgentOptOutBundle({
+        consentId,
+        patientId: input.patientId,
+        at: input.at,
+      });
+      await ingest(clinicId, bundle);
+      return { resource: `Consent/${bundle.entry?.[0]?.resource?.id ?? consentId}` };
     },
 
     async requestClinicalReview(clinicId, patientId, mode, language) {

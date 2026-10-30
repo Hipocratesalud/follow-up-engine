@@ -172,7 +172,12 @@ export function AgentPage(): ReactNode {
               stopped={conversation.status === 'done'}
               timeZone={data.timeZone}
             />
-            <DoctorPanel findings={data.findings ?? []} />
+            <DoctorPanel
+              findings={data.findings ?? []}
+              orders={data.orders ?? []}
+              patientId={conversation.patientId}
+              timeZone={data.timeZone}
+            />
             <TasksPanel tasks={data.tasks ?? []} timeZone={data.timeZone} />
           </div>
         </>

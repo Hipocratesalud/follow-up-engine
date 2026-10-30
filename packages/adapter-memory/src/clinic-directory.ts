@@ -118,6 +118,14 @@ export class MemoryLlmUsageLog implements LlmUsageLog {
     });
   }
 
+  calls(clinicId: ClinicId, since: Date): Promise<readonly LlmCallRecord[]> {
+    return Promise.resolve(
+      this.#db.state.llmCalls
+        .filter((call) => call.clinicId === clinicId && call.at.getTime() >= since.getTime())
+        .sort((left, right) => left.at.getTime() - right.at.getTime()),
+    );
+  }
+
   /** Every recorded call of a clinic, for tests and stats. */
   list(clinicId?: ClinicId): readonly LlmCallRecord[] {
     return this.#db.state.llmCalls.filter(

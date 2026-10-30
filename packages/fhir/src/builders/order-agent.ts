@@ -1,7 +1,12 @@
 import type { Bundle, FhirResource } from '../fhir-types.ts';
 import { toFhirInstant } from '../support/datetime.ts';
 import { toFhirId } from '../support/hash.ts';
-import { ENGINE_CODE_SYSTEMS, ENGINE_EXTENSIONS, TERMINOLOGY } from '../terminology.ts';
+import {
+  ENGINE_CODE_SYSTEMS,
+  ENGINE_EXTENSIONS,
+  FOLLOW_UP_OPT_OUT_CONSENT_CODE,
+  TERMINOLOGY,
+} from '../terminology.ts';
 
 /**
  * FHIR writes of the order-to-completion agent (docs/agent/order-to-completion.md):
@@ -166,6 +171,44 @@ export function buildAgentAppointmentBundle(input: AgentAppointmentInput): Bundl
           { actor: { reference: `Patient/${input.patientId}` }, status: 'accepted' },
           { actor: { display: input.practitionerName }, status: 'accepted' },
         ],
+      }),
+    ],
+  };
+}
+
+export interface AgentOptOutInput {
+  readonly consentId: string;
+  readonly patientId: string;
+  /** When the patient asked to stop. */
+  readonly at: Date;
+}
+
+/**
+ * The patient asked the agent to stop writing (`Consent`, status `active`,
+ * provision `deny`, category `follow-up-opt-out`): the engine records
+ * `patient.opted_out`, stops asking the host to contact the patient and
+ * escalates to the coordinator instead (docs/fhir.md).
+ */
+export function buildAgentOptOutBundle(input: AgentOptOutInput): Bundle {
+  return {
+    resourceType: 'Bundle',
+    id: toFhirId(`${input.consentId}-bundle`),
+    type: 'transaction',
+    timestamp: toFhirInstant(input.at),
+    entry: [
+      put({
+        resourceType: 'Consent',
+        id: toFhirId(input.consentId),
+        status: 'active',
+        scope: { coding: [{ system: TERMINOLOGY.consentScope, code: 'patient-privacy' }] },
+        category: [
+          {
+            coding: [{ system: ENGINE_CODE_SYSTEMS.consent, code: FOLLOW_UP_OPT_OUT_CONSENT_CODE }],
+          },
+        ],
+        patient: { reference: `Patient/${input.patientId}` },
+        dateTime: toFhirInstant(input.at),
+        provision: { type: 'deny' },
       }),
     ],
   };

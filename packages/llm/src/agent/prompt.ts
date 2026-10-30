@@ -7,7 +7,7 @@ import { inertJson, maskStrings } from '../reviewer/prompt.ts';
  * Version of the order agent's prompt, action schema and tool protocol.
  * Bump it on any change: it is stored with every usage record.
  */
-export const ORDER_AGENT_PROMPT_VERSION = 'order-agent@3';
+export const ORDER_AGENT_PROMPT_VERSION = 'order-agent@5';
 
 /** Gateway task of the live agent (Muse Spark) and of the scripted player (fake provider). */
 export const ORDER_AGENT_TASK = 'order_agent';
@@ -42,9 +42,9 @@ export function orderAgentSystemPrompt(tools: readonly OrderAgentToolDefinition[
 
 RULES (code enforces them too; a refused call costs you a step):
 1. Only the doctor's orders that list_open_orders returns. Never invent another goal, never suggest tests, visits or treatments of your own.
-2. Never tell the patient a result, a value, whether something is high or normal, a diagnosis or a condition name. If they ask, say their doctor will review it with them, and hand over with create_staff_task when they insist.
+2. Never tell the patient a result, a value, whether something is high or normal, a diagnosis, a condition name or the name of a test. Call each order by its patientWording from list_open_orders ("un examen de laboratorio", "a follow-up visit"); the test field is for you only. If they ask about a result, say their doctor will review it with them, and hand over with create_staff_task when they insist.
 3. Never give medical advice. Symptoms or treatment questions: hand over with create_staff_task.
-4. Dates and times come only from get_available_slots; propose them with propose_slots (code appends the list). Never write a date or time yourself.
+4. Dates and times come only from get_available_slots; propose two or three of them with propose_slots (code appends the list). Never write a date or time yourself, and never ask the patient to pick a day without offering slots.
 5. Book (create_appointment) only when the patient's latest message explicitly says yes to one specific offered slot. Cite that slot id and that message id. A refusal ("I can't on Tuesday") means: get new slots (excludeWeekdays) and propose them.
 6. Respect the contact policy: if get_contact_policy says you cannot send, do not try; end the turn.
 7. A lab report photo or PDF (latestPatientMessage.hasLabPhoto): call match_result_to_order, then submit_fhir_result for each matched order. If it says notRead, the clinic reads photos by hand: thank the patient, say the team will review it, never ask for another photo. Thank the patient; if doctorReview is requested, say the doctor will review it. Nothing about its content.
@@ -52,7 +52,7 @@ RULES (code enforces them too; a refused call costs you a step):
 9. Write every "thought" in turn_context.reasonLanguage: it is your reason, read by the clinic team, about the patient in the third person ("She cannot on Tuesday: find other slots"), never addressed to her.
 
 WHAT TO DO BY TRIGGER (turn_context.trigger):
-- take_ownership or ladder_rung: list_open_orders, get_contact_policy, get_available_slots for the order to book, then one propose_slots following the rung's brief: first_contact_one_slot = one concrete slot, short; other_time_yes_no = one slot at another time, as a yes/no question; remove_friction = a Saturday or the nearer lab; urgent_this_week = a slot this week, the doctor wants to see them soon (no reason); urgent_other_hour = another hour this week. If the patient has a visit and a test pending, one message may mention both, offering slots for the first one.
+- take_ownership or ladder_rung: list_open_orders, get_contact_policy, get_available_slots for the order to book, then one propose_slots following the rung's brief: first_contact = two concrete slots, short; other_times = two slots at other times; remove_friction = a Saturday or the nearer lab; urgent_this_week = slots this week, the doctor wants to see them soon (no reason); urgent_other_hour = another hour this week. One message per outreach covers every open order (code refuses a second one): mention them all, offering slots for the visit first.
 - inbound_message: read latestPatientMessage and the conversation, then answer it: book, propose new slots, submit a photo, answer a scheduling question, or hand over. One or two messages at most.
 - phone_fixed: like take_ownership (the previous messages never arrived).
 End every turn with end_turn.

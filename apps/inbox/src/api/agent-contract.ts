@@ -8,7 +8,13 @@ export type AgentMode = 'scripted' | 'live';
 export type AgentLanguage = 'en' | 'es';
 export type AgentDeliveryStatus = 'sent' | 'delivered' | 'read' | 'undelivered';
 export type AgentOrderStage =
-  'open' | 'contacted' | 'booked' | 'result_received' | 'fulfilled' | 'unreachable';
+  | 'awaiting_doctor'
+  | 'open'
+  | 'contacted'
+  | 'booked'
+  | 'result_received'
+  | 'fulfilled'
+  | 'unreachable';
 export type AgentStepKind =
   'model' | 'tool' | 'engine' | 'transcription' | 'vision' | 'guardrail' | 'ladder' | 'policy';
 export type TraceValue = string | number | boolean | null | readonly string[];
@@ -77,6 +83,10 @@ export interface AgentOrderView {
         readonly unit?: string;
         readonly test?: string;
       };
+  /** An order the engine created from a result: the doctor confirms it before the agent acts. */
+  readonly needsConfirmation?: boolean;
+  /** Who confirmed it and when. */
+  readonly doctorConfirmation?: { readonly by: string; readonly at: string };
 }
 
 export type StaffTaskAsk =
@@ -86,7 +96,8 @@ export type StaffTaskAsk =
   | 'patient_unreachable'
   | 'urgent_unanswered'
   | 'patient_question'
-  | 'opted_out';
+  | 'opted_out'
+  | 'confirm_followup';
 
 export interface AgentTaskView {
   readonly id: string;
@@ -116,6 +127,20 @@ export interface AgentFindingView {
   readonly createdAt: string;
   /** Screenings and record quality: shown collapsed, after what the result changed. */
   readonly routine: boolean;
+  /** The evidence the finding rests on: verbatim quotes with their source document and date. */
+  readonly citations: readonly AgentFindingCitation[];
+}
+
+export interface AgentFindingCitation {
+  /** The cited resource, `ResourceType/id`. */
+  readonly docId: string;
+  readonly kind: string;
+  /** Verbatim text of the document. */
+  readonly quote: string;
+  /** ISO date of the document. */
+  readonly date: string;
+  /** Localized document title ("Diabetology note", "HbA1c"). */
+  readonly title: string;
 }
 
 export interface AgentLadderView {

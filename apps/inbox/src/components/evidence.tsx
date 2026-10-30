@@ -60,3 +60,28 @@ export function InlineQuote({ quote }: { readonly quote: string }): ReactNode {
     </q>
   );
 }
+
+/** What a cited quote needs: the verbatim text, its document's title and date. */
+export interface CitedQuote {
+  readonly quote: string;
+  readonly title: string;
+  /** ISO date of the cited document. */
+  readonly date: string;
+}
+
+/**
+ * A finding's citation: the verbatim quote, then its source document and
+ * date ("Diabetology note · Aug 12, 2025"). "Before the visit" and the
+ * agent page's "For the doctor" show the same block.
+ */
+export function CitationQuote({ citation }: { readonly citation: CitedQuote }): ReactNode {
+  const t = useT();
+  return (
+    <div className="rounded-lg bg-surface-2 px-3 py-2" data-testid="citation">
+      <InlineQuote quote={citation.quote} />
+      <p className="mt-1 text-xs text-muted">
+        {t.review.beforeVisit.citationCaption(citation.title, formatDate(citation.date))}
+      </p>
+    </div>
+  );
+}
