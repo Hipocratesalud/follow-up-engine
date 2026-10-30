@@ -12,6 +12,7 @@ import type {
 import type { ClinicalRecordRepository } from './clinical-record-repository.ts';
 import type { ConditionRepository, QualityFindingRepository } from './condition-repository.ts';
 import type { ContactRepository } from './contact-repository.ts';
+import type { ExpectationEventLog } from './expectation-event-log.ts';
 import type { ExpectationRepository } from './expectation-repository.ts';
 import type { FeedbackRepository } from './feedback-repository.ts';
 import type { JobQueue, Outbox } from './job-queue.ts';
@@ -24,6 +25,8 @@ import type { SuppressionRepository } from './suppression-repository.ts';
 export interface TransactionalStores {
   readonly clinicalRecords: ClinicalRecordRepository;
   readonly expectations: ExpectationRepository;
+  /** Append-only audit of expectations outside a case (a reclassified closure). */
+  readonly expectationEvents: ExpectationEventLog;
   readonly cases: CaseRepository;
   readonly feedback: FeedbackRepository;
   readonly conditions: ConditionRepository;

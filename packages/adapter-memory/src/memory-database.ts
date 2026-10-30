@@ -13,6 +13,7 @@ import type {
   RuleSuppression,
   DomainEvent,
   Expectation,
+  ExpectationEvent,
   FhirResourceJson,
   FindingFlag,
   FollowUpCase,
@@ -87,6 +88,7 @@ export interface MemoryState {
   readonly reviewRuns: Map<string, ClinicalReviewRun>;
   readonly findingFlags: Map<string, FindingFlag>;
   readonly planItemReviews: PlanItemReview[];
+  readonly expectationEvents: ExpectationEvent[];
   readonly ruleOverrides: Map<string, RuleOverrideRecord>;
   readonly ruleOverrideHistory: RuleOverrideChange[];
   readonly reconciliationRuns: Map<string, ReconciliationRun>;
@@ -119,6 +121,7 @@ function emptyState(): MemoryState {
     reviewRuns: new Map(),
     findingFlags: new Map(),
     planItemReviews: [],
+    expectationEvents: [],
     ruleOverrides: new Map(),
     ruleOverrideHistory: [],
     reconciliationRuns: new Map(),

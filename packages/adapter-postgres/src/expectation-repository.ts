@@ -34,6 +34,10 @@ export interface ExpectationRow {
   readonly closed_at: Date | null;
   readonly closed_by_type: string | null;
   readonly closed_by_id: string | null;
+  readonly reclassified_reason: string | null;
+  readonly reclassified_at: Date | null;
+  readonly reclassified_by_type: string | null;
+  readonly reclassified_by_id: string | null;
   readonly origin: Origin;
   readonly protocol_id: string | null;
   readonly protocol_version: string | null;
@@ -53,7 +57,8 @@ export interface ExpectationRow {
 export const EXPECTATION_COLUMNS = `clinic_id, id, patient_id, idempotency_key, rule_id, rule_version, layer, source_type,
   source_id, match_key, due_at, status, case_id, closed_reason, closed_at, closed_by_type,
   closed_by_id, origin, protocol_id, protocol_version, reason_code, reason_label, evidence,
-  recheck_at, severity, created_at, updated_at, confirmed_by, confirmed_at, correction_of, confidence`;
+  recheck_at, severity, created_at, updated_at, confirmed_by, confirmed_at, correction_of, confidence,
+  reclassified_reason, reclassified_at, reclassified_by_type, reclassified_by_id`;
 
 export function toExpectation(row: ExpectationRow): Expectation {
   return {
@@ -74,6 +79,18 @@ export function toExpectation(row: ExpectationRow): Expectation {
     ...(row.closed_by_type === null || row.closed_by_id === null
       ? {}
       : { closedBy: { resourceType: row.closed_by_type, id: row.closed_by_id } }),
+    ...(row.reclassified_reason === null ||
+    row.reclassified_at === null ||
+    row.reclassified_by_type === null ||
+    row.reclassified_by_id === null
+      ? {}
+      : {
+          reclassification: {
+            closedReason: row.reclassified_reason,
+            at: row.reclassified_at,
+            by: { resourceType: row.reclassified_by_type, id: row.reclassified_by_id },
+          },
+        }),
     origin: row.origin,
     ...optional('protocolId', row.protocol_id),
     ...optional('protocolVersion', row.protocol_version),
@@ -124,10 +141,14 @@ function toParams(expectation: Expectation): unknown[] {
     expectation.confirmedAt ?? null,
     expectation.correctionOf ?? null,
     expectation.confidence ?? null,
+    expectation.reclassification?.closedReason ?? null,
+    expectation.reclassification?.at ?? null,
+    expectation.reclassification?.by.resourceType ?? null,
+    expectation.reclassification?.by.id ?? null,
   ];
 }
 
-const PLACEHOLDERS = Array.from({ length: 31 }, (_, index) => `$${String(index + 1)}`).join(', ');
+const PLACEHOLDERS = Array.from({ length: 35 }, (_, index) => `$${String(index + 1)}`).join(', ');
 
 export class PostgresExpectationRepository implements ExpectationRepository {
   readonly #ctx: RepositoryContext;

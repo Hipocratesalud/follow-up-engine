@@ -6,6 +6,7 @@ export * from './clinic-directory.ts';
 export type * from './clinical-finding-repository.ts';
 export * from './clinical-review-agent.ts';
 export type * from './expectation-adjudicator.ts';
+export type * from './expectation-event-log.ts';
 export type * from './clinical-record-repository.ts';
 export type * from './clock.ts';
 export type * from './condition-repository.ts';

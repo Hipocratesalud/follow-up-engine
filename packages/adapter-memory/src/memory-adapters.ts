@@ -38,6 +38,7 @@ import {
   MemoryContactRepository,
   MemorySuppressionRepository,
 } from './repositories/contact-repository.ts';
+import { MemoryExpectationEventLog } from './repositories/expectation-event-log.ts';
 import { MemoryExpectationRepository } from './repositories/expectation-repository.ts';
 import { MemoryPlanItemReviewLog } from './repositories/plan-item-review-log.ts';
 import { MemoryReconciliationStore } from './repositories/reconciliation-store.ts';
@@ -53,6 +54,7 @@ import { MemoryUnitOfWork } from './unit-of-work.ts';
 /** Every memory store, sharing one {@link MemoryDatabase}. */
 export interface MemoryStores extends TransactionalStores {
   readonly expectations: MemoryExpectationRepository;
+  readonly expectationEvents: MemoryExpectationEventLog;
   readonly cases: MemoryCaseRepository;
   readonly audit: MemoryAuditLog;
   readonly jobs: MemoryJobQueue;
@@ -74,6 +76,7 @@ export function createMemoryStores(db: MemoryDatabase, clock: Clock): MemoryStor
   return {
     clinicalRecords: new MemoryClinicalRecordRepository(db),
     expectations: new MemoryExpectationRepository(db),
+    expectationEvents: new MemoryExpectationEventLog(db),
     cases: new MemoryCaseRepository(db),
     feedback: new MemoryFeedbackRepository(db),
     conditions: new MemoryConditionRepository(db),

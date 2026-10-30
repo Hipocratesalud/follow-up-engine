@@ -25,6 +25,7 @@ import {
   describeLlmUsageLogContract,
   describeMetricsReadModelContract,
   describeOutboxContract,
+  describeExpectationEventLogContract,
   describePlanItemReviewLogContract,
   describeAdjudicationRepositoryContract,
   describeQualityFindingRepositoryContract,
@@ -113,6 +114,10 @@ describeFindingFlagRepositoryContract(
 describePlanItemReviewLogContract(
   NAME,
   store((s) => s.planItemReviews),
+);
+describeExpectationEventLogContract(
+  NAME,
+  store((s) => s.expectationEvents),
 );
 describeAdjudicationRepositoryContract(
   NAME,

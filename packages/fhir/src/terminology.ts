@@ -151,6 +151,14 @@ export const ENGINE_EXTENSIONS = {
    * corrected (that one is `cancelled`, `statusReason` `corrected_by_clinician`).
    */
   correctionOf: structureDefinition('follow-up-correction-of'),
+  /**
+   * Task (expectation), complex: a closure the engine reclassified after
+   * the fact (`statusReason` is the reason it reads as now, executionPeriod
+   * end the original closure). `originalReason` (`valueCode`, the
+   * `closedReason` it was closed with), `at` (`valueDateTime`), `by`
+   * (`valueReference`, the resource whose event caused it).
+   */
+  closureReclassification: structureDefinition('follow-up-closure-reclassification'),
   /** Condition (`refuted`), `valueString`: host user id of the clinician who rejected it. */
   refutedBy: structureDefinition('follow-up-refuted-by'),
   /** DetectedIssue (clinical finding), `valueCode`: `shadow` | `live`. */
