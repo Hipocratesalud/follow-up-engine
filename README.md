@@ -1,346 +1,236 @@
 # Follow-up Engine
 
-**Finds the patients who silently fell out of care, and shows the clinician why, in the doctor's own words.**
+**The agent acts, the engine verifies, the doctor decides.**
 
-The Follow-up Engine reads every order, result, prescription and note an EHR already saves (HL7 FHIR R4), uses **Meta's Muse Spark** to read the doctor's plan from the free text, and puts one card per patient in front of the clinic team when something the patient needed never happened. Every reason links to the evidence that produced it.
+An AI-powered patient continuity engine that executes clinician-defined follow-up workflows, coordinates patient outreach, and schedules care without providing autonomous medical advice.
 
-Submission to the **Meta AI Developer Hackathon 2026**.
+Doctors order tests, studies and control visits every day, and a large share of those orders are never completed. Nothing fails when that happens: the EHR saved the visit, the note was written, the order was printed. The patient simply never booked, never brought the result back, or stopped coming. Nobody is watching the gap between what the doctor ordered and what actually happened. The Follow-up Engine watches it. It reads what an EHR already saves (HL7 FHIR R4), turns each order into a dated expectation, and an agent on WhatsApp works every order with the patient until the deterministic engine says it is done.
 
-[Live demo](https://follow-up-engine-demo-production.up.railway.app) · [How it works](#how-it-works) · [Meta AI](#meta-ai-usage) · [Clinical validation](#clinical-validation-with-physicians) · [Architecture](#architecture) · [Run it locally](#run-it-locally)
+Submission to the **Meta AI Developer Hackathon 2026**, built on Meta's Muse Spark.
 
-![Follow-up inbox: a patient card is open on a doctor's-plan reason. The verbatim quote "control en 6 meses" is highlighted in the source note, Muse Spark's reading waits for the clinician to confirm, correct or reject it, and "Why?" shows how the due date was computed.](docs/images/inbox-why-evidence.png)
+[Hosted demo](https://follow-up-engine-demo-production.up.railway.app) · [The agent](#order-to-completion-agent) · [Meta AI usage](#meta-ai-usage) · [Architecture](#architecture) · [Built during the hackathon](#built-during-the-hackathon-oct-26--nov-4-2026) · [Walkthrough](#walkthrough-for-judges-about-3-minutes) · [Limitations](#known-limitations)
 
-## Why it matters
+![The /agent page after María (synthetic) sends a photo of her lab report, scripted mode. Left: the simulated WhatsApp phone, where the agent thanked her and said only that her doctor will review the report. Right: the live agent console, where the engine's events show a new expectation and the clinical reviewer running on the result, and every model and tool step shows its reason and what it read. Below: the doctor's three orders, each "Fulfilled by the engine" with the FHIR Appointment or Observation that closed it; the clinic clock and the stopped no-response ladder; and "For the doctor", with the HbA1c trend 6.6 → 7.1 → 8.4 % and two pre-visit questions, each quote cited with its source and date.](docs/images/agent-maria.jpg)
 
-- **Physicians agreed with what Muse Spark read.** In a review session on 2026-10-27, practicing physicians checked the hosted demo against 148 synthetic patients' documents: **21 plan items confirmed, 0 corrected, 0 rejected**; **28 cases resolved**; **6 cases rated useful, 0 not useful**. [Details](#clinical-validation-with-physicians)
-- **The doctor's plan is read accurately and never invented.** On 101 gold notes, Muse Spark reaches **99.2% plan-item recall** and **98.1% medication F1**, with **0 of 348 quotes hallucinated**, at **$0.0049 per note**. [Eval](docs/evals/2026-10-27-meta-muse-spark-1.3.md)
-- **The reviewer agent cites or stays silent.** On a 20-patient cohort, with the shipped bilingual prompt, it found **13 of 13 planted findings** (precision 92.9%: one control of 10 got a finding the note had already addressed) and stored **0 of 43 hallucinated citations**, at about **$0.016 per review**. [Eval](docs/evals/reviewer/2026-10-30-meta-muse-spark-1.3.md)
+_María's story on the `/agent` page, scripted mode (no model calls), captured on a local demo server built from this repository. The same loop, tools and guardrails run live on Muse Spark in the [recorded runs](#recorded-live-runs)._
 
-## The problem
+**What the engine executed in a 90-day simulation (synthetic test, not real patients).** Over 20 seeded runs of 400 synthetic patients each (8,000 patients), the order agent ran on the engine's real code ([execution counts](docs/evals/simulation/2026-10-30-execution-counts.md)):
 
-Patients fall through the cracks without anything failing. A lab order with no result, a control visit nobody booked, a chronic patient who stopped coming back: the EHR did its job, the visit was saved, the note was written. The gap is in what happens _after_, and no system is watching it.
+| Step                                                                   |  Count |
+| ---------------------------------------------------------------------- | -----: |
+| Orders the engine detected                                             |  9,038 |
+| Proactive messages sent (first contacts and ladder rungs, capped)      | 19,193 |
+| Replies sent to a patient's message                                    |  8,267 |
+| Consultations booked                                                   |  3,353 |
+| Escalations: tasks for reception                                       |  3,916 |
+| Escalations: notices to the doctor                                     |  2,457 |
+| Orders the engine closed as fulfilled (the agent never marks one done) |  6,740 |
 
-The Follow-up Engine watches it. It is a standalone service a clinic's EHR talks to:
+Against fixed reminders on the same synthetic cohort, orders fulfilled within 90 days went from 50.6 % to 74.6 %: a simulated result whose size depends on stated persona assumptions, not a clinical result ([comparison and assumptions](#simulated-comparison-with-fixed-reminders)).
 
-|           |                                                                                                                                                                                                                                                                                                                                                                                                    |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **For**   | Clinics and the EHRs that serve them. The host owns the patient relationship, the message channel and the UI; the engine does the follow-up bookkeeping and the clinical reasoning behind it.                                                                                                                                                                                                      |
-| **Does**  | Turns what the EHR saves into dated expectations from four layers (structured rules, the doctor's own plan, the patient's visit cadence, condition protocols). Opens one case per patient when an expectation expires unmet. Escalates, asks the host to contact the patient, and calls the host back with signed webhooks. Runs a bounded LLM reviewer in shadow mode for what nobody wrote down. |
-| **Never** | Contacts a patient directly, gives patients medical advice, or shows a finding to clinicians without evidence attached.                                                                                                                                                                                                                                                                            |
+## Order-to-completion agent
 
-Hipócrates (hipocratesalud.com) is the first host integration. The engine speaks HL7 FHIR R4, so any FHIR-capable EHR can plug in without engine changes.
+The agent owns every order a doctor wrote for a patient, from the moment the engine reads it until the engine says it is done. It talks to the patient on WhatsApp, books what the doctor ordered, collects results the patient already has and hands the rest to the clinic team. It never decides what care a patient needs: it executes the follow-up the clinician defined. Design: [docs/agent/order-to-completion.md](docs/agent/order-to-completion.md), decision record [ADR 0008](docs/adr/0008-order-to-completion-agent.md).
 
-## See it
+### The loop, step by step
 
-|                                                                                                                                                                                                                                                                                                                                            |                                                                                                                                                                                                                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ![Lab page: a consultation note uploaded by the evaluator, read by muse-spark-1.3 in 3.9 seconds for $0.0084. Diagnoses, medications and four plan items are highlighted in the note, each plan item quotes its source sentence, and the expectations it created are listed with their due dates.](docs/images/lab-muse-spark-reading.png) | ![Engine tests page: the guided test "A repeated order supersedes the one before it" after its second step, with the timeline of events read by rules, the expectations diff (Superseded, New) and the Expected and Observed results side by side.](docs/images/engine-test-supersede.png) |
-| **Lab.** Upload or paste any note. Muse Spark reads it once, every item quotes the sentence it came from, and the engine shows the expectations it created.                                                                                                                                                                                | **Engine tests.** 19 guided tests, each built live in the evaluator's own sandbox clinic, with an automatic Expected / Observed check.                                                                                                                                                     |
-| ![Patient documents drawer: every record the clinic's system sent for one patient, newest first, filterable by results, prescriptions, visits, notes and diagnoses.](docs/images/patient-documents.png)                                                                                                                                    | ![Clinical review page in shadow mode: a high-severity finding "Creatinine rising over the last 4 results with no comment in the notes", with a suggestion for the team and quoted evidence checked word for word against the record.](docs/images/clinical-review-finding.png)            |
-| **Documents.** Every record behind a reason, one click away, to check the engine against the source.                                                                                                                                                                                                                                       | **Clinical review.** Reviewer findings with quoted evidence, in shadow mode until a named clinician validates the category.                                                                                                                                                                |
+The model chooses one tool per step; code checks every call. Each step is visible in the `/agent` console, which shows for every entry the tool, its arguments, what it read, the model's stated reason and the outcome ([trace format](docs/agent/order-to-completion.md#trace)).
 
-![Metrics page as the synthetic clinic boots: cases opened, ended in a booking, visit attended, median time to first action, usefulness per the team, AI cost per case, and the case-to-visit funnel.](docs/images/metrics.png)
+| Step                               | Who decides                                                                                                                                                                         | Where its choice and reason are visible                                                                                             |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Detect the order                | The engine: an expectation of the doctor's plan (read from the note) or a universal rule that is an order ([orders.ts](packages/core/src/engine/order-agent/orders.ts))             | Ladder entry "Took ownership of N doctor's orders (M engine suggestions ignored)"; panel "The doctor's orders"                      |
+| 2. Read authorized context         | The model calls `list_open_orders`, `read_patient_summary`, `get_contact_policy`. Pseudonymous: no name, no phone                                                                   | Tool entries with "Read: expectations, appointments" or "Read: messages, conversation"                                              |
+| 3. Choose an administrative action | The model picks the next tool; the ladder's timing is code ([ladder.ts](packages/core/src/engine/order-agent/ladder.ts))                                                            | Model entry "The model chose `<tool>`" with model, tokens and cost; ladder entries "Turn started: … (Routine rung, day 0: message)" |
+| 4. Contact the patient             | `get_available_slots`, `propose_slots`, `send_message`; slots computed by code, text checked by code                                                                                | Tool entry "Message sent", with the text as an argument and "Read: contact_policy, outbound_safety"                                 |
+| 5. Handle the reply                | Text, a voice note (Muse Voice), a photo or PDF of a result (Muse Spark vision); `match_result_to_order` maps a result to a pending order                                           | Entries `voice_transcribed`, `photo_read`, `result_matched`, each with its model and cost                                           |
+| 6. Book                            | `create_appointment(orderId, slotId, confirmationMessageId)`, accepted only on the patient's explicit yes ([confirmation.ts](packages/core/src/engine/order-agent/confirmation.ts)) | Tool entry `appointment_booked`, or the refusal reason (`hesitant`, `ambiguous_choice`, `slot_not_offered`)                         |
+| 7. Record                          | The agent writes FHIR (an `Appointment`, an `Observation`) through the same ingestion as `POST /fhir`; the engine decides what that fulfils                                         | Engine entry `expectation_fulfilled … by Appointment/…` or `by Observation/…`; the order card shows "Fulfilled by the engine"       |
+| 8. Escalate                        | `create_staff_task`, ladder rungs (reception call on day 14), notices to the doctor                                                                                                 | Tool or ladder entry `staff_task_created`; panels "Staff tasks" and "For the doctor"                                                |
 
-**Metrics.** What the clinic measures: from case to booking to attended visit, time to first action, dismissals by reason, what the doctors corrected, and the AI cost per case. Shown as the synthetic clinic boots, before anyone acts; the seeded notes replay recorded Muse Spark readings, so they cost $0.
+Tools: `list_open_orders`, `read_patient_summary`, `get_contact_policy`, `get_available_slots`, `send_message`, `propose_slots`, `create_appointment`, `match_result_to_order`, `submit_fhir_result`, `create_staff_task`, `end_turn` ([tool schemas](packages/core/src/engine/order-agent/tools.ts), [loop](packages/llm/src/agent/order-agent.ts)). A deterministic scripted player and live Muse Spark run the same loop, tools and guardrails.
 
-## Demo walkthrough for judges
+### Guardrails enforced in code
 
-**Hosted demo:** https://follow-up-engine-demo-production.up.railway.app (access code in the submission form). It runs on a fake clock over a synthetic clinic of 148 patients. About three minutes:
+The model only chooses tools and words. Every rule below is a pure function in `packages/core`, applied by the toolbox to every call ([service.ts](packages/core/src/engine/order-agent/service.ts)); a model mistake costs a refused step, visible in the trace.
 
-1. **Sign in** with any email and the access code. Your actions are recorded under that email.
-2. **Inbox.** Open the first patient card. Each card gathers every reason for one patient, sorted by priority, with its escalation step.
-3. **Why?** On a "Doctor's plan" reason, open "Why this?": the due date is recomputed from the stored record, and the doctor's own words are highlighted in the source note. Confirm, correct or reject the AI reading.
-4. **Lab.** Upload or paste a note of your own. Muse Spark reads it live; each plan item quotes its sentence and becomes a dated expectation. "What happens on a date?" moves your own sandbox clock forward and shows the cases that open.
-5. **Engine tests.** Run any of the 19 guided tests, for example "A repeated order supersedes the one before it", and compare Expected with Observed.
+- **Slots are computed by code.** Dates come only from the schedule ([slots.ts](packages/core/src/engine/order-agent/slots.ts)); slot ids are validated against it, and every offer carries two or three slots.
+- **Booking only on explicit confirmation.** The confirming message must be the patient's latest, the slot must be in the latest offer and still free, and the reply must single out one slot. "Maybe", "let me see" or "ok" to several options never books ([confirmation.ts](packages/core/src/engine/order-agent/confirmation.ts)).
+- **No diagnosis, value or test name to the patient.** `checkOutboundText` ([outbound-safety.ts](packages/core/src/engine/order-agent/outbound-safety.ts)) refuses any measured value, verdict on a result, condition name, test or study name, the word diagnosis, or treatment instruction, on the whole text the patient would receive. A property and fuzz test refuses 3,000 generated adversarial messages and reports every leaked kind ([outbound-safety.property.test.ts](packages/llm/src/agent/outbound-safety.property.test.ts)); an adversarial model's leaking messages are refused and never stored ([agent-guardrails.test.ts](apps/api/src/agent-guardrails.test.ts)). Values read from a photo never go back to the model.
+- **Opt-out is final and recorded.** Detected by code on every text and transcribed voice note. Nothing goes out again, open calls are withdrawn, the doctor is told, and the engine records a FHIR `Consent` with provision `deny` and category `follow-up-opt-out` ([builders/order-agent.ts](packages/fhir/src/builders/order-agent.ts)).
+- **The doctor confirms rule-originated visits.** A visit the engine asked for because a result was abnormal waits as `awaiting_doctor` until the doctor confirms it, recorded with who and when; the agent says nothing about it before ([what the agent owns](docs/agent/order-to-completion.md#what-the-agent-owns)).
+- **Only the engine marks an order fulfilled.** The agent has no tool that writes an expectation ([ADR 0008](docs/adr/0008-order-to-completion-agent.md)).
+- **At most 2 proactive messages per patient per rolling 7 days**, whatever the number of orders, one message per outreach covering all of them ([contact-policy.ts](packages/core/src/engine/order-agent/contact-policy.ts)).
 
-The Lab and the Engine tests use a sandbox clinic per evaluator, isolated from the shared demo and from every other evaluator.
+### The no-response ladder
 
-## How it works
+Timing is code; the model only words a message rung. A patient's reply pauses the ladder ([ladder.ts](packages/core/src/engine/order-agent/ladder.ts)).
 
-```mermaid
-sequenceDiagram
-    participant EHR as Host EHR
-    participant API as apps/api
-    participant Worker as apps/worker (engine)
-    participant Clinic as Clinic inbox
+| Track       | Rungs                                                                                                                                                                           |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| routine     | day 0 message with two slots · day 4 other times · day 9 remove friction (Saturday) · day 14 call task for reception · day 21 unreachable, retry in 30 days, the doctor is told |
+| urgent      | hour 0 slots this week · day 1 other hours · day 2 high-priority call task · day 3 the doctor directly · day 7 unreachable                                                      |
+| undelivered | at once: stop messaging, same-day task to update the phone · day 7 call via other contact data · day 14 unreachable                                                             |
 
-    EHR->>API: POST /fhir (transaction Bundle)
-    API-->>EHR: 202, transaction-response (ms)
-    API->>Worker: enqueue fhir.ingest_bundle
-    Note over Worker: universal rules (structured data)<br/>+ Muse Spark reads the doctor's plan<br/>+ cadence + protocols fill the gaps<br/>+ fulfillment / supersession
-    Note over Worker: days later, a deadline passes
-    Worker->>Clinic: webhook case.opened
-    Worker->>EHR: webhook patient_contact.requested
-    EHR->>EHR: sends WhatsApp (its own channel)
-    EHR->>API: POST /fhir (Communication: outcome)
-    EHR->>API: POST /fhir (result or Appointment)
-    Worker->>Clinic: webhook case.resolved
-```
+### Recorded live runs
 
-1. **Consultation saved.** The host sends one FHIR `transaction` Bundle per saved consultation (`Encounter`, note, orders, prescriptions, diagnoses). The API validates and stores it and answers in milliseconds; the engine runs in the worker.
-2. **Expectations: four layers, one precedence order.**
-   - `universal`: structured data, no model involved (a lab order needs a result in 15 days).
-   - `doctor_plan`: free text is read once, at save time, by **Muse Spark** behind one `llm_gateway`, turning the doctor's own words into dated plan items, each with a verbatim evidence quote.
-   - `cadence`: a break in the patient's own visit pattern.
-   - `protocol`: condition protocols fill only what the first three left uncovered. The doctor's plan always wins, and an item a plan already asks for is never duplicated.
-3. **Fulfilment and supersession.** A matching result, visit or booking closes an expectation; a newer order of the same test supersedes it; a cancellation reopens what it closed. This runs on every event, and again in a nightly reconciliation that repairs what a lost or reordered event left inconsistent.
-4. **Case.** An expectation that expires unmet opens (or joins) one case per patient and reason group, never a second card for the same patient.
-5. **Escalation and the contact loop.** A named, versioned policy raises priority, asks the host to message the patient (a `CommunicationRequest` with a generic purpose only, never clinical content), and escalates to a coordinator if nobody answers. The host reports the outcome; the engine decides whether to wait, call again, or close the case.
-6. **Clinician inbox, cited.** Every reason and every due date opens its evidence in one click, recomputed from the stored record ("Due Aug 19 = last HbA1c 6.5% [May 21] + 90 days"), with the doctor's words highlighted in the source note.
-7. **Signed webhooks back to the host.** `case.opened`, `case.resolved`, `patient_contact.requested`, `clinical_finding.created` and more: thin bodies (ids, codes, dates), HMAC-signed, delivered at least once from a transactional outbox.
+Each path ran live on Muse Spark against a demo server on 2026-10-30 and was exported with every model call, tool call and engine event, and the gateway's usage rows ([docs/evidence/agent-runs/2026-10-30](docs/evidence/agent-runs/2026-10-30/)):
+
+| Path                                                                                                                              | Transcript                                                                              | Models                                    | Cost (USD)          |
+| --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------- |
+| "Not Tuesday" → new slots; explicit yes → booked; photo of the report → the engine closes the HbA1c order; findings to the doctor | [booking-photo-doctor](docs/evidence/agent-runs/2026-10-30/booking-photo-doctor.md)     | muse-spark-1.3 (chat and vision)          | 0.127546 (38 calls) |
+| A voice note, transcribed and answered                                                                                            | [voice-note](docs/evidence/agent-runs/2026-10-30/voice-note.md)                         | muse-spark-1.3, muse-voice-transcribe-1.0 | 0.020550 (15 calls) |
+| No answer: day 4 and day 9 rungs, then a call task for reception on day 14                                                        | [no-response-ladder](docs/evidence/agent-runs/2026-10-30/no-response-ladder.md)         | muse-spark-1.3                            | 0.036521 (26 calls) |
+| Undelivered message → messaging stops, a task to fix the phone                                                                    | [undelivered-phone-fix](docs/evidence/agent-runs/2026-10-30/undelivered-phone-fix.md)   | muse-spark-1.3                            | 0.010904 (9 calls)  |
+| Abnormal result: the engine's visit waits for the doctor, then the urgent track                                                   | [urgent-doctor-confirms](docs/evidence/agent-runs/2026-10-30/urgent-doctor-confirms.md) | muse-spark-1.3                            | 0.049114 (21 calls) |
+
+## Other agents
+
+All three run through the same `llm_gateway`, return typed output that code checks, and stay in shadow mode or draft until a clinician validates them.
+
+- **Clinical reviewer** ([docs/reviewer.md](docs/reviewer.md), [ADR 0006](docs/adr/0006-clinical-reviewer-agent.md)). A bounded tool-using agent over one patient's dossier that confirms or adds to what deterministic detectors found; every citation is checked word for word against the record. Re-measured live on 2026-10-30 with the shipped prompt over a 20-patient cohort (10 planted, 10 controls): precision 92.9 %, recall 100 %, 0 of 43 stored citations invented, $0.0164 per review ([report](docs/evals/reviewer/2026-10-30-meta-muse-spark-1.3.md), [eval README](docs/evals/README.md)).
+- **Adjudicator of ambiguous plan items** (PRD V2, workstream E; [docs/adjudicator.md](docs/adjudicator.md)). Looks only at plan items the extractor was unsure of and answers one question: does the note really ask for this follow-up? Live eval on 20 synthetic items: 19 of 20 correct, 0 open/discard flips, $0.0755 for the 20 calls ([report](docs/evals/adjudicator/2026-10-30-meta-muse-spark-1.3.md)).
+- **Rule-authoring agent** ([docs/agent/rule-authoring.md](docs/agent/rule-authoring.md)). A clinician writes a follow-up rule in plain words; the agent drafts it in the engine's own configuration format, code validates every code against the repository's catalogs and dry-runs it over the clinic's records, and it never runs until a clinician enables it. Live on 2026-10-30, the third run produced 3 valid drafts of 3 for $0.085, about $0.03 per draft.
 
 ## Meta AI usage
 
-Every model call goes through one `llm_gateway` (`packages/llm`) to **Meta's Muse Spark** via the Meta Model API, with budget caps per clinic and a swappable provider port: Baseten's Muse Spark Open, an OpenAI-compatible adapter for benchmarking, and a deterministic `fake` provider that runs the same pipeline in CI and demos with no key, no network and no cost ([ADR 0004](docs/adr/0004-llm-gateway-meta-models.md)).
+Every model call goes through one `llm_gateway` (`packages/llm`), with a budget cap per clinic, usage rows per call, and a deterministic fake provider plus recorded snapshots so tests and the scripted demo run with no key, no network and no cost ([ADR 0004](docs/adr/0004-llm-gateway-meta-models.md)).
 
-| Use                     | What Muse Spark does                                                                                                                                                                                  | Model            |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| Note extraction         | Reads the free-text note into conditions (ICD-10), medications and the doctor's follow-up plan, each with a verbatim evidence quote. Runs once, at save time.                                         | `muse-spark-1.3` |
-| Clinical reviewer agent | A bounded agent (≤ 8 steps, ≤ 6 read-only tool calls) over one patient's dossier, confirming or adding to findings code already detected. Shadow mode until a named clinician signs the category off. | `muse-spark-1.3` |
+| Model                       | Endpoint                       | Used for                                                                            | Measured cost (source)                                                                                                                           |
+| --------------------------- | ------------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `muse-spark-1.3`            | `POST /v1/chat/completions`    | Order-to-completion agent (tool calling)                                            | $0.010904 to $0.127546 per recorded run, $0.244635 for the five ([agent runs](docs/evidence/agent-runs/2026-10-30/))                             |
+| `muse-spark-1.3`            | same                           | Note extraction: conditions, medications and the doctor's plan with verbatim quotes | $0.004887 per note over 101 gold notes, 0 of 348 quotes hallucinated ([eval](docs/evals/2026-10-27-meta-muse-spark-1.3.md))                      |
+| `muse-spark-1.3`            | same                           | Clinical reviewer                                                                   | $0.016406 per review ([eval](docs/evals/reviewer/2026-10-30-meta-muse-spark-1.3.md))                                                             |
+| `muse-spark-1.3`            | same                           | Adjudicator                                                                         | $0.075470 for 20 items ([eval](docs/evals/adjudicator/2026-10-30-meta-muse-spark-1.3.md))                                                        |
+| `muse-spark-1.3`            | same                           | Rule authoring                                                                      | $0.083 to $0.088 per run of three drafts ([live results](docs/agent/rule-authoring.md#live-results-2026-10-30-muse-spark-13-the-three-examples)) |
+| `muse-spark-1.3`            | same, with image content parts | Vision: reading a photo of a lab report into structured results                     | $0.003069 for one photo read (usage row `6c2726fe…` in [booking-photo-doctor](docs/evidence/agent-runs/2026-10-30/booking-photo-doctor.md))      |
+| `muse-voice-transcribe-1.0` | `POST /v1/asr/transcribe`      | Transcribing a patient's voice note                                                 | $0.000648 for a 6.5-second note (usage row `8aea97ff…` in [voice-note](docs/evidence/agent-runs/2026-10-30/voice-note.md))                       |
 
-Every model call and its reply are recorded (`packages/testkit/fixtures/llm-snapshots/`), so every number below replays offline, for free, from the exact recorded response, with the same score every time. Reproduction steps: [docs/evals/README.md](docs/evals/README.md).
+Muse Spark Open did not run: we had no Baseten credits, so it has no eval and no number in this repository.
 
-**Note extraction, 101 gold notes** ([full report](docs/evals/2026-10-27-meta-muse-spark-1.3.md), [comparison](docs/evals/comparison.md)):
+Deployment note: the hosted demo runs on Railway, and the Meta Model API did not serve Railway's egress addresses ([docs/deploy.md](docs/deploy.md#hosted-demo)), so the demo reaches it through a small relay in São Paulo set by `META_BASE_URL`. Locally the gateway calls `api.meta.ai` directly.
 
-| Field                        |    Muse Spark | Rule-based baseline | Oracle |
-| ---------------------------- | ------------: | ------------------: | -----: |
-| Conditions F1                |         91.2% |               84.3% |   100% |
-| Medications F1               |         98.1% |               81.1% |   100% |
-| Plan items F1 (recall 99.2%) |         92.8% |               97.2% |   100% |
-| Pregnancy outcome and dating |          100% |                100% |   100% |
-| Hallucinated quotes          |      0 of 348 |            0 of 303 |      0 |
-| Cost per note                |       $0.0049 |                  $0 |     $0 |
-| Latency p50 / p95            | 3.4 s / 6.8 s |                  ~0 |     ~0 |
+## Simulated comparison with fixed reminders
 
-The rule-based baseline's regexes were written looking at these same gold notes, so it overstates how well it generalizes; its plan-item precision is high because the gold labeling convention matches its rules exactly. Every Muse Spark miss is catalogued note by note, with the fix applied in code, in the [eval README](docs/evals/README.md#what-each-muse-spark-miss-is).
+> Simulation with synthetic patients and stated assumptions; not a clinical trial, and not a clinical result.
 
-**Clinical reviewer agent, 20-patient cohort: 10 planted findings, 10 controls** (Muse Spark, shipped prompt `clinical-review@2`, live 2026-10-30, [full report](docs/evals/reviewer/2026-10-30-meta-muse-spark-1.3.md)):
+**Orders fulfilled within 90 days: 50.6 % with fixed reminders → 74.6 % with the order agent, +24.0 points (95 % interval +18.5 to +28.6 over 20 seeded runs of 400 synthetic patients per arm).** Source: [docs/evals/simulation/2026-10-30.md](docs/evals/simulation/2026-10-30.md); method: [docs/simulation.md](docs/simulation.md). The agent arm runs the agent's real policy code, and every booking, visit and result goes through the engine's FHIR ingestion; "fulfilled" is the engine's own status at day 90.
 
-| Metric                          | Value                       |
-| ------------------------------- | --------------------------- |
-| Precision                       | 92.9% (13 of 14 findings)   |
-| Recall                          | 100.0% (13 of 13 planted)   |
-| Controls with any finding       | 1 of 10                     |
-| Hallucinated citations stored   | **0** of 43                 |
-| Findings in English and Spanish | 14 of 14                    |
-| Steps / tool calls per review   | 2.5 / 1.5                   |
-| Cost per review                 | $0.0164 (list price $0.021) |
+The patients' side is a persona model, not a language model. Every persona's probabilities (reply curve, slot fit, self-completion, show-up, call answer, photo) were chosen by the team, cite no study, and live in [config/simulation/simulation.v1.json](config/simulation/simulation.v1.json). **The difference depends on them**: change the config and run `pnpm simulate` to see by how much.
 
-The false positive is a control whose note already comments on a creatinine rise: Muse Spark added its own trend finding there (verbatim citations, wrong judgment). Details in the [eval README](docs/evals/README.md).
+| Persona                     | Share | Behaviour                                                   | Fixed reminders → agent (orders fulfilled) |
+| --------------------------- | ----- | ----------------------------------------------------------- | ------------------------------------------ |
+| Fast responder              | 30 %  | Answers the first message, takes a slot that fits           | 82.2 % → 93.8 %                            |
+| Needs a second try          | 15 %  | Misses the first message, answers a later one               | 51.1 % → 83.7 %                            |
+| Only after the time changes | 12 %  | Answers, but weekday mornings never suit                    | 51.1 % → 83.3 %                            |
+| Wrong number                | 6 %   | Messages undelivered until reception finds the right number | 30.9 % → 63.2 %                            |
+| Reads, never answers        | 10 %  | Never writes back; picks up a call                          | 27.3 % → 57.8 %                            |
+| Never answers               | 12 %  | Nothing reaches them                                        | 25.0 % → 22.2 %                            |
+| Opts out                    | 3 %   | Asks the clinic to stop writing at the first reply          | 33.6 % → 41.2 % (wide interval)            |
+| Test done elsewhere         | 12 %  | Did the test at an outside lab; sends a photo when asked    | 28.5 % → 90.5 %                            |
 
-Both evals gate prompt and model changes: a regression fails the eval. The principle behind the reviewer ([ADR 0006](docs/adr/0006-clinical-reviewer-agent.md)) is **deterministic where it matters, agentic where it helps.** Code computes every trend and runs the curated checks; the model only confirms, discards or adds to what code found; every citation it returns is checked word for word against the stored record. One bad quote drops the whole finding, and it is never silently rewritten.
+The agent costs staff time (79.7 staff tasks per 100 patients against none) and sends more messages (3.4 per patient against 1.8), and it changes nothing for patients nobody can reach. The inbox's **Value** page shows the same report next to the demo clinic's real attributed bookings.
 
-## Clinical safety and design principles
+![The Value page: orders fulfilled within 90 days, 50.6 % with fixed reminders and 74.6 % with the order agent, with 95 % intervals; an estimate scaled to a clinic's own volume and price; tiles for urgent orders, median days to fulfilment, patients never reached, messages per patient, consultations attended and staff tasks; and the start of the per-persona chart. A banner reads "Simulation with synthetic patients and stated assumptions; not a clinical trial."](docs/images/value-simulation.jpg)
 
-- **Suggestions to the clinician, never advice to the patient.** Every finding is a suggestion with cited evidence for the clinic team. A patient contact request carries a generic purpose (`schedule_follow_up`, ...) and ids only: never a diagnosis, a test name or free text.
-- **Nothing is enabled without clinical validation.** Every care protocol ships `status: draft` until a clinical team signs it off, and the inbox labels every reason from a draft protocol "Draft protocol · pending clinical validation". A reviewer category reaches clinicians only with `validatedBy`, a named clinician, enforced by the API, the domain and a database `CHECK`.
-- **Shadow mode is enforced, not cosmetic.** Shadow findings run through the same checks as live ones and appear only in the staff's batch review. They are never exported to FHIR, never sent as a webhook, and Supabase row-level security hides them from clinic users by default.
-- **The physician confirms with one click.** A plan item the AI read is a suggestion until a clinician confirms it (`follow-up-confirmed-by`); a correction supersedes it and keeps the evidence; a rejection cancels it. The condition inference pipeline never overwrites a clinician's own verdict.
-- **Configuration is versioned, not edited in place.** Every rule and protocol is a versioned JSON file, and every expectation records the version that created it. A per-clinic override is itself versioned and audited: who, when, old value, new value, why.
-- **The model sees only what it needs.** Direct identifiers are masked before reaching the reviewer agent (`[REDACTADO]`), host text is escaped so a note cannot forge a prompt delimiter, and the agent's tools are read-only, scoped to one patient's record.
+<!-- Pending Simeón's confirmation before submission -->
 
-## Clinical validation with physicians
+## Built during the hackathon (Oct 26 – Nov 4, 2026)
 
-All patients in every validation session are **synthetic**. No real patient data has been used, stored or committed anywhere in this repository.
+- **The repository was created for the hackathon.** Its only root commit is `a1166a5`, on 2026-10-26 22:53 -03:00. Verify:
 
-On 2026-10-27, a team of practicing physicians reviewed the hosted demo against each synthetic patient's documents: 148 synthetic patients, 2,268 FHIR bundles, 867 clinical documents read by Muse Spark. Recorded in the engine's own case log during that session:
+  ```sh
+  git rev-list --max-parents=0 HEAD
+  # a1166a53eded68ea6e64dc60461a07fc6c7ccf1f
+  git log --reverse --format='%h %ad %s' --date=iso | head -1
+  # a1166a5 2026-10-26 22:53:17 -0300 Initial commit
+  ```
 
-| Metric                                       | Result       |
-| -------------------------------------------- | ------------ |
-| Extracted plan items confirmed by physicians | 21           |
-| Extracted plan items corrected               | 0            |
-| Extracted plan items rejected                | 0            |
-| Cases resolved as handled                    | 28           |
-| Cases rated useful                           | 6            |
-| Cases rated not useful                       | 0            |
-| Session lead's overall verdict               | Satisfactory |
+- **Every line in it was written during the building period**: the engine, the agents, the inbox, the evals, the simulation, the evidence and these docs.
+- **The only pre-existing thing is the Hipócrates product** (hipocratesalud.com), an EHR the team built before the hackathon. It is the intended future host system: it would receive the engine's signed webhooks and send the real WhatsApp messages. **None of its code is in this repository**, and nothing here depends on it: the demo simulates the host and the WhatsApp channel, and any FHIR R4-capable EHR can be the host.
 
-A structured evaluation continues against the clinical team guide: physicians check rule timeframes, the diabetes and hypertension protocols, the AI's extraction against the source notes, and patient message templates, with a target of 100 reviewed test-mode cases. Every evaluator now signs in with their own email, and every action they take is recorded for analysis (the Evaluators page, with CSV export).
+## Walkthrough for judges, about 3 minutes
 
-| Validation point                                         | Status                |
-| -------------------------------------------------------- | --------------------- |
-| Hosted-demo review against synthetic patient documents   | Completed, 2026-10-27 |
-| Rule timeframes (universal layer deadlines)              | In review             |
-| Diabetes and hypertension protocols                      | In review             |
-| AI extraction review against the source notes            | In review             |
-| Test-mode case review (target: 100 cases)                | Started 2026-10-27    |
-| Patient message templates                                | In review             |
-| Per-evaluator sign-in and action logging (evaluator lab) | In progress           |
+**Hosted demo:** https://follow-up-engine-demo-production.up.railway.app (access code shared in the submission form). It runs on a fake clock over a synthetic clinic of 148 patients; the Lab, Agent and Engine tests pages give each evaluator a sandbox clinic of their own.
+
+1. **Sign in** with any email and the access code. Your actions are recorded under that email.
+2. **Agent.** Choose "Scripted (offline)", start María's story and play her with the suggested replies: "I can't make it on Tuesday", "Number 2 works for me", then "Sample lab photo". Follow the loop in the console: the order detected (ladder entry), the context read (each tool's "Read:"), the action chosen (each model entry and its reason), the contact (the message and its safety check), the reply handled (the photo read), the booking (`appointment_booked`), the record (the engine's `expectation_fulfilled`), and the escalation ("For the doctor", "Staff tasks"; jump the clock with "+4 days" on a new María who does not answer). Live Muse Spark is also offered, within the demo's budget.
+3. **Inbox "Why?"** Open a patient with a "Doctor's plan" reason and click "Why this?": the due date is recomputed from the stored record, the doctor's own words are highlighted in the source note, and you can confirm, correct or reject the AI reading.
+4. **Lab.** Upload or paste a note of your own, or use **Import history** to load a patient's past notes and lab reports. A report printed for another person is held for review, never recorded.
+5. **Engine tests.** Run a guided test, for example "A repeated order supersedes the one before it", and compare Expected with Observed.
+6. **Value.** The simulated comparison above, scaled to a clinic's own volume.
+
+![Inbox case detail on a doctor's-plan reason, "Why this?" open: the verbatim quote "TSH en 6 a 8 semanas" highlighted in the source note, Muse Spark's reading "Lab test · Nov 7, 2025" waiting for Confirm, Correct or Reject, and how the due date was computed: Nov 7, 2025 = the note (Sep 12, 2025) + 56 days.](docs/images/inbox-why-evidence.png)
+
+| Before the visit                                                                                                                                                                                                                                                                                                                    | Lab: a held report                                                                                                                                                                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ![Before the visit, next appointment Jan 6, 2026: two questions for the doctor to ask, about muscle pain since starting a statin and dry cough since starting an ACE inhibitor, each a suggestion not validated yet, quoting the prescription and its date, with Asked and Not relevant buttons.](docs/images/before-the-visit.png) | ![A report for this patient needs review: an imported HbA1c report whose printed name, Laura Beatriz Ortega, does not match the patient in the record, Rafael Antonio Méndez, held until someone chooses "It's this patient" or "Not this patient". Read by meta:muse-spark-1.3.](docs/images/lab-held-report.png) |
+| The clinical reviewer's suggestions for the next visit, each with its cited evidence; the doctor marks them asked or not relevant.                                                                                                                                                                                                  | An imported report whose printed name does not match is held: nothing from it reaches the record or closes an order until a person decides.                                                                                                                                                                        |
+
+## Clinical validation
+
+All patients in every session are **synthetic**. No real patient data has been used, stored or committed anywhere in this repository.
+
+<!-- Pending reconciliation before submission: the system-design drawing and the README of commit 67841b8 say 21 plan items confirmed; the hosted demo's Metrics page and its database say 42 (scratchpad evidence 3-railway-evaluator-session.md). No document in the repository records the 2026-10-27 session itself. -->
+
+On 2026-10-27, practicing physicians reviewed the hosted demo against each synthetic patient's documents. The hosted demo's **Metrics** page, which leaves test and QA accounts out ([config/demo/test-evaluators.json](config/demo/test-evaluators.json), [docs/deploy.md](docs/deploy.md#evaluator-identity-and-tracking)), shows for the doctor's plan items Muse Spark read from notes: **42 confirmed, 0 corrected, 0 rejected**; and **6 cases rated, all 6 useful**. That session predates per-evaluator sign-in, so its actions are not attributed to individual physicians.
+
+The diabetes and hypertension protocols are **ready for sign-off**: a generated package lets a physician approve each in one sitting, every number and code read back from config ([diabetes](docs/protocols/signoff/diabetes.md), [hypertension](docs/protocols/signoff/hypertension.md), [docs/protocols.md](docs/protocols.md)). No protocol has been validated by a clinical team yet; until then, every reason a protocol produces is labeled "pending clinical validation".
+
+## Known limitations
+
+- Two patients with the same full name still match (no date of birth read from reports).
+- Supabase RLS was verified on Supabase's Postgres 15.8; everything else on 18.6.
+- Cap of 2 proactive messages per week instead of the PRD's 1, agreed with the product owner.
+- The engine writes no audit event when a single order closes.
+- Opt-out by voice note is untested.
+- The agent console's model summaries are English on both locales.
+- Scanned PDFs are not read by OCR.
+- The simulated phone accepts PDF but not DOCX.
+- A held report creates no staff task or webhook.
+- The findings daily cap releases on read.
+- The weekly cap and the simulation use synthetic personas with stated assumptions.
+- Muse Spark Open was not evaluated.
 
 ## Architecture
 
-Hexagonal (ports and adapters), enforced by `dependency-cruiser` on every commit ([ADR 0002](docs/adr/0002-hexagonal-architecture.md)).
+[![System design: the host EHR sends FHIR R4 transaction Bundles to apps/api, which stores them with a job in one Postgres transaction; the worker runs the deterministic engine in packages/core (versioned config, the annotator, expectations in four layers, the deadline watcher and escalation) and writes signed webhooks through a transactional outbox; the agents call Meta's Muse Spark and Muse Voice only through llm_gateway, inside guardrails written in code. A validation strip lists the evals, the simulation and the test suite. Click for the full-resolution SVG.](docs/images/system-design.png)](docs/images/system-design.svg)
 
-```mermaid
-flowchart TB
-    subgraph apps["apps (process entry points)"]
-        API[api]
-        Worker[worker]
-        Inbox[inbox — React UI]
-    end
-    Runtime["packages/runtime<br/>(composition root — the only place that wires adapters)"]
-    Core["packages/core<br/>pure domain + ports, zero I/O, zero vendor SDKs"]
-    FHIR["packages/fhir<br/>FHIR R4 ⇄ domain, pure functions"]
-    PG["packages/adapter-postgres<br/>Postgres / Supabase, SKIP LOCKED jobs, outbox, RLS"]
-    Mem["packages/adapter-memory<br/>tests, demos"]
-    LLM["packages/llm<br/>llm_gateway: Meta, Baseten, OpenAI-compatible, fake"]
+_Full resolution: [system-design.svg](docs/images/system-design.svg)._
 
-    Inbox -. HTTP .-> API
-    API --> Runtime
-    Worker --> Runtime
-    Runtime --> Core
-    Runtime --> PG
-    Runtime --> Mem
-    Runtime --> LLM
-    FHIR --> Core
-    PG --> Core
-    PG --> FHIR
-    Mem --> Core
-    LLM --> Core
-```
+### How the engine works
 
-- `packages/core` imports nothing but itself and zod: no `pg`, no vendor SDK, no `node:fs|net|http`. It runs deterministically in a unit test or an in-memory demo with no infrastructure.
-- Adapters never import each other. Only `packages/runtime` wires them to ports; only apps (and acceptance tests) import the runtime.
-- Every adapter, Postgres and in-memory alike, passes the same contract test suite from `packages/testkit`.
-- `packages/adapter-postgres` runs unchanged on vanilla Postgres 15+ and on Supabase (its own `follow_up` schema, row-level security on by default, and an optional policy set for hosts that read the engine's tables through the Supabase Data API).
+An AI-powered patient continuity engine that executes clinician-defined follow-up workflows, coordinates patient outreach, and schedules care without providing autonomous medical advice. It is a standalone service a clinic's EHR talks to over HL7 FHIR R4:
 
-### FHIR R4 mapping
+1. **Consultation saved.** The host sends one FHIR `transaction` Bundle per saved consultation; the API stores it and answers in milliseconds, and the worker runs the engine.
+2. **Expectations from four layers.** Structured rules (a lab order needs a result in 15 days), the doctor's plan read from the note by Muse Spark with a verbatim quote per item, the patient's own visit cadence, and condition protocols that only fill what the first three left uncovered.
+3. **Fulfilment.** A matching result, visit or booking closes an expectation; a newer order supersedes it; a cancellation reopens it. A nightly reconciliation repairs what a lost or reordered event left inconsistent.
+4. **Cases and the agent.** An expectation that expires unmet opens one case per patient in the clinic inbox, and the order agent works the doctor's orders with the patient.
+5. **Signed webhooks back to the host.** `case.opened`, `case.resolved`, `patient_contact.requested` and more, HMAC-signed, delivered at least once from a transactional outbox ([docs/integration.md](docs/integration.md)).
 
-The engine's own state is exposed as standard FHIR resources ([ADR 0001](docs/adr/0001-fhir-r4-data-model.md), full contract in [docs/fhir.md](docs/fhir.md)). Every resource the package emits is validated in CI against the official FHIR R4 JSON Schema.
+Hexagonal architecture, enforced by dependency-cruiser on every commit: `packages/core` is pure domain and ports with no I/O; adapters (Postgres and Supabase, in-memory, the LLM gateway) never import each other; only `packages/runtime` wires them ([ADR 0002](docs/adr/0002-hexagonal-architecture.md), [ADR 0005](docs/adr/0005-http-api-and-runtime.md)). The engine's own state is exposed as standard FHIR resources ([ADR 0001](docs/adr/0001-fhir-r4-data-model.md), [docs/fhir.md](docs/fhir.md)). Rules and protocols are versioned JSON ([config/rules](config/rules), [config/protocols](config/protocols)).
 
-| Domain object                    | FHIR resource               | Notes                                                                                                                                               |
-| -------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Expectation                      | `Task` (`intent: plan`)     | `businessStatus` = exact engine status; due date in `restriction.period.end`; layer, rule and protocol version, evidence as extensions              |
-| Case                             | `Task` (`intent: proposal`) | `businessStatus`, numeric priority, `owner`, one `input[]` per reason with its rule and protocol version                                            |
-| Inferred condition               | `Condition`                 | `verificationStatus` / `clinicalStatus` per engine status; confidence and evidence as extensions                                                    |
-| Documentation / clinical finding | `DetectedIssue`             | shadow findings never exported; live ones carry cited evidence (`evidence[].detail[].display` = verbatim quote) and a suggestion, never a diagnosis |
-| Case audit trail                 | `Provenance`                | one entry per case event, `agent` = user, patient, rule or the engine itself                                                                        |
-| Contact attempt                  | `CommunicationRequest`      | generic purpose only, patient's preferred language forwarded, never clinical content                                                                |
-| Contact outcome                  | `Communication`             | `basedOn` the attempt; strongest outcome wins when several arrive                                                                                   |
-| Rule suppressed for a patient    | `Flag`                      | one per clinic, patient and rule; reversible ("Turn back on")                                                                                       |
-| Booking attribution              | `Appointment` (inbound)     | the host names the case or contact attempt it answers; the engine verifies the claim before trusting it, else stores it `organic`                   |
-
-## Rules as configuration
-
-A rule declares a **trigger**, what **fulfils** it, what **supersedes** it, and an **escalation policy**; a protocol adds enrollment criteria and a schedule. Both are versioned JSON ([config/rules](config/rules), [config/protocols](config/protocols)), validated by zod schemas, never edited by a running process. A per-clinic override (deadline, on/off) is versioned and audited ([integration.md](docs/integration.md#per-clinic-rule-overrides)).
-
-**Precedence:** the doctor's plan beats the protocol and the cadence layer; cadence needs an established pattern (2+ previous visits); one case per patient and reason group.
-
-| Rule id                           | Layer       | Version | Deadline                                                  |
-| --------------------------------- | ----------- | ------- | --------------------------------------------------------- |
-| `lab_order_result_pending`        | universal   | 1.2.0   | 15 days                                                   |
-| `imaging_order_result_pending`    | universal   | 1.1.0   | 30 days                                                   |
-| `short_treatment_followup`        | universal   | 1.3.0   | end of treatment + 3 days                                 |
-| `abnormal_result_followup`        | universal   | 1.3.0   | 7 days, unless the patient is already at target           |
-| `abnormal_imaging_followup_study` | universal   | 1.0.0   | what the report's own conclusion calls for (e.g. BI-RADS) |
-| `doctor_plan_followup`            | doctor_plan | 1.1.0   | the plan item's own date                                  |
-| `cadence_break`                   | cadence     | 1.2.0   | 3× the patient's own median visit interval                |
-
-Escalation policies are named and versioned too: `default_v1` (notify day 0, contact day 14, coordinator day 21, lost day 35) and `default_v2` (the demo clinic's: WhatsApp day 14, front-desk call day 21 if unanswered, coordinator day 21, second WhatsApp day 28, lost day 35). A case keeps the policy it opened with.
-
-No care protocol is validated by a clinical team yet: every one opts in per clinic and every reason it produces is labeled "pending clinical validation" until a clinical team signs it off ([docs/protocols.md](docs/protocols.md)). Diabetes and hypertension are `ready_for_signoff`: a generated sign-off package lets a physician approve them in one sitting ([docs/protocols/signoff/](docs/protocols/signoff/), `pnpm protocols:signoff`); the rest are plain `draft`.
-
-| Protocol                            | Id                       | Version | Status            | On by default |
-| ----------------------------------- | ------------------------ | ------- | ----------------- | ------------- |
-| Diabetes                            | `diabetes`               | 1.2.1   | ready_for_signoff | yes (legacy)  |
-| Hypertension                        | `hypertension`           | 1.1.1   | ready_for_signoff | yes (legacy)  |
-| Pregnancy and postpartum            | `pregnancy`              | 0.1.0   | draft             | no            |
-| Depression and anxiety on treatment | `treatment_followup`     | 0.2.0   | draft             | no            |
-| Hypothyroidism                      | `hypothyroidism`         | 0.1.0   | draft             | no            |
-| Dyslipidemia                        | `dyslipidemia`           | 0.1.0   | draft             | no            |
-| Chronic kidney disease              | `chronic_kidney_disease` | 0.1.0   | draft             | no            |
+**Tests.** 3,109 tests passing, full suite on Postgres 18, 0 failing, as run before submission. CI runs `pnpm verify` (lint, typecheck, boundaries, test), an end-to-end run against Postgres with real signed webhooks, and a gitleaks secret scan on every push.
 
 ## Run it locally
 
-Node 22, pnpm 10:
+Node 22 and pnpm 10:
 
 ```sh
-corepack enable pnpm        # or: npm i -g pnpm@10 — an older global pnpm is rejected by `engines`
+corepack enable pnpm
 pnpm install
-pnpm verify                 # lint + typecheck + boundaries + test
-pnpm demo                    # API on :3000, in memory, fake clock, embedded worker, 148-patient clinic seeded
-pnpm inbox                   # in another terminal — inbox on :5173
+pnpm verify                  # lint + typecheck + boundaries + test
+pnpm demo                    # API on :3000, in memory, fake clock, the synthetic clinic seeded
+pnpm inbox                   # in another terminal: the inbox on :5173
+pnpm simulate                # the 90-day simulation (about 25 seconds, deterministic)
 ```
 
-With Postgres (vanilla or Supabase-shaped), docker included:
-
-```sh
-docker compose up -d postgres                                   # Postgres 16 on localhost:54329
-export DATABASE_URL=postgres://postgres:postgres@localhost:54329/follow_up_engine
-pnpm demo                    # migrates, seeds, serves
-pnpm e2e                      # end-to-end: API + worker against Postgres, real signed webhooks
-```
-
-| Command           | What it does                                               |
-| ----------------- | ---------------------------------------------------------- |
-| `pnpm verify`     | Everything CI runs: lint, typecheck, boundaries, test      |
-| `pnpm lint`       | ESLint (type-checked, strict) + Prettier check             |
-| `pnpm typecheck`  | `tsc` in every package                                     |
-| `pnpm boundaries` | dependency-cruiser: hexagonal import rules, no cycles      |
-| `pnpm test`       | Vitest, every package as a project                         |
-| `pnpm e2e`        | End-to-end suite against `DATABASE_URL`                    |
-| `pnpm demo`       | API + embedded worker, fake clock, synthetic clinic seeded |
-| `pnpm inbox`      | The clinic inbox (Vite dev server)                         |
-| `pnpm format`     | Prettier write                                             |
-
-**Environment variables** (names only; see [.env.example](.env.example) for the annotated list and [docs/deploy.md](docs/deploy.md) for production):
-
-| Variable                                                                                            | Purpose                                                                                     |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`, `DATABASE_SCHEMA`                                                                   | Postgres connection; unset = in-memory storage (demo only)                                  |
-| `LLM_PROVIDER`, `META_API_KEY`, `META_MODEL`                                                        | Which provider behind `llm_gateway`, and Muse Spark's key and model                         |
-| `BASETEN_API_KEY`, `BASETEN_MODEL`                                                                  | Muse Spark Open via Baseten                                                                 |
-| `OPENAI_COMPATIBLE_BASE_URL` / `_API_KEY` / `_MODEL` / `_PRICE_IN_PER_MTOK` / `_PRICE_OUT_PER_MTOK` | Benchmarking-only provider                                                                  |
-| `WEBHOOK_URL`, `WEBHOOK_SECRET`, `WEBHOOK_SINK_URL`                                                 | Where signed webhooks go, their HMAC secret, and the dev sink                               |
-| `CLOCK`, `FAKE_CLOCK_START`                                                                         | `system` in production; `fake` enables the demo endpoints                                   |
-| `DEMO_API_KEY`, `DEMO_INBOX_API_KEY`, `DEMO_CLINIC`                                                 | Synthetic demo clinic keys and whether it may run on a real clock                           |
-| `PORT`, `EMBEDDED_WORKER`, `CORS_ORIGINS`                                                           | API process, single-container mode, allowed browser origins                                 |
-| `WORKER_POLL_MS`, `OUTBOX_POLL_MS`, `SWEEP_INTERVAL_MS`                                             | Worker loop intervals                                                                       |
-| `LOG_LEVEL`                                                                                         | Logging verbosity                                                                           |
-| `INBOX_DIST_DIR`, `DEMO_ACCESS_CODE`, `DEFAULT_UI_LOCALE`, `DEMO_LLM_MONTHLY_BUDGET_USD`            | Hosted-demo-only: serving the built inbox, the access code gate, default locale, LLM budget |
-
-## Repository layout
+With `META_API_KEY` set, notes and the agent's live mode call Muse Spark; without it, the fake provider and the scripted agent run the same pipeline at no cost. Postgres, Supabase and the hosted demo: [docs/deploy.md](docs/deploy.md). Every eval and how to reproduce it: [docs/evals/README.md](docs/evals/README.md). Environment variables: [.env.example](.env.example).
 
 ```
-apps/
-  api/        HTTP API: FHIR in and out, clinic inbox JSON API, demo controls
-  worker/     background process: jobs, deadline sweeps, escalation, outbox delivery, dev webhook sink
-  inbox/      clinic inbox UI (React; talks to apps/api over HTTP, or an in-browser mock)
-packages/
-  runtime/    composition root: adapters from env, ingestion, worker loops, webhooks
-  core/       pure domain + ports + the engine itself, zero I/O
-  fhir/       FHIR R4 types, validation, mapping to and from domain events
-  adapter-postgres/  Postgres adapters (vanilla Postgres and Supabase)
-  adapter-memory/    in-memory adapters (tests, demos)
-  llm/        llm_gateway and its providers (Meta, Baseten, OpenAI-compatible, fake)
-  testkit/    contract tests every adapter must pass, synthetic fixtures
-  acceptance/ tests only: contract suites on every adapter, FHIR scenarios end to end, backfill
-config/
-  rules/      versioned JSON rules
-  protocols/  versioned JSON care protocols
-docs/
-  adr/        architecture decision records
-  evals/      every model eval, how to reproduce it, what every miss was and why
-  images/     README screenshots
+apps/       api (HTTP, FHIR in and out), worker (jobs, sweeps, outbox), inbox (React UI)
+packages/   core, fhir, runtime, adapter-postgres, adapter-memory, llm, simulation, testkit, acceptance
+config/     versioned rules, protocols, simulation personas
+docs/       ADRs, agent design, evals, evidence, protocols
 ```
-
-## Testing and quality
-
-`pnpm verify` (lint, typecheck, boundaries, test) runs in CI on every push and pull request, together with an end-to-end run against Postgres with real signed webhooks and a gitleaks secret scan. As run for this submission, `pnpm test` reports **2,611 tests across every package** (vitest, one project per package); the Postgres and Supabase adapter suites additionally run with `DATABASE_URL` set and are reported as skipped without it.
-
-## Roadmap
-
-| Version | Theme             | Status in this repository                                                                                                         |
-| ------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| V1      | Recover           | Implemented: universal rules, the doctor's plan, visit cadence, escalation, the contact loop, backfill and nightly reconciliation |
-| V2      | Anticipate        | Implemented: condition protocols that anticipate guideline-driven care, all draft pending clinical sign-off                       |
-| V3      | Clinical reviewer | Implemented in shadow mode: deterministic detectors plus a bounded LLM agent, code-checked, live only after sign-off              |
-| V4      | Generate demand   | Planned                                                                                                                           |
-
-## License
 
 No license file is included in this submission; no open-source license is granted at this time.
-
-## Acknowledgements
-
-Built on Meta's Muse Spark through the Meta Model API, for note extraction and clinical review.
