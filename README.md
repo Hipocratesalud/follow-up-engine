@@ -170,9 +170,7 @@ The agent costs staff time (79.7 staff tasks per 100 patients against none) and 
 
 All patients in every session are **synthetic**. No real patient data has been used, stored or committed anywhere in this repository.
 
-<!-- Pending reconciliation before submission: the system-design drawing and the README of commit 67841b8 say 21 plan items confirmed; the hosted demo's Metrics page and its database say 42 (scratchpad evidence 3-railway-evaluator-session.md). No document in the repository records the 2026-10-27 session itself. -->
-
-On 2026-10-27, practicing physicians reviewed the hosted demo against each synthetic patient's documents. The hosted demo's **Metrics** page, which leaves test and QA accounts out ([config/demo/test-evaluators.json](config/demo/test-evaluators.json), [docs/deploy.md](docs/deploy.md#evaluator-identity-and-tracking)), shows for the doctor's plan items Muse Spark read from notes: **42 confirmed, 0 corrected, 0 rejected**; and **6 cases rated, all 6 useful**. That session predates per-evaluator sign-in, so its actions are not attributed to individual physicians.
+On 2026-10-27, practicing physicians reviewed the hosted demo against each synthetic patient's documents. The hosted demo's **Metrics** page, which leaves test and QA accounts out ([config/demo/test-evaluators.json](config/demo/test-evaluators.json), [docs/deploy.md](docs/deploy.md#evaluator-identity-and-tracking)), shows for the doctor's plan items Muse Spark read from notes: **42 confirmed (in 21 confirm actions), 0 corrected, 0 rejected**; and **6 cases rated, all 6 useful**. That session predates per-evaluator sign-in, so its actions are not attributed to individual physicians.
 
 The diabetes and hypertension protocols are **ready for sign-off**: a generated package lets a physician approve each in one sitting, every number and code read back from config ([diabetes](docs/protocols/signoff/diabetes.md), [hypertension](docs/protocols/signoff/hypertension.md), [docs/protocols.md](docs/protocols.md)). No protocol has been validated by a clinical team yet; until then, every reason a protocol produces is labeled "pending clinical validation".
 
