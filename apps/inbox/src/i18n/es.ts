@@ -63,6 +63,12 @@ const nav: Messages['nav'] = {
   evaluators: 'Evaluadores',
   simulatedDate: 'Fecha simulada:',
   simulatedDateTitle: 'La API usa un reloj simulado para la demostración',
+  groups: {
+    dailyWork: 'Trabajo diario',
+    agents: 'Agentes',
+    results: 'Resultados',
+    tryIt: 'Probar',
+  },
 };
 
 const errors: Messages['errors'] = {

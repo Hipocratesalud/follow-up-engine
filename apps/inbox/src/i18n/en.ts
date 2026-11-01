@@ -70,6 +70,13 @@ const nav = {
   evaluators: 'Evaluators',
   simulatedDate: 'Simulated date:',
   simulatedDateTitle: 'The API runs on a simulated clock for the demo',
+  /** The sidebar's collapsible categories. */
+  groups: {
+    dailyWork: 'Daily work',
+    agents: 'Agents',
+    results: 'Results',
+    tryIt: 'Try it',
+  },
 };
 
 const errors = {
