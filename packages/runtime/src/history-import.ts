@@ -10,6 +10,7 @@ import {
   type HeldLabReport,
   type HeldLabResult,
   type LabPhotoReading,
+  type LabReportSource,
   type MediaReadingCost,
   nameOnReport,
   type OrderAgentMode,
@@ -22,7 +23,12 @@ import {
   buildPatientBundle,
   type ConsultationDocumentType,
 } from '@follow-up-engine/fhir';
-import { type DocumentExtractionError, extractDocumentText } from './documents.ts';
+import {
+  type DocumentExtractionError,
+  type DocumentExtractionFailure,
+  type DocumentExtractionResult,
+  extractDocumentText,
+} from './documents.ts';
 import { IngestionService } from './ingestion.ts';
 import { patientRedactTerms } from './redaction.ts';
 import type { EngineRuntime } from './runtime.ts';
@@ -89,8 +95,8 @@ export interface HistoryDocumentOutcome {
   readonly documentType: ConsultationDocumentType;
   /** How it was read: the note extractor (during the replay) or the lab-result reading. */
   readonly readAs: 'note' | 'lab_report';
-  /** For a lab report: a photo (vision) or the document's text. */
-  readonly source: 'photo' | 'text';
+  /** For a lab report: a photo (vision), the document's text, or a scanned PDF's pages (vision). */
+  readonly source: LabReportSource;
   readonly status: HistoryDocumentStatus;
   readonly error?: DocumentExtractionError | 'reading_failed';
   /** Why a report is held (`needs_review`). */
@@ -240,6 +246,13 @@ function heldView(held: HeldLabReport): Pick<HistoryDocumentOutcome, 'results' |
   };
 }
 
+/** How the Observation's note names the document a result was read from. */
+const SOURCE_NOTES: Record<LabReportSource, string> = {
+  photo: 'a photo of the lab report',
+  text: 'a lab report document',
+  scan: 'a scanned lab report',
+};
+
 /**
  * Stages a report's coded results as FHIR Observations (ids from the
  * document key: a repeat stages nothing): an accepted report, or a held one
@@ -253,7 +266,7 @@ async function stageLabResults(
     readonly key: string;
     readonly results: readonly HeldLabResult[];
     readonly effectiveAt: Date;
-    readonly source: 'photo' | 'text';
+    readonly source: LabReportSource;
     readonly confirmedBy?: string;
   },
 ): Promise<{ readonly eventsStaged: number; readonly resources: string[] }> {
@@ -273,7 +286,7 @@ async function stageLabResults(
       effectiveAt: input.effectiveAt,
       receivedAt: input.effectiveAt,
       note:
-        `Imported from the clinic's history (${input.source === 'photo' ? 'a photo of the lab report' : 'a lab report document'}); read by the lab-result reading.` +
+        `Imported from the clinic's history (${SOURCE_NOTES[input.source]}); read by the lab-result reading.` +
         (input.confirmedBy === undefined
           ? ''
           : ' The name printed on it did not match; the clinic team confirmed it is this patient.'),
@@ -309,10 +322,13 @@ export async function confirmHeldReport(
   },
 ): Promise<HeldReportDecision | undefined> {
   const held = await runtime.storage.heldLabReports.get(input.clinicId, input.id);
-  // A photo the clinic does not send to a model was never read: there is
-  // nothing to record. The team enters its result by hand, then dismisses it.
-  if (held?.reason === 'photo_not_allowed') {
-    throw new ValidationError('id', 'Nothing was read from this photo: enter the result by hand');
+  // A photo (or a scan) the clinic does not send to a model was never read:
+  // there is nothing to record. The team enters its result by hand, then dismisses it.
+  if (held?.reason === 'photo_not_allowed' || held?.reason === 'scan_not_allowed') {
+    throw new ValidationError(
+      'id',
+      `Nothing was read from this ${held.reason === 'photo_not_allowed' ? 'photo' : 'scanned PDF'}: enter the result by hand`,
+    );
   }
   const report = await runtime.storage.heldLabReports.decide(input.clinicId, input.id, {
     status: 'confirmed',
@@ -461,7 +477,23 @@ export async function importPatientHistory(
     };
     const photo = isImage(document.contentType);
     const readAs = photo || document.documentType === 'lab_result' ? 'lab_report' : 'note';
-    const source = photo ? 'photo' : 'text';
+    // A lab report document's text, extracted once (local, no model): a PDF
+    // with no usable text layer is a scan, read from its pages like a photo.
+    const extractedReport =
+      readAs === 'lab_report' && !photo
+        ? await extractDocumentText({
+            filename: document.filename,
+            contentType: document.contentType,
+            data: document.data,
+          })
+        : undefined;
+    const source: LabReportSource = photo
+      ? 'photo'
+      : extractedReport !== undefined &&
+          'error' in extractedReport &&
+          extractedReport.error === 'scanned_pdf'
+        ? 'scan'
+        : 'text';
     if (readAs === 'lab_report') {
       const prefix = `hist-obs-${key}-`;
       const already = [...stagedSources].filter((id) => id.startsWith(prefix));
@@ -491,15 +523,14 @@ export async function importPatientHistory(
         });
         continue;
       }
-      const read = await readLabReport(
-        runtime,
-        clinicId,
-        document,
-        input.mode ?? 'live',
+      const read = await readLabReport(runtime, clinicId, document, {
+        mode: input.mode ?? 'live',
         redactTerms,
-      );
+        ...(extractedReport === undefined ? {} : { extracted: extractedReport }),
+      });
       if ('refused' in read) {
-        // The clinic does not send photos to a model: held for the team, never dropped.
+        // The clinic does not send photos (or scans) to a model: held for the team, never dropped.
+        const reason = source === 'scan' ? 'scan_not_allowed' : 'photo_not_allowed';
         const stored = await runtime.storage.heldLabReports.hold({
           id: `held-${key}`,
           clinicId,
@@ -509,7 +540,7 @@ export async function importPatientHistory(
           documentDate: document.documentDate,
           effectiveAt: document.documentDate,
           ...(patientName === undefined ? {} : { recordName: patientName }),
-          reason: 'photo_not_allowed',
+          reason,
           source,
           results: [],
           status: 'pending',
@@ -520,7 +551,7 @@ export async function importPatientHistory(
           readAs,
           source,
           status: 'needs_review',
-          reviewReason: 'photo_not_allowed',
+          reviewReason: reason,
           heldReportId: stored.id,
           resources: [],
         });
@@ -691,13 +722,18 @@ async function readLabReport(
   runtime: EngineRuntime,
   clinicId: ClinicId,
   document: HistoryDocument,
-  mode: OrderAgentMode,
-  redactTerms: readonly string[],
+  options: {
+    readonly mode: OrderAgentMode;
+    readonly redactTerms: readonly string[];
+    /** The document's text, already extracted (every non-photo lab report). */
+    readonly extracted?: DocumentExtractionResult | DocumentExtractionFailure;
+  },
 ): Promise<
   | (MediaReadingCost & { readonly reading: LabPhotoReading })
   | { readonly error: DocumentExtractionError | 'reading_failed' }
-  | { readonly refused: 'photo_not_allowed' }
+  | { readonly refused: true }
 > {
+  const { mode, redactTerms } = options;
   try {
     if (isImage(document.contentType)) {
       return await runtime.mediaReader.readLabPhoto(clinicId, {
@@ -706,17 +742,21 @@ async function readLabReport(
         contentType: document.contentType,
       });
     }
-    const extracted = await extractDocumentText({
-      filename: document.filename,
-      contentType: document.contentType,
-      data: document.data,
-    });
-    if ('error' in extracted) return { error: extracted.error };
+    const extracted =
+      options.extracted ??
+      (await extractDocumentText({
+        filename: document.filename,
+        contentType: document.contentType,
+        data: document.data,
+      }));
+    // A scan has no text to mask: the reader sends its pages, through the same image guard.
+    if ('error' in extracted && extracted.error !== 'scanned_pdf')
+      return { error: extracted.error };
     return await runtime.mediaReader.readLabDocument(clinicId, {
       mode,
       document: document.data,
       contentType: document.contentType,
-      // Masked like a note before Muse Spark reads it (a photo cannot be masked).
+      // Masked like a note before Muse Spark reads it (a photo or a scan cannot be masked).
       redactTerms,
     });
   } catch (error) {
@@ -725,7 +765,7 @@ async function readLabReport(
       'history import: lab report not read',
     );
     // Refused by the gateway before any network call (the clinic's image setting).
-    if (isUnmaskedImageRefused(error)) return { refused: 'photo_not_allowed' };
+    if (isUnmaskedImageRefused(error)) return { refused: true };
     return { error: 'reading_failed' };
   }
 }

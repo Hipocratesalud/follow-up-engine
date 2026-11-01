@@ -33,8 +33,10 @@ import {
   createReviewAgent,
   createScriptedLabDocumentResponder,
   createScriptedLabPhotoResponder,
+  createScriptedLabScanResponder,
   createSnapshotProvider,
   DEFAULT_PRICING,
+  type DocumentContent,
   type FetchLike,
   FAKE_ADJUDICATOR_MODEL,
   FAKE_DEFAULT_MODEL,
@@ -46,6 +48,8 @@ import {
   LAB_DOCUMENT_TASK,
   LAB_PHOTO_SCRIPTED_TASK,
   LAB_PHOTO_TASK,
+  LAB_SCAN_SCRIPTED_TASK,
+  LAB_SCAN_TASK,
   META_TRANSCRIBE_MODEL,
   ORDER_AGENT_SCRIPTED_TASK,
   ORDER_AGENT_TASK,
@@ -74,21 +78,27 @@ import type { LlmConfig } from './config.ts';
 import { extractDocumentText } from './documents.ts';
 import {
   scriptedDocumentReadings,
+  scriptedScanReadings,
   scriptedPhotoReadings,
   scriptedTranscripts,
 } from './order-agent/samples.ts';
 
-/** A document's text for the lab-result reading (PDF, DOCX, TXT); `undefined` when it has none. */
-async function documentTextOf(
+/**
+ * A document's content for the lab-result reading: its text (PDF, DOCX,
+ * TXT), `scanned` for a PDF with no usable text layer (read from its pages
+ * by vision), or `undefined` when nothing can be read.
+ */
+async function documentContentOf(
   document: Uint8Array,
   contentType: string,
-): Promise<string | undefined> {
+): Promise<DocumentContent | undefined> {
   const extracted = await extractDocumentText({
     filename: 'document',
     contentType,
     data: document,
   });
-  return 'text' in extracted ? extracted.text : undefined;
+  if ('text' in extracted) return { text: extracted.text };
+  return extracted.error === 'scanned_pdf' ? { scanned: true } : undefined;
 }
 
 /** Gateway task of the clinical reviewer on the scripted fake (the agent's scripted mode). */
@@ -236,6 +246,7 @@ function chooseProvider(config: LlmConfig, deps: ExtractorDeps): ProviderChoice 
             scriptedOrderAgentResponder,
             createScriptedLabPhotoResponder(scriptedPhotoReadings()),
             createScriptedLabDocumentResponder(scriptedDocumentReadings()),
+            createScriptedLabScanResponder(scriptedScanReadings()),
             scriptedReviewerResponder,
             scriptedRuleAuthorResponder,
             scriptedAdjudicatorResponder,
@@ -379,6 +390,12 @@ export function createConfiguredExtractor(
         maxOutputTokens: 4_000,
       },
       [LAB_DOCUMENT_SCRIPTED_TASK]: { route: [{ provider: 'fake', model: FAKE_VISION_MODEL }] },
+      // A scanned PDF (no text layer): the file itself, read by vision like a photo.
+      [LAB_SCAN_TASK]: {
+        route: [{ provider: live, model: isFake ? FAKE_VISION_MODEL : choice.info.model }],
+        maxOutputTokens: 4_000,
+      },
+      [LAB_SCAN_SCRIPTED_TASK]: { route: [{ provider: 'fake', model: FAKE_VISION_MODEL }] },
     },
     usageLog: deps.usageLog,
     pricing: choice.pricing,
@@ -400,7 +417,7 @@ export function createConfiguredExtractor(
     adjudicatorModel: choice.adjudicatorModel ?? choice.info.model,
     ...(replay === undefined ? {} : { replay }),
     orderAgentModel: createOrderAgentModel({ gateway }),
-    mediaReader: createPatientMediaReader({ gateway, documentText: documentTextOf }),
+    mediaReader: createPatientMediaReader({ gateway, documentContent: documentContentOf }),
     scriptedReviewAgent: createReviewAgent({ gateway, task: SCRIPTED_CLINICAL_REVIEW_TASK }),
     liveAgent: !isFake,
     ruleAuthorAgents: {

@@ -16,20 +16,28 @@ other waiting among the patients to recover):
 
 - 2024-09-10-nota-hta.pdf: a hypertension note (lipid panel, control in 6 months).
 
-And one PDF lab report for María (the order agent's story), the PDF twin of
+A third fictitious patient, Jorge Luis Salazar, with one scanned lab report:
+
+- 2025-03-10-informe-escaneado.pdf: an image-only PDF (a scan, no text layer):
+  HbA1c 7.9 %, fasting glucose. Read by Muse Spark like a photo.
+
+And two PDF lab reports for María (the order agent's story), twins of
 packages/runtime/assets/order-agent/lab-report.jpg:
 
-- packages/runtime/assets/order-agent/lab-report.pdf
+- packages/runtime/assets/order-agent/lab-report.pdf (with a text layer)
+- packages/runtime/assets/order-agent/lab-report-scanned.pdf (a scan: image only)
 
 Needs Pillow and reportlab. Run from the repo root:
     python3 scripts/generate-history-samples.py
 Values and sample codes must match packages/runtime/src/order-agent/samples.ts.
 """
+import io
 import os
 import zipfile
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 HISTORY = os.path.join('packages', 'runtime', 'assets', 'history')
@@ -240,6 +248,90 @@ def result_photo():
     desk.save(os.path.join(HISTORY, '2025-12-15-foto-resultado.jpg'), 'JPEG', quality=82)
 
 
+def scanned_page(lines):
+    """A sheet of paper through a flatbed scanner: grayscale, slightly skewed, pixels only."""
+    width, height = 1240, 1754  # A4 at 150 dpi
+    paper = Image.new('L', (width, height), 246)
+    draw = ImageDraw.Draw(paper)
+    y = 120
+    for kind, text in lines:
+        if kind == 'title':
+            draw.text((110, y), text, fill=40, font=font(46, True))
+            y += 74
+        elif kind == 'note':
+            draw.text((110, y), text, fill=110, font=font(26))
+            y += 56
+        elif kind == 'rule':
+            draw.line((110, y, width - 110, y), fill=150, width=3)
+            y += 22
+        elif kind == 'row':
+            name, value, ref = text
+            bold = name == 'Prueba'
+            draw.text((110, y), name, fill=30, font=font(32, bold))
+            draw.text((690, y), value, fill=30, font=font(32, bold))
+            draw.text((900, y), ref, fill=30, font=font(32, bold))
+            y += 62
+        else:
+            draw.text((110, y), text, fill=30, font=font(34))
+            y += 54
+    skewed = paper.rotate(0.9, expand=False, fillcolor=236, resample=Image.BICUBIC)
+    return skewed.filter(ImageFilter.GaussianBlur(0.7))
+
+
+def scanned_pdf(path, title, page):
+    """An image-only PDF: one JPEG per page, no text layer (what a scanner without OCR writes)."""
+    data = io.BytesIO()
+    page.save(data, 'JPEG', quality=70)
+    data.seek(0)
+    sheet = canvas.Canvas(path, pagesize=A4, **INVARIANT)
+    sheet.setTitle(title)
+    sheet.setAuthor('Follow-up Engine synthetic data')
+    sheet.setCreator('scripts/generate-history-samples.py')
+    width, height = A4
+    sheet.drawImage(ImageReader(data), 0, 0, width=width, height=height)
+    sheet.showPage()
+    sheet.save()
+
+
+def scanned_report_lines(patient, date, code, rows):
+    return [
+        ('title', 'LABORATORIO CLINICO DEMO'),
+        ('note', 'Datos sinteticos - solo demostracion'),
+        ('text', f'Paciente: {patient}'),
+        ('text', f'Fecha de toma: {date}'),
+        ('text', f'Codigo de muestra: {code}'),
+        ('rule', ''),
+        ('row', ('Prueba', 'Resultado', 'Referencia')),
+        *[('row', row) for row in rows],
+        ('rule', ''),
+        ('text', 'Validado por: Lic. Demo'),
+    ]
+
+
+def scanned_history_report():
+    scanned_pdf(
+        os.path.join(HISTORY, '2025-03-10-informe-escaneado.pdf'),
+        'Informe de resultados (escaneado)',
+        scanned_page(scanned_report_lines(
+            'Jorge Luis Salazar', '10/03/2025', 'HIST-SCAN-20250310',
+            [('Hemoglobina glicosilada (HbA1c)', '7.9 %', '4.0 - 5.6 %'),
+             ('Glucosa en ayunas', '141 mg/dL', '70 - 99 mg/dL')],
+        )),
+    )
+
+
+def maria_scanned_lab_report():
+    scanned_pdf(
+        os.path.join(AGENT, 'lab-report-scanned.pdf'),
+        'Informe de resultados (escaneado)',
+        scanned_page(scanned_report_lines(
+            'Maria Fernanda Rojas', '29/12/2025', 'DEMO-MFR-20251229',
+            [('Hemoglobina glicosilada (HbA1c)', '8.4 %', '4.0 - 5.6 %'),
+             ('Glucosa en ayunas', '162 mg/dL', '70 - 99 mg/dL')],
+        )),
+    )
+
+
 if __name__ == '__main__':
     os.makedirs(HISTORY, exist_ok=True)
     consultation_note()
@@ -248,4 +340,6 @@ if __name__ == '__main__':
     result_photo()
     second_patient_note()
     maria_lab_report()
+    scanned_history_report()
+    maria_scanned_lab_report()
     print('written to', HISTORY, 'and', AGENT)

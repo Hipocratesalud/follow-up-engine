@@ -7,8 +7,22 @@ import { extractText, getDocumentProxy } from 'unpdf';
 /** Largest document the evaluator lab's upload accepts. */
 export const MAX_LAB_DOCUMENT_BYTES = 2 * 1024 * 1024;
 
+/**
+ * A PDF whose text layer averages fewer letters and digits than this per
+ * page has no usable text: it is a scan (each page an image, perhaps with a
+ * stray page number or a scanner's stamp). A one-page lab report with a
+ * text layer holds hundreds (the samples: about 250); a scan, zero.
+ */
+export const MIN_TEXT_LAYER_CHARS_PER_PAGE = 40;
+
 export type DocumentExtractionError =
-  'too_large' | 'empty' | 'unsupported_image' | 'unsupported_type' | 'unreadable';
+  | 'too_large'
+  | 'empty'
+  | 'unsupported_image'
+  | 'unsupported_type'
+  | 'unreadable'
+  /** A PDF with no usable text layer: a lab report reads it as a scan (vision); a note cannot. */
+  | 'scanned_pdf';
 
 export interface DocumentExtractionResult {
   readonly text: string;
@@ -33,6 +47,16 @@ function finished(text: string): DocumentExtractionResult | DocumentExtractionFa
   return trimmed === '' ? { error: 'empty' } : { text: trimmed };
 }
 
+/** Letters and digits in a text (any script): what a text layer must hold to be read as text. */
+export function textLayerChars(text: string): number {
+  return text.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
+}
+
+/** Whether a PDF's extracted text is too thin to be its content (see {@link MIN_TEXT_LAYER_CHARS_PER_PAGE}). */
+export function isScannedPdfText(text: string, pages: number): boolean {
+  return textLayerChars(text) < MIN_TEXT_LAYER_CHARS_PER_PAGE * Math.max(1, pages);
+}
+
 /**
  * Extracts plain text from a document (the evaluator lab's uploads,
  * docs/deploy.md#hosted-demo; a lab report PDF the patient sends the order
@@ -41,7 +65,9 @@ function finished(text: string): DocumentExtractionResult | DocumentExtractionFa
  * hold no text to extract (`unsupported_image`): a photo of a lab report is
  * read by the vision model instead (`PatientMediaReader.readLabPhoto`). The
  * text of a note then goes through the normal FHIR ingestion path; the
- * text of a lab report through the lab-result reading.
+ * text of a lab report through the lab-result reading. A PDF with no usable
+ * text layer (a scan, {@link isScannedPdfText}) is `scanned_pdf`: a lab
+ * report is then read from its pages by the vision model, like a photo.
  */
 export async function extractDocumentText(file: {
   readonly filename: string;
@@ -63,7 +89,8 @@ export async function extractDocumentText(file: {
     if (PDF_TYPES.has(contentType) || lowerName.endsWith('.pdf')) {
       // pdf.js detaches the buffer it is given: read a copy, so the caller's bytes stay usable.
       const document = await getDocumentProxy(new Uint8Array(file.data));
-      const { text } = await extractText(document, { mergePages: true });
+      const { text, totalPages } = await extractText(document, { mergePages: true });
+      if (isScannedPdfText(text, totalPages)) return { error: 'scanned_pdf' };
       return finished(text);
     }
     if (DOCX_TYPES.has(contentType) || lowerName.endsWith('.docx')) {

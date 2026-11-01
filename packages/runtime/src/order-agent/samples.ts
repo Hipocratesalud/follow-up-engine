@@ -14,6 +14,8 @@ export const SAMPLE_FILES = {
   labReport: { file: 'lab-report.jpg', contentType: 'image/jpeg' },
   /** The same report as a PDF (scripts/generate-history-samples.py). */
   labReportPdf: { file: 'lab-report.pdf', contentType: 'application/pdf' },
+  /** The same report scanned: an image-only PDF, no text layer (scripts/generate-history-samples.py). */
+  labReportScannedPdf: { file: 'lab-report-scanned.pdf', contentType: 'application/pdf' },
   voiceEs: { file: 'voice-note-es.wav', contentType: 'audio/wav' },
   voiceEn: { file: 'voice-note-en.wav', contentType: 'audio/wav' },
 } as const;
@@ -69,6 +71,19 @@ export function scriptedPhotoReadings(): Record<string, ModelLabPhotoReading> {
   return out;
 }
 
+/**
+ * Scripted readings of scanned PDFs (no text layer: no marker to find), by
+ * sha256 of the file: María's scan reads like her photo.
+ */
+export function scriptedScanReadings(): Record<string, ModelLabPhotoReading> {
+  const out: Record<string, ModelLabPhotoReading> = {};
+  const hash = safeHash('labReportScannedPdf');
+  if (hash !== undefined) out[hash] = SAMPLE_LAB_READING;
+  const scan = safeHistoryHash(HISTORY_SCANNED_PDF);
+  if (scan !== undefined) out[scan] = HISTORY_SCANNED_PDF_READING;
+  return out;
+}
+
 /** Scripted readings of lab report texts (PDF, DOCX), by a marker the report prints. */
 export function scriptedDocumentReadings(): Record<string, ModelLabPhotoReading> {
   return {
@@ -112,7 +127,8 @@ export interface HistorySampleSet {
  * Rafael: four documents over two years (a note asking for an HbA1c and a
  * control in 3 months, the PDF lab report that answers it, a DOCX referral
  * letter, a later photo of a result). Carmen: one old note, so two patients
- * show the daily release cap.
+ * show the daily release cap. Jorge: one scanned lab report (an image-only
+ * PDF), read by Muse Spark vision like a photo.
  */
 export const HISTORY_SAMPLE_SETS: readonly HistorySampleSet[] = [
   {
@@ -162,7 +178,40 @@ export const HISTORY_SAMPLE_SETS: readonly HistorySampleSet[] = [
       },
     ],
   },
+  {
+    id: 'scanned_pdf',
+    patient: { name: 'Jorge Luis Salazar', gender: 'male', age: 58 },
+    files: [
+      {
+        file: '2025-03-10-informe-escaneado.pdf',
+        contentType: 'application/pdf',
+        documentDate: '2025-03-10',
+        documentType: 'lab_result',
+        specialty: 'internal_medicine',
+      },
+    ],
+  },
 ];
+
+/** The scanned lab report (an image-only PDF: no text layer, read by vision). */
+export const HISTORY_SCANNED_PDF = '2025-03-10-informe-escaneado.pdf';
+
+/** What the scanned lab report shows. */
+export const HISTORY_SCANNED_PDF_READING: ModelLabPhotoReading = {
+  isLabReport: true,
+  reportDate: '2025-03-10',
+  patientName: 'Jorge Luis Salazar',
+  tests: [
+    {
+      name: 'Hemoglobina glicosilada (HbA1c)',
+      value: 7.9,
+      unit: '%',
+      referenceLow: 4.0,
+      referenceHigh: 5.6,
+    },
+    { name: 'Glucosa en ayunas', value: 141, unit: 'mg/dL', referenceLow: 70, referenceHigh: 99 },
+  ],
+};
 
 export function readHistorySample(file: string): Uint8Array {
   return new Uint8Array(readFileSync(new URL(file, HISTORY_ASSETS)));
