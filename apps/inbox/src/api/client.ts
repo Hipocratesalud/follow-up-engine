@@ -71,7 +71,12 @@ import type {
   PlanItemReviewResponse,
 } from './patient-queue-contract.ts';
 import type { PlanItemCommand, PlanItemCorrectionRequest } from './plan-item-contract.ts';
-import type { AgentMessageView, AgentPageView, AgentStoryRequest } from './agent-contract.ts';
+import type {
+  AgentMessageView,
+  AgentPageView,
+  AgentSampleName,
+  AgentStoryRequest,
+} from './agent-contract.ts';
 import type {
   RuleDecisionResponse,
   RuleDraftRequest,
@@ -304,10 +309,7 @@ export interface ApiClient {
   ): Promise<AgentMessageView>;
   /** A voice note (WAV) or a photo, as multipart. */
   sendAgentFile(patientId: string, file: File): Promise<AgentMessageView>;
-  sendAgentSample(
-    patientId: string,
-    sample: 'lab_report' | 'lab_report_pdf' | 'voice_note',
-  ): Promise<AgentMessageView>;
+  sendAgentSample(patientId: string, sample: AgentSampleName): Promise<AgentMessageView>;
   setAgentDelivery(
     messageId: string,
     status: 'delivered' | 'read' | 'undelivered',

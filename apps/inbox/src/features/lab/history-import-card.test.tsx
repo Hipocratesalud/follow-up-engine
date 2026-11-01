@@ -177,4 +177,108 @@ describe('Import history (the Lab page)', () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it('offers the sample scanned PDF, and shows a scan read as images or held for the team', async () => {
+    const scanned: LabHistorySampleSet = {
+      sets: [
+        {
+          id: 'scanned_pdf',
+          kind: 'scanned_pdf',
+          patient: { name: 'Jorge Luis Salazar', sex: 'male', age: 58 },
+          documents: [
+            {
+              filename: '2025-03-10-informe-escaneado.pdf',
+              contentType: 'application/pdf',
+              dataBase64: btoa('%PDF-1.4 image only'),
+              documentDate: '2025-03-10',
+              documentType: 'lab_result',
+            },
+          ],
+        },
+      ],
+    };
+    const response: LabHistoryImportResponse = {
+      ...RESPONSE,
+      documents: [
+        {
+          index: 0,
+          filename: '2025-03-10-informe-escaneado.pdf',
+          documentDate: '2025-03-10',
+          documentType: 'lab_result',
+          readAs: 'lab_report',
+          source: 'scan',
+          status: 'staged',
+          results: [
+            {
+              name: 'Hemoglobina glicosilada (HbA1c)',
+              test: 'HbA1c',
+              loinc: '4548-4',
+              value: 7.9,
+              unit: '%',
+              interpretation: 'H',
+            },
+          ],
+          resources: ['Observation/hist-obs-1-hba1c'],
+          reading: { model: 'meta:muse-spark-1.3', costUsd: 0.004, latencyMs: 7000 },
+          nameOnReport: 'matches',
+          dates: { printed: '2025-03-10', entered: '2025-03-10', used: 'printed', mismatch: false },
+        },
+        {
+          index: 1,
+          filename: 'otro-escaneo.pdf',
+          documentDate: '2025-03-10',
+          documentType: 'lab_result',
+          readAs: 'lab_report',
+          source: 'scan',
+          status: 'needs_review',
+          reviewReason: 'scan_not_allowed',
+          resources: [],
+        },
+      ],
+    };
+    const sent: string[][] = [];
+    const rendered = renderApp('/lab', {
+      handlers: () => [
+        http.get('*/api/evaluator/me', () => HttpResponse.json({ email: 'doctor@example.com' })),
+        http.get('*/api/demo/lab/clock', () => HttpResponse.json({ now: NOW, fake: true })),
+        http.get('*/api/demo/lab/patients', () => HttpResponse.json({ items: [] })),
+        http.get('*/api/demo/lab/patients/:id/expectations', () =>
+          HttpResponse.json({ items: [] }),
+        ),
+        http.get('*/api/demo/lab/cases', () => HttpResponse.json({ items: [] })),
+        http.get('*/api/demo/lab/recovery', () => HttpResponse.json({ items: [], total: 0 })),
+        http.get('*/api/demo/lab/held-reports', () => HttpResponse.json({ items: [] })),
+        http.get('*/api/demo/lab/live-findings', () =>
+          HttpResponse.json({ items: [], total: 0, byPatient: {}, queued: 0, dailyCap: 0 }),
+        ),
+        http.get('*/api/demo/lab/history/samples', () => HttpResponse.json(scanned)),
+        http.post('*/api/demo/lab/history', async ({ request }) => {
+          const form = await request.formData();
+          sent.push(form.getAll('files').map((file) => (file as File).name));
+          return HttpResponse.json(response, { status: 201 });
+        }),
+      ],
+    });
+
+    const form = await screen.findByRole('form', { name: 'Import history' });
+    await rendered.user.click(
+      await within(form).findByRole('button', {
+        name: 'Sample scanned PDF (Jorge Luis Salazar)',
+      }),
+    );
+    expect(within(form).getByText('2025-03-10-informe-escaneado.pdf')).toBeInTheDocument();
+    await rendered.user.click(within(form).getByRole('button', { name: 'Import history' }));
+
+    expect(await screen.findByText('What the import did')).toBeInTheDocument();
+    expect(sent).toEqual([['2025-03-10-informe-escaneado.pdf']]);
+    expect(
+      screen.getByText('Lab report · scanned PDF, read as images · read by meta:muse-spark-1.3'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Hemoglobina glicosilada (HbA1c): 7.9 % (high)')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'This PDF is a scan (no text layer, only images that can’t be masked), and this clinic doesn’t send images to a model: held for the team, nothing sent, nothing recorded.',
+      ),
+    ).toBeInTheDocument();
+  });
 });

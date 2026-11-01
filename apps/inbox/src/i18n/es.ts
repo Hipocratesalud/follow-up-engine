@@ -1189,6 +1189,10 @@ const metrics: MetricsCopy = {
       order_agent_scripted: 'Agente de órdenes (guion)',
       lab_photo_reading: 'Lectura de fotos de exámenes',
       lab_photo_reading_scripted: 'Lectura de fotos de exámenes (guion)',
+      lab_document_reading: 'Lectura de informes PDF de exámenes',
+      lab_document_reading_scripted: 'Lectura de informes PDF de exámenes (guion)',
+      lab_scan_reading: 'Lectura de PDF escaneados de exámenes',
+      lab_scan_reading_scripted: 'Lectura de PDF escaneados de exámenes (guion)',
       voice_transcription: 'Transcripción de notas de voz',
       voice_transcription_scripted: 'Transcripción de notas de voz (guion)',
     },
@@ -1989,6 +1993,7 @@ const lab: Messages['lab'] = {
     samplesLabel: 'O prueba con un historial de ejemplo',
     sampleButton: (name: string, documents: number): string =>
       `${name} (${count(documents, 'documento', 'documentos')})`,
+    sampleScannedButton: (name: string): string => `PDF escaneado de ejemplo (${name})`,
     addFiles: 'Agregar documentos',
     filesHint:
       'PDF, DOCX, TXT, o una foto JPEG, PNG o WebP de un resultado. Hasta 12, 5 MB en total.',
@@ -2022,10 +2027,16 @@ const lab: Messages['lab'] = {
       unreadable: 'No se pudo leer',
     },
     readAs: { note: 'Nota clínica', lab_report: 'Informe de laboratorio' },
-    source: { photo: 'foto', text: 'texto del documento' },
+    source: {
+      photo: 'foto',
+      text: 'texto del documento',
+      scan: 'PDF escaneado, leído como imágenes',
+    },
     readBy: (model: string): string => `leído por ${model}`,
     photoNotAllowed:
       'Las fotos no se pueden leer automáticamente en esta clínica: queda retenida para el equipo, no se envió a ningún modelo ni se registró nada.',
+    scanNotAllowed:
+      'Este PDF es un escaneo (sin capa de texto, solo imágenes que no se pueden enmascarar) y esta clínica no envía imágenes a ningún modelo: queda retenido para el equipo, no se envió ni se registró nada.',
     nameMismatch:
       'El nombre del informe no coincide con este paciente: queda retenido para el equipo, no se registró nada ni se cerró ninguna orden.',
     held: {
@@ -2042,6 +2053,8 @@ const lab: Messages['lab'] = {
       noName: 'ninguno impreso',
       photoNotAllowed:
         'Las fotos no se pueden leer automáticamente en esta clínica. Léela, agrega el resultado con “Agregar algo sin un documento” y luego márcala como revisada.',
+      scanNotAllowed:
+        'Los PDF escaneados no se pueden leer automáticamente en esta clínica. Léelo, agrega el resultado con “Agregar algo sin un documento” y luego márcalo como revisado.',
       markReviewed: 'Marcar como revisada',
       dates: (printed: string, entered: string): string =>
         `Tomado el ${printed} (indicado como ${entered})`,
@@ -2411,6 +2424,7 @@ const agent = {
     sampleVoice: 'Nota de voz de ejemplo',
     samplePhoto: 'Foto de examen de ejemplo',
     samplePdf: 'Informe PDF de ejemplo',
+    sampleScannedPdf: 'PDF escaneado de ejemplo',
     uploadVoice: 'Subir una nota de voz WAV',
     uploadPhoto: 'Subir una foto',
     uploadPdf: 'Subir un informe PDF',
@@ -2572,6 +2586,8 @@ const agent = {
         'Un resultado hizo que el motor pidiera un control: confírmalo en «Para el médico» antes de que alguien la contacte.',
       review_photo:
         'Envió una foto de un informe de laboratorio; esta clínica lee las fotos a mano: léela y registra el resultado.',
+      review_scan:
+        'Envió un PDF escaneado de un informe de laboratorio; esta clínica lee los escaneos a mano: léelo y registra el resultado.',
     },
   },
   events: {
@@ -2605,6 +2621,8 @@ const agent = {
     photo_not_a_report: (): string => 'La foto no es un informe de laboratorio.',
     photo_not_allowed: (): string =>
       'Las fotos no se pueden leer automáticamente en esta clínica: no se envió a ningún modelo, pasó al equipo.',
+    scan_not_allowed: (): string =>
+      'Los PDF escaneados no se pueden leer automáticamente en esta clínica: no se envió a ningún modelo, pasó al equipo.',
     result_matched: (p: Params): string =>
       `Foto asociada a ${list(p['matches']).map(code).join(', ') || 'ninguna orden'}${list(p['unmatched']).length === 0 ? '' : ` (sin orden: ${list(p['unmatched']).map(code).join(', ')})`}; nombre en el informe: ${code(p['nameCheck'])}.`,
     result_submitted: (p: Params): string => `Observation FHIR enviada: ${str(p['resource'])}.`,
@@ -2626,6 +2644,8 @@ const agent = {
       `Foto leída: ${list(p['tests']).join('; ') || 'sin resultados'}.`,
     document_read: (p: Params): string =>
       `Informe PDF leído: ${list(p['tests']).join('; ') || 'sin resultados'}.`,
+    scan_read: (p: Params): string =>
+      `PDF escaneado leído (sin capa de texto, leído como imágenes): ${list(p['tests']).join('; ') || 'sin resultados'}.`,
     media_unreadable: (): string => 'No se pudo leer el archivo.',
     budget_fallback_scripted: (): string =>
       'Se alcanzó el presupuesto de la demo: este turno corre con el reproductor guionado.',

@@ -54,7 +54,9 @@ export const AgentTextMessageSchema = z
   })
   .strict();
 export const AgentSampleSchema = z
-  .object({ sample: z.enum(['lab_report', 'lab_report_pdf', 'voice_note']) })
+  .object({
+    sample: z.enum(['lab_report', 'lab_report_pdf', 'lab_report_scanned_pdf', 'voice_note']),
+  })
   .strict();
 export const AgentDeliverySchema = z
   .object({ status: z.enum(['delivered', 'read', 'undelivered']) })
@@ -667,7 +669,7 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
     return c.json(messageView(message), 201);
   });
 
-  /** The story's sample media: María's lab report (a photo or its PDF), or her voice note in the conversation's language. */
+  /** The story's sample media: María's lab report (a photo, its PDF or its scan), or her voice note in the conversation's language. */
   app.post('/api/demo/agent/patients/:id/samples', async (c) => {
     const body = await readJson(c, AgentSampleSchema);
     const { clinic, evaluatorEmail } = await lab(c);
@@ -677,9 +679,11 @@ export function registerAgentRoutes(app: App, runtime: EngineRuntime): void {
         ? 'labReport'
         : body.sample === 'lab_report_pdf'
           ? 'labReportPdf'
-          : view.conversation.language === 'es'
-            ? 'voiceEs'
-            : 'voiceEn';
+          : body.sample === 'lab_report_scanned_pdf'
+            ? 'labReportScannedPdf'
+            : view.conversation.language === 'es'
+              ? 'voiceEs'
+              : 'voiceEn';
     const contentType = SAMPLE_FILES[name].contentType;
     const message = await runtime.orderAgent.receiveMessage(
       clinic.id,

@@ -26,8 +26,8 @@ function HeldReportItem({ report }: { readonly report: HeldLabReportView }): Rea
     decide.mutate({ id: report.id, decision: 'discard' });
   }
 
-  // A photo the clinic does not send to a model was never read: the team enters it by hand.
-  const unread = report.reason === 'photo_not_allowed';
+  // A photo (or a scan) the clinic does not send to a model was never read: the team enters it by hand.
+  const unread = report.reason === 'photo_not_allowed' || report.reason === 'scan_not_allowed';
   return (
     <li className="flex flex-col gap-2 px-3 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -38,9 +38,11 @@ function HeldReportItem({ report }: { readonly report: HeldLabReportView }): Rea
         <Badge tone="danger">{t.lab.history.statuses['needs_review']}</Badge>
       </div>
       <p className="text-xs font-medium text-danger">
-        {unread
+        {report.reason === 'photo_not_allowed'
           ? COPY.photoNotAllowed
-          : COPY.names(report.printedName ?? COPY.noName, report.recordName ?? report.patientId)}
+          : report.reason === 'scan_not_allowed'
+            ? COPY.scanNotAllowed
+            : COPY.names(report.printedName ?? COPY.noName, report.recordName ?? report.patientId)}
       </p>
       <p className="text-xs text-muted">
         {COPY.dates(

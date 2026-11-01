@@ -674,6 +674,8 @@ export const ES = {
       unsupported_type:
         'Ese tipo de archivo no es compatible: sube un PDF, DOCX o TXT, o pega el texto.',
       unreadable: 'No pudimos leer el archivo. Prueba con otro archivo o pega el texto.',
+      scanned_pdf:
+        'Ese PDF es un escaneo sin capa de texto: todavía no se puede leer una nota escaneada, pega su texto. Un informe de laboratorio escaneado se lee en “Importar historial” como resultado de laboratorio.',
     },
   },
 

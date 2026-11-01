@@ -1,4 +1,12 @@
-import { FileStack, FileText, History, Image as ImageIcon, Paperclip, X } from 'lucide-react';
+import {
+  FileStack,
+  FileText,
+  History,
+  Image as ImageIcon,
+  Paperclip,
+  ScanLine,
+  X,
+} from 'lucide-react';
 import { type ChangeEvent, type ReactNode, type SubmitEvent, useId, useRef, useState } from 'react';
 import type {
   LabDocumentType,
@@ -165,14 +173,23 @@ function SampleButton({
   function handleClick(): void {
     onPick(set.id);
   }
+  const scanned = set.kind === 'scanned_pdf';
   return (
     <Button
       size="sm"
-      icon={<History className="size-3.5" aria-hidden="true" />}
+      icon={
+        scanned ? (
+          <ScanLine className="size-3.5" aria-hidden="true" />
+        ) : (
+          <History className="size-3.5" aria-hidden="true" />
+        )
+      }
       onClick={handleClick}
       disabled={disabled}
     >
-      {t.lab.history.sampleButton(set.patient.name, set.documents.length)}
+      {scanned
+        ? t.lab.history.sampleScannedButton(set.patient.name)
+        : t.lab.history.sampleButton(set.patient.name, set.documents.length)}
     </Button>
   );
 }
@@ -214,6 +231,11 @@ function OutcomeRow({ outcome }: { readonly outcome: LabHistoryDocumentOutcome }
       {outcome.reviewReason === 'photo_not_allowed' ? (
         <p role="note" className="text-xs font-medium text-danger">
           {t.lab.history.photoNotAllowed}
+        </p>
+      ) : null}
+      {outcome.reviewReason === 'scan_not_allowed' ? (
+        <p role="note" className="text-xs font-medium text-danger">
+          {t.lab.history.scanNotAllowed}
         </p>
       ) : null}
       {outcome.dates?.mismatch === true && outcome.dates.printed !== undefined ? (

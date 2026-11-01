@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { HELD_LAB_REPORT_REASONS, LAB_REPORT_SOURCES } from '@follow-up-engine/core';
 import { CONSULTATION_DOCUMENT_TYPES } from '@follow-up-engine/fhir';
 
 /** `YYYY-MM-DD`, the day on the engine's calendar (the clinic's date picker). */
@@ -196,7 +197,7 @@ export const LabHistoryDocumentOutcomeSchema = z.object({
   documentDate: calendarDay,
   documentType: z.enum(CONSULTATION_DOCUMENT_TYPES),
   readAs: z.enum(['note', 'lab_report']),
-  source: z.enum(['photo', 'text']),
+  source: z.enum(LAB_REPORT_SOURCES),
   status: z.enum([
     'staged',
     'already_imported',
@@ -208,7 +209,7 @@ export const LabHistoryDocumentOutcomeSchema = z.object({
   heldReportId: z.string().optional().meta({ description: 'The held report the team decides on' }),
   error: z.string().optional(),
   reviewReason: z
-    .enum(['name_mismatch', 'photo_not_allowed'])
+    .enum(HELD_LAB_REPORT_REASONS)
     .optional()
     .meta({ description: 'Why a report is held for the team (nothing staged, no order closed)' }),
   nameOnReport: z
@@ -288,6 +289,8 @@ export const LabHistorySampleSetSchema = z
     sets: z.array(
       z.object({
         id: z.string(),
+        /** `scanned_pdf`: the set is one scanned lab report (an image-only PDF), labeled as such. */
+        kind: z.enum(['history', 'scanned_pdf']),
         patient: z.object({
           name: z.string(),
           sex: z.enum(LAB_PATIENT_SEXES),
@@ -310,8 +313,8 @@ export const HeldLabReportViewSchema = z
     printedDate: calendarDay.optional(),
     printedName: z.string().optional().meta({ description: 'The name printed on the report' }),
     recordName: z.string().optional().meta({ description: "The name in the patient's record" }),
-    reason: z.enum(['name_mismatch', 'photo_not_allowed']),
-    source: z.enum(['photo', 'text']),
+    reason: z.enum(HELD_LAB_REPORT_REASONS),
+    source: z.enum(LAB_REPORT_SOURCES),
     model: z.string().optional(),
     results: z.array(
       z.object({

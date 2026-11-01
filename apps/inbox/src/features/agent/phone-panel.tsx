@@ -5,6 +5,7 @@ import {
   Image as ImageIcon,
   Mic,
   Paperclip,
+  ScanLine,
   Send,
   TriangleAlert,
 } from 'lucide-react';
@@ -253,6 +254,9 @@ export function PhonePanel({
   function sendSamplePdf(): void {
     send.mutate({ kind: 'sample', sample: 'lab_report_pdf' });
   }
+  function sendSampleScannedPdf(): void {
+    send.mutate({ kind: 'sample', sample: 'lab_report_scanned_pdf' });
+  }
   function openPdfPicker(): void {
     pdfInput.current?.click();
   }
@@ -369,6 +373,14 @@ export function PhonePanel({
             disabled={send.isPending || stopped}
           >
             {t.agent.phone.samplePdf}
+          </Button>
+          <Button
+            size="sm"
+            icon={<ScanLine className="size-3.5" aria-hidden="true" />}
+            onClick={sendSampleScannedPdf}
+            disabled={send.isPending || stopped}
+          >
+            {t.agent.phone.sampleScannedPdf}
           </Button>
           <Button
             size="sm"

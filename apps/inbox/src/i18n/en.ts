@@ -1209,6 +1209,10 @@ const metrics: MetricsCopy = {
       order_agent_scripted: 'Order agent (scripted)',
       lab_photo_reading: 'Reading lab photos',
       lab_photo_reading_scripted: 'Reading lab photos (scripted)',
+      lab_document_reading: 'Reading lab PDF reports',
+      lab_document_reading_scripted: 'Reading lab PDF reports (scripted)',
+      lab_scan_reading: 'Reading scanned lab PDFs',
+      lab_scan_reading_scripted: 'Reading scanned lab PDFs (scripted)',
       voice_transcription: 'Transcribing voice notes',
       voice_transcription_scripted: 'Transcribing voice notes (scripted)',
     },
@@ -2014,6 +2018,7 @@ const lab = {
     samplesLabel: 'Or try a sample history',
     sampleButton: (name: string, documents: number): string =>
       `${name} (${count(documents, 'document', 'documents')})`,
+    sampleScannedButton: (name: string): string => `Sample scanned PDF (${name})`,
     addFiles: 'Add documents',
     filesHint: 'PDF, DOCX, TXT, or a JPEG, PNG or WebP photo of a result. Up to 12, 5 MB in total.',
     noFiles: 'No documents yet: add files or load a sample history.',
@@ -2045,10 +2050,16 @@ const lab = {
       unreadable: 'Could not be read',
     } as Record<string, string>,
     readAs: { note: 'Clinical note', lab_report: 'Lab report' } as Record<string, string>,
-    source: { photo: 'photo', text: 'document text' } as Record<string, string>,
+    source: {
+      photo: 'photo',
+      text: 'document text',
+      scan: 'scanned PDF, read as images',
+    } as Record<string, string>,
     readBy: (model: string): string => `read by ${model}`,
     photoNotAllowed:
       'Photos can’t be read automatically for this clinic: held for the team, nothing sent to a model, nothing recorded.',
+    scanNotAllowed:
+      'This PDF is a scan (no text layer, only images that can’t be masked), and this clinic doesn’t send images to a model: held for the team, nothing sent, nothing recorded.',
     nameMismatch:
       'The name on the report doesn’t match this patient: held for the team, nothing recorded, no order closed.',
     held: {
@@ -2065,6 +2076,8 @@ const lab = {
       noName: 'none printed',
       photoNotAllowed:
         'Photos can’t be read automatically for this clinic. Read it, add the result with “Add something without a document”, then mark it reviewed.',
+      scanNotAllowed:
+        'Scanned PDFs can’t be read automatically for this clinic. Read it, add the result with “Add something without a document”, then mark it reviewed.',
       markReviewed: 'Mark reviewed',
       dates: (printed: string, entered: string): string =>
         `Collected ${printed} (entered as ${entered})`,
@@ -2434,6 +2447,7 @@ const agent = {
     sampleVoice: 'Sample voice note',
     samplePhoto: 'Sample lab photo',
     samplePdf: 'Sample PDF report',
+    sampleScannedPdf: 'Sample scanned PDF',
     uploadVoice: 'Upload a WAV voice note',
     uploadPhoto: 'Upload a photo',
     uploadPdf: 'Upload a PDF report',
@@ -2592,6 +2606,8 @@ const agent = {
         'A result made the engine ask for a visit: confirm it in “For the doctor” before anyone contacts her.',
       review_photo:
         'She sent a photo of a lab report; this clinic reads photos by hand: read it and enter the result.',
+      review_scan:
+        'She sent a scanned PDF of a lab report; this clinic reads scans by hand: read it and enter the result.',
     } as Record<string, string>,
   },
   events: {
@@ -2621,6 +2637,8 @@ const agent = {
     photo_not_a_report: (): string => 'The photo is not a lab report.',
     photo_not_allowed: (): string =>
       'Photos can’t be read automatically for this clinic: not sent to any model, handed to the team.',
+    scan_not_allowed: (): string =>
+      'Scanned PDFs can’t be read automatically for this clinic: not sent to any model, handed to the team.',
     result_matched: (p: Params): string =>
       `Photo matched to ${list(p['matches']).map(code).join(', ') || 'no order'}${list(p['unmatched']).length === 0 ? '' : ` (not ordered: ${list(p['unmatched']).map(code).join(', ')})`}; name on report: ${code(p['nameCheck'])}.`,
     result_submitted: (p: Params): string => `FHIR Observation submitted: ${str(p['resource'])}.`,
@@ -2641,6 +2659,8 @@ const agent = {
       `Photo read: ${list(p['tests']).join('; ') || 'no results'}.`,
     document_read: (p: Params): string =>
       `PDF report read: ${list(p['tests']).join('; ') || 'no results'}.`,
+    scan_read: (p: Params): string =>
+      `Scanned PDF read (no text layer, read as images): ${list(p['tests']).join('; ') || 'no results'}.`,
     media_unreadable: (): string => 'The media could not be read.',
     budget_fallback_scripted: (): string =>
       'Demo budget reached: this turn runs on the scripted player.',

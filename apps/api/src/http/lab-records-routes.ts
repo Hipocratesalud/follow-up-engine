@@ -776,6 +776,7 @@ export function registerLabRecordRoutes(
     const samples: LabHistorySampleSet = {
       sets: HISTORY_SAMPLE_SETS.map((set) => ({
         id: set.id,
+        kind: set.id === 'scanned_pdf' ? 'scanned_pdf' : 'history',
         patient: { name: set.patient.name, sex: set.patient.gender, age: set.patient.age },
         documents: set.files.map((sample) => ({
           filename: sample.file,

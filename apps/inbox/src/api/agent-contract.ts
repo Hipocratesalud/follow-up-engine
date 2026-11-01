@@ -6,6 +6,9 @@
 
 export type AgentMode = 'scripted' | 'live';
 export type AgentLanguage = 'en' | 'es';
+/** The story's sample media (`POST /api/demo/agent/patients/:id/samples`). */
+export type AgentSampleName =
+  'lab_report' | 'lab_report_pdf' | 'lab_report_scanned_pdf' | 'voice_note';
 export type AgentDeliveryStatus = 'sent' | 'delivered' | 'read' | 'undelivered';
 export type AgentOrderStage =
   | 'awaiting_doctor'

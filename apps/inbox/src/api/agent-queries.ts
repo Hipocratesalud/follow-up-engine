@@ -6,7 +6,12 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import type { AgentMessageView, AgentPageView, AgentStoryRequest } from './agent-contract.ts';
+import type {
+  AgentMessageView,
+  AgentPageView,
+  AgentSampleName,
+  AgentStoryRequest,
+} from './agent-contract.ts';
 import { useApi } from './queries.ts';
 
 export const agentQueryKeys = {
@@ -58,7 +63,7 @@ export type PatientInput =
       readonly source?: 'suggested' | 'typed';
     }
   | { readonly kind: 'file'; readonly file: File }
-  | { readonly kind: 'sample'; readonly sample: 'lab_report' | 'lab_report_pdf' | 'voice_note' };
+  | { readonly kind: 'sample'; readonly sample: AgentSampleName };
 
 export function useSendPatientMessage(
   patientId: string,

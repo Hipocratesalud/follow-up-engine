@@ -663,6 +663,8 @@ export const EN = {
       unsupported_type:
         'That file type is not supported: upload a PDF, DOCX or TXT, or paste the text.',
       unreadable: 'The file could not be read. Try another file, or paste the text.',
+      scanned_pdf:
+        'That PDF is a scan with no text layer: a scanned note cannot be read yet, paste its text. A scanned lab report is read in “Import history” as a lab result.',
     },
   },
 

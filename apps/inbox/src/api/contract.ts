@@ -689,14 +689,15 @@ export interface LabHistoryDocumentOutcome {
   documentDate: string;
   documentType: LabDocumentType;
   readAs: 'note' | 'lab_report';
-  source: 'photo' | 'text';
+  /** A photo (vision), a document's text, or a scanned PDF's pages (vision). */
+  source: 'photo' | 'text' | 'scan';
   status:
     'staged' | 'already_imported' | 'no_results' | 'needs_review' | 'discarded' | 'unreadable';
   /** The stored held report the team decides on (`needs_review`, `discarded`). */
   heldReportId?: string;
   error?: string;
   /** Why a report is held for the team: nothing was staged, no order closed. */
-  reviewReason?: 'name_mismatch' | 'photo_not_allowed';
+  reviewReason?: 'name_mismatch' | 'photo_not_allowed' | 'scan_not_allowed';
   nameOnReport?: 'matches' | 'mismatch' | 'absent';
   /** `YYYY-MM-DD` dates of a lab report; `used` is the one the result is dated with. */
   dates?: { printed?: string; entered: string; used: 'printed' | 'entered'; mismatch: boolean };
@@ -743,8 +744,8 @@ export interface HeldLabReportView {
   printedDate?: string;
   printedName?: string;
   recordName?: string;
-  reason: 'name_mismatch' | 'photo_not_allowed';
-  source: 'photo' | 'text';
+  reason: 'name_mismatch' | 'photo_not_allowed' | 'scan_not_allowed';
+  source: 'photo' | 'text' | 'scan';
   model?: string;
   results: {
     name: string;
@@ -770,6 +771,8 @@ export interface HeldLabReportDecision {
 export interface LabHistorySampleSet {
   sets: {
     id: string;
+    /** `scanned_pdf`: one scanned lab report (an image-only PDF), labeled as such. */
+    kind?: 'history' | 'scanned_pdf';
     patient: { name: string; sex: Sex; age: number };
     documents: {
       filename: string;

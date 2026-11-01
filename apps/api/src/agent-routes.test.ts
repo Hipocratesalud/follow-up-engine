@@ -3,6 +3,7 @@ import { createPool } from '@follow-up-engine/adapter-postgres';
 import {
   createRuntime,
   type EngineRuntime,
+  labClinicId,
   loadRuntimeConfig,
   readSample,
   Worker,
@@ -306,6 +307,51 @@ describe('the order-to-completion agent (scripted mode)', () => {
       expect(last?.direction).toBe('outbound');
       expect(last?.text).toContain('informe');
       expect(last?.text).not.toMatch(/8[.,]4/);
+    },
+  );
+
+  it.each(STORAGES)(
+    'reads the sample scanned PDF (no text layer) on %s in the lab clinic: read like a photo, matched, submitted, and the engine closes the HbA1c order',
+    async (storage) => {
+      const { call, page: read, worker, runtime: rt } = await harness(storage);
+      const started = await call('/api/demo/agent/story', {
+        body: { story: 'maria', mode: 'scripted', language: 'es' },
+      });
+      const patientId = (started.body as { patientId: string }).patientId;
+      await worker.runJobs();
+      const sent = await call(`/api/demo/agent/patients/${patientId}/samples`, {
+        body: { sample: 'lab_report_scanned_pdf' },
+      });
+      expect(sent.status).toBe(201);
+      expect((sent.body as { kind: string }).kind).toBe('document');
+      await worker.runJobs();
+      const page = await read();
+      // No text layer: the scan went to the vision reading (the scripted reader, by its sha256).
+      expect(page.steps.some((step) => step.event === 'document_read')).toBe(false);
+      const reading = page.steps.find((step) => step.event === 'scan_read');
+      expect(reading?.kind).toBe('vision');
+      expect(String(reading?.params?.['tests'])).toContain('8.4');
+      const tools = page.steps.filter((step) => step.kind === 'tool').map((step) => step.tool);
+      expect(tools).toEqual(
+        expect.arrayContaining(['match_result_to_order', 'submit_fhir_result']),
+      );
+      // Only the engine marks the order fulfilled, from the Observation the agent submitted.
+      const closed = page.steps.find(
+        (step) => step.event === 'expectation_fulfilled' && step.params?.['order'] === 'HbA1c',
+      );
+      expect(String(closed?.params?.['by'])).toMatch(/^Observation\//);
+      expect(page.orders.find((order) => order.test === 'HbA1c')?.stage).toBe('fulfilled');
+      const last = page.messages.at(-1);
+      expect(last?.text).toContain('informe');
+      expect(last?.text).not.toMatch(/8[.,]4/);
+      // Accounted by the gateway under the scan task, for the evaluator's lab clinic.
+      expect(
+        (
+          await rt.storage.llmUsage.summary(labClinicId(EMAIL), new Date(0), {
+            task: 'lab_scan_reading_scripted',
+          })
+        ).calls,
+      ).toBe(1);
     },
   );
 
