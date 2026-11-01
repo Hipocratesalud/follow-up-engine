@@ -81,8 +81,10 @@ export interface LabPhotoReading {
    * Set when the photo was not read at all: the clinic does not send
    * unmasked images to a model provider (`allowUnmaskedImagesToProvider`).
    * The team reads it; the agent never asks the patient for another one.
+   * `scan_not_allowed`: the same for a scanned PDF (no text layer, only
+   * pixels, which cannot be masked).
    */
-  readonly notRead?: 'photo_not_allowed';
+  readonly notRead?: 'photo_not_allowed' | 'scan_not_allowed';
 }
 
 export interface AgentMessage {
@@ -305,6 +307,8 @@ export const STAFF_TASK_ASKS = [
   'confirm_followup',
   /** A lab report photo the clinic does not send to a model: read it and enter the result. */
   'review_photo',
+  /** A scanned PDF report (no text layer) the clinic does not send to a model: read it and enter the result. */
+  'review_scan',
 ] as const;
 export type StaffTaskAsk = (typeof STAFF_TASK_ASKS)[number];
 

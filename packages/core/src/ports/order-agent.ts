@@ -164,7 +164,9 @@ export interface PatientMediaReader {
   /**
    * A lab report the patient sent as a document (PDF): its text is
    * extracted, masked and read by the same lab-result reading as a photo,
-   * into the same {@link LabPhotoReading}.
+   * into the same {@link LabPhotoReading}. A PDF with no usable text layer
+   * (a scan) is read like a photo instead: its pages go to the vision model
+   * unmasked, so it passes the same image guard (`scanned: true`).
    */
   readLabDocument(
     clinicId: ClinicId,
@@ -179,7 +181,13 @@ export interface PatientMediaReader {
        */
       readonly redactTerms?: readonly string[];
     },
-  ): Promise<MediaReadingCost & { readonly reading: LabPhotoReading }>;
+  ): Promise<
+    MediaReadingCost & {
+      readonly reading: LabPhotoReading;
+      /** Read as a scan (no usable text layer): its pages, by vision, unmasked. */
+      readonly scanned?: boolean;
+    }
+  >;
 }
 
 /** What the engine did after the agent's FHIR write. */

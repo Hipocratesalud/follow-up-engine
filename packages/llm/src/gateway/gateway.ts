@@ -77,7 +77,8 @@ export interface LlmGatewayConfig {
   /**
    * Whether the clinic lets an unmasked image (a photo) leave for a model
    * provider (`ClinicSettings.allowUnmaskedImagesToProvider`, off by
-   * default). Every request carrying an image goes through this check before
+   * default). Every request carrying an image or a file (a scanned PDF,
+   * pixels just the same) goes through this check before
    * any provider is called; without it, images are allowed (gateway tests).
    */
   readonly allowsUnmaskedImages?: (clinicId: ClinicId) => Promise<boolean> | boolean;
@@ -295,10 +296,13 @@ export function createLlmGateway(config: LlmGatewayConfig): FollowUpLlmGateway {
   ): Promise<GatewayResult<TOutput>> {
     const task = config.tasks[request.task];
     if (!task) throw new LlmConfigError(`Unknown LLM task ${request.task}`);
-    // An image cannot be masked: refused here, before any provider, unless the clinic allows it.
+    // An image or a file (a scanned PDF: pixels too) cannot be masked:
+    // refused here, before any provider, unless the clinic allows it.
     if (
       config.allowsUnmaskedImages !== undefined &&
-      request.messages.some((message) => (message.images?.length ?? 0) > 0) &&
+      request.messages.some(
+        (message) => (message.images?.length ?? 0) > 0 || (message.files?.length ?? 0) > 0,
+      ) &&
       !(await config.allowsUnmaskedImages(clinicId))
     ) {
       throw new UnmaskedImageRefusedError(clinicId);

@@ -5,9 +5,19 @@ import type { ClinicId, PatientId } from './ids.ts';
  * `name_mismatch`, the name printed on it is not the patient's;
  * `photo_not_allowed`, it is a photo and the clinic does not send unmasked
  * images to a model provider (`allowUnmaskedImagesToProvider`), so nothing
- * was read: the team reads it and enters the result by hand.
+ * was read: the team reads it and enters the result by hand;
+ * `scan_not_allowed`, the same for a scanned PDF (no text layer: only its
+ * pixels could be read, and pixels cannot be masked).
  */
-export const HELD_LAB_REPORT_REASONS = ['name_mismatch', 'photo_not_allowed'] as const;
+export const HELD_LAB_REPORT_REASONS = [
+  'name_mismatch',
+  'photo_not_allowed',
+  'scan_not_allowed',
+] as const;
+
+/** How a lab report was read: a photo (vision), a document's text, or a scanned PDF's pages (vision). */
+export const LAB_REPORT_SOURCES = ['photo', 'text', 'scan'] as const;
+export type LabReportSource = (typeof LAB_REPORT_SOURCES)[number];
 export type HeldLabReportReason = (typeof HELD_LAB_REPORT_REASONS)[number];
 
 export const HELD_LAB_REPORT_STATUSES = ['pending', 'confirmed', 'discarded'] as const;
@@ -53,8 +63,8 @@ export interface HeldLabReport {
   readonly printedName?: string;
   readonly recordName?: string;
   readonly reason: HeldLabReportReason;
-  /** `photo` (vision) or `text` (PDF, DOCX, TXT). */
-  readonly source: 'photo' | 'text';
+  /** `photo` (vision), `text` (PDF, DOCX, TXT) or `scan` (a PDF with no text layer, read by vision). */
+  readonly source: LabReportSource;
   /** `<provider>:<model>` that read it. */
   readonly model?: string;
   readonly results: readonly HeldLabResult[];

@@ -34,8 +34,11 @@ function toReport(row: Row): HeldLabReport {
     ...optional('printedDate', optionalDate(row['printed_date'])),
     ...optional('printedName', row['printed_name'] as string | null),
     ...optional('recordName', row['record_name'] as string | null),
-    reason: row['reason'] === 'photo_not_allowed' ? 'photo_not_allowed' : 'name_mismatch',
-    source: row['source'] === 'photo' ? 'photo' : 'text',
+    reason:
+      row['reason'] === 'photo_not_allowed' || row['reason'] === 'scan_not_allowed'
+        ? row['reason']
+        : 'name_mismatch',
+    source: row['source'] === 'photo' || row['source'] === 'scan' ? row['source'] : 'text',
     ...optional('model', row['model'] as string | null),
     results: (row['results'] ?? []) as HeldLabResult[],
     status: String(row['status']) as HeldLabReportStatus,

@@ -176,6 +176,10 @@ export const SCRIPTED_COPY = {
     es: 'Gracias, {first_name}. Recibí la foto de tu examen; el equipo de la clínica la va a revisar.',
     en: 'Thank you, {first_name}. I received the photo of your test; the clinic team will review it.',
   },
+  documentForTeam: {
+    es: 'Gracias, {first_name}. Recibí el informe de tu examen; el equipo de la clínica lo va a revisar.',
+    en: 'Thank you, {first_name}. I received the report of your test; the clinic team will review it.',
+  },
   documentReceived: {
     es: (review: boolean, visitBooked: boolean): string =>
       review
@@ -329,9 +333,11 @@ export const scriptedOrderAgentResponder: FakeResponder = (request: ProviderRequ
       });
     }
     if (typeof match['notRead'] === 'string') {
-      // The clinic reads photos by hand (not sent to a model): the team has a task already.
+      // The clinic reads photos (and scanned PDFs) by hand (not sent to a model): the team has a task already.
       return act('scripted:photo_for_team', 'send_message', {
-        text: SCRIPTED_COPY.photoForTeam[language],
+        text: (inbound.hasLabDocument === true
+          ? SCRIPTED_COPY.documentForTeam
+          : SCRIPTED_COPY.photoForTeam)[language],
       });
     }
     const matches = (Array.isArray(match['matches']) ? match['matches'] : []) as {

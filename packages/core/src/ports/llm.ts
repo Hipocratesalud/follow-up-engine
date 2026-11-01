@@ -10,6 +10,13 @@ export interface LlmMessage {
    * after the text; the others ignore them.
    */
   readonly images?: readonly { readonly dataUrl: string }[];
+  /**
+   * Documents sent with a user message as files (a scanned PDF, read by the
+   * vision model page by page), as `data:` URLs. Providers that read files
+   * send them as OpenAI-style `file` content parts after the text. Like an
+   * image, a file cannot be masked: the `llm_gateway` guards both.
+   */
+  readonly files?: readonly { readonly filename: string; readonly dataUrl: string }[];
 }
 
 /**
@@ -115,10 +122,10 @@ export class LlmOutputError extends Error {
 
 /** The clinic has spent its LLM budget for the current period. */
 /**
- * A request carries an image (a photo of a lab report) for a clinic whose
- * setting `allowUnmaskedImagesToProvider` is off: an image cannot be masked,
- * so the patient's name and details would leave as pixels. Thrown by the
- * `llm_gateway` before any provider is called.
+ * A request carries an image (a photo of a lab report) or a file (a scanned
+ * PDF) for a clinic whose setting `allowUnmaskedImagesToProvider` is off:
+ * neither can be masked, so the patient's name and details would leave as
+ * pixels. Thrown by the `llm_gateway` before any provider is called.
  */
 export class UnmaskedImageRefusedError extends Error {
   override readonly name = 'UnmaskedImageRefusedError';

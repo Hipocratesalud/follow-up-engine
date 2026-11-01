@@ -181,6 +181,12 @@ export function snapshotKey(
           m.images.map((image) => createHash('sha256').update(image.dataUrl).digest('hex')),
         );
       }
+      // A file (a scanned PDF) is read like an image: two files, two requests.
+      if (m.files !== undefined && m.files.length > 0) {
+        entry.push(
+          m.files.map((file) => ['file', createHash('sha256').update(file.dataUrl).digest('hex')]),
+        );
+      }
       return entry;
     }),
   });

@@ -74,6 +74,10 @@ type ChatContent =
   | readonly (
       | { readonly type: 'text'; readonly text: string }
       | { readonly type: 'image_url'; readonly image_url: { readonly url: string } }
+      | {
+          readonly type: 'file';
+          readonly file: { readonly filename: string; readonly file_data: string };
+        }
     )[];
 
 interface ChatMessage {
@@ -81,18 +85,28 @@ interface ChatMessage {
   readonly content: ChatContent;
 }
 
-/** A message on the wire: plain text, or text then `image_url` parts when it carries images. */
+/**
+ * A message on the wire: plain text, or text then `image_url` parts (images)
+ * and `file` parts (a PDF as `file_data`, verified on the Meta Model API
+ * with `muse-spark-1.3`) when it carries any.
+ */
 function toChatMessage(message: LlmMessage): ChatMessage {
-  if (message.images === undefined || message.images.length === 0) {
+  const images = message.images ?? [];
+  const files = message.files ?? [];
+  if (images.length === 0 && files.length === 0) {
     return { role: message.role, content: message.content };
   }
   return {
     role: message.role,
     content: [
       { type: 'text', text: message.content },
-      ...message.images.map((image) => ({
+      ...images.map((image) => ({
         type: 'image_url' as const,
         image_url: { url: image.dataUrl },
+      })),
+      ...files.map((file) => ({
+        type: 'file' as const,
+        file: { filename: file.filename, file_data: file.dataUrl },
       })),
     ],
   };
