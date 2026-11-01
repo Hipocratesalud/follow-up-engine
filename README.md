@@ -95,15 +95,16 @@ All three run through the same `llm_gateway`, return typed output that code chec
 
 Every model call goes through one `llm_gateway` (`packages/llm`), with a budget cap per clinic, usage rows per call, and a deterministic fake provider plus recorded snapshots so tests and the scripted demo run with no key, no network and no cost ([ADR 0004](docs/adr/0004-llm-gateway-meta-models.md)).
 
-| Model                       | Endpoint                       | Used for                                                                            | Measured cost (source)                                                                                                                           |
-| --------------------------- | ------------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `muse-spark-1.3`            | `POST /v1/chat/completions`    | Order-to-completion agent (tool calling)                                            | $0.010904 to $0.127546 per recorded run, $0.244635 for the five ([agent runs](docs/evidence/agent-runs/2026-10-30/))                             |
-| `muse-spark-1.3`            | same                           | Note extraction: conditions, medications and the doctor's plan with verbatim quotes | $0.004887 per note over 101 gold notes, 0 of 348 quotes hallucinated ([eval](docs/evals/2026-10-27-meta-muse-spark-1.3.md))                      |
-| `muse-spark-1.3`            | same                           | Clinical reviewer                                                                   | $0.016406 per review ([eval](docs/evals/reviewer/2026-10-30-meta-muse-spark-1.3.md))                                                             |
-| `muse-spark-1.3`            | same                           | Adjudicator                                                                         | $0.075470 for 20 items ([eval](docs/evals/adjudicator/2026-10-30-meta-muse-spark-1.3.md))                                                        |
-| `muse-spark-1.3`            | same                           | Rule authoring                                                                      | $0.083 to $0.088 per run of three drafts ([live results](docs/agent/rule-authoring.md#live-results-2026-10-30-muse-spark-13-the-three-examples)) |
-| `muse-spark-1.3`            | same, with image content parts | Vision: reading a photo of a lab report into structured results                     | $0.003069 for one photo read (usage row `6c2726fe…` in [booking-photo-doctor](docs/evidence/agent-runs/2026-10-30/booking-photo-doctor.md))      |
-| `muse-voice-transcribe-1.0` | `POST /v1/asr/transcribe`      | Transcribing a patient's voice note                                                 | $0.000648 for a 6.5-second note (usage row `8aea97ff…` in [voice-note](docs/evidence/agent-runs/2026-10-30/voice-note.md))                       |
+| Model                       | Endpoint                       | Used for                                                                                  | Measured cost (source)                                                                                                                           |
+| --------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `muse-spark-1.3`            | `POST /v1/chat/completions`    | Order-to-completion agent (tool calling)                                                  | $0.010904 to $0.127546 per recorded run, $0.244635 for the five ([agent runs](docs/evidence/agent-runs/2026-10-30/))                             |
+| `muse-spark-1.3`            | same                           | Note extraction: conditions, medications and the doctor's plan with verbatim quotes       | $0.004887 per note over 101 gold notes, 0 of 348 quotes hallucinated ([eval](docs/evals/2026-10-27-meta-muse-spark-1.3.md))                      |
+| `muse-spark-1.3`            | same                           | Clinical reviewer                                                                         | $0.016406 per review ([eval](docs/evals/reviewer/2026-10-30-meta-muse-spark-1.3.md))                                                             |
+| `muse-spark-1.3`            | same                           | Adjudicator                                                                               | $0.075470 for 20 items ([eval](docs/evals/adjudicator/2026-10-30-meta-muse-spark-1.3.md))                                                        |
+| `muse-spark-1.3`            | same                           | Rule authoring                                                                            | $0.083 to $0.088 per run of three drafts ([live results](docs/agent/rule-authoring.md#live-results-2026-10-30-muse-spark-13-the-three-examples)) |
+| `muse-spark-1.3`            | same, with image content parts | Vision: reading a photo of a lab report into structured results                           | $0.003069 for one photo read (usage row `6c2726fe…` in [booking-photo-doctor](docs/evidence/agent-runs/2026-10-30/booking-photo-doctor.md))      |
+| `muse-spark-1.3`            | same, with a PDF `file` part   | Vision: reading a scanned PDF lab report (no text layer) into the same structured results | $0.005145 for one scanned PDF read on the agent phone, $0.0052 in the Lab import (as logged by the `llm_gateway`, 2026-11-01)                    |
+| `muse-voice-transcribe-1.0` | `POST /v1/asr/transcribe`      | Transcribing a patient's voice note                                                       | $0.000648 for a 6.5-second note (usage row `8aea97ff…` in [voice-note](docs/evidence/agent-runs/2026-10-30/voice-note.md))                       |
 
 Muse Spark Open did not run: we had no Baseten credits, so it has no eval and no number in this repository.
 
@@ -182,7 +183,7 @@ The diabetes and hypertension protocols are **ready for sign-off**: a generated 
 - The engine writes no audit event when a single order closes.
 - Opt-out by voice note is untested.
 - The agent console's model summaries are English on both locales.
-- Scanned PDFs are not read by OCR.
+- A scanned PDF (no text layer) is read like a photo, so a regular clinic (images not allowed to leave) holds it for the team instead of reading it; a scanned consultation note is not read at all.
 - The simulated phone accepts PDF but not DOCX.
 - A held report creates no staff task or webhook.
 - The findings daily cap releases on read.
