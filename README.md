@@ -32,7 +32,7 @@ Against fixed reminders on the same synthetic cohort, orders fulfilled within 90
 
 ## Order-to-completion agent
 
-The agent owns every order a doctor wrote for a patient, from the moment the engine reads it until the engine says it is done. It talks to the patient on WhatsApp, books what the doctor ordered, collects results the patient already has and hands the rest to the clinic team. It never decides what care a patient needs: it executes the follow-up the clinician defined. Design: [docs/agent/order-to-completion.md](docs/agent/order-to-completion.md), decision record [ADR 0008](docs/adr/0008-order-to-completion-agent.md).
+Once it takes ownership of a patient, the agent owns every order the doctor wrote until the engine says it is done (in this build, ownership starts when a patient's story is started on `/agent`; see [Known limitations](#known-limitations)). It talks to the patient on WhatsApp, books what the doctor ordered, collects results the patient already has and hands the rest to the clinic team. It never decides what care a patient needs: it executes the follow-up the clinician defined. Design: [docs/agent/order-to-completion.md](docs/agent/order-to-completion.md), decision record [ADR 0008](docs/adr/0008-order-to-completion-agent.md).
 
 ### The loop, step by step
 
@@ -204,7 +204,7 @@ An AI-powered patient continuity engine that executes clinician-defined follow-u
 1. **Consultation saved.** The host sends one FHIR `transaction` Bundle per saved consultation; the API stores it and answers in milliseconds, and the worker runs the engine.
 2. **Expectations from four layers.** Structured rules (a lab order needs a result in 15 days), the doctor's plan read from the note by Muse Spark with a verbatim quote per item, the patient's own visit cadence, and condition protocols that only fill what the first three left uncovered.
 3. **Fulfilment.** A matching result, visit or booking closes an expectation; a newer order supersedes it; a cancellation reopens it. A nightly reconciliation repairs what a lost or reordered event left inconsistent.
-4. **Cases and the agent.** An expectation that expires unmet opens one case per patient in the clinic inbox, and the order agent works the doctor's orders with the patient.
+4. **Cases and the agent.** An expectation that expires unmet opens one case per patient in the clinic inbox; the order agent works the doctor's orders with the patient once it takes ownership (started from `/agent` in this build).
 5. **Signed webhooks back to the host.** `case.opened`, `case.resolved`, `patient_contact.requested` and more, HMAC-signed, delivered at least once from a transactional outbox ([docs/integration.md](docs/integration.md)).
 
 Hexagonal architecture, enforced by dependency-cruiser on every commit: `packages/core` is pure domain and ports with no I/O; adapters (Postgres and Supabase, in-memory, the LLM gateway) never import each other; only `packages/runtime` wires them ([ADR 0002](docs/adr/0002-hexagonal-architecture.md), [ADR 0005](docs/adr/0005-http-api-and-runtime.md)). The engine's own state is exposed as standard FHIR resources ([ADR 0001](docs/adr/0001-fhir-r4-data-model.md), [docs/fhir.md](docs/fhir.md)). Rules and protocols are versioned JSON ([config/rules](config/rules), [config/protocols](config/protocols)).
