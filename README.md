@@ -10,6 +10,8 @@ Submission to the **Meta AI Developer Hackathon 2026**, built on Meta's Muse Spa
 
 [Hosted demo](https://follow-up-engine-demo-production.up.railway.app) · [The agent](#order-to-completion-agent) · [Meta AI usage](#meta-ai-usage) · [Architecture](#architecture) · [Built during the hackathon](#built-during-the-hackathon-oct-26--nov-4-2026) · [Walkthrough](#walkthrough-for-judges-about-3-minutes) · [Limitations](#known-limitations)
 
+Video (3 min): <link — to fill>
+
 ![The /agent page after María (synthetic) sends a photo of her lab report, scripted mode. Left: the simulated WhatsApp phone, where the agent thanked her and said only that her doctor will review the report. Right: the live agent console, where the engine's events show a new expectation and the clinical reviewer running on the result, and every model and tool step shows its reason and what it read. Below: the doctor's three orders, each "Fulfilled by the engine" with the FHIR Appointment or Observation that closed it; the clinic clock and the stopped no-response ladder; and "For the doctor", with the HbA1c trend 6.6 → 7.1 → 8.4 % and two pre-visit questions, each quote cited with its source and date.](docs/images/agent-maria.jpg)
 
 _María's story on the `/agent` page, scripted mode (no model calls), captured on a local demo server built from this repository. The same loop, tools and guardrails run live on Muse Spark in the [recorded runs](#recorded-live-runs)._
@@ -133,8 +135,6 @@ The agent costs staff time (79.7 staff tasks per 100 patients against none) and 
 
 ![The Value page: orders fulfilled within 90 days, 50.6 % with fixed reminders and 74.6 % with the order agent, with 95 % intervals; an estimate scaled to a clinic's own volume and price; tiles for urgent orders, median days to fulfilment, patients never reached, messages per patient, consultations attended and staff tasks; and the start of the per-persona chart. A banner reads "Simulation with synthetic patients and stated assumptions; not a clinical trial."](docs/images/value-simulation.jpg)
 
-<!-- Pending Simeón's confirmation before submission -->
-
 ## Built during the hackathon (Oct 26 – Nov 4, 2026)
 
 - **The repository was created for the hackathon.** Its only root commit is `a1166a5`, on 2026-10-26 22:53 -03:00. Verify:
@@ -189,6 +189,7 @@ The diabetes and hypertension protocols are **ready for sign-off**: a generated 
 - The findings daily cap releases on read.
 - The weekly cap and the simulation use synthetic personas with stated assumptions.
 - Muse Spark Open was not evaluated.
+- The order agent takes ownership of a patient's orders only when a story is started on the demo's `/agent` page (`POST /api/demo/agent/story`, the only caller of `takeOwnership`). The automatic trigger on case opening is not wired yet: when the engine opens a case, nothing starts the agent; the case goes to the inbox and its webhooks to the host, and the worker's sweep moves the no-response ladder only for conversations a story started.
 
 ## Architecture
 
@@ -232,4 +233,13 @@ config/     versioned rules, protocols, simulation personas
 docs/       ADRs, agent design, evals, evidence, protocols
 ```
 
-No license file is included in this submission; no open-source license is granted at this time.
+## Team
+
+<!-- Simeón: fill Luis's surname and role -->
+
+- **Simeón Aldana**
+- **Luis <SURNAME — to fill>**, physician, co-founder (<role wording — to fill>)
+
+## License
+
+License: to be decided by the authors (placeholder).
