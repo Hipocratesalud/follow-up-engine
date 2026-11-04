@@ -6,11 +6,9 @@ An AI-powered patient continuity engine that executes clinician-defined follow-u
 
 Doctors order tests, studies and control visits every day, and a large share of those orders are never completed. Nothing fails when that happens: the EHR saved the visit, the note was written, the order was printed. The patient simply never booked, never brought the result back, or stopped coming. Nobody is watching the gap between what the doctor ordered and what actually happened. The Follow-up Engine watches it. It reads what an EHR already saves (HL7 FHIR R4), turns each order into a dated expectation, and an agent on WhatsApp works every order with the patient until the deterministic engine says it is done.
 
-Submission to the **Meta AI Developer Hackathon 2026**, built on Meta's Muse Spark.
+Built on Meta's Muse Spark.
 
-[Hosted demo](https://follow-up-engine-demo-production.up.railway.app) · [The agent](#order-to-completion-agent) · [Meta AI usage](#meta-ai-usage) · [Architecture](#architecture) · [Built during the hackathon](#built-during-the-hackathon-oct-26--nov-4-2026) · [Walkthrough](#walkthrough-for-judges-about-3-minutes) · [Limitations](#known-limitations)
-
-Video (3 min): <link — to fill>
+[Hosted demo](https://follow-up-engine-demo-production.up.railway.app) · [The agent](#order-to-completion-agent) · [Meta AI usage](#meta-ai-usage) · [Architecture](#architecture) · [Built during the hackathon](#built-during-the-hackathon-oct-26--nov-4-2026) · [Walkthrough](#walkthrough-about-3-minutes) · [Limitations](#known-limitations)
 
 ![The /agent page after María (synthetic) sends a photo of her lab report, scripted mode. Left: the simulated WhatsApp phone, where the agent thanked her and said only that her doctor will review the report. Right: the live agent console, where the engine's events show a new expectation and the clinical reviewer running on the result, and every model and tool step shows its reason and what it read. Below: the doctor's three orders, each "Fulfilled by the engine" with the FHIR Appointment or Observation that closed it; the clinic clock and the stopped no-response ladder; and "For the doctor", with the HbA1c trend 6.6 → 7.1 → 8.4 % and two pre-visit questions, each quote cited with its source and date.](docs/images/agent-maria.jpg)
 
@@ -149,7 +147,7 @@ The agent costs staff time (79.7 staff tasks per 100 patients against none) and 
 - **Every line in it was written during the building period**: the engine, the agents, the inbox, the evals, the simulation, the evidence and these docs.
 - **The only pre-existing thing is the Hipócrates product** (hipocratesalud.com), an EHR the team built before the hackathon. It is the intended future host system: it would receive the engine's signed webhooks and send the real WhatsApp messages. **None of its code is in this repository**, and nothing here depends on it: the demo simulates the host and the WhatsApp channel, and any FHIR R4-capable EHR can be the host.
 
-## Walkthrough for judges, about 3 minutes
+## Walkthrough, about 3 minutes
 
 **Hosted demo:** https://follow-up-engine-demo-production.up.railway.app, access code **`ubva6-jq6m4-uabnq-rch65`**. Anyone reviewing the project can use it; live model calls are capped by a monthly budget, and past the cap the demo falls back to its scripted mode. It runs on a fake clock over a synthetic clinic of 148 patients; the Lab, Agent and Engine tests pages give each evaluator a sandbox clinic of their own.
 
@@ -232,14 +230,3 @@ packages/   core, fhir, runtime, adapter-postgres, adapter-memory, llm, simulati
 config/     versioned rules, protocols, simulation personas
 docs/       ADRs, agent design, evals, evidence, protocols
 ```
-
-## Team
-
-<!-- Simeón: fill Luis's surname and role -->
-
-- **Simeón Aldana**
-- **Luis <SURNAME — to fill>**, physician, co-founder (<role wording — to fill>)
-
-## License
-
-License: to be decided by the authors (placeholder).
