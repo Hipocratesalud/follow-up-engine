@@ -7,7 +7,7 @@ Values to paste into the submission form. Deadline: Nov 4, 2026, 9 PM ET.
 - **Project name:** Follow-up Engine
 - **One-line description:** An AI-powered patient continuity engine that executes clinician-defined follow-up workflows, coordinates patient outreach, and schedules care without providing autonomous medical advice.
 - **Demo URL:** https://follow-up-engine-demo-production.up.railway.app
-  - The access code goes in the form's private field for judges. It is not in this file or anywhere in the repository.
+  - Access code: `ubva6-jq6m4-uabnq-rch65` (also in the README walkthrough, so any reviewer can get in). Sign in with any email.
 - **Repository URL:** https://github.com/Hipocratesalud/follow-up-engine
 - **Video (3 min):** <link — to fill>
 - **Team:**
@@ -42,4 +42,4 @@ Full walkthrough: [README](README.md#walkthrough-for-judges-about-3-minutes).
 - [ ] License: decide one; the README's License line is a placeholder and there is no LICENSE file.
 - [ ] Team members' names in the form.
 - [ ] Post on X.
-- [ ] Access code in the form's private field.
+- [ ] Access code `ubva6-jq6m4-uabnq-rch65` in the form too (it is already public in the README).

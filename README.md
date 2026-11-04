@@ -151,9 +151,9 @@ The agent costs staff time (79.7 staff tasks per 100 patients against none) and 
 
 ## Walkthrough for judges, about 3 minutes
 
-**Hosted demo:** https://follow-up-engine-demo-production.up.railway.app (access code shared in the submission form). It runs on a fake clock over a synthetic clinic of 148 patients; the Lab, Agent and Engine tests pages give each evaluator a sandbox clinic of their own.
+**Hosted demo:** https://follow-up-engine-demo-production.up.railway.app, access code **`ubva6-jq6m4-uabnq-rch65`**. Anyone reviewing the project can use it; live model calls are capped by a monthly budget, and past the cap the demo falls back to its scripted mode. It runs on a fake clock over a synthetic clinic of 148 patients; the Lab, Agent and Engine tests pages give each evaluator a sandbox clinic of their own.
 
-1. **Sign in** with any email and the access code. Your actions are recorded under that email.
+1. **Sign in** with any email and the access code `ubva6-jq6m4-uabnq-rch65`. Your actions are recorded under that email.
 2. **Agent.** Choose "Scripted (offline)", start María's story and play her with the suggested replies: "I can't make it on Tuesday", "Number 2 works for me", then "Sample lab photo". Follow the loop in the console: the order detected (ladder entry), the context read (each tool's "Read:"), the action chosen (each model entry and its reason), the contact (the message and its safety check), the reply handled (the photo read), the booking (`appointment_booked`), the record (the engine's `expectation_fulfilled`), and the escalation ("For the doctor", "Staff tasks"; jump the clock with "+4 days" on a new María who does not answer). Live Muse Spark is also offered, within the demo's budget.
 3. **Inbox "Why?"** Open a patient with a "Doctor's plan" reason and click "Why this?": the due date is recomputed from the stored record, the doctor's own words are highlighted in the source note, and you can confirm, correct or reject the AI reading.
 4. **Lab.** Upload or paste a note of your own, or use **Import history** to load a patient's past notes and lab reports. A report printed for another person is held for review, never recorded.
